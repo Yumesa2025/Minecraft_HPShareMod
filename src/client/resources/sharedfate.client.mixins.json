@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "package": "com.sharedfate.client.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "AbstractContainerScreenAccessor",
+    "ContainerScreenMixin",
+    "CraftingScreenMixin",
+    "CreativeModeInventoryScreenMixin",
+    "DeathScreenAccessor",
+    "InventoryScreenMixin",
+    "MultiPlayerGameModeMixin",
+    "ScreenAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

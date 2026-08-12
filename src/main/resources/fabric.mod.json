@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "sharedfate",
+  "version": "${version}",
+  "name": "SharedFate",
+  "description": "최대 4명이 인벤토리, 체력, 배고픔, 경험치를 공유하는 협동 모드. 아군이 쓰는 도구 칸은 빨갛게 표시된다.",
+  "authors": ["Yumesa2025"],
+  "contact": {
+    "homepage": "https://github.com/Yumesa2025/Minecraft_HPShareMod",
+    "sources": "https://github.com/Yumesa2025/Minecraft_HPShareMod",
+    "issues": "https://github.com/Yumesa2025/Minecraft_HPShareMod/issues"
+  },
+  "license": "MIT",
+  "icon": "assets/sharedfate/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.sharedfate.SharedFateMod"
+    ],
+    "client": [
+      "com.sharedfate.client.SharedFateClient"
+    ]
+  },
+  "mixins": [
+    "sharedfate.mixins.json",
+    {
+      "config": "sharedfate.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~26.2",
+    "java": ">=25",
+    "fabric-api": ">=0.156.0+26.2"
+  }
+}

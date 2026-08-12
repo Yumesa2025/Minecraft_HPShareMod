@@ -1,0 +1,27 @@
+{
+  "required": true,
+  "package": "com.sharedfate.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "AbstractContainerMenuAccessor",
+    "AbstractContainerMenuInvoker",
+    "FoodPropertiesMixin",
+    "CreativeModeSlotPacketMixin",
+    "InventoryAccessor",
+    "InventoryMixin",
+    "InventoryChangeTriggerMixin",
+    "ExpandedCraftingMenuMixin",
+    "ExpandedFurnaceMenuMixin",
+    "ExpandedInventoryMenuMixin",
+    "ExpandedStandardMenuMixin",
+    "PlayerEnderChestAccessor",
+    "PlayerEnderChestMixin",
+    "PlayerExpandedInventoryMixin",
+    "PlayerDropMixin",
+    "PlayerEquipmentMixin",
+    "SlotAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

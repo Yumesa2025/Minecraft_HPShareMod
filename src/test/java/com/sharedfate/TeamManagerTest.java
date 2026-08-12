@@ -1,0 +1,405 @@
+package com.sharedfate;
+
+import com.sharedfate.team.ShareTeam;
+import com.sharedfate.team.TeamManager;
+import com.sharedfate.team.TeamState;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class TeamManagerTest {
+	private static final UUID A = UUID.fromString("00000000-0000-0000-0000-00000000000a");
+	private static final UUID B = UUID.fromString("00000000-0000-0000-0000-00000000000b");
+	private static final UUID C = UUID.fromString("00000000-0000-0000-0000-00000000000c");
+	private static final UUID D = UUID.fromString("00000000-0000-0000-0000-00000000000d");
+	private static final UUID E = UUID.fromString("00000000-0000-0000-0000-00000000000e");
+
+	private TeamManager manager;
+
+	@BeforeAll
+	static void bootstrap() {
+		TestBootstrap.ensureInitialized();
+	}
+
+	@BeforeEach
+	void setUp() {
+		manager = new TeamManager();
+	}
+
+	@Test
+	void 팀이_없는_플레이어는_null을_돌려준다() {
+		assertNull(manager.teamOf(A));
+		assertNull(manager.stateOf(A));
+	}
+
+	@Test
+	void 팀을_만들면_생성자가_속하고_초기_상태가_생긴다() {
+		ShareTeam team = manager.createTeam("우리팀", A, 40.0F);
+
+		assertNotNull(team);
+		assertEquals(team.teamId(), manager.teamOf(A).teamId());
+		assertSame(manager.stateByTeamId(team.teamId()), manager.stateOf(A));
+		assertEquals(40.0F, manager.stateOf(A).health);
+		assertTrue(manager.isDirty());
+	}
+
+	@Test
+	void 새_월드_명단_복원은_팀만_유지하고_공유_자원을_초기화한다() {
+		ShareTeam original = manager.createTeam("새출발", A, 40.0F);
+		manager.addMember(original.teamId(), B, 4);
+		ShareTeam rosterTeam = manager.teamOf(A);
+		TeamState oldState = manager.stateOf(A);
+		oldState.mainItems.set(0, new ItemStack(Items.DIAMOND, 17));
+		oldState.enderContainer.setItem(0, new ItemStack(Items.ENDER_PEARL, 3));
+		oldState.health = 3.0F;
+		oldState.foodLevel = 2;
+		oldState.totalExperience = 99;
+		oldState.effects.add(new MobEffectInstance(MobEffects.POISON, 200));
+
+		TeamManager fresh = new TeamManager();
+		int restored = fresh.restoreFreshRoster(manager.allTeams(), 40.0F);
+
+		assertEquals(1, restored);
+		assertEquals(rosterTeam, fresh.teamOf(A));
+		assertEquals(rosterTeam, fresh.teamOf(B));
+		assertNotSame(oldState, fresh.stateOf(A));
+		assertTrue(fresh.stateOf(A).mainItems.stream().allMatch(ItemStack::isEmpty));
+		assertTrue(fresh.stateOf(A).extraItems.stream().allMatch(ItemStack::isEmpty));
+		assertTrue(fresh.stateOf(A).enderContainer.isEmpty());
+		assertTrue(fresh.stateOf(A).equipment.isEmpty());
+		assertTrue(fresh.stateOf(A).effects.isEmpty());
+		assertEquals(40.0F, fresh.stateOf(A).maxHealth);
+		assertEquals(40.0F, fresh.stateOf(A).health);
+		assertEquals(20, fresh.stateOf(A).foodLevel);
+		assertEquals(0, fresh.stateOf(A).totalExperience);
+		assertTrue(fresh.isDirty());
+	}
+
+	@Test
+	void 중복_멤버가_있는_명단은_부분_복원하지_않는다() {
+		ShareTeam first = new ShareTeam(UUID.randomUUID(), "첫팀", java.util.List.of(A));
+		ShareTeam second = new ShareTeam(UUID.randomUUID(), "둘째팀", java.util.List.of(A, B));
+
+		assertThrows(IllegalArgumentException.class,
+				() -> manager.restoreFreshRoster(java.util.List.of(first, second), 40.0F));
+		assertTrue(manager.allTeams().isEmpty());
+		assertNull(manager.teamOf(A));
+	}
+
+	@Test
+	void 기존_팀이_있는_저장소에는_명단을_덮어쓰지_않는다() {
+		ShareTeam existing = manager.createTeam("기존", A, 40.0F);
+		ShareTeam incoming = new ShareTeam(UUID.randomUUID(), "새팀", java.util.List.of(B));
+
+		assertThrows(IllegalStateException.class,
+				() -> manager.restoreFreshRoster(java.util.List.of(incoming), 40.0F));
+		assertEquals(existing, manager.teamOf(A));
+		assertNull(manager.teamOf(B));
+	}
+
+	@Test
+	void 같은_이름은_대소문자가_달라도_두_번_만들_수_없다() {
+		manager.createTeam("Alpha", A, 40.0F);
+
+		assertNull(manager.createTeam("alpha", B, 40.0F));
+		assertNull(manager.createTeam("ALPHA", B, 40.0F));
+	}
+
+	@Test
+	void 이미_팀에_속한_플레이어는_새_팀의_리더가_될_수_없다() {
+		manager.createTeam("첫팀", A, 40.0F);
+
+		assertNull(manager.createTeam("둘째팀", A, 40.0F));
+		assertEquals(1, manager.allTeams().size());
+	}
+
+	@Test
+	void 정원이_차면_더_넣을_수_없다() {
+		ShareTeam team = manager.createTeam("우리팀", A, 40.0F);
+
+		assertTrue(manager.addMember(team.teamId(), B, 4));
+		assertTrue(manager.addMember(team.teamId(), C, 4));
+		assertTrue(manager.addMember(team.teamId(), D, 4));
+		assertFalse(manager.addMember(team.teamId(), E, 4));
+		assertNull(manager.teamOf(E));
+	}
+
+	@Test
+	void 다른_팀_멤버를_추가할_수_없다() {
+		ShareTeam first = manager.createTeam("첫팀", A, 40.0F);
+		manager.createTeam("둘째팀", B, 40.0F);
+
+		assertFalse(manager.addMember(first.teamId(), B, 4));
+		assertEquals("둘째팀", manager.teamOf(B).name());
+	}
+
+	@Test
+	void 탈퇴하면_역인덱스에서도_사라진다() {
+		ShareTeam team = manager.createTeam("우리팀", A, 40.0F);
+		manager.addMember(team.teamId(), B, 4);
+
+		manager.removeMember(B);
+
+		assertNull(manager.teamOf(B));
+		assertEquals(1, manager.teamOf(A).size());
+	}
+
+	@Test
+	void 마지막_멤버가_탈퇴하면_팀과_상태와_초대가_사라진다() {
+		ShareTeam team = manager.createTeam("우리팀", A, 40.0F);
+		manager.invite(team.teamId(), B);
+
+		manager.removeMember(A);
+
+		assertNull(manager.teamOf(A));
+		assertNull(manager.stateByTeamId(team.teamId()));
+		assertFalse(manager.hasInvite(B, team.teamId()));
+		assertTrue(manager.allTeams().isEmpty());
+	}
+
+	@Test
+	void 팀원끼리는_같은_상태_객체를_본다() {
+		ShareTeam team = manager.createTeam("우리팀", A, 40.0F);
+		manager.addMember(team.teamId(), B, 4);
+
+		assertSame(manager.stateOf(A), manager.stateOf(B));
+	}
+
+	@Test
+	void 초대는_소비하기_전까지_유지된다() {
+		ShareTeam team = manager.createTeam("우리팀", A, 40.0F);
+
+		assertFalse(manager.hasInvite(B, team.teamId()));
+		manager.invite(team.teamId(), B);
+		assertTrue(manager.hasInvite(B, team.teamId()));
+		assertTrue(manager.consumeInvite(B, team.teamId()));
+		assertFalse(manager.consumeInvite(B, team.teamId()));
+		assertFalse(manager.hasInvite(B, team.teamId()));
+	}
+
+	@Test
+	void 초대_목록은_해당_플레이어의_유효한_팀만_보여준다() {
+		ShareTeam first = manager.createTeam("첫팀", A, 40.0F);
+		manager.createTeam("둘째팀", B, 40.0F);
+		manager.invite(first.teamId(), C);
+
+		assertEquals(java.util.List.of("첫팀"), manager.invitedTeams(C).stream().map(ShareTeam::name).toList());
+		assertTrue(manager.declineInvite(C, first.teamId()));
+		assertTrue(manager.invitedTeams(C).isEmpty());
+	}
+
+	@Test
+	void 존재하지_않는_팀의_초대는_기록하지_않는다() {
+		UUID missingTeam = UUID.randomUUID();
+
+		manager.invite(missingTeam, B);
+
+		assertFalse(manager.hasInvite(B, missingTeam));
+	}
+
+	@Test
+	void 팀에_가입하면_다른_팀의_오래된_초대도_모두_사라진다() {
+		ShareTeam first = manager.createTeam("첫팀", A, 40.0F);
+		ShareTeam second = manager.createTeam("둘째팀", B, 40.0F);
+		manager.invite(first.teamId(), C);
+		manager.invite(second.teamId(), C);
+
+		assertTrue(manager.addMember(first.teamId(), C, 4));
+		manager.removeMember(C);
+
+		assertFalse(manager.hasInvite(C, first.teamId()));
+		assertFalse(manager.hasInvite(C, second.teamId()));
+	}
+
+	@Test
+	void 초대받은_플레이어가_자기_팀을_만들어도_오래된_초대가_사라진다() {
+		ShareTeam first = manager.createTeam("첫팀", A, 40.0F);
+		manager.invite(first.teamId(), B);
+
+		ShareTeam own = manager.createTeam("내팀", B, 40.0F);
+		manager.disband(own.teamId());
+
+		assertFalse(manager.hasInvite(B, first.teamId()));
+	}
+
+	@Test
+	void 팀을_해체하면_모든_멤버와_초대의_역참조가_사라진다() {
+		ShareTeam team = manager.createTeam("우리팀", A, 40.0F);
+		manager.addMember(team.teamId(), B, 4);
+		manager.invite(team.teamId(), C);
+
+		manager.disband(team.teamId());
+
+		assertNull(manager.teamOf(A));
+		assertNull(manager.teamOf(B));
+		assertNull(manager.stateByTeamId(team.teamId()));
+		assertFalse(manager.hasInvite(C, team.teamId()));
+	}
+
+	@Test
+	void 활성_팀이_있으면_틱에서_저장_플래그를_세운다() {
+		assertFalse(manager.isDirty());
+		manager.markDirtyIfActive();
+		assertFalse(manager.isDirty());
+
+		manager.createTeam("우리팀", A, 40.0F);
+		manager.setDirty(false);
+		manager.markDirtyIfActive();
+
+		assertTrue(manager.isDirty());
+	}
+
+	@Test
+	void 팀_상태_코덱은_인벤토리_엔더상자_장비와_스탯을_보존한다() {
+		ShareTeam team = manager.createTeam("우리팀", A, 40.0F);
+		manager.addMember(team.teamId(), B, 4);
+		manager.invite(team.teamId(), C);
+		TeamState state = manager.stateOf(A);
+		state.mainItems.set(0, new ItemStack(Items.DIAMOND_PICKAXE));
+		state.extraItems.set(4, new ItemStack(Items.EMERALD, 9));
+		state.enderContainer.setItem(3, new ItemStack(Items.ENDER_PEARL, 12));
+		state.equipment.set(EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE));
+		state.health = 17.5F;
+		state.maxHealth = 37.0F;
+		state.absorption = 3.0F;
+		state.foodLevel = 7;
+		state.saturation = 1.5F;
+		state.xpLevel = 12;
+		state.xpProgress = 0.25F;
+		state.totalExperience = 345;
+		state.effects.add(new MobEffectInstance(MobEffects.SPEED, 200, 1));
+		state.enablePositionSwap(3);
+		state.positionSwapRemainingTicks = 1234;
+
+		TeamManager round = CodecRoundTrip.through(TeamManager.CODEC, manager);
+
+		assertNotNull(round.teamOf(A));
+		assertSame(round.stateOf(A), round.stateOf(B));
+		assertTrue(round.hasInvite(C, team.teamId()));
+		assertTrue(round.stateOf(A).mainItems.get(0).is(Items.DIAMOND_PICKAXE));
+		assertEquals(9, round.stateOf(A).extraItems.get(4).getCount());
+		assertEquals(12, round.stateOf(A).enderContainer.getItem(3).getCount());
+		assertTrue(round.stateOf(A).equipment.get(EquipmentSlot.CHEST).is(Items.DIAMOND_CHESTPLATE));
+		assertEquals(17.5F, round.stateOf(A).health);
+		assertEquals(37.0F, round.stateOf(A).maxHealth);
+		assertEquals(3.0F, round.stateOf(A).absorption);
+		assertEquals(7, round.stateOf(A).foodLevel);
+		assertEquals(1.5F, round.stateOf(A).saturation);
+		assertEquals(12, round.stateOf(A).xpLevel);
+		assertEquals(0.25F, round.stateOf(A).xpProgress);
+		assertEquals(345, round.stateOf(A).totalExperience);
+		assertEquals(1, round.stateOf(A).effects.size());
+		assertEquals(MobEffects.SPEED, round.stateOf(A).effects.getFirst().getEffect());
+		assertEquals(200, round.stateOf(A).effects.getFirst().getDuration());
+		assertEquals(3, round.stateOf(A).positionSwapIntervalMinutes());
+		assertEquals(1234, round.stateOf(A).positionSwapRemainingTicks);
+	}
+
+	@Test
+	void 기존_저장에_추가_27칸이_없으면_팀마다_새_빈_목록을_만든다() {
+		CompoundTag encoded = (CompoundTag) TeamState.CODEC
+				.encodeStart(NbtOps.INSTANCE, TeamState.fresh(40.0F)).getOrThrow();
+		encoded.remove("extraItems");
+
+		TeamState first = TeamState.CODEC.parse(NbtOps.INSTANCE, encoded).getOrThrow();
+		TeamState second = TeamState.CODEC.parse(NbtOps.INSTANCE, encoded).getOrThrow();
+
+		assertEquals(TeamState.EXTRA_SIZE, first.extraItems.size());
+		assertTrue(first.extraItems.stream().allMatch(ItemStack::isEmpty));
+		assertNotSame(first.extraItems, second.extraItems, "기존 팀들이 같은 가변 기본 목록을 공유하면 안 된다");
+	}
+
+	@Test
+	void 사망_초기화는_인벤토리는_유지하고_스탯만_초기화한다() {
+		TeamState state = TeamState.fresh(40.0F);
+		state.mainItems.set(0, new ItemStack(Items.DIAMOND));
+		state.health = 1.0F;
+		state.absorption = 4.0F;
+		state.foodLevel = 2;
+		state.saturation = 0.0F;
+		state.xpLevel = 10;
+		state.xpProgress = 0.9F;
+		state.totalExperience = 200;
+
+		state.resetAfterDeath(60.0F, false);
+
+		assertTrue(state.mainItems.get(0).is(Items.DIAMOND));
+		assertEquals(60.0F, state.maxHealth);
+		assertEquals(60.0F, state.health);
+		assertEquals(0.0F, state.absorption);
+		assertEquals(20, state.foodLevel);
+		assertEquals(5.0F, state.saturation);
+		assertEquals(0, state.xpLevel);
+		assertEquals(0.0F, state.xpProgress);
+		assertEquals(0, state.totalExperience);
+	}
+
+	@Test
+	void 손상된_팀_스탯은_안전한_범위로_복구한다() {
+		TeamState state = TeamState.fresh(40.0F);
+		state.maxHealth = Float.NaN;
+		state.health = Float.POSITIVE_INFINITY;
+		state.absorption = Float.NaN;
+		state.foodLevel = 100;
+		state.saturation = -2.0F;
+		state.totalExperience = -10;
+		state.xpProgress = Float.NaN;
+
+		state.sanitize(40.0F);
+
+		assertEquals(40.0F, state.maxHealth);
+		assertEquals(40.0F, state.health);
+		assertEquals(0.0F, state.absorption);
+		assertEquals(20, state.foodLevel);
+		assertEquals(0.0F, state.saturation);
+		assertEquals(0, state.totalExperience);
+		assertEquals(0.0F, state.xpProgress);
+	}
+
+	@Test
+	void 공유_아이템이_남은_팀은_정산_없이_해체할_수_없다() {
+		ShareTeam team = manager.createTeam("정산", A, 40.0F);
+		manager.stateOf(A).mainItems.set(0, new ItemStack(Items.DIAMOND));
+
+		assertThrows(IllegalStateException.class, () -> manager.disband(team.teamId()));
+		assertNotNull(manager.teamOf(A));
+	}
+
+	@Test
+	void 오프라인_효과_정리_표시는_저장되고_한_번만_소비된다() {
+		manager.markEffectClear(A);
+
+		TeamManager round = CodecRoundTrip.through(TeamManager.CODEC, manager);
+
+		assertTrue(round.consumeEffectClear(A));
+		assertFalse(round.consumeEffectClear(A));
+	}
+
+	@Test
+	void 오프라인_경험치_정리_표시는_저장되고_한_번만_소비된다() {
+		manager.markExperienceClear(A);
+
+		TeamManager round = CodecRoundTrip.through(TeamManager.CODEC, manager);
+
+		assertTrue(round.consumeExperienceClear(A));
+		assertFalse(round.consumeExperienceClear(A));
+	}
+}
