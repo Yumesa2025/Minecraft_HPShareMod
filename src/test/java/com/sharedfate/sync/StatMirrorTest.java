@@ -178,4 +178,41 @@ class StatMirrorTest {
 	void 흡수_효과의_자연_만료는_피해_소비가_아니다() {
 		assertEquals(0.0F, StatMirror.consumedAbsorption(4.0F, 0.0F, 0.0F));
 	}
+
+	@Test
+	void 서로_다른_원인의_동시_피해는_그대로_합산한다() {
+		// 아라는 좀비에게 3, 보라는 스켈레톤에게 4. 팀이 진짜로 두 번 맞았으니 둘 다 센다.
+		StatMirror.StatDelta folded = StatMirror.fold(java.util.List.of(
+				new StatMirror.PlayerDelta(-3.0F, 0.0F, 0.0F, 0, 0.0F, 0L),
+				new StatMirror.PlayerDelta(-4.0F, 0.0F, 0.0F, 0, 0.0F, 0L)));
+
+		assertEquals(-7.0F, folded.healthLoss());
+		assertEquals(0.0F, folded.healthGain());
+	}
+
+	@Test
+	void 접을_때_체력_손실과_회복을_따로_담는다() {
+		// 한 명은 맞고 한 명은 재생으로 회복한 틱. 상쇄하지 않고 각각 모은다.
+		StatMirror.StatDelta folded = StatMirror.fold(java.util.List.of(
+				new StatMirror.PlayerDelta(-5.0F, 0.0F, 0.0F, -1, -0.5F, 3L),
+				new StatMirror.PlayerDelta(2.0F, 0.0F, 0.0F, 0, 0.0F, 4L)));
+
+		assertEquals(-5.0F, folded.healthLoss());
+		assertEquals(2.0F, folded.healthGain());
+		assertEquals(-1, folded.foodLevel());
+		assertEquals(-0.5F, folded.saturation());
+		assertEquals(7L, folded.totalExperience());
+	}
+
+	@Test
+	void 접을_때_흡수_획득은_최댓값_소비는_합산으로_모은다() {
+		StatMirror.StatDelta folded = StatMirror.fold(java.util.List.of(
+				new StatMirror.PlayerDelta(0.0F, 4.0F, 0.0F, 0, 0.0F, 0L),
+				new StatMirror.PlayerDelta(0.0F, 4.0F, 0.0F, 0, 0.0F, 0L),
+				new StatMirror.PlayerDelta(0.0F, -2.0F, 2.0F, 0, 0.0F, 0L),
+				new StatMirror.PlayerDelta(0.0F, -2.0F, 2.0F, 0, 0.0F, 0L)));
+
+		assertEquals(4.0F, folded.absorptionGain());
+		assertEquals(-4.0F, folded.absorptionLoss());
+	}
 }

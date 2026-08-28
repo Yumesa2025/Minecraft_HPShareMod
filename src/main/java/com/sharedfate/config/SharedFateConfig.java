@@ -17,6 +17,11 @@ public class SharedFateConfig {
 	public static final double MAX_SHARED_MAX_HEALTH = 1024.0;
 	public static final int MIN_WORLD_RESET_DELAY_TICKS = 40;
 	public static final int MAX_WORLD_RESET_DELAY_TICKS = 1200;
+	/** 승리 연출 각 단계의 지연 범위(틱). 0이면 바로 다음 틱에 넘어간다. */
+	public static final int MIN_VICTORY_STAGE_TICKS = 0;
+	public static final int MAX_VICTORY_STAGE_TICKS = 1200;
+	/** 위치 교환 카운트다운 최대 길이(초). */
+	public static final int MAX_POSITION_SWAP_COUNTDOWN_SECONDS = 30;
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
 	public int maxTeamSize = 4;
@@ -31,7 +36,17 @@ public class SharedFateConfig {
 	public int worldResetDelayTicks = 160;
 	public boolean showRunBossBar = true;
 	public boolean dragonKillEndsRun = true;
+	/**
+	 * 예전 엔딩 크레딧 연출용 값. 지금은 크레딧을 띄우지 않으므로 쓰이지 않는다.
+	 * 기존 설정 파일과의 호환을 위해 필드만 남겨 둔다.
+	 */
 	public int victoryCreditsDelayTicks = 100;
+	/** 드래곤 처치 후 "엔더드래곤 토벌" 타이틀이 뜰 때까지의 지연(틱). 100틱 = 5초. */
+	public int victoryTitleDelayTicks = 100;
+	/** 타이틀이 뜬 뒤 팀원 위치에 폭죽이 터질 때까지의 지연(틱). 100틱 = 5초. */
+	public int victoryFireworkDelayTicks = 100;
+	/** 위치 교환 몇 초 전부터 화면에 카운트다운을 띄울지. 0이면 카운트다운을 띄우지 않는다. */
+	public int positionSwapCountdownSeconds = 5;
 
 	public static SharedFateConfig loadOrCreate(Path file) {
 		if (Files.exists(file)) {
@@ -88,6 +103,21 @@ public class SharedFateConfig {
 		}
 		if (victoryCreditsDelayTicks < 20 || victoryCreditsDelayTicks > 1200) {
 			victoryCreditsDelayTicks = 100;
+			changed = true;
+		}
+		if (victoryTitleDelayTicks < MIN_VICTORY_STAGE_TICKS
+				|| victoryTitleDelayTicks > MAX_VICTORY_STAGE_TICKS) {
+			victoryTitleDelayTicks = 100;
+			changed = true;
+		}
+		if (victoryFireworkDelayTicks < MIN_VICTORY_STAGE_TICKS
+				|| victoryFireworkDelayTicks > MAX_VICTORY_STAGE_TICKS) {
+			victoryFireworkDelayTicks = 100;
+			changed = true;
+		}
+		if (positionSwapCountdownSeconds < 0
+				|| positionSwapCountdownSeconds > MAX_POSITION_SWAP_COUNTDOWN_SECONDS) {
+			positionSwapCountdownSeconds = 5;
 			changed = true;
 		}
 		return changed;
