@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.sharedfate.SharedFateMod;
 
+import java.io.InputStream;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -29,6 +30,8 @@ import java.util.Optional;
 public final class PerkRegistry {
 	/** 설정 폴더 안의 증강 정의 파일 이름. */
 	public static final String FILE_NAME = "sharedfate-perks.json";
+	/** 모드 안에 들어 있는 기본 증강 풀. 설정 파일이 없으면 이걸 꺼내 놓는다. */
+	private static final String DEFAULT_RESOURCE = "sharedfate-perks-default.json";
 	/** 중첩 상한이 아무리 커도 이 값을 넘기지 않는다. */
 	private static final int MAX_STACK_LIMIT = 64;
 	/** stackable 인데 maxStacks 를 안 적었을 때 쓰는 기본값. */
@@ -55,7 +58,7 @@ public final class PerkRegistry {
 		}
 
 		Path file = configDir.resolve(FILE_NAME);
-		if (!Files.exists(file)) {
+		if (!Files.exists(file) && !writeBundledDefault(file)) {
 			SharedFateMod.LOGGER.info("증강 정의 파일이 없어 빈 풀로 시작합니다: {}", file);
 			return;
 		}
@@ -66,6 +69,32 @@ public final class PerkRegistry {
 		} catch (Exception error) {
 			SharedFateMod.LOGGER.warn("증강 정의 파일을 읽지 못해 빈 풀로 시작합니다: {}", file, error);
 			PERKS.clear();
+		}
+	}
+
+	/**
+	 * 모드에 들어 있는 기본 증강 풀을 설정 폴더로 꺼내 놓는다.
+	 *
+	 * <p>서버 운영자가 빈 파일부터 손으로 채우게 두면 서버마다 증강이 달라진다. 기본 풀을
+	 * 함께 배포하고 첫 실행 때 꺼내 두면, 그대로 써도 되고 편집해도 된다.
+	 *
+	 * @return 꺼내 놓기에 성공했으면 true
+	 */
+	private static boolean writeBundledDefault(Path file) {
+		try (InputStream bundled = PerkRegistry.class.getResourceAsStream("/" + DEFAULT_RESOURCE)) {
+			if (bundled == null) {
+				return false;
+			}
+			Path parent = file.getParent();
+			if (parent != null) {
+				Files.createDirectories(parent);
+			}
+			Files.copy(bundled, file);
+			SharedFateMod.LOGGER.info("기본 증강 풀을 만들었습니다: {}", file);
+			return true;
+		} catch (Exception error) {
+			SharedFateMod.LOGGER.warn("기본 증강 풀을 만들지 못했습니다: {}", file, error);
+			return false;
 		}
 	}
 

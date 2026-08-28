@@ -4,9 +4,12 @@ import com.sharedfate.command.ShareTeamCommand;
 import com.sharedfate.config.SharedFateConfig;
 import com.sharedfate.net.SharedFateNetworking;
 import com.sharedfate.net.TeamBroadcaster;
+import com.sharedfate.perk.ConditionalPerkManager;
 import com.sharedfate.perk.MobPerkModifiers;
+import com.sharedfate.perk.PerkKillRewards;
 import com.sharedfate.perk.PerkManager;
 import com.sharedfate.perk.PerkRegistry;
+import com.sharedfate.perk.PeriodicPerkManager;
 import com.sharedfate.inventory.ExpandedInventoryManager;
 import com.sharedfate.sync.MaxHealthAttribute;
 import com.sharedfate.sync.EffectSync;
@@ -60,6 +63,8 @@ public class SharedFateMod implements ModInitializer {
 			WorldResetCoordinator.reset();
 			RunProgressManager.reset();
 			PerkManager.reset();
+			ConditionalPerkManager.reset();
+			PeriodicPerkManager.reset();
 			MobPerkModifiers.reset();
 			EffectSync.reset();
 		});
@@ -108,6 +113,8 @@ public class SharedFateMod implements ModInitializer {
 		});
 		ServerLivingEntityEvents.AFTER_DEATH.register(DeathHandler::onDeath);
 		ServerLivingEntityEvents.AFTER_DEATH.register(RunProgressManager::onDeath);
+		// 처치 보상 증강(on_kill)의 등록 지점. 죽은 쪽이 몹이 아니면 곧바로 빠져나간다.
+		ServerLivingEntityEvents.AFTER_DEATH.register(PerkKillRewards::onDeath);
 		ServerLivingEntityEvents.AFTER_DAMAGE.register(SharedHurtFeedback::onDamage);
 		EffectSync.register();
 		ServerTickEvents.END_SERVER_TICK.register(EffectSync::tick);
@@ -116,6 +123,10 @@ public class SharedFateMod implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(RunProgressManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PositionSwapManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PerkManager::tick);
+		// 팀 상태에 따라 갈리는 증강(conditional)의 주기 평가 지점.
+		ServerTickEvents.END_SERVER_TICK.register(ConditionalPerkManager::tick);
+		// 주기로 켜졌다 꺼지는 증강(periodic)의 주기 평가 지점.
+		ServerTickEvents.END_SERVER_TICK.register(PeriodicPerkManager::tick);
 		// 몹에게 걸리는 증강(mob_health / mob_damage)의 등록 지점.
 		ServerTickEvents.END_SERVER_TICK.register(MobPerkModifiers::tick);
 		ServerEntityEvents.ENTITY_LOAD.register(MobPerkModifiers::onEntityLoad);

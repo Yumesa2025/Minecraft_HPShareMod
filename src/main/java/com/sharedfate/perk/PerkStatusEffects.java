@@ -1,5 +1,7 @@
 package com.sharedfate.perk;
 
+import com.sharedfate.perk.effect.ConditionalEffect;
+import com.sharedfate.perk.effect.PeriodicEffect;
 import com.sharedfate.perk.effect.StatusEffectPerk;
 import com.sharedfate.team.TeamState;
 import net.minecraft.core.Holder;
@@ -63,21 +65,45 @@ public final class PerkStatusEffects {
 				continue;
 			}
 			for (PerkEffect effect : perk.effects()) {
-				if (!(effect instanceof StatusEffectPerk status)) {
-					continue;
+				for (StatusEffectPerk status : statusEffectsIn(effect)) {
+					Holder<MobEffect> resolved = status.resolvedEffect();
+					if (resolved == null) {
+						continue;
+					}
+					if (collected == null) {
+						collected = new HashMap<>();
+					}
+					// 같은 종류를 여러 증강이 걸면 결국 가장 센 것만 겉으로 남는다.
+					collected.merge(resolved, status.amplifierFor(stack.count()), Math::max);
 				}
-				Holder<MobEffect> resolved = status.resolvedEffect();
-				if (resolved == null) {
-					continue;
-				}
-				if (collected == null) {
-					collected = new HashMap<>();
-				}
-				// 같은 종류를 여러 증강이 걸면 결국 가장 센 것만 겉으로 남는다.
-				collected.merge(resolved, status.amplifierFor(stack.count()), Math::max);
 			}
 		}
 		return collected == null ? NONE : new PerkStatusEffects(collected);
+	}
+
+	/**
+	 * 이 효과가 거는 상태이상들.
+	 *
+	 * <p>{@code periodic} 처럼 하위 효과를 품는 효과는 그 안까지 봐야 한다. 겉만 보면 안에 든
+	 * 상태이상이 "증강분이 아닌 것"으로 취급돼 팀 공유·저장 대상으로 새어 나가고, 증강을 잃은
+	 * 뒤에도 되살아난다. 하위 효과를 품는 타입이 늘어나면 여기에 함께 적어야 한다.
+	 */
+	private static List<StatusEffectPerk> statusEffectsIn(PerkEffect effect) {
+		if (effect instanceof StatusEffectPerk status) {
+			return List.of(status);
+		}
+		if (effect instanceof PeriodicEffect periodic) {
+			return periodic.statusEffects();
+		}
+		if (effect instanceof ConditionalEffect conditional) {
+			// 지금 어느 쪽이 붙어 있든 둘 다 증강분이므로 양쪽 하위 효과를 모두 본다.
+			List<StatusEffectPerk> nested = new ArrayList<>();
+			for (PerkEffect child : conditional.children()) {
+				nested.addAll(statusEffectsIn(child));
+			}
+			return nested;
+		}
+		return List.of();
 	}
 
 	/** 증강이 거는 상태이상이 하나도 없는가. */

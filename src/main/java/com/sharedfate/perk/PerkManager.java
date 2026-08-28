@@ -335,6 +335,8 @@ public final class PerkManager {
 		if (state == null || state.ownedPerks.isEmpty()) {
 			return 1.0;
 		}
+		// 조건부 증강은 배율 조회에 플레이어 인자가 없어 대상을 따로 알려 줘야 한다.
+		ConditionalPerkManager.beginMultiplierLookup(player);
 		double total = 1.0;
 		for (PerkStack stack : state.ownedPerks) {
 			Perk perk = PerkRegistry.byId(stack.perkId()).orElse(null);

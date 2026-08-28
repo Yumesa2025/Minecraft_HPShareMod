@@ -42,12 +42,25 @@ class PerkRegistryTest {
 	}
 
 	@Test
-	void 파일이_없으면_빈_풀로_시작한다(@TempDir Path dir) {
+	void 파일이_없으면_기본_풀을_꺼내_놓는다(@TempDir Path dir) {
 		PerkRegistry.load(dir);
 
 		assertTrue(PerkRegistry.isLoaded(), "파일이 없어도 로드는 끝난 것으로 본다");
-		assertTrue(PerkRegistry.all().isEmpty());
+		assertTrue(Files.exists(dir.resolve(PerkRegistry.FILE_NAME)),
+				"모드에 들어 있는 기본 풀이 설정 폴더로 나와야 한다");
+		assertFalse(PerkRegistry.all().isEmpty(), "기본 풀에는 증강이 들어 있다");
 		assertTrue(PerkRegistry.byId("sharedfate:없는것").isEmpty());
+	}
+
+	@Test
+	void 꺼내_놓은_기본_풀을_그대로_다시_읽는다(@TempDir Path dir) {
+		PerkRegistry.load(dir);
+		int first = PerkRegistry.all().size();
+
+		// 두 번째 로드는 파일이 이미 있으므로 덮어쓰지 않고 그대로 읽어야 한다.
+		PerkRegistry.load(dir);
+
+		assertEquals(first, PerkRegistry.all().size());
 	}
 
 	@Test
