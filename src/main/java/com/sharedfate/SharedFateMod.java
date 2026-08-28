@@ -58,6 +58,7 @@ public class SharedFateMod implements ModInitializer {
 			WorldResetCoordinator.reset();
 			RunProgressManager.reset();
 			PerkManager.reset();
+			EffectSync.reset();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(server -> TeamManager.get(server).markDirtyIfActive());
 		ServerPlayerEvents.JOIN.register(player -> {

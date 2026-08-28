@@ -10,6 +10,7 @@
     "InventoryAccessor",
     "InventoryMixin",
     "InventoryChangeTriggerMixin",
+    "LivingEntityPerkDamageMixin",
     "ExpandedCraftingMenuMixin",
     "ExpandedFurnaceMenuMixin",
     "ExpandedInventoryMenuMixin",

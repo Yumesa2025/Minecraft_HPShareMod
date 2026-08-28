@@ -10,6 +10,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
 
@@ -65,12 +66,33 @@ public final class StatusEffectPerk implements PerkEffect {
 		if (player == null) {
 			return;
 		}
+		MobEffectInstance granted = grantedInstance(stacks);
+		if (granted != null) {
+			player.addEffect(granted);
+		}
+	}
+
+	/**
+	 * 이 증강이 거는 상태이상 인스턴스.
+	 *
+	 * <p>{@link #apply}와 {@link com.sharedfate.perk.PerkStatusEffects}가 같은 정의를 보도록
+	 * 만드는 곳을 여기 하나로 모았다. 상태이상을 찾지 못하면 null.
+	 */
+	public @Nullable MobEffectInstance grantedInstance(int stacks) {
 		Holder<MobEffect> resolved = resolve();
 		if (resolved == null) {
-			return;
+			return null;
 		}
-		player.addEffect(new MobEffectInstance(resolved, MobEffectInstance.INFINITE_DURATION,
-				amplifierFor(stacks), false, false, true));
+		return new MobEffectInstance(resolved, MobEffectInstance.INFINITE_DURATION,
+				amplifierFor(stacks), false, false, true);
+	}
+
+	/**
+	 * 이 증강이 거는 상태이상 홀더. 아직 안 찾았으면 지금 찾는다.
+	 * 레지스트리에 없으면 null.
+	 */
+	public @Nullable Holder<MobEffect> resolvedEffect() {
+		return resolve();
 	}
 
 	@Override

@@ -214,24 +214,42 @@ JSON 오류, 알 수 없는 `type`, 없는 `handler` 는 모두 **해당 증강�
 | `PerkStateCodecTest` | `TeamState` 왕복 직렬화, 증강 필드 없는 구 데이터 로드 |
 | `PerkOfferLifecycleTest` | 선택자 이탈 시 재추첨, 중복 선택 거부, 대기열 순서 |
 
-## 알려진 미해결 항목
+## 효과 타입 구현 상태
 
-증강을 담는 틀은 완성됐지만, 효과 타입 5종 중 아래 셋은 실제 증강 풀을 채우기 전에
-추가 작업이 필요하다. 지금은 풀이 비어 있어 드러나지 않는다.
+효과 타입 5종 모두 동작한다. 초기 구현에서 미뤄뒀던 두 항목은 해소됐다.
 
-### `damage_dealt` / `damage_taken` — 피해 계산 후킹 없음
+### `damage_dealt` / `damage_taken` — 해소됨
 
-배율을 계산하는 부분(`PerkManager.damageDealtMultiplier` / `damageTakenMultiplier`)까지는
-있지만, 그 값을 실제 피해 계산에 반영하는 지점이 없다. 기존 코드의 피해 관련 훅은
-`ServerLivingEntityEvents.AFTER_DAMAGE` 뿐이고 이건 사후 통지라 수치를 바꿀 수 없다.
-피해 계산 지점에 mixin 을 새로 넣어야 한다.
+`LivingEntityPerkDamageMixin` 이 `LivingEntity.hurtServer` HEAD 에서 피해량 인자를
+`@ModifyVariable` 로 갈아 끼운다. 받는 피해는 대상이 팀원일 때, 주는 피해는
+`DamageSource.getEntity()` 가 팀원일 때 적용된다.
 
-### `status_effect` — EffectSync 와 간섭
+26.2 는 `Player extends Avatar extends LivingEntity` 구조이고 `Avatar` 는 `hurtServer` 를
+재정의하지 않으므로, 피해 1건당 훅은 정확히 한 번만 탄다. `StatMirror` 는 체력 차분만
+관측하므로 배율이 이미 반영된 결과를 보게 되어 이중 적용이 없다.
 
-`EffectSync.tick` 이 대표 플레이어의 활성 상태이상을 통째로 `TeamState.effects` 로 복사해
-팀에 공유한다. `status_effect` 증강으로 건 무한 지속 상태이상도 여기에 딸려 들어가므로,
-회차가 바뀌어 증강을 잃은 뒤에도 `TeamState.effects` 에 남아 되살아날 수 있다.
-증강이 부여한 상태이상을 `EffectSync` 의 수집 대상에서 제외하는 처리가 필요하다.
+배율이 정확히 1.0 이면 인자를 그대로 반환한다. 증강 풀이 비어 있으면 바닐라와 동일하다.
+
+### `status_effect` — 해소됨
+
+`PerkStatusEffects` 가 증강이 부여한 상태이상을 판별해 `EffectSync` 의 공유 대상에서
+제외한다. 판별 기준은 **무한 지속이면서 등급이 증강이 주는 등급 이하**인 인스턴스다.
+포션·비컨·전도체는 무한 지속이 아니므로 구조적으로 걸러지지 않는다.
+
+별도 추적 집합을 두지 않고 `TeamState.ownedPerks` 에서 매번 조회한다. 증강 목록이 이미
+저장·리셋되는 단일 진실원이므로, 회차 리셋으로 목록이 비면 자동으로 무해해진다.
+
+## 알려진 제약
+
+밸런스를 잡거나 증강 풀을 채울 때 알고 있어야 할 항목들이다. 버그가 아니라 선택의 결과다.
+
+| 항목 | 내용 |
+|---|---|
+| 아군 오사 배율 중첩 | 가해자의 주는 피해 배율과 피해자의 받는 피해 배율이 모두 곱해진다. 같은 팀이면 두 값이 같아 사실상 제곱이 된다 |
+| 비 LivingEntity 대상 | 보트·마인카트·엔드 수정 등에는 주는 피해 배율이 걸리지 않는다. `Entity.hurtServer` 가 abstract 라 공통 훅 지점이 없다 |
+| `damage_taken` 0.0 | 피해는 0 이 되지만 무적시간 20틱·피격 애니메이션·넉백은 그대로 발생한다 |
+| 무한 지속 명령 | 팀이 같은 종류의 상태이상 증강을 보유 중이면 `/effect give <player> speed infinite` 로 건 것도 증강분으로 판정돼 공유되지 않는다. 포션을 절대 삼키지 않는 쪽을 택한 결과다 |
+| 상태이상 재적용 1틱 지연 | 우유를 마셔 증강 상태이상이 지워지면 다음 틱에 다시 붙는다. 상태이상 표를 순회하는 도중 재적용하면 CME 위험이 있어 미룬다 |
 
 ## 범위 밖
 
