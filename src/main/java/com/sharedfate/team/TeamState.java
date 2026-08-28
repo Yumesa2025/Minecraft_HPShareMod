@@ -1,7 +1,11 @@
 package com.sharedfate.team;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.sharedfate.perk.PendingOffer;
+import com.sharedfate.perk.PerkMilestones;
+import com.sharedfate.perk.PerkStack;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.inventory.PlayerEnderChestContainer;
 import net.minecraft.world.item.ItemStack;
@@ -32,6 +36,15 @@ public class TeamState {
 	public final List<MobEffectInstance> effects;
 	public int positionSwapIntervalTicks;
 	public int positionSwapRemainingTicks;
+
+	/** 증강 시스템 사용 여부. 팀 생성 시 리더가 정하고 그 뒤로는 바뀌지 않는다. */
+	public boolean perksEnabled;
+	/** 마지막으로 처리한 레벨 구간 (0, 3, 6, …, 36). */
+	public int lastPerkMilestone;
+	/** 팀이 보유한 증강. 중첩은 {@link PerkStack#count()}로 표현한다. */
+	public final List<PerkStack> ownedPerks = new ArrayList<>();
+	/** 아직 고르지 않은 선택권. 구간 순서대로 쌓이며 여러 개일 수 있다. */
+	public final List<PendingOffer> pending = new ArrayList<>();
 
 	public TeamState(SharedItemList mainItems, SharedItemList extraItems,
 			PlayerEnderChestContainer enderContainer,
@@ -219,7 +232,65 @@ public class TeamState {
 		}
 	}
 
-	public static final Codec<TeamState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+	/**
+	 * 증강 관련 저장 묶음.
+	 *
+	 * <p>{@link TeamState#CODEC}의 기존 필드가 이미 16개라 {@code RecordCodecBuilder.group}의 인자 상한
+	 * (Products.P16)에 걸린다. 그래서 증강 필드 4개는 이 하위 Codec 하나로 묶어
+	 * {@code "perks"} 한 항목으로 붙인다.
+	 *
+	 * <p>네 항목 모두 {@code optionalFieldOf}이고 묶음 자체도 선택 항목이라, 증강 필드가 없는
+	 * 기존 월드는 {@link #EMPTY}로 읽힌다. 반대로 증강을 쓰지 않는 팀은 저장할 때 이 항목이
+	 * 통째로 빠지므로 예전 서버 저장과 형태가 같다.
+	 */
+	public record PerkSection(boolean enabled, int lastMilestone,
+			List<PerkStack> owned, List<PendingOffer> pending) {
+		/** 증강을 쓰지 않는 상태. 기존 월드를 읽을 때의 기본값이다. */
+		public static final PerkSection EMPTY = new PerkSection(false, 0, List.of(), List.of());
+
+		public static final Codec<PerkSection> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+				Codec.BOOL.optionalFieldOf("enabled", false).forGetter(PerkSection::enabled),
+				Codec.INT.optionalFieldOf("lastMilestone", 0).forGetter(PerkSection::lastMilestone),
+				PerkStack.CODEC.listOf().optionalFieldOf("owned", List.of())
+						.forGetter(PerkSection::owned),
+				PendingOffer.CODEC.listOf().optionalFieldOf("pending", List.of())
+						.forGetter(PerkSection::pending)
+		).apply(instance, PerkSection::new));
+
+		public PerkSection {
+			owned = List.copyOf(owned);
+			pending = List.copyOf(pending);
+		}
+	}
+
+	/** 현재 증강 상태를 저장용 묶음으로 뽑아낸다. */
+	public PerkSection perkSection() {
+		return new PerkSection(perksEnabled, lastPerkMilestone, ownedPerks, pending);
+	}
+
+	/** 저장에서 읽은 증강 묶음을 이 상태에 채운다. */
+	public void applyPerkSection(PerkSection section) {
+		perksEnabled = section.enabled();
+		lastPerkMilestone = section.lastMilestone();
+		ownedPerks.clear();
+		ownedPerks.addAll(section.owned());
+		pending.clear();
+		pending.addAll(section.pending());
+		sanitizePerks();
+	}
+
+	/**
+	 * 증강 필드를 안전한 범위로 되돌린다.
+	 *
+	 * <p>증강 시스템의 손상된 저장이 본 게임을 막으면 안 되므로 예외를 던지지 않고 조용히 고친다.
+	 */
+	public void sanitizePerks() {
+		lastPerkMilestone = PerkMilestones.clampMilestone(lastPerkMilestone);
+		ownedPerks.removeIf(stack -> stack == null || stack.perkId() == null || stack.perkId().isBlank());
+		pending.removeIf(offer -> offer == null || offer.optionIds().isEmpty());
+	}
+
+	private static final MapCodec<TeamState> BASE_CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
 			SharedItemList.codec(MAIN_SIZE).fieldOf("mainItems").forGetter(state -> state.mainItems),
 			SharedItemList.codec(EXTRA_SIZE).optionalFieldOf("extraItems")
 					.forGetter(state -> Optional.of(state.extraItems)),
@@ -243,6 +314,21 @@ public class TeamState {
 			Codec.INT.optionalFieldOf("positionSwapRemainingTicks", 0)
 					.forGetter(state -> state.positionSwapRemainingTicks)
 	).apply(instance, TeamState::fromCodec));
+
+	/**
+	 * 기존 16개 필드는 {@link #BASE_CODEC}이 그대로 같은 depth 에 펼쳐 쓰고, 그 옆에
+	 * {@code "perks"} 한 항목만 덧붙인다. 저장 형태가 기존과 동일해 하위호환이 유지된다.
+	 */
+	public static final Codec<TeamState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+			BASE_CODEC.<TeamState>forGetter(state -> state),
+			PerkSection.CODEC.optionalFieldOf("perks", PerkSection.EMPTY)
+					.<TeamState>forGetter(TeamState::perkSection)
+	).apply(instance, TeamState::withPerkSection));
+
+	private static TeamState withPerkSection(TeamState state, PerkSection perks) {
+		state.applyPerkSection(perks);
+		return state;
+	}
 
 	private static TeamState fromCodec(SharedItemList mainItems, Optional<SharedItemList> extraItems,
 			PlayerEnderChestContainer enderContainer, SharedEquipmentStore equipment,
