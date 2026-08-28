@@ -6,11 +6,15 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.effect.AttributeEffect;
+import com.sharedfate.perk.effect.ConditionalEffect;
 import com.sharedfate.perk.effect.CustomEffect;
 import com.sharedfate.perk.effect.DamageDealtEffect;
 import com.sharedfate.perk.effect.DamageTakenEffect;
 import com.sharedfate.perk.effect.MobDamageEffect;
 import com.sharedfate.perk.effect.MobHealthEffect;
+import com.sharedfate.perk.effect.NoFoodHungerEffect;
+import com.sharedfate.perk.effect.OnKillEffect;
+import com.sharedfate.perk.effect.PeriodicEffect;
 import com.sharedfate.perk.effect.StatusEffectPerk;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,6 +38,10 @@ public enum PerkEffectType {
 	STATUS_EFFECT("status_effect", StatusEffectPerk::fromJson),
 	MOB_HEALTH("mob_health", MobHealthEffect::fromJson),
 	MOB_DAMAGE("mob_damage", MobDamageEffect::fromJson),
+	CONDITIONAL("conditional", ConditionalEffect::fromJson),
+	PERIODIC("periodic", PeriodicEffect::fromJson),
+	ON_KILL("on_kill", OnKillEffect::fromJson),
+	NO_FOOD_HUNGER("no_food_hunger", NoFoodHungerEffect::fromJson),
 	CUSTOM("custom", CustomEffect::fromJson);
 
 	/** 효과 하나를 만드는 팩토리. 정의가 잘못됐으면 {@code null}을 돌려준다. */
