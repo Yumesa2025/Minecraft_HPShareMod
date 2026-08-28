@@ -8,6 +8,7 @@ import com.sharedfate.team.TeamState;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.food.FoodData;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,6 +29,20 @@ public final class StatMirror {
 
 	record StatDelta(float healthLoss, float healthGain, float absorptionLoss, float absorptionGain,
 			int foodLevel, float saturation, long totalExperience) {
+	}
+
+	/**
+	 * 한 팀원이 이번 틱에 만들어 낸 변화량.
+	 *
+	 * <p>{@link #fold} 가 이걸 팀 단위 {@link StatDelta} 로 접는다. 합산 규칙만 떼어 놔야
+	 * 월드 없이 시험할 수 있어서 나눠 뒀다.
+	 *
+	 * @param health              체력 변화량. 음수면 피해, 양수면 회복
+	 * @param absorptionDelta     흡수량의 순변화. 양수면 새 보호막을 받은 것이다
+	 * @param absorptionConsumed  피해로 실제 소비된 흡수량. 효과 만료로 사라진 몫은 빠져 있다
+	 */
+	record PlayerDelta(float health, float absorptionDelta, float absorptionConsumed,
+			int foodLevel, float saturation, long experience) {
 	}
 
 	record AbsorptionDelta(float loss, float gain) {
@@ -123,21 +138,21 @@ public final class StatMirror {
 		List<ServerPlayer> online = new ArrayList<>();
 		for (UUID member : team.members()) {
 			ServerPlayer player = server.getPlayerList().getPlayer(member);
-			if (player != null && !player.isRemoved() && !player.isDeadOrDying()) {
+			if (isSharing(player)) {
 				online.add(player);
 			}
 		}
 		return online;
 	}
 
+	/** 지금 공유 풀에 참여하고 있는 팀원인가. 접속해 있고 살아 있어야 한다. */
+	private static boolean isSharing(@Nullable ServerPlayer player) {
+		return player != null && !player.isRemoved() && !player.isDeadOrDying();
+	}
+
 	private static StatDelta collectDeltas(ShareTeam team, List<ServerPlayer> online) {
 		UUID teamId = team.teamId();
-		float healthLoss = 0.0F;
-		float healthGain = 0.0F;
-		AbsorptionDelta absorption = new AbsorptionDelta(0.0F, 0.0F);
-		int food = 0;
-		float saturation = 0.0F;
-		long experience = 0;
+		List<PlayerDelta> deltas = new ArrayList<>(online.size());
 
 		for (ServerPlayer player : online) {
 			Snapshot last = LAST.get(player.getUUID());
@@ -147,29 +162,75 @@ public final class StatMirror {
 			FoodData foodData = player.getFoodData();
 			float playerHealthDelta = player.getHealth() - last.health();
 			float playerAbsorptionDelta = player.getAbsorptionAmount() - last.absorption();
-			if (playerHealthDelta < 0.0F) {
-				healthLoss += playerHealthDelta;
-			} else {
-				healthGain += playerHealthDelta;
-			}
 			float consumedAbsorption = consumedAbsorption(
 					last.absorption(), player.getAbsorptionAmount(), player.getMaxAbsorption());
 			recordDamage(team, player, last);
-			if (playerAbsorptionDelta > 0.0F) {
-				absorption = mergeAbsorptionDelta(absorption, playerAbsorptionDelta);
-			} else if (consumedAbsorption > 0.0F) {
-				absorption = mergeAbsorptionDelta(absorption, -consumedAbsorption);
-			}
 			if (playerHealthDelta < -0.01F || consumedAbsorption > 0.01F) {
 				TeamBroadcaster.broadcastDamageAlert(online, player.getPlainTextName());
 			}
-			food += foodData.getFoodLevel() - last.foodLevel();
-			saturation += foodData.getSaturationLevel() - last.saturation();
-			experience += currentExperiencePoints(player) - last.experiencePoints();
+			deltas.add(new PlayerDelta(
+					playerHealthDelta, playerAbsorptionDelta, consumedAbsorption,
+					foodData.getFoodLevel() - last.foodLevel(),
+					foodData.getSaturationLevel() - last.saturation(),
+					currentExperiencePoints(player) - last.experiencePoints()));
+		}
+		return fold(deltas);
+	}
+
+	/**
+	 * 팀원별 변화량을 공유 풀 하나의 변화량으로 접는다.
+	 *
+	 * <p>체력 손실은 그대로 <em>합산</em>한다. 팀원 A 가 좀비에게, B 가 스켈레톤에게 같은 틱에
+	 * 맞았다면 팀은 진짜로 두 번 맞은 것이므로 둘 다 세는 게 맞다.
+	 *
+	 * <p>합산하면 안 되는 경우 — 공유된 상태이상 하나가 팀 전원에게 똑같이 주는 피해 — 는
+	 * 여기까지 오지 않는다. {@link SharedEffectDamage} 가 피해가 발생하는 자리에서 대표 한 명
+	 * 것만 남기고 나머지를 막으므로, 막힌 팀원의 체력은 애초에 줄지 않아 변화량이 0 이다.
+	 * 원인을 아는 자리에서 걸러야 여기서 "이 손실이 같은 원인인지"를 추측하지 않아도 된다.
+	 */
+	static StatDelta fold(List<PlayerDelta> deltas) {
+		float healthLoss = 0.0F;
+		float healthGain = 0.0F;
+		AbsorptionDelta absorption = new AbsorptionDelta(0.0F, 0.0F);
+		int food = 0;
+		float saturation = 0.0F;
+		long experience = 0;
+
+		for (PlayerDelta delta : deltas) {
+			if (delta.health() < 0.0F) {
+				healthLoss += delta.health();
+			} else {
+				healthGain += delta.health();
+			}
+			if (delta.absorptionDelta() > 0.0F) {
+				absorption = mergeAbsorptionDelta(absorption, delta.absorptionDelta());
+			} else if (delta.absorptionConsumed() > 0.0F) {
+				absorption = mergeAbsorptionDelta(absorption, -delta.absorptionConsumed());
+			}
+			food += delta.foodLevel();
+			saturation += delta.saturation();
+			experience += delta.experience();
 		}
 		return new StatDelta(
 				healthLoss, healthGain, absorption.loss(), absorption.gain(),
 				food, saturation, experience);
+	}
+
+	/**
+	 * 팀에서 공유 상태이상 피해를 실제로 받을 한 명.
+	 *
+	 * <p>{@code team.members()} 순서로 처음 만나는, 접속해 있고 살아 있는 팀원이다. 팀 명단
+	 * 순서는 안정적이라 같은 틱 안에서 여러 번 물어도 같은 사람이 나온다. 아무도 없으면
+	 * {@code null} 이고, 그때는 {@link SharedEffectDamage} 가 어떤 피해도 막지 않는다.
+	 */
+	public static @Nullable ServerPlayer damageRepresentative(MinecraftServer server, ShareTeam team) {
+		for (UUID member : team.members()) {
+			ServerPlayer player = server.getPlayerList().getPlayer(member);
+			if (isSharing(player)) {
+				return player;
+			}
+		}
+		return null;
 	}
 
 	private static void recordDamage(ShareTeam team, ServerPlayer player, Snapshot last) {
