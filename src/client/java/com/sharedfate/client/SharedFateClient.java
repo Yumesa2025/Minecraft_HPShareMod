@@ -3,6 +3,7 @@ package com.sharedfate.client;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.client.hud.DamageAlertHud;
 import com.sharedfate.client.hud.HotbarHighlight;
+import com.sharedfate.client.hud.TeamLevelHud;
 import com.sharedfate.client.perk.PerkClientState;
 import com.sharedfate.client.perk.PerkOfferScreen;
 import com.sharedfate.net.DamageAlertPayload;
@@ -45,7 +46,7 @@ public class SharedFateClient implements ClientModInitializer {
 			Minecraft client = Minecraft.getInstance();
 			UUID localPlayer = client.player == null
 					? new UUID(0L, 0L) : client.player.getUUID();
-			ClientTeamState.setTeam(payload.members(), localPlayer);
+			ClientTeamState.setTeam(payload, localPlayer);
 			ExpandedInventoryManager.setClientTeamActive(client.player, ClientTeamState.inTeam());
 			SelectedSlotReporter.forceResend();
 		});
@@ -88,5 +89,11 @@ public class SharedFateClient implements ClientModInitializer {
 		HudElementRegistry.addLast(
 				SharedFateMod.id("damage_alert"),
 				new DamageAlertHud());
+		// 상태이상 아이콘 바로 뒤에 붙인다. 아이콘 위에 겹쳐 그려지고, F1 로 HUD 를 끄면
+		// 바닐라가 이 구간 자체를 건너뛰므로 같이 사라진다.
+		HudElementRegistry.attachElementAfter(
+				VanillaHudElements.MOB_EFFECTS,
+				SharedFateMod.id("team_level"),
+				new TeamLevelHud());
 	}
 }

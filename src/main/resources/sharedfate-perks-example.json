@@ -1,10 +1,11 @@
 {
   "_comment": "증강 정의 스키마 예시. 실제로 쓰려면 config/sharedfate-perks.json 으로 복사해 내용을 채운다. 실제 증강 풀은 아직 비어 있다.",
+  "_rarity": "구간마다 등급 하나가 정해지고 그 등급에서만 후보 3개가 나온다. 15렙은 항상 플레, 나머지 구간(5·10·20·25·30·35)은 실버 또는 골드다. 해당 등급이 3개에 모자라면 다른 등급에서 채운다.",
   "_schema": {
     "id": "필수. 고유 식별자",
     "name": "선택. 화면에 보이는 이름. 없으면 id 를 쓴다",
     "description": "선택. 화면에 보이는 설명",
-    "rarity": "필수. common / rare / epic",
+    "rarity": "필수. silver / gold / platinum (화면 표시: 실버 / 골드 / 플레)",
     "stackable": "선택. 기본 false",
     "maxStacks": "선택. stackable 이면 기본 3, 아니면 1. 상한 64",
     "effects": "필수. 비어 있으면 그 증강은 버려진다",
@@ -21,7 +22,7 @@
       "id": "sharedfate:tough_body",
       "name": "강골",
       "description": "팀 최대 체력 +2",
-      "rarity": "common",
+      "rarity": "silver",
       "stackable": true,
       "maxStacks": 3,
       "effects": [
@@ -37,7 +38,7 @@
       "id": "sharedfate:glass_cannon",
       "name": "유리 대포",
       "description": "주는 피해 1.25배, 받는 피해 1.35배",
-      "rarity": "rare",
+      "rarity": "gold",
       "stackable": false,
       "effects": [
         {
@@ -54,7 +55,7 @@
       "id": "sharedfate:blessed_pace",
       "name": "축복받은 발걸음",
       "description": "상시 신속. 커스텀 핸들러 예시 포함",
-      "rarity": "epic",
+      "rarity": "platinum",
       "stackable": true,
       "maxStacks": 2,
       "effects": [

@@ -94,8 +94,9 @@ public final class PerkManager {
 				continue;
 			}
 			UUID chooser = pickChooser(server, team, random);
-			state.pending.add(new PendingOffer(milestone, Optional.ofNullable(chooser), options));
-			announceOffer(server, team, milestone, chooser);
+			PendingOffer offer = new PendingOffer(milestone, Optional.ofNullable(chooser), options);
+			state.pending.add(offer);
+			announceOffer(server, team, offer, chooser);
 		}
 		return true;
 	}
@@ -114,7 +115,7 @@ public final class PerkManager {
 				continue;
 			}
 			state.pending.set(i, offer.withChooser(chooser));
-			announceOffer(server, team, offer.milestone(), chooser);
+			announceOffer(server, team, offer, chooser);
 			changed = true;
 		}
 		return changed;
@@ -188,7 +189,7 @@ public final class PerkManager {
 			state.pending.set(i, offer.withChooser(next));
 			changed = true;
 			if (next != null) {
-				announceOffer(server, team, offer.milestone(), next);
+				announceOffer(server, team, offer, next);
 			}
 		}
 		if (changed) {
@@ -278,10 +279,13 @@ public final class PerkManager {
 		manager.setDirty();
 
 		applyToTeam(server, team, state);
+		// 몹에게 걸리는 증강은 폴링으로도 따라잡지만, 고른 즉시 반영되는 편이 자연스럽다.
+		MobPerkModifiers.invalidateNow(server);
 		broadcastSync(server, team, state);
 		broadcast(server, team, Component.literal(
 				"[증강] " + player.getGameProfile().name() + "님이 "
-						+ perk.name() + " 을(를) 골랐습니다. 팀 전체에 적용됩니다."));
+						+ perk.rarity().displayName() + " 등급 " + perk.name()
+						+ " 을(를) 골랐습니다. 팀 전체에 적용됩니다."));
 	}
 
 	// ------------------------------------------------------------------ 효과 적용
@@ -382,16 +386,34 @@ public final class PerkManager {
 		state.ownedPerks.add(new PerkStack(perkId, 1));
 	}
 
-	private static void announceOffer(MinecraftServer server, ShareTeam team, int milestone,
+	private static void announceOffer(MinecraftServer server, ShareTeam team, PendingOffer offer,
 			@Nullable UUID chooser) {
 		if (chooser == null) {
 			return;
 		}
 		ServerPlayer picked = server.getPlayerList().getPlayer(chooser);
 		String name = picked == null ? "팀원" : picked.getGameProfile().name();
+		PerkRarity rarity = offerRarity(offer);
+		String grade = rarity == null ? "증강" : rarity.displayName() + " 등급 증강";
 		broadcast(server, team, Component.literal(
-				"[증강] " + milestone + "렙 달성. " + name
-						+ "님에게 선택권이 생겼습니다. /shareteam perk 로 확인하십시오."));
+				"[증강] " + offer.milestone() + "렙 달성. " + grade + " 선택권이 " + name
+						+ "님에게 생겼습니다. /shareteam perk 로 확인하십시오."));
+	}
+
+	/**
+	 * 이 선택권의 등급.
+	 *
+	 * <p>한 라운드의 후보는 전부 같은 등급이므로 찾을 수 있는 첫 후보만 보면 된다.
+	 * 풀에서 사라진 id뿐이면 null 이다.
+	 */
+	private static @Nullable PerkRarity offerRarity(PendingOffer offer) {
+		for (String id : offer.optionIds()) {
+			Perk perk = PerkRegistry.byId(id).orElse(null);
+			if (perk != null) {
+				return perk.rarity();
+			}
+		}
+		return null;
 	}
 
 	private static void remindIfChooser(ServerPlayer player, TeamState state) {

@@ -40,7 +40,7 @@ class PerkStateCodecTest {
 		state.mainItems.set(0, new ItemStack(Items.DIAMOND, 3));
 		state.xpLevel = 16;
 		state.perksEnabled = true;
-		state.lastPerkMilestone = 12;
+		state.lastPerkMilestone = 10;
 		state.ownedPerks.add(new PerkStack("sharedfate:tough_body", 2));
 		state.ownedPerks.add(new PerkStack("sharedfate:glass_cannon", 1));
 		state.pending.add(new PendingOffer(15, Optional.of(CHOOSER),
@@ -55,7 +55,7 @@ class PerkStateCodecTest {
 		TeamState round = decode(encode(playedState()));
 
 		assertTrue(round.perksEnabled);
-		assertEquals(12, round.lastPerkMilestone);
+		assertEquals(10, round.lastPerkMilestone);
 		assertEquals(List.of(new PerkStack("sharedfate:tough_body", 2),
 						new PerkStack("sharedfate:glass_cannon", 1)),
 				round.ownedPerks);
@@ -138,7 +138,7 @@ class PerkStateCodecTest {
 
 		TeamState round = decode(encode(state));
 
-		assertEquals(PerkMilestones.MAX, round.lastPerkMilestone, "구간 상한을 넘으면 36으로 잘린다");
+		assertEquals(PerkMilestones.MAX, round.lastPerkMilestone, "구간 상한을 넘으면 35로 잘린다");
 		assertTrue(round.pending.isEmpty(), "후보가 하나도 없는 선택권은 버린다");
 		assertEquals(List.of(new PerkStack("sharedfate:ok", 1)), round.ownedPerks);
 	}

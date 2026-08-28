@@ -19,9 +19,9 @@ import java.util.List;
  * canChoose 가 false 면 클릭이 막힌 관전 모드로 동작한다.
  */
 public class PerkOfferScreen extends Screen {
-	private static final int COLOR_COMMON = 0xFFB0B0B0;
-	private static final int COLOR_RARE = 0xFF55AAFF;
-	private static final int COLOR_EPIC = 0xFFC06BFF;
+	private static final int COLOR_SILVER = 0xFFC0C6CC;
+	private static final int COLOR_GOLD = 0xFFFFC63A;
+	private static final int COLOR_PLATINUM = 0xFF5FE0D8;
 
 	private static final int CARD_BACKGROUND = 0xE0121218;
 	private static final int CARD_BACKGROUND_HOVER = 0xF01E2233;
@@ -199,24 +199,17 @@ public class PerkOfferScreen extends Screen {
 	}
 
 	private static String rarityLabel(PerkRarity rarity) {
-		if (rarity == null) {
-			return "일반";
-		}
-		return switch (rarity) {
-			case COMMON -> "일반";
-			case RARE -> "희귀";
-			case EPIC -> "영웅";
-		};
+		return rarity == null ? PerkRarity.SILVER.displayName() : rarity.displayName();
 	}
 
 	private static int rarityColor(PerkRarity rarity) {
 		if (rarity == null) {
-			return COLOR_COMMON;
+			return COLOR_SILVER;
 		}
 		return switch (rarity) {
-			case COMMON -> COLOR_COMMON;
-			case RARE -> COLOR_RARE;
-			case EPIC -> COLOR_EPIC;
+			case SILVER -> COLOR_SILVER;
+			case GOLD -> COLOR_GOLD;
+			case PLATINUM -> COLOR_PLATINUM;
 		};
 	}
 

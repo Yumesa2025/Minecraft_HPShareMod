@@ -4,6 +4,7 @@ import com.sharedfate.command.ShareTeamCommand;
 import com.sharedfate.config.SharedFateConfig;
 import com.sharedfate.net.SharedFateNetworking;
 import com.sharedfate.net.TeamBroadcaster;
+import com.sharedfate.perk.MobPerkModifiers;
 import com.sharedfate.perk.PerkManager;
 import com.sharedfate.perk.PerkRegistry;
 import com.sharedfate.inventory.ExpandedInventoryManager;
@@ -20,6 +21,7 @@ import com.sharedfate.team.TeamLookup;
 import com.sharedfate.team.TeamManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
@@ -58,6 +60,7 @@ public class SharedFateMod implements ModInitializer {
 			WorldResetCoordinator.reset();
 			RunProgressManager.reset();
 			PerkManager.reset();
+			MobPerkModifiers.reset();
 			EffectSync.reset();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(server -> TeamManager.get(server).markDirtyIfActive());
@@ -113,6 +116,9 @@ public class SharedFateMod implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(RunProgressManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PositionSwapManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PerkManager::tick);
+		// 몹에게 걸리는 증강(mob_health / mob_damage)의 등록 지점.
+		ServerTickEvents.END_SERVER_TICK.register(MobPerkModifiers::tick);
+		ServerEntityEvents.ENTITY_LOAD.register(MobPerkModifiers::onEntityLoad);
 		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) ->
 				ShareTeamCommand.register(dispatcher, config));
 		LOGGER.info("SharedFate 로드됨");

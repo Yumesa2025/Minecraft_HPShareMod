@@ -6,7 +6,7 @@
 
 ## 요약
 
-팀 공유 레벨이 3의 배수에 처음 도달할 때마다, 팀원 중 무작위로 뽑힌 한 명이
+팀 공유 레벨이 5의 배수에 처음 도달할 때마다, 팀원 중 무작위로 뽑힌 한 명이
 증강 3개 중 하나를 고른다. 고른 효과는 팀 전체에 적용되고 그 회차 내내 유지된다.
 전멸로 회차가 넘어가면 전부 초기화된다.
 
@@ -16,8 +16,8 @@
 
 | 항목 | 결정 |
 |---|---|
-| 발동 조건 | 팀 공유 레벨(`TeamState.xpLevel`)이 3·6·9·…·36에 **처음** 도달 |
-| 구간 수 | 12회 (36렙 이후로는 없음) |
+| 발동 조건 | 팀 공유 레벨(`TeamState.xpLevel`)이 5·10·15·20·25·30·35에 **처음** 도달 |
+| 구간 수 | 7회 (35렙 이후로는 없음) |
 | 선택자 | 접속 중인 팀원 중 무작위 1명 |
 | 효과 범위 | **팀 전체** |
 | 효과 성격 | 상시 패시브(로그라이트형) + 장단점 교환(트레이드오프형) 혼합 |
@@ -25,14 +25,14 @@
 | 관전 | 다른 팀원이 열면 같은 화면을 읽기 전용으로 본다 |
 | 켜고끄기 | 팀 생성 시 리더가 결정, 그 뒤 변경 불가 |
 | 회차 이월 | 전부 초기화 (`perksEnabled` 만 유지) |
-| 후보 구성 | 등급제. 구간이 오를수록 고등급 확률 상승 |
+| 후보 구성 | 구간마다 등급이 하나로 정해지고 그 등급에서만 3개. 15렙은 플레 고정 |
 | 중복 | 증강별 `stackable` 속성. 불가능한 것은 한 번 고르면 풀에서 제외 |
 | 정의 위치 | `config/sharedfate-perks.json` + Java 핸들러 하이브리드 |
 
 ## 발동 조건 상세
 
 `TeamState.lastPerkMilestone` 에 마지막으로 처리한 구간을 기록한다.
-현재 `xpLevel` 이 `lastPerkMilestone` 보다 큰 3의 배수에 도달하면 그 구간을 발동시키고
+현재 `xpLevel` 이 `lastPerkMilestone` 보다 큰 5의 배수에 도달하면 그 구간을 발동시키고
 `lastPerkMilestone` 을 갱신한다.
 
 경험치를 써서 레벨이 내려갔다가 다시 올라와도 재발동하지 않는다.
@@ -46,7 +46,7 @@
 ```
 src/main/java/com/sharedfate/perk/
   Perk.java              증강 정의 (id, 이름, 설명, 등급, 중첩 여부, 최대 중첩, 효과 목록)
-  PerkRarity.java        enum COMMON / RARE / EPIC
+  PerkRarity.java        enum SILVER / GOLD / PLATINUM (실버 / 골드 / 플레)
   PerkEffect.java        효과 인터페이스 (apply / remove)
   PerkEffectType.java    JSON type 문자열 → 효과 팩토리 매핑
   effect/AttributeEffect.java
@@ -55,7 +55,7 @@ src/main/java/com/sharedfate/perk/
   effect/StatusEffectPerk.java
   effect/CustomEffect.java
   PerkRegistry.java      JSON 로드 + Java 커스텀 핸들러 등록을 합쳐 id→Perk 조회
-  PerkDraft.java         등급 가중치와 중복 규칙에 따라 후보 3개 추첨
+  PerkDraft.java         구간 → 등급 배정과 중복 규칙에 따라 같은 등급 후보 3개 추첨
   PerkManager.java       구간 감지 → 추첨 → 대기열 → 적용 (서버 틱)
   PerkStack.java         record {String perkId, int count}
   PendingOffer.java      record {int milestone, UUID chooser, List<String> optionIds}
@@ -75,7 +75,7 @@ src/client/java/com/sharedfate/client/perk/PerkClientState.java
 |---|---|
 | `SharedFateMod.java` | `PerkRegistry.load()`, `PerkManager` 틱·접속·퇴장·리스폰·종료 배선 |
 | `TeamState.java` | 필드 4개 추가 + Codec `optionalFieldOf` |
-| `SharedFateNetworking.java` | 페이로드 3개 등록, `PROTOCOL_VERSION` 5 → 6 |
+| `SharedFateNetworking.java` | 페이로드 3개 등록, `PROTOCOL_VERSION` 5 → 7 |
 | `ShareTeamCommand.java` | `create` 에 증강 켜고끄기 인자 추가 |
 
 `ShareTeamCommand.java` 는 이미 499줄로 저장소에서 가장 큰 파일이다.
@@ -97,7 +97,7 @@ Brigadier 는 첫 단어가 리터럴과 일치하면 그 리터럴 노드로만
 
 ```java
 public boolean perksEnabled;              // 팀 생성 시 결정, 회차 내내 고정
-public int lastPerkMilestone;             // 마지막 처리 구간 (0, 3, 6, …, 36)
+public int lastPerkMilestone;             // 마지막 처리 구간 (0, 5, 10, …, 35)
 public final List<PerkStack> ownedPerks;  // 중첩은 count 로 표현
 public final List<PendingOffer> pending;  // 대기 중인 선택권, 여러 개 가능
 ```
@@ -127,7 +127,7 @@ public final List<PendingOffer> pending;  // 대기 중인 선택권, 여러 개
       "id": "sharedfate:tough_body",
       "name": "강골",
       "description": "팀 최대 체력 +2",
-      "rarity": "common",
+      "rarity": "silver",
       "stackable": true,
       "maxStacks": 3,
       "effects": [
@@ -147,18 +147,25 @@ public final List<PendingOffer> pending;  // 대기 중인 선택권, 여러 개
 | `damage_dealt` | `multiplier` | 팀원이 주는 피해에 배율 |
 | `damage_taken` | `multiplier` | 팀원이 받는 피해에 배율 |
 | `status_effect` | `effect`, `amplifier` | 팀원 전원에게 상시 상태이상 |
+| `mob_health` | `multiplier`, `targets`/`excludes` | 몹의 최대 체력에 배율 |
+| `mob_damage` | `multiplier`, `targets`/`excludes` | 몹이 주는 피해에 배율 |
 | `custom` | `handler` | Java 에 등록된 핸들러 호출 |
 
-`custom` 은 위 네 가지로 표현할 수 없는 동작을 위한 확장점이다.
+`custom` 은 위 여섯 가지로 표현할 수 없는 동작을 위한 확장점이다.
 핸들러는 `PerkRegistry.registerCustom(id, handler)` 로 등록한다.
 
-### 등급 가중치
+### 구간별 등급 배정
 
-| 구간 | COMMON | RARE | EPIC |
-|---|---|---|---|
-| 3·6·9·12 | 75% | 25% | 0% |
-| 15·18·21·24 | 40% | 50% | 10% |
-| 27·30·33·36 | 15% | 50% | 35% |
+한 라운드에 등급이 섞이지 않는다. 구간마다 등급이 하나로 정해지고 그 등급에서만 3개를 뽑는다.
+
+| 구간 | 등급 |
+|---|---|
+| 15렙 | **플레 고정.** 한 회차에 단 한 번뿐인 플레 라운드 |
+| 5·10·20·25·30·35렙 | 실버 또는 골드를 50:50 무작위로 결정 |
+
+정해진 등급에 후보가 모자라면 다른 등급에서 채운다. 우선순위는
+실버→골드→플레, 골드→실버→플레, 플레→골드→실버 순이며,
+버킷을 순서대로 소진해 3개를 최대한 채운다.
 
 ### 증강 목록
 
@@ -170,7 +177,7 @@ public final List<PendingOffer> pending;  // 대기 중인 선택권, 여러 개
 ```
 팀 공유 레벨이 미처리 구간에 도달
   → PerkManager 가 감지, 접속 중인 팀원 중 무작위 1명 선정
-  → 등급 가중치로 후보 3개 추첨, PendingOffer 로 확정 저장
+  → 그 구간의 등급을 정하고 같은 등급에서 후보 3개 추첨, PendingOffer 로 확정 저장
   → 팀 전원에게 채팅 알림 "○○님에게 증강 선택권이 생겼습니다 (/shareteam perk)"
   → 뽑힌 사람이 /shareteam perk 실행
   → 서버가 PerkOfferPayload 전송, 클라이언트가 PerkOfferScreen 오픈
@@ -208,15 +215,15 @@ JSON 오류, 알 수 없는 `type`, 없는 `handler` 는 모두 **해당 증강�
 
 | 테스트 | 검증 내용 |
 |---|---|
-| `PerkMilestoneTest` | 구간 감지, 건너뛴 구간 누적, 레벨 하락 후 재상승 시 미발동, 36 초과 시 미발동 |
-| `PerkDraftTest` | 등급 가중치 분포, 중복 제외, `stackable` 처리, `maxStacks` 도달 시 제외, 후보 부족 상황 |
+| `PerkMilestonesTest` | 구간 감지, 건너뛴 구간 누적, 레벨 하락 후 재상승 시 미발동, 35 초과 시 미발동, 구 3배수 데이터 유입 |
+| `PerkDraftTest` | 구간별 등급 배정, 한 라운드 동일 등급, 중복 제외, `maxStacks` 도달 시 제외, 폴백 우선순위 |
 | `PerkRegistryTest` | JSON 파싱, 잘못된 항목 건너뛰기, 알 수 없는 type·handler 처리 |
 | `PerkStateCodecTest` | `TeamState` 왕복 직렬화, 증강 필드 없는 구 데이터 로드 |
 | `PerkOfferLifecycleTest` | 선택자 이탈 시 재추첨, 중복 선택 거부, 대기열 순서 |
 
 ## 효과 타입 구현 상태
 
-효과 타입 5종 모두 동작한다. 초기 구현에서 미뤄뒀던 두 항목은 해소됐다.
+효과 타입 7종 모두 동작한다. 초기 구현에서 미뤄뒀던 두 항목은 해소됐다.
 
 ### `damage_dealt` / `damage_taken` — 해소됨
 
