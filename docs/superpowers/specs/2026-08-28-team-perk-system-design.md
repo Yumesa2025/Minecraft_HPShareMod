@@ -73,14 +73,22 @@ src/client/java/com/sharedfate/client/perk/PerkClientState.java
 
 | 파일 | 수정 내용 |
 |---|---|
-| `SharedFateMod.java` | `PerkManager::tick` 틱 등록, `PerkCommand.register()` 호출 |
+| `SharedFateMod.java` | `PerkRegistry.load()`, `PerkManager` 틱·접속·퇴장·리스폰·종료 배선 |
 | `TeamState.java` | 필드 4개 추가 + Codec `optionalFieldOf` |
 | `SharedFateNetworking.java` | 페이로드 3개 등록, `PROTOCOL_VERSION` 5 → 6 |
 | `ShareTeamCommand.java` | `create` 에 증강 켜고끄기 인자 추가 |
 
 `ShareTeamCommand.java` 는 이미 499줄로 저장소에서 가장 큰 파일이다.
-증강 하위명령은 `PerkCommand` 로 분리해 등록하고, `ShareTeamCommand` 에는
-`create` 인자 추가만 한다.
+증강 하위명령은 `PerkCommand` 로 분리한다. `PerkCommand` 는 `node()` 만 노출하고
+`ShareTeamCommand` 가 `.then(PerkCommand.node())` 로 붙인다. `SharedFateMod` 에서
+따로 등록하지 않는다 — 등록 경로가 둘이 되면 중복 등록이 된다.
+
+### 알려진 제약
+
+Brigadier 는 첫 단어가 리터럴과 일치하면 그 리터럴 노드로만 파싱하고 argument 노드로
+되돌아가지 않는다. `create` 의 팀 이름이 greedy 인자이므로 옵션을 앞에 두는
+`create perks <on|off> <이름>` 구조를 쓸 수밖에 없고, 그 결과
+**`perks` 로 시작하는 팀 이름은 만들 수 없다.** 기존 `create <이름>` 사용법은 그대로 동작한다.
 
 ## 데이터 모델
 
@@ -205,6 +213,25 @@ JSON 오류, 알 수 없는 `type`, 없는 `handler` 는 모두 **해당 증강�
 | `PerkRegistryTest` | JSON 파싱, 잘못된 항목 건너뛰기, 알 수 없는 type·handler 처리 |
 | `PerkStateCodecTest` | `TeamState` 왕복 직렬화, 증강 필드 없는 구 데이터 로드 |
 | `PerkOfferLifecycleTest` | 선택자 이탈 시 재추첨, 중복 선택 거부, 대기열 순서 |
+
+## 알려진 미해결 항목
+
+증강을 담는 틀은 완성됐지만, 효과 타입 5종 중 아래 셋은 실제 증강 풀을 채우기 전에
+추가 작업이 필요하다. 지금은 풀이 비어 있어 드러나지 않는다.
+
+### `damage_dealt` / `damage_taken` — 피해 계산 후킹 없음
+
+배율을 계산하는 부분(`PerkManager.damageDealtMultiplier` / `damageTakenMultiplier`)까지는
+있지만, 그 값을 실제 피해 계산에 반영하는 지점이 없다. 기존 코드의 피해 관련 훅은
+`ServerLivingEntityEvents.AFTER_DAMAGE` 뿐이고 이건 사후 통지라 수치를 바꿀 수 없다.
+피해 계산 지점에 mixin 을 새로 넣어야 한다.
+
+### `status_effect` — EffectSync 와 간섭
+
+`EffectSync.tick` 이 대표 플레이어의 활성 상태이상을 통째로 `TeamState.effects` 로 복사해
+팀에 공유한다. `status_effect` 증강으로 건 무한 지속 상태이상도 여기에 딸려 들어가므로,
+회차가 바뀌어 증강을 잃은 뒤에도 `TeamState.effects` 에 남아 되살아날 수 있다.
+증강이 부여한 상태이상을 `EffectSync` 의 수집 대상에서 제외하는 처리가 필요하다.
 
 ## 범위 밖
 

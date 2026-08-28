@@ -3,8 +3,12 @@ package com.sharedfate.client;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.client.hud.DamageAlertHud;
 import com.sharedfate.client.hud.HotbarHighlight;
+import com.sharedfate.client.perk.PerkClientState;
+import com.sharedfate.client.perk.PerkOfferScreen;
 import com.sharedfate.net.DamageAlertPayload;
 import com.sharedfate.net.HandshakePayload;
+import com.sharedfate.net.PerkOfferPayload;
+import com.sharedfate.net.PerkSyncPayload;
 import com.sharedfate.net.SelectedSlotPayload;
 import com.sharedfate.net.SharedFateNetworking;
 import com.sharedfate.net.TeamSyncPayload;
@@ -54,12 +58,22 @@ public class SharedFateClient implements ClientModInitializer {
 				(payload, context) -> GameOverClientDisplay.show(
 						payload.runNumber(), payload.delayTicks()));
 
+		// 증강 후보 제시 — 네트워크 스레드에서 화면을 열 수 없으므로 클라이언트 스레드로 넘긴다.
+		ClientPlayNetworking.registerGlobalReceiver(PerkOfferPayload.TYPE,
+				(payload, context) -> context.client().execute(
+						() -> context.client().setScreenAndShow(new PerkOfferScreen(payload))));
+		ClientPlayNetworking.registerGlobalReceiver(PerkSyncPayload.TYPE,
+				(payload, context) -> context.client().execute(
+						() -> PerkClientState.update(payload.ownedLines(),
+								payload.pendingCount(), payload.chooserName())));
+
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientTeamState.clear();
 			SelectedSlotReporter.reset();
 			DamageAlertHud.clear();
 			ExpandedInventoryManager.clearNegotiatedClientLayout();
 			GameOverClientDisplay.clear();
+			PerkClientState.clear();
 		});
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			SelectedSlotReporter.tick(client);

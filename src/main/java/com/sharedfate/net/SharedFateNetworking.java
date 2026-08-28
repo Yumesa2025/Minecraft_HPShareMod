@@ -1,11 +1,13 @@
 package com.sharedfate.net;
 
+import com.sharedfate.perk.PerkManager;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 
 public final class SharedFateNetworking {
-	public static final int PROTOCOL_VERSION = 5;
+	// 6: 증강(Perk) 페이로드 3종 추가
+	public static final int PROTOCOL_VERSION = 6;
 
 	private SharedFateNetworking() {
 	}
@@ -15,12 +17,18 @@ public final class SharedFateNetworking {
 		PayloadTypeRegistry.clientboundPlay().register(SelectedSlotPayload.TYPE, SelectedSlotPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(TeamSyncPayload.TYPE, TeamSyncPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(WorldResetPayload.TYPE, WorldResetPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(PerkOfferPayload.TYPE, PerkOfferPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(PerkSyncPayload.TYPE, PerkSyncPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(SelectedSlotC2SPayload.TYPE, SelectedSlotC2SPayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(PerkChoiceC2SPayload.TYPE, PerkChoiceC2SPayload.CODEC);
 		PayloadTypeRegistry.clientboundConfiguration().register(HandshakePayload.TYPE, HandshakePayload.CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(SelectedSlotC2SPayload.TYPE,
 				(payload, context) -> TeamBroadcaster.reportSelectedSlot(
 						context.server(), context.player(), payload.slot()));
+		ServerPlayNetworking.registerGlobalReceiver(PerkChoiceC2SPayload.TYPE,
+				(payload, context) -> PerkManager.applyChoice(
+						context.player(), payload.milestone(), payload.perkId()));
 		ServerTickEvents.END_SERVER_TICK.register(TeamBroadcaster::flushSelectedSlots);
 		ClientModGate.register();
 	}

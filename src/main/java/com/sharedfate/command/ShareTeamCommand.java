@@ -35,9 +35,19 @@ public final class ShareTeamCommand {
 		dispatcher.register(Commands.literal("shareteam")
 				.executes(ShareTeamCommand::help)
 				.then(Commands.literal("help").executes(ShareTeamCommand::help))
+				// create 는 name 이 greedyString 이라 뒤에 인자를 못 붙인다.
+				// 그래서 증강 켜고끄기는 이름 앞에 오는 별도 가지로 둔다.
+				// 기존 /shareteam create <이름> 은 그대로 동작하고 증강은 꺼진 상태가 된다.
 				.then(Commands.literal("create")
+						.then(Commands.literal("perks")
+								.then(Commands.literal("on")
+										.then(Commands.argument("name", StringArgumentType.greedyString())
+												.executes(context -> create(context, config, true))))
+								.then(Commands.literal("off")
+										.then(Commands.argument("name", StringArgumentType.greedyString())
+												.executes(context -> create(context, config, false)))))
 						.then(Commands.argument("name", StringArgumentType.greedyString())
-								.executes(context -> create(context, config))))
+								.executes(context -> create(context, config, false))))
 				.then(Commands.literal("invite")
 						.then(Commands.argument("target", EntityArgument.player())
 								.executes(context -> invite(context, config))))
@@ -77,12 +87,13 @@ public final class ShareTeamCommand {
 										TeamState.PositionSwapLimits.MIN_MINUTES,
 										TeamState.PositionSwapLimits.MAX_MINUTES))
 										.executes(ShareTeamCommand::enablePositionSwap))))
+				.then(PerkCommand.node())
 				.then(Commands.literal("list").executes(ShareTeamCommand::list))
 				.then(Commands.literal("status").executes(context -> status(context, config))));
 	}
 
-	private static int create(CommandContext<CommandSourceStack> context, SharedFateConfig config)
-			throws CommandSyntaxException {
+	private static int create(CommandContext<CommandSourceStack> context, SharedFateConfig config,
+			boolean perksEnabled) throws CommandSyntaxException {
 		ServerPlayer self = context.getSource().getPlayerOrException();
 		TeamManager manager = manager(context);
 
@@ -108,6 +119,8 @@ public final class ShareTeamCommand {
 		}
 
 		TeamState initialState = initialState(self, config);
+		// 증강 사용 여부는 팀 생성 시에만 정해지고 그 뒤로는 바꿀 수 없다.
+		initialState.perksEnabled = perksEnabled;
 		InventorySwapper.prepareJoin(self);
 		ShareTeam team = manager.createTeam(name, self.getUUID(), initialState);
 		if (team == null) {
@@ -120,7 +133,8 @@ public final class ShareTeamCommand {
 		EffectSync.refreshPlayer(self);
 		TeamBroadcaster.broadcast(context.getSource().getServer(), manager.teamOf(self.getUUID()));
 
-		context.getSource().sendSuccess(() -> Component.literal("팀 '" + name + "'을 만들었습니다."), false);
+		context.getSource().sendSuccess(() -> Component.literal(
+				"팀 '" + name + "'을 만들었습니다. 증강: " + (perksEnabled ? "켬" : "끔")), false);
 		return 1;
 	}
 
@@ -290,11 +304,13 @@ public final class ShareTeamCommand {
 	private static int help(CommandContext<CommandSourceStack> context) {
 		context.getSource().sendSuccess(() -> Component.literal("""
 				SharedFate 팀 명령
-				/shareteam create <이름> — 현재 상태로 팀 생성
+				/shareteam create <이름> — 현재 상태로 팀 생성 (증강 끔)
+				/shareteam create perks <on|off> <이름> — 증강 사용 여부를 정해서 생성
 				/shareteam invite <플레이어> | invites | accept <이름> | decline <이름>
 				/shareteam status | list | leave | disband confirm
 				/shareteam health <20~40> — 팀 공유 최대 체력 설정 (리더)
 				/shareteam swap on <1~120분> | off | status — 주기적 위치 교환
+				/shareteam perk | perk list — 증강 선택 창 열기 / 보유 증강 보기
 				가입하면 개인 아이템은 드랍되고 개인 경험치는 공유 풀에 합쳐집니다.
 				""".strip()), false);
 		return 1;

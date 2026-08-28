@@ -4,6 +4,8 @@ import com.sharedfate.command.ShareTeamCommand;
 import com.sharedfate.config.SharedFateConfig;
 import com.sharedfate.net.SharedFateNetworking;
 import com.sharedfate.net.TeamBroadcaster;
+import com.sharedfate.perk.PerkManager;
+import com.sharedfate.perk.PerkRegistry;
 import com.sharedfate.inventory.ExpandedInventoryManager;
 import com.sharedfate.sync.MaxHealthAttribute;
 import com.sharedfate.sync.EffectSync;
@@ -40,6 +42,7 @@ public class SharedFateMod implements ModInitializer {
 	public void onInitialize() {
 		config = SharedFateConfig.loadOrCreate(
 				FabricLoader.getInstance().getConfigDir().resolve("sharedfate.json"));
+		PerkRegistry.load(FabricLoader.getInstance().getConfigDir());
 		SharedFateNetworking.register();
 
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
@@ -54,6 +57,7 @@ public class SharedFateMod implements ModInitializer {
 			ExpandedInventoryManager.clearRuntimeState();
 			WorldResetCoordinator.reset();
 			RunProgressManager.reset();
+			PerkManager.reset();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(server -> TeamManager.get(server).markDirtyIfActive());
 		ServerPlayerEvents.JOIN.register(player -> {
@@ -73,6 +77,7 @@ public class SharedFateMod implements ModInitializer {
 			}
 			TeamBroadcaster.sendTo(player);
 			RunProgressManager.onPlayerJoin(player);
+			PerkManager.onPlayerJoin(player);
 		});
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
 			StatMirror.forget(oldPlayer.getUUID());
@@ -84,6 +89,7 @@ public class SharedFateMod implements ModInitializer {
 			if (team != null && state != null) {
 				StatMirror.syncPlayerNow(team.teamId(), state, newPlayer);
 			}
+			PerkManager.refreshPlayer(newPlayer);
 		});
 		ServerPlayerEvents.LEAVE.register(player -> {
 			var state = TeamLookup.stateOf(player.getUUID());
@@ -94,6 +100,7 @@ public class SharedFateMod implements ModInitializer {
 			TeamBroadcaster.onDisconnect(player);
 			ExpandedInventoryManager.removePlayer(player);
 			RunProgressManager.onPlayerLeave(player);
+			PerkManager.onPlayerLeave(player);
 		});
 		ServerLivingEntityEvents.AFTER_DEATH.register(DeathHandler::onDeath);
 		ServerLivingEntityEvents.AFTER_DEATH.register(RunProgressManager::onDeath);
@@ -104,6 +111,7 @@ public class SharedFateMod implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(WorldResetCoordinator::tick);
 		ServerTickEvents.END_SERVER_TICK.register(RunProgressManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PositionSwapManager::tick);
+		ServerTickEvents.END_SERVER_TICK.register(PerkManager::tick);
 		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) ->
 				ShareTeamCommand.register(dispatcher, config));
 		LOGGER.info("SharedFate 로드됨");

@@ -1,0 +1,73 @@
+{
+  "_comment": "증강 정의 스키마 예시. 실제로 쓰려면 config/sharedfate-perks.json 으로 복사해 내용을 채운다. 실제 증강 풀은 아직 비어 있다.",
+  "_schema": {
+    "id": "필수. 고유 식별자",
+    "name": "선택. 화면에 보이는 이름. 없으면 id 를 쓴다",
+    "description": "선택. 화면에 보이는 설명",
+    "rarity": "필수. common / rare / epic",
+    "stackable": "선택. 기본 false",
+    "maxStacks": "선택. stackable 이면 기본 3, 아니면 1. 상한 64",
+    "effects": "필수. 비어 있으면 그 증강은 버려진다",
+    "_effectTypes": {
+      "attribute": "attribute(식별자), operation(add_value|add_multiplied_base|add_multiplied_total), amount(실수). 중첩하면 amount 에 중첩 수를 곱한다",
+      "damage_dealt": "multiplier(실수 0~64). 중첩은 거듭제곱",
+      "damage_taken": "multiplier(실수 0~64). 중첩은 거듭제곱",
+      "status_effect": "effect(식별자), amplifier(정수 0~255). 중첩 n 이면 amplifier + (n - 1)",
+      "custom": "handler(문자열). PerkRegistry.registerCustom 으로 등록한 Java 핸들러에 위임한다"
+    }
+  },
+  "perks": [
+    {
+      "id": "sharedfate:tough_body",
+      "name": "강골",
+      "description": "팀 최대 체력 +2",
+      "rarity": "common",
+      "stackable": true,
+      "maxStacks": 3,
+      "effects": [
+        {
+          "type": "attribute",
+          "attribute": "minecraft:max_health",
+          "operation": "add_value",
+          "amount": 2.0
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:glass_cannon",
+      "name": "유리 대포",
+      "description": "주는 피해 1.25배, 받는 피해 1.35배",
+      "rarity": "rare",
+      "stackable": false,
+      "effects": [
+        {
+          "type": "damage_dealt",
+          "multiplier": 1.25
+        },
+        {
+          "type": "damage_taken",
+          "multiplier": 1.35
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:blessed_pace",
+      "name": "축복받은 발걸음",
+      "description": "상시 신속. 커스텀 핸들러 예시 포함",
+      "rarity": "epic",
+      "stackable": true,
+      "maxStacks": 2,
+      "effects": [
+        {
+          "type": "status_effect",
+          "effect": "minecraft:speed",
+          "amplifier": 0
+        },
+        {
+          "type": "custom",
+          "handler": "sharedfate:example_handler"
+        }
+      ]
+    }
+  ]
+}
