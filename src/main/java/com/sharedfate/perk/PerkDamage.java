@@ -32,7 +32,8 @@ public final class PerkDamage {
 	 * 피해량에 "주는 피해"·"받는 피해" 배율을 반영한다.
 	 *
 	 * @param victim 피해를 받는 대상. 팀원이면 받는 피해 배율이 걸린다.
-	 * @param source 피해원. 가해자가 팀원이면 주는 피해 배율이 걸린다.
+	 * @param source 피해원. 가해자가 팀원이면 주는 피해 배율이, 몹이면 {@code mob_damage}
+	 *               배율이 걸린다.
 	 * @param amount {@code hurtServer} 가 받은 원래 피해량
 	 * @return 배율을 반영한 피해량. 반영할 게 없으면 {@code amount} 그대로
 	 */
@@ -43,7 +44,8 @@ public final class PerkDamage {
 		double factor;
 		try {
 			// 조회 실패가 피해 처리를 막으면 안 된다. 어떤 예외든 원래 값으로 돌아간다.
-			factor = dealtFactor(source == null ? null : source.getEntity()) * takenFactor(victim);
+			Entity attacker = source == null ? null : source.getEntity();
+			factor = dealtFactor(attacker) * takenFactor(victim) * mobDealtFactor(attacker);
 		} catch (RuntimeException error) {
 			warnOnce(error);
 			return amount;
@@ -57,6 +59,17 @@ public final class PerkDamage {
 			return 1.0;
 		}
 		return PerkManager.damageDealtMultiplier(player);
+	}
+
+	/**
+	 * 가해자가 몹일 때 {@code mob_damage} 증강의 배율을 읽는다.
+	 *
+	 * <p>{@link #dealtFactor}와는 배타적이다. 가해자는 팀원이거나 몹이지 둘 다일 수 없다.
+	 * 화살·불덩이처럼 던진 것에 맞은 경우에도 {@code DamageSource.getEntity()}는 쏜 몹을
+	 * 가리키므로 여기서 잡힌다.
+	 */
+	private static double mobDealtFactor(@Nullable Entity attacker) {
+		return MobPerkModifiers.damageMultiplier(attacker);
 	}
 
 	/** 피해자가 증강을 가진 팀원일 때만 받는 피해 배율을 읽는다. */

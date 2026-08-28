@@ -24,6 +24,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * 로 이어지는 사슬의 끝이라, 여기 한 곳만 잡으면 플레이어든 몹이든 피해당 정확히 한 번만
  * 배율이 걸린다. ({@code Avatar} 는 {@code hurtServer} 를 재정의하지 않는다.)
  *
+ * <p>몹이 주는 피해를 깎는 {@code mob_damage} 증강도 여기를 지난다. 가해자를 보는 자리가
+ * 이미 있으므로 별도의 mixin 을 두지 않고 {@link PerkDamage} 안에서 팀원의
+ * {@code damage_dealt} 와 나란히 처리한다. 자세한 내용은
+ * {@link com.sharedfate.perk.MobPerkModifiers} 참고.
+ *
  * <p>HEAD 에서 인자를 갈아 끼우므로 방패({@code applyItemBlocking})·방어구·흡수·무적시간
  * 비교({@code lastHurt})가 모두 배율이 반영된 값을 본다. 공유 체력을 맞추는
  * {@code StatMirror} 는 다음 틱에 체력 변화량을 관측하는 방식이라, 이미 배율이 반영되고 난

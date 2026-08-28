@@ -1,5 +1,6 @@
 package com.sharedfate.perk;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
@@ -8,8 +9,13 @@ import com.sharedfate.perk.effect.AttributeEffect;
 import com.sharedfate.perk.effect.CustomEffect;
 import com.sharedfate.perk.effect.DamageDealtEffect;
 import com.sharedfate.perk.effect.DamageTakenEffect;
+import com.sharedfate.perk.effect.MobDamageEffect;
+import com.sharedfate.perk.effect.MobHealthEffect;
 import com.sharedfate.perk.effect.StatusEffectPerk;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -26,6 +32,8 @@ public enum PerkEffectType {
 	DAMAGE_DEALT("damage_dealt", DamageDealtEffect::fromJson),
 	DAMAGE_TAKEN("damage_taken", DamageTakenEffect::fromJson),
 	STATUS_EFFECT("status_effect", StatusEffectPerk::fromJson),
+	MOB_HEALTH("mob_health", MobHealthEffect::fromJson),
+	MOB_DAMAGE("mob_damage", MobDamageEffect::fromJson),
 	CUSTOM("custom", CustomEffect::fromJson);
 
 	/** 효과 하나를 만드는 팩토리. 정의가 잘못됐으면 {@code null}을 돌려준다. */
@@ -112,6 +120,38 @@ public enum PerkEffectType {
 	public static boolean readBoolean(JsonObject json, String key, boolean fallback) {
 		JsonPrimitive primitive = primitive(json, key);
 		return primitive != null && primitive.isBoolean() ? primitive.getAsBoolean() : fallback;
+	}
+
+	/**
+	 * 문자열 배열 필드.
+	 *
+	 * <p>세 가지 결과를 구분해야 하는 자리에 쓴다. 필드가 아예 없으면 {@code null},
+	 * 배열이긴 한데 쓸 만한 문자열이 하나도 없으면 빈 목록, 그 외에는 문자열만 골라낸 목록이다.
+	 * {@code targets} 처럼 "필드를 안 적었다"와 "적었는데 결과가 비었다"가 다른 뜻인 곳에서
+	 * 이 구분이 필요하다. 배열이 아닌 값이 들어오면 빈 목록으로 보고 판단은 부르는 쪽에 맡긴다.
+	 */
+	public static @Nullable List<String> readStringList(JsonObject json, String key) {
+		if (json == null || key == null) {
+			return null;
+		}
+		JsonElement element = json.get(key);
+		if (element == null || element.isJsonNull()) {
+			return null;
+		}
+		if (!element.isJsonArray()) {
+			return List.of();
+		}
+		JsonArray array = element.getAsJsonArray();
+		List<String> values = new ArrayList<>(array.size());
+		for (JsonElement entry : array) {
+			if (entry != null && entry.isJsonPrimitive() && entry.getAsJsonPrimitive().isString()) {
+				String value = entry.getAsString().trim();
+				if (!value.isEmpty()) {
+					values.add(value);
+				}
+			}
+		}
+		return values;
 	}
 
 	private static JsonPrimitive primitive(JsonObject json, String key) {

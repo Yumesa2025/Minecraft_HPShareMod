@@ -96,7 +96,7 @@ class PerkRegistryTest {
 		Perk tough = PerkRegistry.byId("sharedfate:tough_body").orElseThrow();
 		assertEquals("강골", tough.name());
 		assertEquals("팀 최대 체력 +2", tough.description());
-		assertEquals(PerkRarity.COMMON, tough.rarity());
+		assertEquals(PerkRarity.SILVER, tough.rarity());
 		assertTrue(tough.stackable());
 		assertEquals(3, tough.maxStacks());
 		AttributeEffect attribute = assertInstanceOf(AttributeEffect.class, tough.effects().get(0));
@@ -106,14 +106,14 @@ class PerkRegistryTest {
 
 		Perk cannon = PerkRegistry.byId("sharedfate:glass_cannon").orElseThrow();
 		assertEquals("sharedfate:glass_cannon", cannon.name(), "이름이 없으면 id 를 쓴다");
-		assertEquals(PerkRarity.RARE, cannon.rarity());
+		assertEquals(PerkRarity.GOLD, cannon.rarity());
 		assertFalse(cannon.stackable());
 		assertEquals(1, cannon.maxStacks(), "중첩 불가면 상한은 1이다");
 		assertEquals(1.25, assertInstanceOf(DamageDealtEffect.class, cannon.effects().get(0)).multiplier());
 		assertEquals(1.35, assertInstanceOf(DamageTakenEffect.class, cannon.effects().get(1)).multiplier());
 
 		Perk pace = PerkRegistry.byId("sharedfate:blessed_pace").orElseThrow();
-		assertEquals(PerkRarity.EPIC, pace.rarity());
+		assertEquals(PerkRarity.PLATINUM, pace.rarity());
 		StatusEffectPerk status = assertInstanceOf(StatusEffectPerk.class, pace.effects().get(0));
 		assertEquals("minecraft:speed", status.effectId().toString());
 		assertEquals(1, status.amplifier());

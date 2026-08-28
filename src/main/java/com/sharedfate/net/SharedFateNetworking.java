@@ -7,7 +7,8 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 
 public final class SharedFateNetworking {
 	// 6: 증강(Perk) 페이로드 3종 추가
-	public static final int PROTOCOL_VERSION = 6;
+	// 7: TeamSyncPayload 에 공유 레벨·다음 증강 레벨 추가
+	public static final int PROTOCOL_VERSION = 7;
 
 	private SharedFateNetworking() {
 	}
@@ -30,6 +31,7 @@ public final class SharedFateNetworking {
 				(payload, context) -> PerkManager.applyChoice(
 						context.player(), payload.milestone(), payload.perkId()));
 		ServerTickEvents.END_SERVER_TICK.register(TeamBroadcaster::flushSelectedSlots);
+		ServerTickEvents.END_SERVER_TICK.register(TeamBroadcaster::flushTeamLevels);
 		ClientModGate.register();
 	}
 }
