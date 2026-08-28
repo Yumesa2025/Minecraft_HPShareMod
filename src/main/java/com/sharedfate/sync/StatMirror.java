@@ -180,13 +180,20 @@ public final class StatMirror {
 	/**
 	 * 팀원별 변화량을 공유 풀 하나의 변화량으로 접는다.
 	 *
-	 * <p>체력 손실은 그대로 <em>합산</em>한다. 팀원 A 가 좀비에게, B 가 스켈레톤에게 같은 틱에
-	 * 맞았다면 팀은 진짜로 두 번 맞은 것이므로 둘 다 세는 게 맞다.
+	 * <p>체력 손실도, 체력 회복도, 허기·포만감 변화도 그대로 <em>합산</em>한다. 팀원 A 가
+	 * 좀비에게, B 가 스켈레톤에게 같은 틱에 맞았다면 팀은 진짜로 두 번 맞은 것이고, A 가
+	 * 금사과를 B 가 빵을 먹었다면 진짜로 두 번 먹은 것이므로 둘 다 세는 게 맞다.
 	 *
-	 * <p>합산하면 안 되는 경우 — 공유된 상태이상 하나가 팀 전원에게 똑같이 주는 피해 — 는
-	 * 여기까지 오지 않는다. {@link SharedEffectDamage} 가 피해가 발생하는 자리에서 대표 한 명
-	 * 것만 남기고 나머지를 막으므로, 막힌 팀원의 체력은 애초에 줄지 않아 변화량이 0 이다.
-	 * 원인을 아는 자리에서 걸러야 여기서 "이 손실이 같은 원인인지"를 추측하지 않아도 된다.
+	 * <p>합산하면 안 되는 경우 — 공유된 상태이상 하나가 팀 전원에게 똑같이 일으키는 피해·회복·
+	 * 허기 소모 — 는 여기까지 오지 않는다. {@link SharedEffectDamage} 가 변화가 발생하는
+	 * 자리에서 대표 한 명 것만 남기고 나머지를 막으므로, 막힌 팀원의 체력과 허기는 애초에
+	 * 움직이지 않아 변화량이 0 이다. 원인을 아는 자리에서 걸러야 여기서 "이 변화가 같은
+	 * 원인인지"를 추측하지 않아도 된다.
+	 *
+	 * <p>허기는 한 가지가 더 얽힌다. 허기 효과는 그 자리에서 배를 깎지 않고 소모도만 쌓고,
+	 * 실제 감소는 소모도가 4.0 을 넘는 한참 뒤 {@code FoodData.tick} 에서 일어난다. 그래서
+	 * 여기서 관측하는 배고픔 변화만 봐서는 원인을 되짚을 수 없다. 소모도가 쌓이는 입구인
+	 * {@code Player.causeFoodExhaustion} 에서 막는 이유가 그것이다.
 	 */
 	static StatDelta fold(List<PlayerDelta> deltas) {
 		float healthLoss = 0.0F;
@@ -217,13 +224,17 @@ public final class StatMirror {
 	}
 
 	/**
-	 * 팀에서 공유 상태이상 피해를 실제로 받을 한 명.
+	 * 팀에서 공유 상태이상의 몫을 실제로 겪을 한 명.
+	 *
+	 * <p>독 피해도, 재생 회복도, 허기 소모도 이 한 명 것만 공유 풀에 반영된다. 셋이 같은
+	 * 대표를 쓰는 게 중요하다. 피해와 회복의 대표가 다르면 재생과 독이 동시에 걸린 팀에서
+	 * 한쪽만 1인분이 되어 셈이 어긋난다.
 	 *
 	 * <p>{@code team.members()} 순서로 처음 만나는, 접속해 있고 살아 있는 팀원이다. 팀 명단
 	 * 순서는 안정적이라 같은 틱 안에서 여러 번 물어도 같은 사람이 나온다. 아무도 없으면
-	 * {@code null} 이고, 그때는 {@link SharedEffectDamage} 가 어떤 피해도 막지 않는다.
+	 * {@code null} 이고, 그때는 {@link SharedEffectDamage} 가 아무것도 막지 않는다.
 	 */
-	public static @Nullable ServerPlayer damageRepresentative(MinecraftServer server, ShareTeam team) {
+	public static @Nullable ServerPlayer sharedEffectRepresentative(MinecraftServer server, ShareTeam team) {
 		for (UUID member : team.members()) {
 			ServerPlayer player = server.getPlayerList().getPlayer(member);
 			if (isSharing(player)) {

@@ -142,7 +142,7 @@ class SharedEffectDamageTest {
 	/**
 	 * 팀 전원이 같은 공유 상태이상 틱을 맞은 상황을 흉내 낸다.
 	 *
-	 * @param representative           {@code StatMirror.damageRepresentative} 가 고른 대표
+	 * @param representative           {@code StatMirror.sharedEffectRepresentative} 가 고른 대표
 	 * @param shareStatusEffects       상태이상 공유 설정
 	 * @param representativeHasEffect  대표도 같은 상태이상을 갖고 있는가
 	 * @return 팀원 순서대로의 관측 변화량. 막힌 팀원은 0 이다

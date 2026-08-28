@@ -11,35 +11,50 @@ import net.minecraft.world.entity.LivingEntity;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * 공유된 상태이상이 팀 전원에게 똑같이 주는 피해를 한 사람 몫으로 줄인다.
+ * 공유된 상태이상이 팀 전원에게 똑같이 일으키는 공유 풀 변화를 한 사람 몫으로 줄인다.
  *
  * <p>{@link EffectSync} 는 한 명이 걸린 상태이상을 팀 전원에게 복사한다. 그래서 독에 걸리면
  * 4인 팀은 네 명이 각자 독 피해를 받고, {@link StatMirror} 는 그 네 번의 체력 감소를 모두
- * 합산해 공유 체력에서 깎는다. 결과적으로 독 한 방이 4배가 된다. 위더처럼 주기적으로 피해를
- * 주는 상태이상은 전부 같은 문제를 갖는다.
+ * 합산해 공유 체력에서 깎는다. 결과적으로 독 한 방이 4배가 된다. 같은 일이 반대 방향으로도
+ * 일어난다. 재생은 네 번 회복하고, 허기는 네 배로 배고픔을 깎는다. 공유 풀 하나를 건드리는
+ * 상태이상은 전부 같은 문제를 갖는다.
  *
  * <p>합산 자체가 틀린 건 아니다. 팀원 A 가 좀비에게, B 가 스켈레톤에게 같은 틱에 맞았다면
- * 그건 진짜로 두 번 맞은 것이라 합산이 맞다. 틀린 건 "한 원인이 공유 때문에 여러 번으로
- * 보이는" 경우뿐이다. 그래서 여기서는 원인을 정확히 짚어 구분한다.
+ * 그건 진짜로 두 번 맞은 것이라 합산이 맞다. 팀원 A 가 금사과를, B 가 빵을 먹었다면 그것도
+ * 두 번이다. 틀린 건 "한 원인이 공유 때문에 여러 번으로 보이는" 경우뿐이다. 그래서 여기서는
+ * 원인을 정확히 짚어 구분한다.
  *
  * <ol>
  *   <li>{@code MobEffectInstanceSharedTickMixin} 이 상태이상 틱이 도는 구간을 표시한다.
- *       그 구간 안에서 발생한 피해만 "상태이상이 원인인 피해"다. 몹·낙하·용암 피해는
- *       구간 밖이라 애초에 후보가 되지 않는다.
- *   <li>그 구간의 피해는 팀의 <em>대표 한 명</em>만 실제로 받는다. 나머지 팀원의 피해는
- *       {@code LivingEntityPerkDamageMixin} 이 {@code hurtServer} 진입 시점에서 막는다.
- *       체력이 애초에 줄지 않으므로 {@link StatMirror} 도 {@link DamageLedger} 도 그 몫을
- *       세지 않는다.
+ *       그 구간 안에서 발생한 변화만 "상태이상이 원인인 변화"다. 몹·낙하·용암 피해도,
+ *       음식 섭취도 구간 밖이라 애초에 후보가 되지 않는다.
+ *   <li>그 구간의 공유 풀 변화는 팀의 <em>대표 한 명</em>만 실제로 겪는다. 나머지 팀원 몫은
+ *       변화가 나는 바로 그 자리에서 막는다. 피해는
+ *       {@code LivingEntityPerkDamageMixin} 이 {@code hurtServer} 진입 시점에,
+ *       회복은 {@code LivingEntitySharedHealMixin} 이 {@code heal} 진입 시점에,
+ *       배고픔은 {@code PlayerSharedExhaustionMixin} 이 {@code causeFoodExhaustion} 진입
+ *       시점에 막는다. 체력·허기가 애초에 움직이지 않으므로 {@link StatMirror} 도
+ *       {@link DamageLedger} 도 그 몫을 세지 않는다.
  * </ol>
  *
- * <p>상태이상 공유 자체는 그대로다. 팀원 넷 모두 여전히 독 아이콘과 입자를 갖고, 대표가
- * 받은 피해는 {@link SharedHurtFeedback} 이 팀 전원에게 피격 연출로 뿌리며, 줄어든 공유
- * 체력은 {@code StatMirror.writeBack} 이 전원에게 똑같이 써 준다. 보이는 결과는 "다 같이
- * 독에 걸려 다 같이 체력이 준다"로 이전과 같고, 깎이는 양만 1인분으로 바로잡힌다.
+ * <p>상태이상 공유 자체는 그대로다. 팀원 넷 모두 여전히 독·재생 아이콘과 입자를 갖고, 대표가
+ * 받은 피해는 {@link SharedHurtFeedback} 이 팀 전원에게 피격 연출로 뿌리며, 달라진 공유
+ * 체력·허기는 {@code StatMirror.writeBack} 이 전원에게 똑같이 써 준다. 보이는 결과는 "다 같이
+ * 재생에 걸려 다 같이 체력이 찬다"로 이전과 같고, 움직이는 양만 1인분으로 바로잡힌다.
  *
  * <p>대표가 같은 상태이상을 갖고 있을 때만 막는다는 조건이 안전장치다. 어떤 이유로 대표에게
- * 그 상태이상이 없으면 아무도 막히지 않으므로, 팀이 공짜로 피해 면역을 얻는 일은 없다.
- * {@code shareStatusEffects} 가 꺼져 있으면 이 판정은 항상 거짓이라 동작이 완전히 이전과 같다.
+ * 그 상태이상이 없으면 아무도 막히지 않으므로, 팀이 공짜로 피해 면역을 얻거나 회복을 통째로
+ * 잃는 일은 없다. {@code shareStatusEffects} 가 꺼져 있으면 이 판정은 항상 거짓이라 동작이
+ * 완전히 이전과 같다.
+ *
+ * <p>왜 {@code applyEffectTick} 을 통째로 건너뛰지 않는가. 그 호출은 공유 풀 말고도 많은 일을
+ * 한다. 26.2 기준으로 {@code BadOmenMobEffect} 는 그 안에서 습격 예고를 붙이고
+ * {@code false} 를 돌려줘 자기 자신을 끝내고, {@code RaidOmenMobEffect} 는 습격을 실제로
+ * 시작하며, {@code AbsorptionMobEffect} 는 흡수량이 0 이 되면 {@code false} 로 스스로 사라진다.
+ * {@code MobEffectInstance.tickServer} 는 이 반환값을 보고 상태이상을 제거할지 정한다. 통째로
+ * 건너뛰고 {@code true} 를 돌려주면 그 셋은 팀원 셋에게 영원히 남고, {@code false} 를
+ * 돌려주면 재생이 첫 틱에 사라진다. 모드가 추가한 상태이상은 그 안에서 무엇이든 할 수 있으니
+ * 더 위험하다. 그래서 호출은 그대로 하고, 공유 풀을 건드리는 지점만 골라서 막는다.
  */
 public final class SharedEffectDamage {
 	/** 지금 상태이상 틱이 돌고 있는 대상. 구간 밖에서는 null 이다. */
@@ -71,18 +86,59 @@ public final class SharedEffectDamage {
 	/**
 	 * 지금 들어온 피해가 공유 상태이상 때문에 중복으로 발생한 것인가.
 	 *
-	 * <p>{@code hurtServer} 진입 시점마다 불린다. 상태이상 틱 구간 밖이면 첫 줄에서 바로
-	 * 빠져나가므로 평소 피해 경로에는 필드 비교 두 번만 얹힌다.
+	 * <p>{@code hurtServer} 진입 시점마다 불린다.
 	 */
 	public static boolean isDuplicateEffectDamage(@Nullable LivingEntity victim) {
+		return isDuplicateSharedEffectTick(victim);
+	}
+
+	/**
+	 * 지금 들어온 회복이 공유 상태이상 때문에 중복으로 발생한 것인가.
+	 *
+	 * <p>{@code LivingEntity.heal} 진입 시점마다 불린다. 재생이 전형이다. 26.2 의
+	 * {@code RegenerationMobEffect.applyEffectTick} 은 {@code heal(1.0F)} 한 번이 전부라,
+	 * 이 한 지점만 막으면 팀원 넷의 재생이 공유 체력을 1인분만 채운다.
+	 *
+	 * <p>구간 밖의 회복 — 금사과, {@code /heal}, 평화 난이도 자연 회복 — 은 판정이 서지 않아
+	 * 그대로 통과하고 {@link StatMirror} 가 예전처럼 합산한다.
+	 */
+	public static boolean isDuplicateEffectHeal(@Nullable LivingEntity healed) {
+		return isDuplicateSharedEffectTick(healed);
+	}
+
+	/**
+	 * 지금 쌓이는 허기 소모가 공유 상태이상 때문에 중복으로 발생한 것인가.
+	 *
+	 * <p>{@code Player.causeFoodExhaustion} 진입 시점마다 불린다. 26.2 의
+	 * {@code HungerMobEffect.applyEffectTick} 은 {@code causeFoodExhaustion(0.005F * 등급)}
+	 * 한 번이 전부다.
+	 *
+	 * <p>배고픔은 피해·회복과 달리 <em>그 자리에서 줄지 않는다</em>. 쌓인 소모도가 4.0 을
+	 * 넘어야 {@code FoodData.tick} 이 포만감이나 허기를 1 깎는다. 즉 배수는 상태이상 틱
+	 * 구간이 아니라 한참 뒤 플레이어 틱에서 드러난다. 그래서 구간 안에서 배고픔 수치를
+	 * 되돌리는 방식으로는 못 고치고, 소모도가 쌓이는 입구를 막아야 한다.
+	 *
+	 * <p>달리기·점프·채굴로 쌓이는 평소 소모는 구간 밖이라 그대로다.
+	 */
+	public static boolean isDuplicateEffectExhaustion(@Nullable LivingEntity player) {
+		return isDuplicateSharedEffectTick(player);
+	}
+
+	/**
+	 * 지금 이 대상에게 일어나려는 공유 풀 변화가 "대표가 이미 대신 겪은 것"인가.
+	 *
+	 * <p>상태이상 틱 구간 밖이면 첫 줄에서 바로 빠져나가므로 평소 피해·회복·허기 경로에는
+	 * 필드 비교 두 번만 얹힌다.
+	 */
+	public static boolean isDuplicateSharedEffectTick(@Nullable LivingEntity entity) {
 		Holder<MobEffect> effect = tickingEffect;
-		if (effect == null || victim == null || tickingEntity != victim) {
+		if (effect == null || entity == null || tickingEntity != entity) {
 			return false;
 		}
 		if (SharedFateMod.config == null || !SharedFateMod.config.shareStatusEffects) {
 			return false;
 		}
-		if (!(victim instanceof ServerPlayer player)) {
+		if (!(entity instanceof ServerPlayer player)) {
 			return false;
 		}
 		MinecraftServer server = player.level().getServer();
@@ -93,32 +149,40 @@ public final class SharedEffectDamage {
 		if (team == null) {
 			return false;
 		}
-		ServerPlayer representative = StatMirror.damageRepresentative(server, team);
+		ServerPlayer representative = StatMirror.sharedEffectRepresentative(server, team);
 		// 대표를 못 고르면(전원 오프라인·사망) 아무도 막지 않는다.
-		boolean victimIsRepresentative =
+		boolean entityIsRepresentative =
 				representative == null || representative.getUUID().equals(player.getUUID());
 		boolean representativeHasSameEffect =
-				!victimIsRepresentative && representative.getEffect(effect) != null;
-		return isDuplicateEffectDamage(true, true, true, victimIsRepresentative, representativeHasSameEffect);
+				!entityIsRepresentative && representative.getEffect(effect) != null;
+		return isDuplicateSharedEffectTick(true, true, true, entityIsRepresentative, representativeHasSameEffect);
 	}
 
 	/**
-	 * 판정의 알맹이. 월드 없이 시험할 수 있도록 조건만 떼어 놨다.
+	 * 판정의 알맹이. 월드 없이 시험할 수 있도록 조건만 떼어 놨다. 피해·회복·배고픔이 모두 같은
+	 * 규칙을 쓴다. "한 원인이 공유 때문에 여러 번으로 보이는가"라는 질문이 셋 다 똑같기 때문이다.
 	 *
 	 * @param shareStatusEffects        상태이상 공유 설정이 켜져 있는가
-	 * @param insideSharedEffectTick    지금 피해가 상태이상 틱 구간 안에서 났는가
-	 * @param victimInTeam              피해자가 공유 팀에 속해 있는가
-	 * @param victimIsRepresentative    피해자가 이 팀의 피해 대표인가
+	 * @param insideSharedEffectTick    지금 변화가 상태이상 틱 구간 안에서 났는가
+	 * @param subjectInTeam             대상이 공유 팀에 속해 있는가
+	 * @param subjectIsRepresentative   대상이 이 팀의 대표인가
 	 * @param representativeHasSameEffect 대표가 같은 상태이상을 갖고 있는가
-	 * @return 이 피해를 버려야 하면 {@code true}
+	 * @return 이 변화를 버려야 하면 {@code true}
 	 */
-	static boolean isDuplicateEffectDamage(boolean shareStatusEffects, boolean insideSharedEffectTick,
-			boolean victimInTeam, boolean victimIsRepresentative, boolean representativeHasSameEffect) {
+	static boolean isDuplicateSharedEffectTick(boolean shareStatusEffects, boolean insideSharedEffectTick,
+			boolean subjectInTeam, boolean subjectIsRepresentative, boolean representativeHasSameEffect) {
 		return shareStatusEffects
 				&& insideSharedEffectTick
-				&& victimInTeam
-				&& !victimIsRepresentative
+				&& subjectInTeam
+				&& !subjectIsRepresentative
 				&& representativeHasSameEffect;
+	}
+
+	/** 피해 쪽 이름의 별칭. 규칙은 {@link #isDuplicateSharedEffectTick(boolean, boolean, boolean, boolean, boolean)} 과 같다. */
+	static boolean isDuplicateEffectDamage(boolean shareStatusEffects, boolean insideSharedEffectTick,
+			boolean victimInTeam, boolean victimIsRepresentative, boolean representativeHasSameEffect) {
+		return isDuplicateSharedEffectTick(shareStatusEffects, insideSharedEffectTick,
+				victimInTeam, victimIsRepresentative, representativeHasSameEffect);
 	}
 
 	/** 테스트나 서버 종료 때 남은 구간 표시를 지운다. */
