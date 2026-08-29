@@ -93,7 +93,7 @@ class NoFoodHungerEffectTest {
 		Files.writeString(dir.resolve(PerkRegistry.FILE_NAME), """
 				{
 				  "perks": [
-				    { "id": "sharedfate:devour", "rarity": "platinum", "name": "포식",
+				    { "id": "sharedfate:devour", "rarity": "prism", "name": "포식",
 				      "effects": [
 				        { "type": "on_kill", "food": 1, "health": 2.0 },
 				        { "type": "no_food_hunger" }

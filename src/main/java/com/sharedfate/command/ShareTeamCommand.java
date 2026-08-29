@@ -6,6 +6,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.sharedfate.config.SharedFateConfig;
+import com.sharedfate.perk.PerkHealthRules;
 import com.sharedfate.sync.InventorySwapper;
 import com.sharedfate.sync.EffectSync;
 import com.sharedfate.sync.MaxHealthAttribute;
@@ -387,19 +388,35 @@ public final class ShareTeamCommand {
 		}
 
 		int maximum = IntegerArgumentType.getInteger(context, "value");
-		state.maxHealth = maximum;
-		state.health = Math.min(state.health, state.maxHealth);
+		// 명령이 정하는 것은 "팀이 정한 기본값" 이다. 증강 보너스나 고정을 얹어 실제로 걸릴
+		// 상한을 내는 계산은 PerkHealthRules 한 곳에만 둔다. 그래야 증강을 잃었을 때 여기서
+		// 적어 둔 값이 그대로 돌아온다.
+		state.baseMaxHealth = maximum;
+		state.maxHealth = PerkHealthRules.effectiveMaxHealth(state);
+		// 공유 체력은 일부러 건드리지 않는다. 상한이 줄면 바닐라가 팀원의 현재 체력을 자르고
+		// StatMirror 가 그 감소를 이번 틱의 피해로 관측해 공유 체력에서 뺀다. 여기서 미리 깎으면
+		// 같은 감소가 두 번 들어가 팀이 전멸한다. 자세한 까닭은 PerkHealthRules 에 적어 뒀다.
+		float effective = state.maxHealth;
 		for (UUID memberId : team.members()) {
 			ServerPlayer member = context.getSource().getServer().getPlayerList().getPlayer(memberId);
 			if (member != null) {
-				MaxHealthAttribute.apply(member, state.maxHealth);
+				MaxHealthAttribute.apply(member, effective);
 				StatMirror.syncPlayerNow(team.teamId(), state, member);
 				member.sendSystemMessage(Component.literal(
-						"팀 공유 최대 체력이 " + maximum + "으로 설정되었습니다."));
+						"팀 공유 최대 체력이 " + maximum + "으로 설정되었습니다."
+								+ (effective == maximum ? ""
+										: " (증강이 적용되어 지금은 " + trimZero(effective) + "입니다.)")));
 			}
 		}
 		manager.setDirty();
 		return 1;
+	}
+
+	/** 20.0 처럼 소수점이 의미 없는 값을 "20" 으로 보여 준다. */
+	private static String trimZero(float value) {
+		return value == Math.rint(value)
+				? String.valueOf((long) value)
+				: String.format(java.util.Locale.ROOT, "%.1f", value);
 	}
 
 	private static int enablePositionSwap(CommandContext<CommandSourceStack> context)

@@ -1,0 +1,14 @@
+{
+  "_comment": "금기의 광석(item_ban)이 가리키는 다이아몬드 장비. 바닐라에는 '다이아몬드 장비 전부'에 해당하는 태그가 없어서 이 모드가 직접 싣는다. 이름이 비슷한 minecraft:diamond_tool_materials 는 도구가 아니라 수리 재료(다이아몬드 한 개)를 담은 태그라 쓸 수 없다. 서버 주인은 데이터팩으로 이 태그만 덮어써서 대상을 바꿀 수 있다.",
+  "values": [
+    "minecraft:diamond_sword",
+    "minecraft:diamond_pickaxe",
+    "minecraft:diamond_axe",
+    "minecraft:diamond_shovel",
+    "minecraft:diamond_hoe",
+    "minecraft:diamond_helmet",
+    "minecraft:diamond_chestplate",
+    "minecraft:diamond_leggings",
+    "minecraft:diamond_boots"
+  ]
+}

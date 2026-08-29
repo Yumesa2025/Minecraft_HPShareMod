@@ -79,11 +79,11 @@ class PerkMilestonesTest {
 	}
 
 	@Test
-	void 플레_구간은_전체에서_한_번뿐이다() {
+	void 프리즘_구간은_전체에서_한_번뿐이다() {
 		List<Integer> reached = PerkMilestones.newlyReached(0, 100);
 
-		assertEquals(1, reached.stream().filter(m -> m == PerkDraft.PLATINUM_MILESTONE).count());
-		assertTrue(reached.contains(PerkDraft.PLATINUM_MILESTONE), "15렙 구간이 실제로 발동해야 한다");
+		assertEquals(1, reached.stream().filter(m -> m == PerkDraft.PRISM_MILESTONE).count());
+		assertTrue(reached.contains(PerkDraft.PRISM_MILESTONE), "15렙 구간이 실제로 발동해야 한다");
 	}
 
 	@Test

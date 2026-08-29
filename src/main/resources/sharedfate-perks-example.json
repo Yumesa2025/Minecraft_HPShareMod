@@ -1,11 +1,11 @@
 {
   "_comment": "증강 정의 스키마 예시. 실제로 쓰려면 config/sharedfate-perks.json 으로 복사해 내용을 채운다. 실제 증강 풀은 아직 비어 있다.",
-  "_rarity": "구간마다 등급 하나가 정해지고 그 등급에서만 후보 3개가 나온다. 15렙은 항상 플레, 나머지 구간(5·10·20·25·30·35)은 실버 또는 골드다. 해당 등급이 3개에 모자라면 다른 등급에서 채운다.",
+  "_rarity": "구간마다 등급 하나가 정해지고 그 등급에서만 후보 3개가 나온다. 15렙은 항상 프리즘, 나머지 구간(5·10·20·25·30·35)은 실버 또는 골드다. 해당 등급이 3개에 모자라면 다른 등급에서 채운다.",
   "_schema": {
     "id": "필수. 고유 식별자",
     "name": "선택. 화면에 보이는 이름. 없으면 id 를 쓴다",
     "description": "선택. 화면에 보이는 설명",
-    "rarity": "필수. silver / gold / platinum (화면 표시: 실버 / 골드 / 플레)",
+    "rarity": "필수. silver / gold / prism (화면 표시: 실버 / 골드 / 프리즘)",
     "_removed": "stackable 과 maxStacks 는 없어졌다. 적어 두어도 오류 없이 무시된다. 한 번 고른 증강은 그 회차 동안 다시 후보로 나오지 않는다.",
     "effects": "필수. 비어 있으면 그 증강은 버려진다",
     "_effectTypes": {
@@ -51,7 +51,7 @@
       "id": "sharedfate:blessed_pace",
       "name": "축복받은 발걸음",
       "description": "상시 신속. 커스텀 핸들러 예시 포함",
-      "rarity": "platinum",
+      "rarity": "prism",
       "effects": [
         {
           "type": "status_effect",

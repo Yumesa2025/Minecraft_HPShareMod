@@ -26,10 +26,24 @@ import java.util.Optional;
  *
  * <p>속성 자체는 만들 때가 아니라 처음 적용할 때 찾는다. 증강 정의를 읽는 시점에는 레지스트리가
  * 아직 준비되지 않았을 수 있기 때문이다.
+ *
+ * <h2>{@code minecraft:max_health} 는 여기서 정해지지 않는다</h2>
+ * <p>이 모드의 최대 체력은 팀 공유 상한이고 {@code MaxHealthAttribute} 가 팀원의 속성을 그
+ * 상한과 <b>똑같아지도록</b> 덮어쓴다. 그래서 여기서 {@code max_health} 에 +6 을 걸어 봐야
+ * 그 덮어쓰기가 정확히 +6 을 상쇄해 증강이 아무 일도 하지 않은 것처럼 보인다. 실제로 그런
+ * 버그가 있었다. 새 정의는 {@link MaxHealthBonusEffect}({@code max_health_bonus}) 를 쓴다.
+ *
+ * <p>예전 형식({@code attribute} + {@code max_health} + {@code add_value})이 적힌 설정 파일이
+ * 이미 돌아가고 있으므로 <b>버리지는 않는다.</b> {@link #isLegacyMaxHealthBonus} 로 표를 내주고,
+ * {@link com.sharedfate.perk.PerkHealthRules} 가 그것도 보너스로 세어 상한 자체를 올려 준다.
+ * 그러면 여기서 건 수정자는 상한과 같은 값이 되어 덮어쓰기와 부딪히지 않는다.
  */
 public final class AttributeEffect implements PerkEffect {
 	/** 터무니없는 값으로 게임을 깨뜨리지 않도록 두는 상한. */
 	private static final double MAX_ABS_AMOUNT = 1024.0;
+	/** 이 속성만은 수정자가 아니라 {@link MaxHealthBonusEffect} 로 옮겨 읽는다. */
+	private static final Identifier MAX_HEALTH_ID =
+			Identifier.fromNamespaceAndPath("minecraft", "max_health");
 
 	private final Identifier attributeId;
 	private final Identifier modifierId;
@@ -74,7 +88,19 @@ public final class AttributeEffect implements PerkEffect {
 			return null;
 		}
 
+		if (MAX_HEALTH_ID.equals(attributeId)) {
+			SharedFateMod.LOGGER.info(
+					"증강 {}: 최대 체력은 max_health_bonus 로 적는 편이 좋습니다. "
+							+ "attribute 로 적힌 add_value 는 PerkHealthRules 가 대신 세어 줍니다 ({} {})",
+					perkId, operation, amount);
+		}
 		return new AttributeEffect(attributeId, modifierId(perkId, index), operation, amount);
+	}
+
+	/** 이 효과가 최대 체력을 {@code add_value} 로 올리는 예전 형식인가. */
+	public boolean isLegacyMaxHealthBonus() {
+		return MAX_HEALTH_ID.equals(attributeId)
+				&& operation == AttributeModifier.Operation.ADD_VALUE;
 	}
 
 	/** 증강 id와 효과 순번으로 이 효과만의 수정자 식별자를 만든다. */

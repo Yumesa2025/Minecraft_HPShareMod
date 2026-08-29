@@ -122,7 +122,7 @@ class PerkRegistryTest {
 		assertEquals(1.35, assertInstanceOf(DamageTakenEffect.class, cannon.effects().get(1)).multiplier());
 
 		Perk pace = PerkRegistry.byId("sharedfate:blessed_pace").orElseThrow();
-		assertEquals(PerkRarity.PLATINUM, pace.rarity());
+		assertEquals(PerkRarity.PRISM, pace.rarity());
 		StatusEffectPerk status = assertInstanceOf(StatusEffectPerk.class, pace.effects().get(0));
 		assertEquals("minecraft:speed", status.effectId().toString());
 		assertEquals(1, status.amplifier());

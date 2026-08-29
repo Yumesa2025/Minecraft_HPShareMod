@@ -1,5 +1,8 @@
 package com.sharedfate.perk;
 
+import net.minecraft.resources.Identifier;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.List;
 
 /**
@@ -12,6 +15,8 @@ import java.util.List;
  * @param name        화면에 보이는 이름
  * @param description 화면에 보이는 설명
  * @param rarity      등급
+ * @param icon        선택 화면 카드에 그릴 아이템. 없으면 {@code null} 이고, 그때는
+ *                    클라이언트가 등급별 기본 아이콘을 대신 쓴다
  * @param effects     이 증강이 가진 효과들
  */
 public record Perk(
@@ -19,9 +24,16 @@ public record Perk(
 		String name,
 		String description,
 		PerkRarity rarity,
+		@Nullable Identifier icon,
 		List<PerkEffect> effects) {
 
 	public Perk {
 		effects = List.copyOf(effects);
+	}
+
+	/** 아이콘을 따로 정하지 않은 증강. 화면은 등급별 기본 아이콘을 쓴다. */
+	public Perk(String id, String name, String description, PerkRarity rarity,
+			List<PerkEffect> effects) {
+		this(id, name, description, rarity, null, effects);
 	}
 }

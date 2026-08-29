@@ -45,14 +45,24 @@ public record PerkOfferPayload(int milestone, boolean canChoose, boolean forced,
 	 * @param name        화면에 보이는 이름
 	 * @param description 화면에 보이는 설명
 	 * @param rarity      등급 문자열 ({@code common} / {@code rare} / {@code epic})
+	 * @param icon        카드에 그릴 아이템 이름 (예: {@code minecraft:feather}).
+	 *                    빈 문자열이면 클라이언트가 등급별 기본 아이콘을 쓴다
 	 */
-	public record PerkOption(String id, String name, String description, String rarity) {
+	public record PerkOption(String id, String name, String description, String rarity,
+			String icon) {
+
+		public PerkOption {
+			// 아이콘은 없어도 되는 값이라 서버 쪽 null 하나로 패킷 인코딩이 터지면 안 된다.
+			icon = icon == null ? "" : icon;
+		}
+
 		public static final StreamCodec<RegistryFriendlyByteBuf, PerkOption> CODEC =
 				StreamCodec.composite(
 						ByteBufCodecs.STRING_UTF8, PerkOption::id,
 						ByteBufCodecs.STRING_UTF8, PerkOption::name,
 						ByteBufCodecs.STRING_UTF8, PerkOption::description,
 						ByteBufCodecs.STRING_UTF8, PerkOption::rarity,
+						ByteBufCodecs.STRING_UTF8, PerkOption::icon,
 						PerkOption::new);
 	}
 

@@ -25,7 +25,7 @@
 | 관전 | 다른 팀원이 열면 같은 화면을 읽기 전용으로 본다 |
 | 켜고끄기 | 팀 생성 시 리더가 결정, 그 뒤 변경 불가 |
 | 회차 이월 | 전부 초기화 (`perksEnabled` 만 유지) |
-| 후보 구성 | 구간마다 등급이 하나로 정해지고 그 등급에서만 3개. 15렙은 플레 고정 |
+| 후보 구성 | 구간마다 등급이 하나로 정해지고 그 등급에서만 3개. 15렙은 프리즘 고정 |
 | 중복 | **중첩 없음.** 한 번 고른 증강은 그 회차 동안 후보에서 영구히 제외 |
 | 정의 위치 | `config/sharedfate-perks.json` + Java 핸들러 하이브리드 |
 
@@ -46,7 +46,7 @@
 ```
 src/main/java/com/sharedfate/perk/
   Perk.java              증강 정의 (id, 이름, 설명, 등급, 효과 목록)
-  PerkRarity.java        enum SILVER / GOLD / PLATINUM (실버 / 골드 / 플레)
+  PerkRarity.java        enum SILVER / GOLD / PRISM (실버 / 골드 / 프리즘)
   PerkEffect.java        효과 인터페이스 (apply / remove)
   PerkEffectType.java    JSON type 문자열 → 효과 팩토리 매핑
   effect/AttributeEffect.java
@@ -168,11 +168,11 @@ public final List<PendingOffer> pending;  // 대기 중인 선택권, 여러 개
 
 | 구간 | 등급 |
 |---|---|
-| 15렙 | **플레 고정.** 한 회차에 단 한 번뿐인 플레 라운드 |
+| 15렙 | **프리즘 고정.** 한 회차에 단 한 번뿐인 프리즘 라운드 |
 | 5·10·20·25·30·35렙 | 실버 또는 골드를 50:50 무작위로 결정 |
 
 정해진 등급에 후보가 모자라면 다른 등급에서 채운다. 우선순위는
-실버→골드→플레, 골드→실버→플레, 플레→골드→실버 순이며,
+실버→골드→프리즘, 골드→실버→프리즘, 프리즘→골드→실버 순이며,
 버킷을 순서대로 소진해 3개를 최대한 채운다.
 
 ### 증강 목록
