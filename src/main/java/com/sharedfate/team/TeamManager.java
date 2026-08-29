@@ -91,6 +91,20 @@ public class TeamManager extends SavedData {
 		return List.copyOf(teams.values());
 	}
 
+	/** 팀이 하나라도 있는지. */
+	public boolean hasAnyTeam() {
+		return !teams.isEmpty();
+	}
+
+	/**
+	 * singleTeamOnly 정책상 새 팀을 만들 수 있는지 판단한다.
+	 * 이미 있는 팀은 그대로 두고 새로 만드는 것만 막으므로, 팀이 여럿인 서버도 깨지지 않는다.
+	 * 회차 리셋 복원은 {@link #restoreFreshRoster}를 쓰므로 이 판단을 거치지 않는다.
+	 */
+	public boolean canCreateNewTeam(boolean singleTeamOnly) {
+		return !singleTeamOnly || teams.isEmpty();
+	}
+
 	public int restoreFreshRoster(Collection<ShareTeam> roster, float maxHealth) {
 		Objects.requireNonNull(roster, "roster");
 		if (!teams.isEmpty()) {

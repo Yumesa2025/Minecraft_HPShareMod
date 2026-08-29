@@ -25,6 +25,13 @@ public class SharedFateConfig {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
 	public int maxTeamSize = 4;
+	/**
+	 * 서버에 팀을 하나만 두도록 제한한다.
+	 * 켜져 있으면 이미 팀이 있을 때 /shareteam create 가 거부된다.
+	 * 이미 만들어져 있는 팀은 건드리지 않고, 새로 만드는 것만 막는다.
+	 * 몹 증강처럼 월드 전체에 걸리는 효과가 팀끼리 충돌하는 것을 막기 위한 기본값이다.
+	 */
+	public boolean singleTeamOnly = true;
 	public double sharedMaxHealth = 20.0;
 	public int mainInventoryRows = 6;
 	public boolean shareEnderChest = true;

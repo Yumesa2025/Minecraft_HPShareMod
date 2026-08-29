@@ -102,6 +102,17 @@ public final class ShareTeamCommand {
 					"이미 팀에 속해 있습니다. 먼저 /shareteam leave를 사용하세요."));
 			return 0;
 		}
+		// 팀이 여럿이면 몹 증강처럼 월드 전체에 걸리는 효과가 팀끼리 충돌한다.
+		// 이미 있는 팀은 그대로 두고 새로 만드는 것만 막는다. 해체하면 다시 만들 수 있다.
+		if (!manager.canCreateNewTeam(config.singleTeamOnly)) {
+			String existing = manager.allTeams().stream().map(ShareTeam::name)
+					.collect(Collectors.joining(", "));
+			context.getSource().sendFailure(Component.literal(
+					"이 서버에는 팀을 하나만 만들 수 있습니다. 이미 있는 팀: " + existing
+							+ "\n/shareteam accept <이름> 으로 초대를 수락하거나, "
+							+ "리더가 /shareteam disband confirm 으로 해체한 뒤 다시 만드세요."));
+			return 0;
+		}
 
 		String name = StringArgumentType.getString(context, "name").trim();
 		if (name.isEmpty()) {

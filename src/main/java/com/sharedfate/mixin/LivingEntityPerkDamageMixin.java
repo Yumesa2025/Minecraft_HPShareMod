@@ -1,5 +1,6 @@
 package com.sharedfate.mixin;
 
+import com.sharedfate.perk.PerkChoiceSession;
 import com.sharedfate.perk.PerkDamage;
 import com.sharedfate.sync.SharedEffectDamage;
 import net.minecraft.server.level.ServerLevel;
@@ -37,7 +38,17 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityPerkDamageMixin {
 	/**
-	 * 공유된 상태이상이 이미 다른 팀원에게 준 피해면 여기서 버린다.
+	 * 버려야 할 피해를 여기서 전부 걸러낸다.
+	 *
+	 * <p>두 가지를 본다.
+	 *
+	 * <ol>
+	 *   <li><b>강제 증강 선택 중의 무적</b> — 시간이 멈춰 있어도 용암·낙하·불·익사는 플레이어 자기
+	 *       틱에서 계산돼 그대로 들어온다. 선택창이 떠 있는 동안에는 팀원의 피해를 통째로 버린다.
+	 *       무적은 {@link com.sharedfate.perk.PerkChoiceSession} 이 시간을 녹이는 순간 함께 풀린다.
+	 *       세션이 없으면 첫 줄에서 곧바로 빠져나가므로 평소 피해 처리에는 비용이 없다.</li>
+	 *   <li><b>공유 상태이상의 중복 피해</b> — 아래 설명 참고.</li>
+	 * </ol>
 	 *
 	 * <p>{@code false} 를 돌려주면 바닐라 입장에서는 "피해가 들어가지 않았다"와 같다. 체력·흡수·
 	 * 무적시간·피격 애니메이션 어느 것도 건드리지 않으므로 {@code StatMirror} 가 다음 틱에 관측할
@@ -51,7 +62,12 @@ public abstract class LivingEntityPerkDamageMixin {
 	@Inject(method = "hurtServer", at = @At("HEAD"), cancellable = true)
 	private void sharedfate$skipDuplicateSharedEffectDamage(ServerLevel level, DamageSource source,
 			float amount, CallbackInfoReturnable<Boolean> callback) {
-		if (SharedEffectDamage.isDuplicateEffectDamage((LivingEntity) (Object) this)) {
+		LivingEntity self = (LivingEntity) (Object) this;
+		if (PerkChoiceSession.blocksDamage(self)) {
+			callback.setReturnValue(false);
+			return;
+		}
+		if (SharedEffectDamage.isDuplicateEffectDamage(self)) {
 			callback.setReturnValue(false);
 		}
 	}

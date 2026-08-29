@@ -11,18 +11,31 @@ import java.util.List;
 /**
  * S2C — 증강 후보 제시.
  *
- * <p>서버가 {@code /shareteam perk} 실행에 응답해 보낸다. 클라이언트는 이걸 받아
- * 선택 화면을 연다.
+ * <p>보내는 경로는 두 가지다.
  *
- * @param milestone 이 선택권을 만든 레벨 구간 (3, 6, …, 36)
- * @param canChoose 실제로 고를 수 있는지. false면 다른 팀원이 고르는 걸 지켜보는 관전 모드
- * @param options   제시된 후보. 최대 {@link #MAX_OPTIONS}개이며, 풀이 모자라면 더 적을 수 있다
+ * <ul>
+ *   <li><b>강제 오픈</b> — 레벨 구간에 도달하면 서버가 시간을 멈추고 팀 전원에게 스스로 보낸다.
+ *       {@code forced} 가 {@code true} 이고 {@code remainingTicks} 에 마감까지 남은 틱이 담긴다.
+ *       클라이언트는 ESC 를 막고 카운트다운을 띄운다.</li>
+ *   <li><b>직접 열기</b> — {@code /shareteam perk} 실행에 응답해 보낸다. 시간도 멈추지 않고
+ *       무적도 걸리지 않는 단순 확인용이라 {@code forced} 는 {@code false},
+ *       {@code remainingTicks} 는 {@link #NO_DEADLINE} 이다.</li>
+ * </ul>
+ *
+ * @param milestone      이 선택권을 만든 레벨 구간 (5, 10, …, 35)
+ * @param canChoose      실제로 고를 수 있는지. false면 다른 팀원이 고르는 걸 지켜보는 관전 모드
+ * @param forced         서버가 강제로 띄운 창인지. true면 ESC 로 닫을 수 없고 카운트다운이 보인다
+ * @param remainingTicks 마감까지 남은 틱. 마감이 없으면 {@link #NO_DEADLINE}
+ * @param options        제시된 후보. 최대 {@link #MAX_OPTIONS}개이며, 풀이 모자라면 더 적을 수 있다
  */
-public record PerkOfferPayload(int milestone, boolean canChoose, List<PerkOption> options)
-		implements CustomPacketPayload {
+public record PerkOfferPayload(int milestone, boolean canChoose, boolean forced,
+		int remainingTicks, List<PerkOption> options) implements CustomPacketPayload {
 
 	/** 한 번에 제시할 수 있는 후보 수 상한. */
 	public static final int MAX_OPTIONS = 3;
+
+	/** 마감이 없는 창({@code /shareteam perk} 로 직접 연 경우)의 {@code remainingTicks} 값. */
+	public static final int NO_DEADLINE = -1;
 
 	/**
 	 * 화면에 그릴 후보 하나. 서버가 이미 표시용 문자열로 풀어서 보내므로
@@ -48,11 +61,24 @@ public record PerkOfferPayload(int milestone, boolean canChoose, List<PerkOption
 			StreamCodec.composite(
 					ByteBufCodecs.VAR_INT, PerkOfferPayload::milestone,
 					ByteBufCodecs.BOOL, PerkOfferPayload::canChoose,
+					ByteBufCodecs.BOOL, PerkOfferPayload::forced,
+					// 남은 틱은 마감이 없을 때 -1 이라 음수를 실을 수 있는 코덱이어야 한다.
+					ByteBufCodecs.INT, PerkOfferPayload::remainingTicks,
 					PerkOption.CODEC.apply(ByteBufCodecs.list(MAX_OPTIONS)), PerkOfferPayload::options,
 					PerkOfferPayload::new);
 
 	public PerkOfferPayload {
 		options = List.copyOf(options);
+	}
+
+	/** {@code /shareteam perk} 로 직접 연, 마감 없는 창. */
+	public static PerkOfferPayload manual(int milestone, boolean canChoose, List<PerkOption> options) {
+		return new PerkOfferPayload(milestone, canChoose, false, NO_DEADLINE, options);
+	}
+
+	/** 마감이 걸려 있는 강제 오픈인지. */
+	public boolean hasDeadline() {
+		return forced && remainingTicks >= 0;
 	}
 
 	@Override
