@@ -5,7 +5,7 @@ Minecraft Java Edition 26.2 / Fabric용 협동 모드입니다. 최대 4명이 �
 팀 공유 레벨이 오르면 팀 전체에 적용되는 **증강**을 함께 고르고, 팀 전멸 뒤에는 다음 회차의
 새 월드를 시작하며, 엔더 드래곤을 처치하면 승리와 엔딩으로 마무리됩니다.
 
-> 현재 버전은 **`0.5.0-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
+> 현재 버전은 **`0.5.1-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
 > SharedFate 버전을 사용해야 합니다.
 >
 > **0.4.0-dev 이하에서 올라오는 경우 클라이언트를 반드시 함께 갱신하세요.** 통신 규약이
@@ -15,11 +15,11 @@ Minecraft Java Edition 26.2 / Fabric용 협동 모드입니다. 최대 4명이 �
 
 | 파일 | 용도 |
 |---|---|
-| [SharedFate-0.5.0-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.5.0-dev/SharedFate-0.5.0-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
-| [sharedfate-0.5.0-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.5.0-dev/sharedfate-0.5.0-dev.jar) | 서버 운영자·수동 설치용 모드 JAR |
-| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.5.0-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
+| [SharedFate-0.5.1-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.5.1-dev/SharedFate-0.5.1-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
+| [sharedfate-0.5.1-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.5.1-dev/sharedfate-0.5.1-dev.jar) | 서버 운영자·수동 설치용 모드 JAR |
+| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.5.1-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
 
-[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.5.0-dev)
+[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.5.1-dev)
 
 ### 클라이언트 설치
 
@@ -107,12 +107,9 @@ Java 25가 필요합니다. SharedFate JAR만 받았다면 Fabric API
 크리에이티브 세부 조작, `KEEP_INVENTORY`, 동시 엔더상자, 3~4인 장시간 플레이의 수동 확인이
 남아 있는 사전 배포판입니다.
 
-증강 중 다음 항목은 아직 실제 플레이로 확인하지 못했습니다.
-
-- 골드 「요새 탐지기」 — 네더에서 나침반 바늘이 요새를 가리키는지
-- 프리즘 「허공답보」 — 공중 점프 높이
-- 프리즘 「장님 거인」 — 체력·허기 UI 숨김
-- 실버 「본진이 바뀐다」 · 골드 「뿌리내린 발」 — 위치 교환 연출
+증강 쪽은 2인 플레이로 모두 확인했습니다. 「요새 탐지기」의 네더 나침반, 「허공답보」의
+공중 점프, 「장님 거인」의 체력·허기 UI 숨김, 「본진이 바뀐다」·「뿌리내린 발」의 위치 교환이
+모두 의도대로 동작합니다.
 
 ## 소스 빌드
 
