@@ -4,9 +4,6 @@ import com.sharedfate.SharedFateMod;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
-import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
-import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,7 +16,7 @@ import net.minecraft.world.entity.player.Player;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
 
@@ -31,8 +28,6 @@ public final class RunProgressManager {
 	private static RunProgressState state;
 	private static Path stateFile;
 	private static ServerBossEvent bossBar;
-	private static final Set<UUID> CREDITS_PLAYERS = new HashSet<>();
-	private static int creditsDelayTicks;
 
 	private RunProgressManager() {
 	}
@@ -108,42 +103,34 @@ public final class RunProgressManager {
 				"승리! '" + winningName + "' 팀이 " + state.runNumber() + "회차에서 엔더 드래곤을 처치했습니다!"),
 				false);
 
-		CREDITS_PLAYERS.clear();
+		// 엔딩 크레딧은 띄우지 않는다. 대신 타이틀 → 폭죽 연출을 예약한다.
+		Set<UUID> audience = celebrationAudience(server, winningTeam, killer);
+		VictoryCelebration.start(audience, state.runNumber(), winningName,
+				SharedFateMod.config.victoryTitleDelayTicks,
+				SharedFateMod.config.victoryFireworkDelayTicks);
+		SharedFateMod.LOGGER.info(
+				"[RUN] victory runNumber={} team={} celebrationPlayers={}",
+				state.runNumber(), winningName, audience.size());
+	}
+
+	/** 승리 연출을 볼 사람들. 승리 팀이 있으면 그 팀, 없으면 처치자, 그마저 없으면 접속자 전원. */
+	private static Set<UUID> celebrationAudience(
+			MinecraftServer server, ShareTeam winningTeam, Player killer) {
+		Set<UUID> audience = new LinkedHashSet<>();
 		if (winningTeam != null) {
-			CREDITS_PLAYERS.addAll(winningTeam.members());
+			audience.addAll(winningTeam.members());
 		} else if (killer != null) {
-			CREDITS_PLAYERS.add(killer.getUUID());
+			audience.add(killer.getUUID());
 		} else {
 			for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-				CREDITS_PLAYERS.add(player.getUUID());
+				audience.add(player.getUUID());
 			}
 		}
-		for (UUID playerId : CREDITS_PLAYERS) {
-			ServerPlayer player = server.getPlayerList().getPlayer(playerId);
-			if (player != null) {
-				player.connection.send(new ClientboundSetTitlesAnimationPacket(10, 80, 20));
-				player.connection.send(new ClientboundSetSubtitleTextPacket(Component.literal(
-						state.runNumber() + "회차 · " + winningName)));
-				player.connection.send(new ClientboundSetTitleTextPacket(Component.literal("승리!")));
-			}
-		}
-		creditsDelayTicks = SharedFateMod.config.victoryCreditsDelayTicks;
-		SharedFateMod.LOGGER.info(
-				"[RUN] victory runNumber={} team={} creditsPlayers={}",
-				state.runNumber(), winningName, CREDITS_PLAYERS.size());
+		return audience;
 	}
 
 	public static void tick(MinecraftServer server) {
-		if (creditsDelayTicks <= 0 || --creditsDelayTicks > 0) {
-			return;
-		}
-		for (UUID playerId : CREDITS_PLAYERS) {
-			ServerPlayer player = server.getPlayerList().getPlayer(playerId);
-			if (player != null && !player.isRemoved()) {
-				player.showEndCredits();
-			}
-		}
-		CREDITS_PLAYERS.clear();
+		VictoryCelebration.tick(server);
 	}
 
 	private static void refreshBossBar() {
@@ -173,8 +160,7 @@ public final class RunProgressManager {
 		bossBar = null;
 		state = null;
 		stateFile = null;
-		CREDITS_PLAYERS.clear();
-		creditsDelayTicks = 0;
+		VictoryCelebration.reset();
 		FoodOverflowBuffer.resetRuntime();
 		DamageLedger.resetRuntime();
 	}

@@ -1,0 +1,76 @@
+package com.sharedfate.client.perk;
+
+import com.sharedfate.net.PerkClientFeaturesPayload;
+import com.sharedfate.perk.effect.HideHudEffect;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.EnumSet;
+import java.util.Set;
+
+/**
+ * 클라이언트가 보관하는 "지금 켜져 있는 클라 기능".
+ *
+ * <p>{@link PerkClientFeaturesPayload} 로 갱신되며, 월드에서 나가면 {@link #clear()} 로
+ * 비운다. {@link PerkClientState} 와 나눠 둔 이유는 쓰임이 다르기 때문이다. 저쪽은 화면에
+ * 글자로 뿌릴 표시용 문자열이고, 이쪽은 <b>동작을 가르는 판단값</b>이다.
+ *
+ * <h2>서버가 말해 주기 전에는 아무것도 켜지지 않는다</h2>
+ * <p>기본값은 전부 꺼짐이다. 서버가 이 모드를 안 쓰거나 증강을 안 쓰는 팀이면 패킷이 아예
+ * 오지 않고, 그러면 이 캐시는 계속 비어 있어 바닐라와 똑같이 움직인다.
+ *
+ * <p>값을 읽는 자리가 렌더 스레드({@code HudElement.extractRenderState})이고 쓰는 자리가
+ * 패킷 수신인데, 수신 쪽을 {@code client.execute(...)} 로 클라이언트 본 스레드에 올려
+ * 두었으므로 둘은 같은 스레드다.
+ */
+public final class ClientPerkFeatures {
+	private static boolean doubleJump;
+	private static double doubleJumpPower;
+	private static final Set<HideHudEffect.Element> HIDDEN =
+			EnumSet.noneOf(HideHudEffect.Element.class);
+
+	private ClientPerkFeatures() {
+	}
+
+	/** {@link PerkClientFeaturesPayload} 를 받았을 때 부른다. */
+	public static void update(@Nullable PerkClientFeaturesPayload payload) {
+		if (payload == null) {
+			clear();
+			return;
+		}
+		doubleJump = payload.doubleJump();
+		doubleJumpPower = payload.doubleJumpPower();
+		HIDDEN.clear();
+		HIDDEN.addAll(payload.hidden());
+		if (!doubleJump) {
+			// 공중 점프가 꺼지면 남아 있던 사용 표시도 뜻이 없어진다.
+			DoubleJumpHandler.reset();
+		}
+	}
+
+	/** 공중에서 한 번 더 뛸 수 있는가. */
+	public static boolean doubleJumpEnabled() {
+		return doubleJump;
+	}
+
+	/**
+	 * 공중 점프의 세기.
+	 *
+	 * <p>클라이언트는 이 값으로 밀지 않는다. 실제로 미는 것은 서버뿐이고, 이 값은 화면 효과나
+	 * 진단에 쓰라고 함께 내려온 참고값이다.
+	 */
+	public static double doubleJumpPower() {
+		return doubleJumpPower;
+	}
+
+	/** 이 HUD 칸을 가려야 하는가. */
+	public static boolean isHidden(@Nullable HideHudEffect.Element element) {
+		return element != null && HIDDEN.contains(element);
+	}
+
+	/** 월드에서 나갈 때 부른다. */
+	public static void clear() {
+		doubleJump = false;
+		doubleJumpPower = 0.0;
+		HIDDEN.clear();
+	}
+}

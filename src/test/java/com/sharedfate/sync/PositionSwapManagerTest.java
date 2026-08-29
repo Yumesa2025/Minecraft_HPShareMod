@@ -59,6 +59,49 @@ class PositionSwapManagerTest {
 	}
 
 	@Test
+	void 교환_오초전부터_매초_한번씩만_카운트다운을_보여준다() {
+		int seconds = PositionSwapManager.DEFAULT_COUNTDOWN_SECONDS;
+
+		assertEquals(5, PositionSwapManager.countdownSecondsToShow(100, seconds));
+		assertEquals(4, PositionSwapManager.countdownSecondsToShow(80, seconds));
+		assertEquals(3, PositionSwapManager.countdownSecondsToShow(60, seconds));
+		assertEquals(2, PositionSwapManager.countdownSecondsToShow(40, seconds));
+		assertEquals(1, PositionSwapManager.countdownSecondsToShow(20, seconds));
+
+		assertEquals(0, PositionSwapManager.countdownSecondsToShow(101, seconds), "5초보다 이르면 조용하다");
+		assertEquals(0, PositionSwapManager.countdownSecondsToShow(99, seconds), "초 경계가 아니면 조용하다");
+		assertEquals(0, PositionSwapManager.countdownSecondsToShow(1, seconds));
+		assertEquals(0, PositionSwapManager.countdownSecondsToShow(0, seconds));
+		assertEquals(0, PositionSwapManager.countdownSecondsToShow(-20, seconds));
+	}
+
+	@Test
+	void 카운트다운_길이가_영이면_아무것도_보여주지_않는다() {
+		for (int remaining = 0; remaining <= 200; remaining++) {
+			assertEquals(0, PositionSwapManager.countdownSecondsToShow(remaining, 0));
+		}
+	}
+
+	@Test
+	void 한주기_동안_카운트다운은_정확히_설정한_초만큼_나온다() {
+		TeamState state = TeamState.fresh(20.0F);
+		state.enablePositionSwap(1);
+		int shown = 0;
+
+		for (int tick = 0; tick < TeamState.PositionSwapLimits.TICKS_PER_MINUTE; tick++) {
+			if (state.advancePositionSwapTick(true)) {
+				break;
+			}
+			if (PositionSwapManager.countdownSecondsToShow(state.positionSwapRemainingTicks,
+					PositionSwapManager.DEFAULT_COUNTDOWN_SECONDS) > 0) {
+				shown++;
+			}
+		}
+
+		assertEquals(PositionSwapManager.DEFAULT_COUNTDOWN_SECONDS, shown);
+	}
+
+	@Test
 	void 명령범위_밖의_주기는_거부하고_끄면_카운트다운도_지운다() {
 		TeamState state = TeamState.fresh(20.0F);
 
