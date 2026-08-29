@@ -722,7 +722,7 @@
         {
           "type": "gather",
           "distance": 64,
-          "cooldown_ticks": 200,
+          "cooldown_ticks": 20,
           "effects": [
             {
               "type": "status_effect",
