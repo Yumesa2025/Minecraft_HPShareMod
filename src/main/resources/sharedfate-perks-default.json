@@ -1,10 +1,11 @@
 {
   "_comment": "SharedFate 기본 증강 풀. 설정 폴더에 sharedfate-perks.json 이 없으면 이 파일이 그대로 만들어진다. 자유롭게 편집해도 되고, 지우면 다음 실행 때 다시 생긴다.",
-  "_rarity": "구간마다 등급 하나가 정해지고 그 등급에서만 후보 3개가 나온다. 15렙은 항상 플레, 나머지 구간(5·10·20·25·30·35)은 실버 또는 골드다. 해당 등급이 3개에 모자라면 실버→골드→플레 순으로 채운다.",
+  "_rarity": "구간마다 등급 하나가 정해지고 그 등급에서만 후보 3개가 나온다. 15렙은 항상 프리즘, 나머지 구간(5·10·20·25·30·35)은 실버 또는 골드다. 해당 등급이 3개에 모자라면 실버→골드→프리즘 순으로 채운다.",
   "_duplicate": "중첩은 없다. 한 번 고른 증강은 그 회차 동안 다시 후보로 나오지 않는다. 예전 형식의 stackable·maxStacks 가 적혀 있어도 무시된다.",
   "perks": [
     {
       "id": "sharedfate:light_step",
+      "icon": "minecraft:feather",
       "name": "가벼운 발걸음",
       "description": "낙하 피해가 40% 감소합니다. 대신 넉백을 3배로 받습니다.",
       "rarity": "silver",
@@ -25,6 +26,7 @@
     },
     {
       "id": "sharedfate:deflated_shield",
+      "icon": "minecraft:shield",
       "name": "바람 빠진 방패",
       "description": "폭발에 훨씬 덜 밀립니다. 대신 그 밖의 넉백은 2배로 받습니다.",
       "rarity": "silver",
@@ -45,9 +47,10 @@
     },
     {
       "id": "sharedfate:bottomless_jar",
+      "icon": "minecraft:decorated_pot",
       "name": "밑 빠진 독",
       "description": "재생 II 를 상시 얻습니다. 대신 허기 IV 도 상시 얻습니다.",
-      "rarity": "platinum",
+      "rarity": "prism",
       "effects": [
         {
           "type": "status_effect",
@@ -63,9 +66,10 @@
     },
     {
       "id": "sharedfate:glass_world",
+      "icon": "minecraft:glass",
       "name": "유리 세계",
       "description": "엔더 드래곤을 제외한 모든 몹의 체력이 절반이 됩니다. 대신 받는 피해가 3배가 됩니다.",
-      "rarity": "platinum",
+      "rarity": "prism",
       "effects": [
         {
           "type": "mob_health",
@@ -80,6 +84,7 @@
     },
     {
       "id": "sharedfate:emergency_ration",
+      "icon": "minecraft:golden_apple",
       "name": "비상식량",
       "description": "황금 사과를 5개 얻습니다.",
       "rarity": "silver",
@@ -94,6 +99,7 @@
     },
     {
       "id": "sharedfate:expedition_kit",
+      "icon": "minecraft:potion",
       "name": "원정 준비물",
       "description": "화염 저항 포션과 수중 호흡 포션을 하나씩 얻습니다.",
       "rarity": "silver",
@@ -104,6 +110,307 @@
             { "id": "minecraft:potion", "count": 1, "potion": "minecraft:fire_resistance" },
             { "id": "minecraft:potion", "count": 1, "potion": "minecraft:water_breathing" }
           ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:endless_recovery",
+      "icon": "minecraft:ghast_tear",
+      "name": "무한 회복, 무한 식비",
+      "description": "재생 I 을 상시 얻습니다. 대신 허기 소모가 ×2 가 됩니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "status_effect",
+          "effect": "minecraft:regeneration",
+          "amplifier": 0
+        },
+        {
+          "type": "hunger_drain",
+          "multiplier": 2.0
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:spoiled_feast",
+      "icon": "minecraft:rotten_flesh",
+      "name": "상한 진수성찬",
+      "description": "음식의 허기 회복량이 3배가 됩니다. 대신 음식을 먹으면 독 I 을 4초간 얻습니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "food_nutrition",
+          "multiplier": 3.0,
+          "effects": [
+            {
+              "type": "status_effect",
+              "effect": "minecraft:poison",
+              "amplifier": 0,
+              "duration": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:ascetic",
+      "icon": "minecraft:bread",
+      "name": "고행자",
+      "description": "움직여도 허기가 떨어지지 않습니다(체력 자연 회복의 대가는 그대로 치릅니다). 대신 최대 체력이 10 으로 고정되며 다른 증강으로도 오르지 않습니다.",
+      "rarity": "prism",
+      "effects": [
+        {
+          "type": "no_hunger_drain"
+        },
+        {
+          "type": "max_health_lock",
+          "value": 10.0
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:greedy_pickaxe",
+      "icon": "minecraft:diamond_pickaxe",
+      "name": "욕심 많은 곡괭이",
+      "description": "광물을 캘 때 15% 확률로 하나 더 나옵니다. 대신 성공할 때 도구 내구도가 추가로 닳습니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "bonus_drop",
+          "chance": 0.15,
+          "extraDurability": 1,
+          "blocks": [
+            "#c:ores",
+            "#minecraft:coal_ores",
+            "#minecraft:copper_ores",
+            "#minecraft:diamond_ores",
+            "#minecraft:emerald_ores",
+            "#minecraft:gold_ores",
+            "#minecraft:iron_ores",
+            "#minecraft:lapis_ores",
+            "#minecraft:redstone_ores",
+            "minecraft:nether_quartz_ore",
+            "minecraft:nether_gold_ore",
+            "minecraft:ancient_debris"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:vein_sense",
+      "icon": "minecraft:raw_iron",
+      "name": "광맥 감각",
+      "description": "광석을 캐면 3초간 성급함 I 을 얻습니다. 대신 돌과 흙의 채굴 속도가 감소합니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "on_break",
+          "durationSeconds": 3,
+          "blocks": [
+            "#c:ores",
+            "#minecraft:coal_ores",
+            "#minecraft:copper_ores",
+            "#minecraft:diamond_ores",
+            "#minecraft:emerald_ores",
+            "#minecraft:gold_ores",
+            "#minecraft:iron_ores",
+            "#minecraft:lapis_ores",
+            "#minecraft:redstone_ores",
+            "minecraft:nether_quartz_ore",
+            "minecraft:nether_gold_ore",
+            "minecraft:ancient_debris"
+          ],
+          "effects": [
+            {
+              "type": "status_effect",
+              "effect": "minecraft:haste",
+              "amplifier": 0
+            }
+          ]
+        },
+        {
+          "type": "mining_speed",
+          "multiplier": 0.7,
+          "blocks": [
+            "#minecraft:base_stone_overworld",
+            "#minecraft:base_stone_nether",
+            "#minecraft:dirt",
+            "minecraft:grass_block"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:shared_suffering",
+      "icon": "minecraft:totem_of_undying",
+      "name": "동병상련",
+      "description": "팀원이 피해를 받으면 2초간 저항 I 을 얻습니다. 대신 같은 시간 동안 공격력이 감소합니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "on_team_hurt",
+          "durationSeconds": 2,
+          "effects": [
+            {
+              "type": "status_effect",
+              "effect": "minecraft:resistance",
+              "amplifier": 0
+            },
+            {
+              "type": "attribute",
+              "attribute": "minecraft:attack_damage",
+              "operation": "add_multiplied_total",
+              "amount": -0.2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:vital_strike",
+      "icon": "minecraft:iron_sword",
+      "name": "급소만 노려",
+      "description": "치명타에 성공하면 3초간 공격력이 10% 증가합니다. 대신 일반 공격 피해가 소폭 감소합니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "on_critical",
+          "durationSeconds": 3,
+          "effects": [
+            {
+              "type": "attribute",
+              "attribute": "minecraft:attack_damage",
+              "operation": "add_multiplied_total",
+              "amount": 0.1
+            }
+          ]
+        },
+        {
+          "type": "damage_dealt",
+          "multiplier": 0.95
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:vampire",
+      "icon": "minecraft:glow_berries",
+      "name": "흡혈귀",
+      "description": "준 피해의 일부를 체력으로 회복합니다. 대신 허기가 가득 차 있어도 체력이 자연 회복되지 않습니다.",
+      "rarity": "prism",
+      "effects": [
+        {
+          "type": "lifesteal",
+          "fraction": 0.15
+        },
+        {
+          "type": "no_natural_regen"
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:health_over_helmet",
+      "icon": "minecraft:red_dye",
+      "name": "뚝배기 대신 피통",
+      "description": "최대 체력이 6 증가합니다. 대신 머리 방어구를 착용할 수 없습니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "max_health_bonus",
+          "amount": 6.0
+        },
+        {
+          "type": "equip_ban",
+          "slots": ["head"]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:blind_giant",
+      "icon": "minecraft:heart_of_the_sea",
+      "name": "장님 거인",
+      "description": "최대 체력이 20 증가합니다. 대신 허기 I 을 상시 얻습니다.",
+      "rarity": "prism",
+      "effects": [
+        {
+          "type": "max_health_bonus",
+          "amount": 20.0
+        },
+        {
+          "type": "status_effect",
+          "effect": "minecraft:hunger",
+          "amplifier": 0
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:forbidden_ore",
+      "icon": "minecraft:netherite_ingot",
+      "name": "금기의 광석",
+      "description": "네더라이트 주괴를 3개 얻습니다. 대신 다이아몬드 도구와 방어구를 사용할 수 없습니다.",
+      "rarity": "prism",
+      "effects": [
+        {
+          "type": "item_grant",
+          "items": [
+            { "id": "minecraft:netherite_ingot", "count": 3 }
+          ]
+        },
+        {
+          "type": "item_ban",
+          "tags": ["sharedfate:diamond_gear"]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:berserker",
+      "icon": "minecraft:netherite_sword",
+      "name": "광전사",
+      "description": "공격력이 3배가 됩니다. 대신 방어구를 착용할 수 없습니다.",
+      "rarity": "prism",
+      "effects": [
+        {
+          "type": "attribute",
+          "attribute": "minecraft:attack_damage",
+          "operation": "add_multiplied_total",
+          "amount": 2.0
+        },
+        {
+          "type": "equip_ban",
+          "slots": ["armor"]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:life_in_hand",
+      "icon": "minecraft:totem_of_undying",
+      "name": "손에 쥔 목숨",
+      "description": "불사의 토템을 얻습니다. 대신 왼손 칸에 고정되어 다른 아이템을 둘 수 없습니다.",
+      "rarity": "prism",
+      "effects": [
+        {
+          "type": "item_grant",
+          "items": [
+            { "id": "minecraft:totem_of_undying", "count": 1 }
+          ]
+        },
+        {
+          "type": "offhand_lock",
+          "item": "minecraft:totem_of_undying"
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:shovel_master",
+      "icon": "minecraft:diamond_shovel",
+      "name": "삽질의 대가",
+      "description": "삽의 공격력이 3배가 됩니다. 대신 다른 도구와 무기의 공격력이 1이 됩니다.",
+      "rarity": "prism",
+      "effects": [
+        {
+          "type": "weapon_damage",
+          "tags": ["minecraft:shovels"],
+          "multiplier": 3.0,
+          "othersDamage": 1.0
         }
       ]
     }

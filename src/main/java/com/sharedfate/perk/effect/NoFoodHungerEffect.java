@@ -6,7 +6,7 @@ import com.sharedfate.perk.PerkEffect;
 /**
  * 음식을 먹어도 허기와 포만감이 오르지 않게 한다.
  *
- * <p>정의는 {@code { "type": "no_food_hunger" }} 하나뿐이고 필드가 없다. 플레 13 포식이
+ * <p>정의는 {@code { "type": "no_food_hunger" }} 하나뿐이고 필드가 없다. 프리즘 13 포식이
  * {@code on_kill} 과 짝지어 쓰는 대가다.
  *
  * <h2>먹기의 나머지는 그대로다</h2>

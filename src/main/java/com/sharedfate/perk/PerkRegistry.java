@@ -5,6 +5,12 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.sharedfate.SharedFateMod;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -202,11 +208,44 @@ public final class PerkRegistry {
 				return null;
 			}
 
-			return new Perk(id, name, description, rarity, effects);
+			return new Perk(id, name, description, rarity, parseIcon(id, json), effects);
 		} catch (Exception error) {
 			SharedFateMod.LOGGER.warn("증강 항목을 읽다가 실패해 건너뜁니다", error);
 			return null;
 		}
+	}
+
+	/**
+	 * 선택 화면 카드에 그릴 아이템 아이콘을 읽는다.
+	 *
+	 * <p>{@code icon} 은 있으면 좋은 장식일 뿐이므로 잘못돼 있어도 증강을 버리지 않는다.
+	 * 이름이 깨졌거나 존재하지 않는 아이템이면 경고만 남기고 {@code null} 을 돌려주며,
+	 * 그때는 화면이 등급별 기본 아이콘을 대신 쓴다.
+	 */
+	private static @Nullable Identifier parseIcon(String perkId, JsonObject json) {
+		String raw = PerkEffectType.readString(json, "icon");
+		if (raw == null || raw.isBlank()) {
+			return null;
+		}
+		Identifier id = Identifier.tryParse(raw.trim());
+		if (id == null) {
+			SharedFateMod.LOGGER.warn("증강 {}: icon 이 아이템 이름 형식이 아닙니다 ({})", perkId, raw);
+			return null;
+		}
+		try {
+			Optional<Holder.Reference<Item>> found = BuiltInRegistries.ITEM.get(id);
+			// 아이템 레지스트리는 기본값이 공기라 없는 이름도 공기로 돌아올 수 있다.
+			if (found.isEmpty() || found.get().value() == Items.AIR) {
+				SharedFateMod.LOGGER.warn("증강 {}: icon 아이템을 찾을 수 없어 기본 아이콘을 씁니다 ({})",
+						perkId, id);
+				return null;
+			}
+		} catch (Exception error) {
+			// 레지스트리가 아직 준비되지 않은 상황이라면 굳이 아이콘을 버리지 않는다.
+			SharedFateMod.LOGGER.warn("증강 {}: icon {} 을 확인하지 못했습니다", perkId, id, error);
+			return id;
+		}
+		return id;
 	}
 
 	/**

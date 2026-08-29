@@ -24,11 +24,11 @@ public final class PerkDraft {
 	/** 한 번에 제시하는 기본 후보 수. */
 	public static final int DEFAULT_OPTIONS = 3;
 
-	/** 플레 라운드로 고정된 구간. 한 회차에 단 한 번뿐이다. */
-	public static final int PLATINUM_MILESTONE = 15;
+	/** 프리즘 라운드로 고정된 구간. 한 회차에 단 한 번뿐이다. */
+	public static final int PRISM_MILESTONE = 15;
 
 	/**
-	 * 플레가 아닌 구간에서 실버가 나올 확률(퍼센트). 나머지는 골드다.
+	 * 프리즘가 아닌 구간에서 실버가 나올 확률(퍼센트). 나머지는 골드다.
 	 *
 	 * <p>밸런스를 보고 조정할 수 있게 상수로 빼 뒀다. 0이면 전부 골드, 100이면 전부 실버다.
 	 */
@@ -40,15 +40,15 @@ public final class PerkDraft {
 	/**
 	 * 이 구간에 배정할 등급을 정한다.
 	 *
-	 * <p>{@link #PLATINUM_MILESTONE}은 무작위가 아니라 <b>항상</b> 플레다. 나머지 구간은
+	 * <p>{@link #PRISM_MILESTONE}은 무작위가 아니라 <b>항상</b> 프리즘다. 나머지 구간은
 	 * {@link #SILVER_PERCENT} 확률로 실버, 아니면 골드다.
 	 *
 	 * @param milestone 레벨 구간 (5, 10, …, 35)
 	 * @param random    난수원. 고정 시드를 주면 결과가 결정론적이다
 	 */
 	public static PerkRarity rarityFor(int milestone, RandomSource random) {
-		if (milestone == PLATINUM_MILESTONE) {
-			return PerkRarity.PLATINUM;
+		if (milestone == PRISM_MILESTONE) {
+			return PerkRarity.PRISM;
 		}
 		if (random == null) {
 			// 난수원이 없으면 굴릴 수가 없다. 터뜨리는 대신 가장 낮은 등급으로 둔다.
@@ -60,14 +60,14 @@ public final class PerkDraft {
 	/**
 	 * 후보가 모자랄 때 어느 등급에서 채울지의 우선순위.
 	 *
-	 * <p>실버 부족 → 골드 → 플레, 골드 부족 → 실버 → 플레, 플레 부족 → 골드 → 실버.
+	 * <p>실버 부족 → 골드 → 프리즘, 골드 부족 → 실버 → 프리즘, 프리즘 부족 → 골드 → 실버.
 	 * 등급 차이가 작은 쪽부터 끌어온다.
 	 */
 	public static List<PerkRarity> fallbackOrder(PerkRarity rarity) {
 		return switch (rarity) {
-			case SILVER -> List.of(PerkRarity.SILVER, PerkRarity.GOLD, PerkRarity.PLATINUM);
-			case GOLD -> List.of(PerkRarity.GOLD, PerkRarity.SILVER, PerkRarity.PLATINUM);
-			case PLATINUM -> List.of(PerkRarity.PLATINUM, PerkRarity.GOLD, PerkRarity.SILVER);
+			case SILVER -> List.of(PerkRarity.SILVER, PerkRarity.GOLD, PerkRarity.PRISM);
+			case GOLD -> List.of(PerkRarity.GOLD, PerkRarity.SILVER, PerkRarity.PRISM);
+			case PRISM -> List.of(PerkRarity.PRISM, PerkRarity.GOLD, PerkRarity.SILVER);
 		};
 	}
 

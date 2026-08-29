@@ -4,16 +4,25 @@ import com.sharedfate.net.PerkChoiceC2SPayload;
 import com.sharedfate.net.PerkOfferPayload;
 import com.sharedfate.perk.PerkRarity;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix3x2fStack;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 증강 후보를 카드 형태로 가로 배치해 보여주는 화면.
@@ -29,20 +38,35 @@ import java.util.List;
  *   <li><b>직접 열기</b> — {@code /shareteam perk} 로 연 확인용 창이다. 시간도 멈추지 않았고
  *       마감도 없으므로 ESC 로 자유롭게 닫을 수 있다.</li>
  * </ul>
+ *
+ * <p>카드 한 장은 위에서부터 <b>등급 띠 → 아이템 아이콘 → 이름 → 구분선 → 설명</b> 순서로
+ * 쌓인다. 등급색은 띠·테두리·배경 그라데이션에 함께 쓰여서 무엇을 고르는 라운드인지
+ * 글자를 읽지 않아도 알 수 있게 한다.
  */
 public class PerkOfferScreen extends Screen {
 	private static final int COLOR_SILVER = 0xFFC0C6CC;
 	private static final int COLOR_GOLD = 0xFFFFC63A;
-	private static final int COLOR_PLATINUM = 0xFF5FE0D8;
+	private static final int COLOR_PRISM = 0xFF5FE0D8;
 
-	private static final int CARD_BACKGROUND = 0xE0121218;
-	private static final int CARD_BACKGROUND_HOVER = 0xF01E2233;
+	/** 카드 배경 그라데이션의 위/아래 색. 여기에 등급색을 조금 섞어서 쓴다. */
+	private static final int CARD_TOP = 0xE81A1A24;
+	private static final int CARD_BOTTOM = 0xE80B0B10;
+	private static final int CARD_TOP_HOVER = 0xF4272734;
+	private static final int CARD_BOTTOM_HOVER = 0xF4131319;
+	/** 배경에 등급색을 섞는 비율. 평상시엔 은은하게, 호버 때는 조금 더 짙게. */
+	private static final float CARD_TINT = 0.14F;
+	private static final float CARD_TINT_HOVER = 0.26F;
+	/** 호버한 카드의 테두리를 흰색 쪽으로 얼마나 끌어올릴지. */
+	private static final float BORDER_BRIGHTEN_HOVER = 0.40F;
+
 	private static final int SEPARATOR = 0x60FFFFFF;
 	private static final int TEXT_MAIN = 0xFFFFFFFF;
 	private static final int TEXT_SUB = 0xFFC0C0C0;
 	private static final int TEXT_HINT = 0xFF909090;
 	private static final int TEXT_SPECTATE = 0xFFFFD24A;
 	private static final int TEXT_WAITING = 0xFF7FE07F;
+	/** 등급 띠는 밝은 등급색으로 채우므로 글자는 어두워야 읽힌다. */
+	private static final int BAND_TEXT = 0xFF10131A;
 
 	private static final int TIMER_CALM = 0xFFFFFFFF;
 	private static final int TIMER_URGENT = 0xFFFF5555;
@@ -70,8 +94,38 @@ public class PerkOfferScreen extends Screen {
 	private static final int CARD_GAP = 8;
 	private static final int SCREEN_MARGIN = 8;
 	private static final int CARD_PADDING = 6;
-	/** 이름·등급과 설명 사이 구분선이 차지하는 세로 공간(위 여백 3 + 선 1 + 아래 여백 4). */
+	/** 이름과 설명 사이 구분선이 차지하는 세로 공간(위 여백 3 + 선 1 + 아래 여백 4). */
 	private static final int SEPARATOR_BLOCK_HEIGHT = 8;
+
+	/** 카드 맨 위 등급 띠의 높이. */
+	private static final int BAND_HEIGHT = 11;
+
+	/** 프리즘 띠에 흘릴 색. 빨강에서 보라까지 이어진다. */
+	private static final int[] PRISM_COLORS = {
+			0xFFFF5C5C, 0xFFFFA24A, 0xFFFFE24A, 0xFF6BE06B, 0xFF5FE0D8, 0xFF6B9CFF, 0xFFC06BFF
+	};
+
+	/** 무지개 띠를 몇 조각으로 나눠 칠할지. 폭보다 크면 폭에 맞춘다. */
+	private static final int PRISM_BAND_STEPS = 48;
+	/** 아이템 아이콘 한 변의 원래 크기. */
+	private static final int ICON_UNIT = 16;
+	/** 자리가 넉넉할 때 쓰는 아이콘 크기 후보. 앞에서부터 들어가는 것을 고른다. */
+	private static final int[] ICON_SIZES = {ICON_UNIT * 2, ICON_UNIT, 0};
+	/** 등급 띠와 아이콘 사이 여백. */
+	private static final int ICON_GAP_TOP = 4;
+	/** 아이콘과 이름 사이 여백. */
+	private static final int ICON_GAP_BOTTOM = 3;
+	/** 아이콘 좌우로 최소한 남겨 둘 여백. 이만큼도 안 되면 한 단계 작은 아이콘을 쓴다. */
+	private static final int ICON_SIDE_ROOM = 8;
+
+	/** 마우스를 올린 카드가 위로 떠오르는 높이. */
+	private static final int HOVER_LIFT = 2;
+	/** 창이 열릴 때 카드가 아래에서 올라오는 높이. */
+	private static final int ENTRY_RISE = 6;
+	/** 카드 한 장이 제자리를 잡기까지 걸리는 시간(ms). */
+	private static final long ENTRY_DURATION_MILLIS = 220L;
+	/** 카드마다 등장 시작을 조금씩 미뤄 왼쪽부터 차례로 올라오게 한다(ms). */
+	private static final long ENTRY_STAGGER_MILLIS = 45L;
 
 	private final int milestone;
 	private final boolean canChoose;
@@ -87,6 +141,13 @@ public class PerkOfferScreen extends Screen {
 	 * 않는다. 어차피 실제 마감 판정은 서버가 하므로 여기 값은 보여 주기 위한 것뿐이다.
 	 */
 	private final long deadlineMillis;
+	/** 창이 만들어진 시각. 등장 애니메이션의 기준점이다. */
+	private final long openedAtMillis = System.currentTimeMillis();
+	/**
+	 * 이 라운드의 등급. 한 구간에서는 등급 하나 안에서만 후보를 뽑으므로 부제에 함께 적는다.
+	 * 후보가 하나도 없거나 등급 문자열이 깨졌으면 null.
+	 */
+	private final @Nullable PerkRarity roundRarity;
 	private final List<PerkOfferPayload.PerkOption> options;
 	private final List<Card> cards = new ArrayList<>();
 
@@ -100,6 +161,10 @@ public class PerkOfferScreen extends Screen {
 	private int cardHeight;
 	private int cardTop;
 	private int firstCardLeft;
+	/** 이번 배치에서 카드에 그릴 아이콘 크기. 자리가 없으면 0이고 아이콘을 건너뛴다. */
+	private int iconSize;
+	/** 등장 애니메이션을 돌릴지. 화면이 빠듯하면 아래 문구를 침범하므로 끈다. */
+	private boolean entryAnimated;
 
 	public PerkOfferScreen(PerkOfferPayload payload) {
 		super(Component.literal("증강 선택"));
@@ -112,6 +177,7 @@ public class PerkOfferScreen extends Screen {
 				? System.currentTimeMillis() + this.totalMillis : 0L;
 		this.options = payload.options() == null
 				? List.of() : List.copyOf(payload.options());
+		this.roundRarity = firstRarity(this.options);
 	}
 
 	/** 이 창이 다루는 레벨 구간. 서버의 닫기 지시가 맞는 창인지 가릴 때 쓴다. */
@@ -148,19 +214,43 @@ public class PerkOfferScreen extends Screen {
 		cardWidth = Math.max(MIN_CARD_WIDTH, Math.min(PREFERRED_CARD_WIDTH, fitted));
 
 		int innerWidth = Math.max(8, cardWidth - CARD_PADDING * 2);
-		int neededHeight = 40;
 		for (PerkOfferPayload.PerkOption option : options) {
-			Card card = Card.of(this.font, option, innerWidth);
-			cards.add(card);
-			neededHeight = Math.max(neededHeight, card.height(this.font));
+			cards.add(Card.of(this.font, option, innerWidth));
 		}
 
 		int footerTop = Math.max(headerBottom + 46, this.height - 22);
-		cardHeight = Math.max(40, Math.min(neededHeight, footerTop - headerBottom - 6));
+		int room = footerTop - headerBottom - 6;
+		// 아이콘을 큰 것부터 대 보고 세로·가로 자리가 모두 나오는 첫 크기를 고른다.
+		iconSize = 0;
+		int neededHeight = 40;
+		for (int candidate : ICON_SIZES) {
+			if (candidate > 0 && candidate + ICON_SIDE_ROOM > cardWidth) {
+				continue;
+			}
+			int needed = requiredHeight(candidate);
+			iconSize = candidate;
+			neededHeight = needed;
+			if (needed <= room) {
+				break;
+			}
+		}
+
+		cardHeight = Math.max(40, Math.min(neededHeight, room));
 		cardTop = headerBottom + Math.max(0, (footerTop - headerBottom - cardHeight) / 2);
+		// 등장 애니메이션은 카드를 잠깐 아래로 밀어 둔다. 아래 문구까지 여유가 있을 때만 쓴다.
+		entryAnimated = cardTop + cardHeight + ENTRY_RISE <= this.height - 20;
 
 		int totalWidth = cardWidth * count + CARD_GAP * (count - 1);
 		firstCardLeft = Math.max(2, (this.width - totalWidth) / 2);
+	}
+
+	/** 주어진 아이콘 크기로 카드 내용을 다 담으려면 필요한 높이. */
+	private int requiredHeight(int icon) {
+		int tallest = 40;
+		for (Card card : cards) {
+			tallest = Math.max(tallest, card.height(this.font, icon));
+		}
+		return tallest;
 	}
 
 	@Override
@@ -214,39 +304,112 @@ public class PerkOfferScreen extends Screen {
 		}
 	}
 
+	/**
+	 * 카드 한 장을 그린다.
+	 *
+	 * <p>호버 판정과 클릭 판정은 <b>움직이지 않는 자리</b>(cardTop 기준)로 한다. 떠오른 위치로
+	 * 판정하면 카드가 올라가는 순간 마우스가 밖으로 빠져 깜빡이기 때문이다. 그리는 위치만
+	 * 위아래로 흔든다.
+	 */
 	private void renderCard(GuiGraphicsExtractor graphics, int index, int mouseX, int mouseY) {
 		Card card = cards.get(index);
 		int left = cardLeft(index);
 		int right = left + cardWidth;
-		int bottom = cardTop + cardHeight;
-		boolean hovered = clickable() && isInside(mouseX, mouseY, left, right, bottom);
+		boolean hovered = clickable() && isInside(mouseX, mouseY, left, right, cardTop + cardHeight);
 
-		graphics.fill(left, cardTop, right, bottom,
-				hovered ? CARD_BACKGROUND_HOVER : CARD_BACKGROUND);
-		graphics.outline(left, cardTop, cardWidth, cardHeight, card.rarityColor());
-		if (hovered) {
-			// 마우스를 올린 카드는 테두리를 두 겹으로 그려 강조한다.
-			graphics.outline(left + 1, cardTop + 1, cardWidth - 2, cardHeight - 2,
-					card.rarityColor());
+		int top = cardTop + entryOffset(index) - (hovered ? HOVER_LIFT : 0);
+		int bottom = top + cardHeight;
+		int rarity = card.rarityColor();
+
+		// 등급색을 살짝 섞은 세로 그라데이션. 위가 밝고 아래로 가라앉는다.
+		graphics.fillGradient(left, top, right, bottom,
+				mix(hovered ? CARD_TOP_HOVER : CARD_TOP, rarity,
+						hovered ? CARD_TINT_HOVER : CARD_TINT),
+				mix(hovered ? CARD_BOTTOM_HOVER : CARD_BOTTOM, rarity,
+						hovered ? CARD_TINT_HOVER / 2.0F : CARD_TINT / 2.0F));
+
+		// 등급 띠. 카드 맨 위를 등급색으로 가득 채운다.
+		// 프리즘만은 이름값을 하도록 무지개로 흘린다.
+		if (card.rarity() == PerkRarity.PRISM) {
+			renderPrismBand(graphics, left, top, right, hovered ? 0xFF : 0xDC);
+		} else {
+			graphics.fill(left, top, right, top + BAND_HEIGHT,
+					hovered ? rarity : withAlpha(rarity, 0xDC));
 		}
 
-		// 카드가 세로로 잘린 경우 글자가 카드 밖으로 삐져나오지 않게 자른다.
-		graphics.enableScissor(left + 1, cardTop + 1, right - 1, bottom - 1);
+		int border = hovered ? brighten(rarity, BORDER_BRIGHTEN_HOVER) : rarity;
+		graphics.outline(left, top, cardWidth, cardHeight, border);
+		if (hovered) {
+			// 마우스를 올린 카드는 테두리를 두 겹으로 그려 강조한다.
+			graphics.outline(left + 1, top + 1, cardWidth - 2, cardHeight - 2, border);
+		}
+
+		// 카드가 세로로 잘린 경우 내용이 카드 밖으로 삐져나오지 않게 자른다.
+		graphics.enableScissor(left + 1, top + 1, right - 1, bottom - 1);
 		int textCenterX = left + cardWidth / 2;
-		int y = cardTop + CARD_PADDING;
+		graphics.centeredText(this.font, card.rarityLabel(), textCenterX,
+				top + (BAND_HEIGHT - this.font.lineHeight + 1) / 2, BAND_TEXT);
+
+		int y = top + BAND_HEIGHT + ICON_GAP_TOP;
+		if (iconSize > 0) {
+			renderIcon(graphics, card.icon(), textCenterX - iconSize / 2, y);
+			y += iconSize + ICON_GAP_BOTTOM;
+		}
 		for (FormattedCharSequence line : card.nameLines()) {
 			graphics.centeredText(this.font, line, textCenterX, y, TEXT_MAIN);
 			y += this.font.lineHeight;
 		}
-		graphics.centeredText(this.font, card.rarityLabel(), textCenterX, y, card.rarityColor());
-		y += this.font.lineHeight + 3;
+		y += 3;
 		graphics.fill(left + CARD_PADDING, y, right - CARD_PADDING, y + 1, SEPARATOR);
-		y += 4;
+		y += 5;
 		for (FormattedCharSequence line : card.descriptionLines()) {
 			graphics.text(this.font, line, left + CARD_PADDING, y, TEXT_SUB);
 			y += this.font.lineHeight;
 		}
 		graphics.disableScissor();
+	}
+
+	/**
+	 * 아이템 아이콘을 {@code iconSize} 크기로 그린다.
+	 *
+	 * <p>{@code item()} 은 언제나 16×16 이라 카운트다운과 같은 방법으로 pose 에 배율을 쌓아
+	 * 키운다. 확대 뒤 좌표는 배율로 나눈 값이어야 하므로 translate 로 먼저 옮겨 두고 0,0 에 그린다.
+	 */
+	private void renderIcon(GuiGraphicsExtractor graphics, ItemStack stack, int x, int y) {
+		if (stack.isEmpty()) {
+			return;
+		}
+		int scale = Math.max(1, iconSize / ICON_UNIT);
+		Matrix3x2fStack pose = graphics.pose();
+		pose.pushMatrix();
+		pose.translate(x, y);
+		pose.scale(scale, scale);
+		graphics.item(stack, 0, 0);
+		pose.popMatrix();
+	}
+
+	/**
+	 * 창이 열린 직후 카드를 아래로 밀어 둘 거리. 시간이 지나면서 0으로 줄어든다.
+	 *
+	 * <p>카드가 세 장 줄줄이 튀어나오면 어느 것을 보라는 건지 알기 어렵다. 왼쪽부터 짧게
+	 * 시차를 두고 올라오게 해서 눈이 왼쪽에서 오른쪽으로 흐르게 한다. 0.2초대라 급할 때
+	 * 방해가 되지 않는다.
+	 */
+	private int entryOffset(int index) {
+		if (!entryAnimated) {
+			return 0;
+		}
+		long elapsed = System.currentTimeMillis() - openedAtMillis - index * ENTRY_STAGGER_MILLIS;
+		if (elapsed >= ENTRY_DURATION_MILLIS) {
+			return 0;
+		}
+		if (elapsed <= 0L) {
+			return ENTRY_RISE;
+		}
+		float progress = (float) elapsed / (float) ENTRY_DURATION_MILLIS;
+		float remaining = 1.0F - progress;
+		// ease-out: 처음에 빠르게 올라오고 끝에서 부드럽게 멈춘다.
+		return Math.round(ENTRY_RISE * remaining * remaining * remaining);
 	}
 
 	@Override
@@ -353,6 +516,11 @@ public class PerkOfferScreen extends Screen {
 			return Component.literal("선택을 보냈습니다. 잠시만 기다리십시오");
 		}
 		if (canChoose) {
+			if (roundRarity != null) {
+				// 어떤 구간에서 무슨 등급을 고르는 중인지 한 줄로 알려 준다.
+				return Component.literal("공유 레벨 " + milestone + " 달성 · "
+						+ roundRarity.displayName() + " 라운드");
+			}
 			return Component.literal(
 					"공유 레벨 " + milestone + " 달성 · 증강 하나를 고르세요");
 		}
@@ -381,6 +549,17 @@ public class PerkOfferScreen extends Screen {
 				"ESC로 닫아도 선택권은 남습니다 · /shareteam perk 로 다시 열 수 있습니다");
 	}
 
+	/** 후보 목록에서 이 라운드의 등급을 집어낸다. 한 라운드는 등급 하나로만 채워진다. */
+	private static @Nullable PerkRarity firstRarity(List<PerkOfferPayload.PerkOption> options) {
+		for (PerkOfferPayload.PerkOption option : options) {
+			PerkRarity rarity = PerkRarity.fromId(option.rarity());
+			if (rarity != null) {
+				return rarity;
+			}
+		}
+		return null;
+	}
+
 	private static String rarityLabel(PerkRarity rarity) {
 		return rarity == null ? PerkRarity.SILVER.displayName() : rarity.displayName();
 	}
@@ -392,28 +571,135 @@ public class PerkOfferScreen extends Screen {
 		return switch (rarity) {
 			case SILVER -> COLOR_SILVER;
 			case GOLD -> COLOR_GOLD;
-			case PLATINUM -> COLOR_PLATINUM;
+			case PRISM -> COLOR_PRISM;
 		};
+	}
+
+	/**
+	 * 증강이 지정한 아이콘 아이템을 찾는다.
+	 *
+	 * <p>서버가 이미 걸러서 보내지만, 서버에만 있는 모드 아이템이거나 클라이언트에서
+	 * 이름이 바뀐 경우가 있을 수 있다. 못 찾으면 등급별 기본 아이콘으로 조용히 대체한다.
+	 * 아이콘 하나 때문에 카드가 비어 보이면 안 된다.
+	 */
+	private static ItemStack iconStack(String iconId, PerkRarity rarity) {
+		Item item = lookupItem(iconId);
+		return new ItemStack(item == null ? defaultIcon(rarity) : item);
+	}
+
+	private static @Nullable Item lookupItem(String iconId) {
+		if (iconId == null || iconId.isBlank()) {
+			return null;
+		}
+		try {
+			Identifier id = Identifier.tryParse(iconId.trim());
+			if (id == null) {
+				return null;
+			}
+			Optional<Holder.Reference<Item>> found = BuiltInRegistries.ITEM.get(id);
+			if (found.isEmpty()) {
+				return null;
+			}
+			// 아이템 레지스트리는 기본값이 공기라 없는 이름도 공기로 돌아올 수 있다.
+			Item item = found.get().value();
+			return item == Items.AIR ? null : item;
+		} catch (Exception error) {
+			return null;
+		}
+	}
+
+	/** 아이콘을 정하지 않은 증강이 쓰는 등급별 기본 아이콘. 금속 등급을 그대로 따른다. */
+	private static Item defaultIcon(PerkRarity rarity) {
+		if (rarity == null) {
+			return Items.IRON_INGOT;
+		}
+		return switch (rarity) {
+			case SILVER -> Items.IRON_INGOT;
+			case GOLD -> Items.GOLD_INGOT;
+			case PRISM -> Items.DIAMOND;
+		};
+	}
+
+	/** {@code base} 에 {@code tint} 를 {@code amount} 만큼 섞는다. 투명도는 base 것을 쓴다. */
+	private static int mix(int base, int tint, float amount) {
+		float ratio = Math.clamp(amount, 0.0F, 1.0F);
+		int red = Math.round((base >> 16 & 0xFF) * (1.0F - ratio) + (tint >> 16 & 0xFF) * ratio);
+		int green = Math.round((base >> 8 & 0xFF) * (1.0F - ratio) + (tint >> 8 & 0xFF) * ratio);
+		int blue = Math.round((base & 0xFF) * (1.0F - ratio) + (tint & 0xFF) * ratio);
+		return (base & 0xFF000000) | red << 16 | green << 8 | blue;
+	}
+
+	/** 색을 흰색 쪽으로 끌어올린다. 호버한 카드의 테두리를 밝히는 데 쓴다. */
+	private static int brighten(int color, float amount) {
+		return mix(color, 0xFFFFFFFF, amount);
+	}
+
+	/**
+	 * 프리즘 등급의 등급 띠를 무지개로 그린다.
+	 *
+	 * <p>{@code fillGradient} 는 위아래 두 색만 받으므로 가로 무지개를 한 번에 그릴 수 없다.
+	 * 띠를 세로로 잘게 나누고 조각마다 이웃한 두 색을 섞어 칠하면 가로로 흐르는 것처럼 보인다.
+	 * 등급 띠 하나에만 쓰므로 조각이 늘어도 비용은 무시할 만하다.
+	 *
+	 * <p>테두리까지 무지개로 하면 카드 경계가 흐려지므로 띠에만 쓴다.
+	 */
+	private void renderPrismBand(GuiGraphicsExtractor graphics, int left, int top, int right,
+			int alpha) {
+		int width = right - left;
+		if (width <= 0) {
+			return;
+		}
+		int bottom = top + BAND_HEIGHT;
+		int steps = Math.min(width, PRISM_BAND_STEPS);
+		for (int step = 0; step < steps; step++) {
+			int sliceLeft = left + (int) ((long) width * step / steps);
+			int sliceRight = left + (int) ((long) width * (step + 1) / steps);
+			if (sliceRight <= sliceLeft) {
+				continue;
+			}
+			// 조각 가운데 위치를 무지개 위의 한 점으로 본다.
+			float position = (step + 0.5F) / steps * (PRISM_COLORS.length - 1);
+			int index = Math.min((int) position, PRISM_COLORS.length - 2);
+			int color = withAlpha(
+					mix(PRISM_COLORS[index], PRISM_COLORS[index + 1], position - index), alpha);
+			graphics.fill(sliceLeft, top, sliceRight, bottom, color);
+		}
+	}
+
+	private static int withAlpha(int color, int alpha) {
+		return (alpha & 0xFF) << 24 | color & 0x00FFFFFF;
 	}
 
 	/** 화면 폭이 정해진 뒤 한 번 계산해 두는 카드 한 장의 표시 내용. */
 	private record Card(List<FormattedCharSequence> nameLines,
 			Component rarityLabel,
+			PerkRarity rarity,
 			int rarityColor,
+			ItemStack icon,
 			List<FormattedCharSequence> descriptionLines) {
 
 		static Card of(Font font, PerkOfferPayload.PerkOption option, int innerWidth) {
-			PerkRarity rarity = PerkRarity.fromId(option.rarity());
+			PerkRarity parsed = PerkRarity.fromId(option.rarity());
+			// 등급을 못 읽어도 화면은 떠야 하므로 실버로 본다.
+			PerkRarity rarity = parsed == null ? PerkRarity.SILVER : parsed;
+			// 이름은 굵게 해서 설명과 무게를 벌린다. 굵으면 폭도 늘어나므로 줄바꿈도 굵은 채로 잰다.
+			Component name = Component.literal(text(option.name()))
+					.withStyle(ChatFormatting.BOLD);
 			return new Card(
-					font.split(Component.literal(text(option.name())), innerWidth),
+					font.split(name, innerWidth),
 					Component.literal(PerkOfferScreen.rarityLabel(rarity)),
+					rarity,
 					PerkOfferScreen.rarityColor(rarity),
+					PerkOfferScreen.iconStack(option.icon(), rarity),
 					font.split(Component.literal(text(option.description())), innerWidth));
 		}
 
-		int height(Font font) {
-			int lines = nameLines.size() + descriptionLines.size() + 1;
-			return CARD_PADDING * 2 + lines * font.lineHeight + SEPARATOR_BLOCK_HEIGHT;
+		/** 아이콘을 {@code iconSize} 로 그린다고 할 때 이 카드가 필요로 하는 세로 길이. */
+		int height(Font font, int iconSize) {
+			int lines = nameLines.size() + descriptionLines.size();
+			int iconBlock = iconSize > 0 ? iconSize + ICON_GAP_BOTTOM : 0;
+			return BAND_HEIGHT + ICON_GAP_TOP + iconBlock
+					+ lines * font.lineHeight + SEPARATOR_BLOCK_HEIGHT + CARD_PADDING;
 		}
 
 		private static String text(String value) {

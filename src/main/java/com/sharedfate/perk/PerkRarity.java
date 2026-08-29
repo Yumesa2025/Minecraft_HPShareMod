@@ -11,7 +11,7 @@ import java.util.Locale;
 public enum PerkRarity {
 	SILVER("실버"),
 	GOLD("골드"),
-	PLATINUM("플레");
+	PRISM("프리즘");
 
 	private final String displayName;
 
@@ -22,9 +22,9 @@ public enum PerkRarity {
 	/**
 	 * JSON의 rarity 문자열을 등급으로 바꾼다. 알 수 없는 값이면 null.
 	 *
-	 * <p>등급 이름을 바꾸기 전에 쓰던 {@code common / rare / epic} 도 계속 받아준다.
-	 * 사용자가 이미 채워 둔 {@code config/sharedfate-perks.json} 이 조용히 통째로
-	 * 버려지는 편보다 낫기 때문이다.
+	 * <p>등급 이름을 바꾸기 전에 쓰던 {@code common / rare / epic} 과 {@code platinum} 도
+	 * 계속 받아준다. 사용자가 이미 채워 둔 {@code config/sharedfate-perks.json} 이 조용히
+	 * 통째로 버려지는 편보다 낫기 때문이다.
 	 */
 	public static PerkRarity fromId(String id) {
 		if (id == null) {
@@ -37,7 +37,8 @@ public enum PerkRarity {
 			case "RARE":
 				return GOLD;
 			case "EPIC":
-				return PLATINUM;
+			case "PLATINUM":
+				return PRISM;
 			default:
 				break;
 		}
@@ -52,7 +53,7 @@ public enum PerkRarity {
 		return name().toLowerCase(Locale.ROOT);
 	}
 
-	/** 화면과 채팅에 쓰는 한국어 이름. 실버 / 골드 / 플레. */
+	/** 화면과 채팅에 쓰는 한국어 이름. 실버 / 골드 / 프리즘. */
 	public String displayName() {
 		return displayName;
 	}

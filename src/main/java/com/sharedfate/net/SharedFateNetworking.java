@@ -10,7 +10,8 @@ public final class SharedFateNetworking {
 	// 7: TeamSyncPayload 에 공유 레벨·다음 증강 레벨 추가
 	// 8: 강제 증강 선택 — PerkOfferPayload 에 forced·remainingTicks 추가,
 	//    PerkCloseOfferPayload 신설
-	public static final int PROTOCOL_VERSION = 8;
+	// 9: PerkOfferPayload.PerkOption 에 카드 아이콘(아이템 이름) 추가
+	public static final int PROTOCOL_VERSION = 9;
 
 	private SharedFateNetworking() {
 	}

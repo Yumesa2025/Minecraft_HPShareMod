@@ -19,14 +19,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PerkDraftTest {
 	private static final long SEED = 20260829L;
 
-	/** 플레가 아닌, 실버 또는 골드가 배정되는 구간들. */
+	/** 프리즘가 아닌, 실버 또는 골드가 배정되는 구간들. */
 	private static final int[] RANDOM_MILESTONES = {5, 10, 20, 25, 30, 35};
 
 	private static Perk once(String id, PerkRarity rarity) {
 		return new Perk(id, id, "설명 " + id, rarity, List.of());
 	}
 
-	/** 실버 3개 / 골드 3개 / 플레 3개짜리 표준 풀. */
+	/** 실버 3개 / 골드 3개 / 프리즘 3개짜리 표준 풀. */
 	private static List<Perk> ninePool() {
 		return List.of(
 				once("s1", PerkRarity.SILVER),
@@ -35,9 +35,9 @@ class PerkDraftTest {
 				once("g1", PerkRarity.GOLD),
 				once("g2", PerkRarity.GOLD),
 				once("g3", PerkRarity.GOLD),
-				once("p1", PerkRarity.PLATINUM),
-				once("p2", PerkRarity.PLATINUM),
-				once("p3", PerkRarity.PLATINUM));
+				once("p1", PerkRarity.PRISM),
+				once("p2", PerkRarity.PRISM),
+				once("p3", PerkRarity.PRISM));
 	}
 
 	private static Map<String, PerkRarity> rarityIndex(List<Perk> pool) {
@@ -49,26 +49,26 @@ class PerkDraftTest {
 	// ------------------------------------------------------------------ 구간 → 등급 배정
 
 	@Test
-	void 십오렙은_난수와_무관하게_항상_플레다() {
+	void 십오렙은_난수와_무관하게_항상_프리즘다() {
 		for (long seed = 0; seed < 500; seed++) {
-			assertEquals(PerkRarity.PLATINUM,
+			assertEquals(PerkRarity.PRISM,
 					PerkDraft.rarityFor(15, RandomSource.create(seed)),
-					"시드 " + seed + "에서 15렙이 플레가 아니었다");
+					"시드 " + seed + "에서 15렙이 프리즘가 아니었다");
 		}
-		assertEquals(PerkRarity.PLATINUM, PerkDraft.rarityFor(15, null),
-				"난수원이 없어도 15렙은 플레다");
-		assertEquals(15, PerkDraft.PLATINUM_MILESTONE);
+		assertEquals(PerkRarity.PRISM, PerkDraft.rarityFor(15, null),
+				"난수원이 없어도 15렙은 프리즘다");
+		assertEquals(15, PerkDraft.PRISM_MILESTONE);
 	}
 
 	@Test
-	void 나머지_구간에서는_플레가_절대_나오지_않는다() {
+	void 나머지_구간에서는_프리즘가_절대_나오지_않는다() {
 		RandomSource random = RandomSource.create(SEED);
 
 		for (int round = 0; round < 5000; round++) {
 			for (int milestone : RANDOM_MILESTONES) {
 				PerkRarity rarity = PerkDraft.rarityFor(milestone, random);
 
-				assertNotEquals(PerkRarity.PLATINUM, rarity, milestone + "렙에서 플레가 나왔다");
+				assertNotEquals(PerkRarity.PRISM, rarity, milestone + "렙에서 프리즘가 나왔다");
 				assertTrue(rarity == PerkRarity.SILVER || rarity == PerkRarity.GOLD);
 			}
 		}
@@ -110,12 +110,12 @@ class PerkDraftTest {
 
 	@Test
 	void 폴백_우선순위() {
-		assertEquals(List.of(PerkRarity.SILVER, PerkRarity.GOLD, PerkRarity.PLATINUM),
+		assertEquals(List.of(PerkRarity.SILVER, PerkRarity.GOLD, PerkRarity.PRISM),
 				PerkDraft.fallbackOrder(PerkRarity.SILVER));
-		assertEquals(List.of(PerkRarity.GOLD, PerkRarity.SILVER, PerkRarity.PLATINUM),
+		assertEquals(List.of(PerkRarity.GOLD, PerkRarity.SILVER, PerkRarity.PRISM),
 				PerkDraft.fallbackOrder(PerkRarity.GOLD));
-		assertEquals(List.of(PerkRarity.PLATINUM, PerkRarity.GOLD, PerkRarity.SILVER),
-				PerkDraft.fallbackOrder(PerkRarity.PLATINUM));
+		assertEquals(List.of(PerkRarity.PRISM, PerkRarity.GOLD, PerkRarity.SILVER),
+				PerkDraft.fallbackOrder(PerkRarity.PRISM));
 	}
 
 	// ------------------------------------------------------------------ 추첨
@@ -134,13 +134,13 @@ class PerkDraftTest {
 			Set<PerkRarity> rarities = new HashSet<>();
 			drawn.forEach(id -> rarities.add(index.get(id)));
 			assertEquals(1, rarities.size(), "등급이 섞여 나왔다: " + drawn);
-			assertFalse(rarities.contains(PerkRarity.PLATINUM),
-					milestone + "렙에서 플레가 나왔다: " + drawn);
+			assertFalse(rarities.contains(PerkRarity.PRISM),
+					milestone + "렙에서 프리즘가 나왔다: " + drawn);
 		}
 	}
 
 	@Test
-	void 십오렙_라운드는_플레만_나온다() {
+	void 십오렙_라운드는_프리즘만_나온다() {
 		List<Perk> pool = ninePool();
 		Map<String, PerkRarity> index = rarityIndex(pool);
 		RandomSource random = RandomSource.create(SEED);
@@ -149,8 +149,8 @@ class PerkDraftTest {
 			List<String> drawn = PerkDraft.draw(15, pool, List.of(), random, 3);
 
 			assertEquals(3, drawn.size());
-			drawn.forEach(id -> assertEquals(PerkRarity.PLATINUM, index.get(id),
-					"15렙 라운드에 플레가 아닌 후보가 섞였다: " + drawn));
+			drawn.forEach(id -> assertEquals(PerkRarity.PRISM, index.get(id),
+					"15렙 라운드에 프리즘가 아닌 후보가 섞였다: " + drawn));
 		}
 	}
 
@@ -169,7 +169,7 @@ class PerkDraftTest {
 
 		assertTrue(rounds.getOrDefault(PerkRarity.SILVER, 0) > 0, "실버 라운드가 한 번도 없었다");
 		assertTrue(rounds.getOrDefault(PerkRarity.GOLD, 0) > 0, "골드 라운드가 한 번도 없었다");
-		assertEquals(0, rounds.getOrDefault(PerkRarity.PLATINUM, 0).intValue());
+		assertEquals(0, rounds.getOrDefault(PerkRarity.PRISM, 0).intValue());
 	}
 
 	@Test
@@ -251,7 +251,7 @@ class PerkDraftTest {
 				once("s1", PerkRarity.SILVER),
 				once("g1", PerkRarity.GOLD),
 				once("g2", PerkRarity.GOLD),
-				once("p1", PerkRarity.PLATINUM));
+				once("p1", PerkRarity.PRISM));
 		List<String> owned = List.of("s1", "g1");
 		RandomSource random = RandomSource.create(SEED);
 
@@ -263,12 +263,12 @@ class PerkDraftTest {
 	// ------------------------------------------------------------------ 풀 부족 시 폴백
 
 	@Test
-	void 실버가_모자라면_골드로_채우고_그래도_모자라면_플레로_채운다() {
+	void 실버가_모자라면_골드로_채우고_그래도_모자라면_프리즘로_채운다() {
 		List<Perk> pool = List.of(
 				once("s1", PerkRarity.SILVER),
 				once("g1", PerkRarity.GOLD),
-				once("p1", PerkRarity.PLATINUM),
-				once("p2", PerkRarity.PLATINUM));
+				once("p1", PerkRarity.PRISM),
+				once("p2", PerkRarity.PRISM));
 		RandomSource random = RandomSource.create(SEED);
 
 		for (int i = 0; i < 200; i++) {
@@ -277,17 +277,17 @@ class PerkDraftTest {
 			assertEquals(3, drawn.size(), "세 개를 채울 수 있는데 못 채웠다: " + drawn);
 			assertEquals(3, new HashSet<>(drawn).size());
 			assertTrue(drawn.contains("s1"), "제 등급이 먼저 소진돼야 한다: " + drawn);
-			assertTrue(drawn.contains("g1"), "플레보다 골드를 먼저 끌어와야 한다: " + drawn);
+			assertTrue(drawn.contains("g1"), "프리즘보다 골드를 먼저 끌어와야 한다: " + drawn);
 		}
 	}
 
 	@Test
-	void 골드가_모자라면_실버_먼저_그다음_플레다() {
+	void 골드가_모자라면_실버_먼저_그다음_프리즘다() {
 		List<Perk> pool = List.of(
 				once("g1", PerkRarity.GOLD),
 				once("s1", PerkRarity.SILVER),
-				once("p1", PerkRarity.PLATINUM),
-				once("p2", PerkRarity.PLATINUM));
+				once("p1", PerkRarity.PRISM),
+				once("p2", PerkRarity.PRISM));
 		RandomSource random = RandomSource.create(SEED);
 
 		for (int i = 0; i < 200; i++) {
@@ -295,30 +295,30 @@ class PerkDraftTest {
 
 			assertEquals(3, drawn.size());
 			assertTrue(drawn.contains("g1") && drawn.contains("s1"),
-					"골드 → 실버 → 플레 순서가 아니다: " + drawn);
+					"골드 → 실버 → 프리즘 순서가 아니다: " + drawn);
 		}
 	}
 
 	@Test
-	void 플레가_모자라면_골드_먼저_그다음_실버다() {
+	void 프리즘가_모자라면_골드_먼저_그다음_실버다() {
 		List<Perk> pool = List.of(
-				once("p1", PerkRarity.PLATINUM),
+				once("p1", PerkRarity.PRISM),
 				once("g1", PerkRarity.GOLD),
 				once("s1", PerkRarity.SILVER),
 				once("s2", PerkRarity.SILVER));
 		RandomSource random = RandomSource.create(SEED);
 
 		for (int i = 0; i < 200; i++) {
-			List<String> drawn = PerkDraft.draw(PerkRarity.PLATINUM, pool, List.of(), random, 3);
+			List<String> drawn = PerkDraft.draw(PerkRarity.PRISM, pool, List.of(), random, 3);
 
 			assertEquals(3, drawn.size());
 			assertTrue(drawn.contains("p1") && drawn.contains("g1"),
-					"플레 → 골드 → 실버 순서가 아니다: " + drawn);
+					"프리즘 → 골드 → 실버 순서가 아니다: " + drawn);
 		}
 	}
 
 	@Test
-	void 십오렙에_플레가_비면_골드로_채운다() {
+	void 십오렙에_프리즘가_비면_골드로_채운다() {
 		List<Perk> pool = List.of(
 				once("g1", PerkRarity.GOLD),
 				once("g2", PerkRarity.GOLD),

@@ -34,8 +34,9 @@ class PerkOfferPayloadTest {
 
 	private static List<PerkOfferPayload.PerkOption> sampleOptions() {
 		return List.of(
-				new PerkOfferPayload.PerkOption("a", "강골", "최대 체력 +2", "silver"),
-				new PerkOfferPayload.PerkOption("b", "날렵", "이동 속도 +10%", "gold"));
+				new PerkOfferPayload.PerkOption("a", "강골", "최대 체력 +2", "silver",
+						"minecraft:iron_ingot"),
+				new PerkOfferPayload.PerkOption("b", "날렵", "이동 속도 +10%", "gold", ""));
 	}
 
 	@Test
@@ -78,6 +79,27 @@ class PerkOfferPayloadTest {
 		assertFalse(decoded.forced());
 		assertEquals(PerkOfferPayload.NO_DEADLINE, decoded.remainingTicks());
 		assertFalse(decoded.hasDeadline());
+	}
+
+	@Test
+	void 카드_아이콘도_직렬화를_그대로_통과한다() {
+		PerkOfferPayload decoded =
+				roundTrip(new PerkOfferPayload(15, true, true, 400, sampleOptions()));
+
+		assertEquals("minecraft:iron_ingot", decoded.options().getFirst().icon());
+		// 아이콘을 정하지 않은 후보는 빈 문자열로 오고, 화면이 등급별 기본 아이콘을 채운다.
+		assertEquals("", decoded.options().get(1).icon());
+	}
+
+	@Test
+	void 아이콘이_null_이면_빈_문자열로_바뀐다() {
+		// 서버 쪽 null 하나로 패킷 인코딩이 터지면 선택창 자체가 안 열린다.
+		PerkOfferPayload.PerkOption option =
+				new PerkOfferPayload.PerkOption("a", "강골", "최대 체력 +2", "silver", null);
+
+		assertEquals("", option.icon());
+		assertEquals("", roundTrip(PerkOfferPayload.manual(5, true, List.of(option)))
+				.options().getFirst().icon());
 	}
 
 	@Test

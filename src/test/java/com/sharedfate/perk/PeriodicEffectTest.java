@@ -53,7 +53,7 @@ class PeriodicEffectTest {
 			}
 			""";
 
-	/** 증강 작성표의 「플레 15 과부하」. 힘·신속 상시, 30초마다 5초간 나약함·구속. */
+	/** 증강 작성표의 「프리즘 15 과부하」. 힘·신속 상시, 30초마다 5초간 나약함·구속. */
 	private static final String OVERLOAD = """
 			{
 			  "type": "periodic",
@@ -416,7 +416,7 @@ class PeriodicEffectTest {
 		Files.writeString(dir.resolve(PerkRegistry.FILE_NAME), """
 				{
 				  "perks": [
-				    { "id": "sharedfate:overload", "name": "과부하", "rarity": "platinum",
+				    { "id": "sharedfate:overload", "name": "과부하", "rarity": "prism",
 				      "effects": [ %s ] }
 				  ]
 				}

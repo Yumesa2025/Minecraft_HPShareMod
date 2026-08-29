@@ -224,7 +224,7 @@ class OnKillEffectTest {
 				  "perks": [
 				    { "id": "sharedfate:hunter_meal", "rarity": "silver", "name": "사냥꾼의 식사",
 				      "effects": [ { "type": "on_kill", "food": 2, "saturation": 1.0 } ] },
-				    { "id": "sharedfate:devour", "rarity": "platinum", "name": "포식",
+				    { "id": "sharedfate:devour", "rarity": "prism", "name": "포식",
 				      "effects": [
 				        { "type": "on_kill", "food": 1, "health": 2.0 },
 				        { "type": "no_food_hunger" }

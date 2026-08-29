@@ -6,10 +6,15 @@ import com.sharedfate.net.SharedFateNetworking;
 import com.sharedfate.net.TeamBroadcaster;
 import com.sharedfate.perk.ConditionalPerkManager;
 import com.sharedfate.perk.MobPerkModifiers;
+import com.sharedfate.perk.PerkBlockBreaks;
+import com.sharedfate.perk.PerkHealthRules;
 import com.sharedfate.perk.PerkKillRewards;
+import com.sharedfate.perk.PerkLifesteal;
 import com.sharedfate.perk.PerkManager;
 import com.sharedfate.perk.PerkRegistry;
+import com.sharedfate.perk.PerkTriggers;
 import com.sharedfate.perk.PeriodicPerkManager;
+import com.sharedfate.perk.TimedPerkEffects;
 import com.sharedfate.inventory.ExpandedInventoryManager;
 import com.sharedfate.sync.MaxHealthAttribute;
 import com.sharedfate.sync.EffectSync;
@@ -24,6 +29,7 @@ import com.sharedfate.team.TeamLookup;
 import com.sharedfate.team.TeamManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -68,8 +74,11 @@ public class SharedFateMod implements ModInitializer {
 			WorldResetCoordinator.reset();
 			RunProgressManager.reset();
 			PerkManager.reset();
+			PerkHealthRules.reset();
 			ConditionalPerkManager.reset();
 			PeriodicPerkManager.reset();
+			com.sharedfate.perk.PerkGearManager.reset();
+			TimedPerkEffects.reset();
 			MobPerkModifiers.reset();
 			EffectSync.reset();
 		});
@@ -121,6 +130,12 @@ public class SharedFateMod implements ModInitializer {
 		// 처치 보상 증강(on_kill)의 등록 지점. 죽은 쪽이 몹이 아니면 곧바로 빠져나간다.
 		ServerLivingEntityEvents.AFTER_DEATH.register(PerkKillRewards::onDeath);
 		ServerLivingEntityEvents.AFTER_DAMAGE.register(SharedHurtFeedback::onDamage);
+		// 팀원이 맞았을 때 잠깐 걸리는 증강(on_team_hurt)의 등록 지점.
+		ServerLivingEntityEvents.AFTER_DAMAGE.register(PerkTriggers::onDamage);
+		// 준 피해의 일부를 팀 공유 체력으로 되돌리는 증강(lifesteal)의 등록 지점.
+		ServerLivingEntityEvents.AFTER_DAMAGE.register(PerkLifesteal::onDamage);
+		// 블록 파괴 증강(bonus_drop / on_break)의 등록 지점. 팀 증강이 없으면 곧바로 빠져나간다.
+		PlayerBlockBreakEvents.AFTER.register(PerkBlockBreaks::onBlockBroken);
 		EffectSync.register();
 		ServerTickEvents.END_SERVER_TICK.register(EffectSync::tick);
 		ServerTickEvents.END_SERVER_TICK.register(StatMirror::tick);
@@ -128,10 +143,18 @@ public class SharedFateMod implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(RunProgressManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PositionSwapManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PerkManager::tick);
+		// 최대 체력 고정 증강(max_health_lock)이 명령이나 다른 증강에 밀리지 않게 지키는 지점.
+		// StatMirror 보다 뒤에 등록해야 공유 체력 계산이 끝난 뒤에 상한을 되돌린다.
+		ServerTickEvents.END_SERVER_TICK.register(PerkHealthRules::tick);
 		// 팀 상태에 따라 갈리는 증강(conditional)의 주기 평가 지점.
 		ServerTickEvents.END_SERVER_TICK.register(ConditionalPerkManager::tick);
 		// 주기로 켜졌다 꺼지는 증강(periodic)의 주기 평가 지점.
 		ServerTickEvents.END_SERVER_TICK.register(PeriodicPerkManager::tick);
+		// 방아쇠형 증강이 잠깐 걸어 둔 효과를 시간이 되면 걷어내는 지점.
+		ServerTickEvents.END_SERVER_TICK.register(TimedPerkEffects::tick);
+		// 장비 제한 증강(equip_ban / item_ban / offhand_lock / weapon_damage)의 집행 지점.
+		// 증강을 잃은 사람에게 남아 있던 공격력 수정자를 걷어내는 길도 여기뿐이다.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.perk.PerkGearManager::tick);
 		// 몹에게 걸리는 증강(mob_health / mob_damage)의 등록 지점.
 		ServerTickEvents.END_SERVER_TICK.register(MobPerkModifiers::tick);
 		ServerEntityEvents.ENTITY_LOAD.register(MobPerkModifiers::onEntityLoad);

@@ -293,8 +293,10 @@ public final class PerkManager {
 				SharedFateMod.LOGGER.warn("대기 중인 후보 '{}' 를 증강 풀에서 찾을 수 없어 제외합니다.", id);
 				continue;
 			}
+			// 아이콘이 없는 증강은 빈 문자열로 보낸다. 화면이 등급별 기본 아이콘으로 메운다.
 			options.add(new PerkOfferPayload.PerkOption(
-					perk.id(), perk.name(), perk.description(), perk.rarity().id()));
+					perk.id(), perk.name(), perk.description(), perk.rarity().id(),
+					perk.icon() == null ? "" : perk.icon().toString()));
 		}
 		return options;
 	}

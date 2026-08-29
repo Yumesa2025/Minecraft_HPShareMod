@@ -28,7 +28,27 @@ public class TeamState {
 	public final SharedEquipmentStore equipment;
 	public final List<ItemStack> overflowItems;
 
+	/**
+	 * 지금 실제로 걸려 있는 팀 공유 최대 체력.
+	 *
+	 * <p>공유 체력 풀의 상한이자 {@code MaxHealthAttribute} 가 팀원 전원의 {@code max_health}
+	 * 속성을 맞추는 목표값이다. <b>증강 보너스가 이미 더해진 결과</b>라 직접 정하는 값이 아니다.
+	 * 정하는 값은 {@link #baseMaxHealth} 쪽이고, 둘을 이어 주는 계산은
+	 * {@link com.sharedfate.perk.PerkHealthRules#effectiveMaxHealth} 한 곳에만 있다.
+	 */
 	public float maxHealth;
+	/**
+	 * 팀이 정한 기본 최대 체력. {@code /shareteam health} 가 정하고 그 밖에는 아무도 바꾸지 않는다.
+	 *
+	 * <p>{@link #maxHealth} 와 나눠 둔 이유는 하나뿐이다. 최대 체력을 올리는 증강의 보너스를
+	 * {@link #maxHealth} 에 직접 더하면 접속·부활·주기 점검마다 또 더해져 끝없이 불어난다.
+	 * "원래 얼마였는가"를 여기에 남겨 두면 몇 번을 다시 계산해도 답이 {@code 기본값 + 보너스} 로
+	 * 같고, 증강을 잃었을 때 명령으로 정해 둔 값이 그대로 돌아온다.
+	 *
+	 * <p>기존 월드에는 이 항목이 없다. 그때는 저장된 {@link #maxHealth} 가 곧 팀이 정한 값이므로
+	 * 생성자가 둘을 같게 맞춰 두고, 저장에 값이 있을 때만 덮어쓴다.
+	 */
+	public float baseMaxHealth;
 	public float health;
 	public float absorption;
 	public int foodLevel;
@@ -62,6 +82,9 @@ public class TeamState {
 		this.overflowItems = new ArrayList<>();
 		overflowItems.stream().filter(stack -> !stack.isEmpty()).forEach(this.overflowItems::add);
 		this.maxHealth = maxHealth;
+		// 증강 보너스가 붙기 전이므로 기본값은 지금 상한과 같다. 저장에서 읽어 온 경우에만
+		// TeamState.CODEC 이 뒤에서 따로 덮어쓴다.
+		this.baseMaxHealth = maxHealth;
 		this.health = health;
 		this.absorption = absorption;
 		this.foodLevel = foodLevel;
@@ -99,6 +122,13 @@ public class TeamState {
 					container -> List.copyOf(container.getItems())
 			);
 
+	/**
+	 * 전멸 뒤 팀 상태를 되돌린다.
+	 *
+	 * <p>{@link #baseMaxHealth} 는 일부러 손대지 않는다. 여기서는 보유 증강이 그대로 남아 있어
+	 * 상한도 그대로여야 하고, 회차 자체가 끝나 증강을 잃는 경로는 {@link #fresh} 로 팀 상태를
+	 * 통째로 새로 만들기 때문에 이 자리를 지나지 않는다.
+	 */
 	public void resetAfterDeath(float maxHealth, boolean keepExperience) {
 		this.maxHealth = sanitizeMaximum(maxHealth, 20.0F);
 		health = this.maxHealth;
@@ -115,6 +145,9 @@ public class TeamState {
 	public void sanitize(float maxHealth) {
 		float safeMaximum = sanitizeMaximum(this.maxHealth, maxHealth);
 		this.maxHealth = safeMaximum;
+		// 기본값이 비어 있거나 망가졌으면 지금 상한을 그대로 쓴다. 증강이 없는 팀에서는 둘이
+		// 어차피 같은 값이고, 기존 월드를 열 때도 이 길로 자연스럽게 채워진다.
+		this.baseMaxHealth = sanitizeMaximum(this.baseMaxHealth, safeMaximum);
 		health = Float.isFinite(health) ? Math.max(0.0F, Math.min(safeMaximum, health)) : safeMaximum;
 		absorption = Float.isFinite(absorption) ? Math.max(0.0F, Math.min(1024.0F, absorption)) : 0.0F;
 		foodLevel = Math.max(0, Math.min(20, foodLevel));
@@ -334,16 +367,43 @@ public class TeamState {
 
 	/**
 	 * 기존 16개 필드는 {@link #BASE_CODEC}이 그대로 같은 depth 에 펼쳐 쓰고, 그 옆에
-	 * {@code "perks"} 한 항목만 덧붙인다. 저장 형태가 기존과 동일해 하위호환이 유지된다.
+	 * {@code "perks"} 와 {@code "baseMaxHealth"} 두 항목만 덧붙인다. 둘 다 선택 항목이라
+	 * 저장 형태가 기존과 호환되고, 이 항목들을 모르는 예전 서버도 나머지를 그대로 읽는다.
+	 *
+	 * <p>{@code "baseMaxHealth"} 를 {@link #BASE_CODEC} 안에 넣지 않은 이유는
+	 * {@link PerkSection} 과 같다. {@code RecordCodecBuilder.group} 의 인자 상한(P16)이 이미
+	 * 다 찼다.
 	 */
 	public static final Codec<TeamState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
 			BASE_CODEC.<TeamState>forGetter(state -> state),
 			PerkSection.CODEC.optionalFieldOf("perks", PerkSection.EMPTY)
-					.<TeamState>forGetter(TeamState::perkSection)
-	).apply(instance, TeamState::withPerkSection));
+					.<TeamState>forGetter(TeamState::perkSection),
+			Codec.FLOAT.optionalFieldOf("baseMaxHealth")
+					.<TeamState>forGetter(TeamState::storedBaseMaxHealth)
+	).apply(instance, TeamState::withStoredSections));
 
-	private static TeamState withPerkSection(TeamState state, PerkSection perks) {
+	/**
+	 * 저장에 남길 기본 최대 체력. 지금 상한과 같으면 아예 적지 않는다.
+	 *
+	 * <p>증강 보너스도 고정도 없는 팀에서는 둘이 언제나 같은 값이라, 그런 팀의 저장 형태는
+	 * 이 필드가 생기기 전과 <b>비트 하나도 다르지 않다.</b> 읽을 때도 항목이 없으면 저장된
+	 * {@code maxHealth} 를 기본값으로 삼으므로 결과가 같다.
+	 */
+	private Optional<Float> storedBaseMaxHealth() {
+		return baseMaxHealth == maxHealth ? Optional.empty() : Optional.of(baseMaxHealth);
+	}
+
+	/**
+	 * 뒤에 붙인 선택 항목들을 채운다.
+	 *
+	 * <p>{@code baseMaxHealth} 가 없는 <b>기존 월드</b>에서는 생성자가 맞춰 둔 값
+	 * (= 저장된 {@code maxHealth})이 그대로 남는다. 그 월드에서 팀이 정한 값은 실제로
+	 * {@code maxHealth} 였으므로 이게 정확한 복원이다.
+	 */
+	private static TeamState withStoredSections(TeamState state, PerkSection perks,
+			Optional<Float> baseMaxHealth) {
 		state.applyPerkSection(perks);
+		baseMaxHealth.ifPresent(value -> state.baseMaxHealth = sanitizeMaximum(value, state.maxHealth));
 		return state;
 	}
 

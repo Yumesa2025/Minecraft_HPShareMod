@@ -5,6 +5,8 @@
   "mixins": [
     "AbstractContainerMenuAccessor",
     "AbstractContainerMenuInvoker",
+    "FoodDataNaturalRegenMixin",
+    "FoodDataRegenExhaustionMixin",
     "FoodPropertiesMixin",
     "CreativeModeSlotPacketMixin",
     "InventoryAccessor",
@@ -23,6 +25,12 @@
     "PlayerExpandedInventoryMixin",
     "PlayerDropMixin",
     "PlayerEquipmentMixin",
+    "EquippableSwapBanMixin",
+    "LivingEntityEquipBanMixin",
+    "PlayerBannedToolMixin",
+    "SlotOffhandLockMixin",
+    "PlayerMiningSpeedMixin",
+    "ServerPlayerCritMixin",
     "SlotAccessor"
   ],
   "injectors": {

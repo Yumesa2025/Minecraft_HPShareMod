@@ -1,6 +1,7 @@
 package com.sharedfate.perk;
 
 import com.sharedfate.SharedFateMod;
+import com.sharedfate.perk.effect.DamageTakenFromEffect;
 import com.sharedfate.team.TeamLookup;
 import com.sharedfate.team.TeamState;
 import net.minecraft.server.level.ServerPlayer;
@@ -45,7 +46,8 @@ public final class PerkDamage {
 		try {
 			// 조회 실패가 피해 처리를 막으면 안 된다. 어떤 예외든 원래 값으로 돌아간다.
 			Entity attacker = source == null ? null : source.getEntity();
-			factor = dealtFactor(attacker) * takenFactor(victim) * mobDealtFactor(attacker);
+			factor = dealtFactor(attacker) * takenFactor(victim) * mobDealtFactor(attacker)
+					* takenSourceFactor(victim, source);
 		} catch (RuntimeException error) {
 			warnOnce(error);
 			return amount;
@@ -78,6 +80,44 @@ public final class PerkDamage {
 			return 1.0;
 		}
 		return PerkManager.damageTakenMultiplier(player);
+	}
+
+	/**
+	 * 피해 종류를 가려서 걸리는 {@code damage_taken_from} 배율을 읽는다.
+	 *
+	 * <p>{@link #takenFactor} 와 따로 도는 이유는 {@link PerkEffect#damageTakenMultiplier()} 에
+	 * 피해원이 넘어오지 않기 때문이다. 그 자리를 고치면 조건을 모르는 옛 경로가 "불 피해 전용"
+	 * 배율을 모든 피해에 곱하게 되므로, 피해원을 아는 여기서 따로 훑는다.
+	 *
+	 * <p>증강의 <b>최상위 효과만</b> 본다. {@code periodic}·{@code conditional} 안에 들어간
+	 * {@code damage_taken_from} 은 여기 걸리지 않는데, 그런 정의는 애초에
+	 * {@link com.sharedfate.perk.effect.DamageTakenFromEffect} 가 읽는 시점에 버린다.
+	 */
+	private static double takenSourceFactor(@Nullable Entity victim, @Nullable DamageSource source) {
+		if (source == null || !(victim instanceof ServerPlayer player) || !perksActive(player)) {
+			return 1.0;
+		}
+		return takenSourceMultiplier(TeamLookup.stateOf(player.getUUID()), source);
+	}
+
+	/** 이 팀이 가진 {@code damage_taken_from} 중 이 피해원에 걸리는 것들의 배율을 모두 곱한 값. */
+	static double takenSourceMultiplier(@Nullable TeamState state, @Nullable DamageSource source) {
+		if (state == null || source == null || state.ownedPerks.isEmpty()) {
+			return 1.0;
+		}
+		double total = 1.0;
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
+			if (perk == null) {
+				continue;
+			}
+			for (PerkEffect effect : perk.effects()) {
+				if (effect instanceof DamageTakenFromEffect from) {
+					total *= from.multiplierFor(source);
+				}
+			}
+		}
+		return Double.isFinite(total) && total > 0.0 ? total : 1.0;
 	}
 
 	/**

@@ -6,17 +6,34 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.effect.AttributeEffect;
+import com.sharedfate.perk.effect.BonusDropEffect;
 import com.sharedfate.perk.effect.ConditionalEffect;
 import com.sharedfate.perk.effect.CustomEffect;
 import com.sharedfate.perk.effect.DamageDealtEffect;
 import com.sharedfate.perk.effect.DamageTakenEffect;
+import com.sharedfate.perk.effect.DamageTakenFromEffect;
+import com.sharedfate.perk.effect.EquipBanEffect;
+import com.sharedfate.perk.effect.FoodNutritionEffect;
+import com.sharedfate.perk.effect.HungerDrainEffect;
+import com.sharedfate.perk.effect.ItemBanEffect;
 import com.sharedfate.perk.effect.ItemGrantEffect;
+import com.sharedfate.perk.effect.LifestealEffect;
+import com.sharedfate.perk.effect.MaxHealthBonusEffect;
+import com.sharedfate.perk.effect.MaxHealthLockEffect;
+import com.sharedfate.perk.effect.MiningSpeedEffect;
 import com.sharedfate.perk.effect.MobDamageEffect;
 import com.sharedfate.perk.effect.MobHealthEffect;
 import com.sharedfate.perk.effect.NoFoodHungerEffect;
+import com.sharedfate.perk.effect.NoHungerDrainEffect;
+import com.sharedfate.perk.effect.NoNaturalRegenEffect;
+import com.sharedfate.perk.effect.OffhandLockEffect;
+import com.sharedfate.perk.effect.OnBreakEffect;
+import com.sharedfate.perk.effect.OnCriticalEffect;
 import com.sharedfate.perk.effect.OnKillEffect;
+import com.sharedfate.perk.effect.OnTeamHurtEffect;
 import com.sharedfate.perk.effect.PeriodicEffect;
 import com.sharedfate.perk.effect.StatusEffectPerk;
+import com.sharedfate.perk.effect.WeaponDamageEffect;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -44,6 +61,23 @@ public enum PerkEffectType {
 	ON_KILL("on_kill", OnKillEffect::fromJson),
 	NO_FOOD_HUNGER("no_food_hunger", NoFoodHungerEffect::fromJson),
 	ITEM_GRANT("item_grant", ItemGrantEffect::fromJson),
+	FOOD_NUTRITION("food_nutrition", FoodNutritionEffect::fromJson),
+	HUNGER_DRAIN("hunger_drain", HungerDrainEffect::fromJson),
+	NO_HUNGER_DRAIN("no_hunger_drain", NoHungerDrainEffect::fromJson),
+	MAX_HEALTH_LOCK("max_health_lock", MaxHealthLockEffect::fromJson),
+	MAX_HEALTH_BONUS("max_health_bonus", MaxHealthBonusEffect::fromJson),
+	BONUS_DROP("bonus_drop", BonusDropEffect::fromJson),
+	ON_BREAK("on_break", OnBreakEffect::fromJson),
+	MINING_SPEED("mining_speed", MiningSpeedEffect::fromJson),
+	ON_TEAM_HURT("on_team_hurt", OnTeamHurtEffect::fromJson),
+	ON_CRITICAL("on_critical", OnCriticalEffect::fromJson),
+	LIFESTEAL("lifesteal", LifestealEffect::fromJson),
+	NO_NATURAL_REGEN("no_natural_regen", NoNaturalRegenEffect::fromJson),
+	DAMAGE_TAKEN_FROM("damage_taken_from", DamageTakenFromEffect::fromJson),
+	EQUIP_BAN("equip_ban", EquipBanEffect::fromJson),
+	ITEM_BAN("item_ban", ItemBanEffect::fromJson),
+	OFFHAND_LOCK("offhand_lock", OffhandLockEffect::fromJson),
+	WEAPON_DAMAGE("weapon_damage", WeaponDamageEffect::fromJson),
 	CUSTOM("custom", CustomEffect::fromJson);
 
 	/** 효과 하나를 만드는 팩토리. 정의가 잘못됐으면 {@code null}을 돌려준다. */
