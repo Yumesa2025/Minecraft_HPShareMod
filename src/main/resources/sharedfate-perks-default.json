@@ -47,7 +47,7 @@
     {
       "id": "sharedfate:bottomless_jar",
       "name": "밑 빠진 독",
-      "description": "재생 II 를 상시 얻습니다. 대신 허기 II 도 상시 얻습니다.",
+      "description": "재생 II 를 상시 얻습니다. 대신 허기 IV 도 상시 얻습니다.",
       "rarity": "platinum",
       "stackable": false,
       "effects": [
@@ -59,7 +59,7 @@
         {
           "type": "status_effect",
           "effect": "minecraft:hunger",
-          "amplifier": 1
+          "amplifier": 3
         }
       ]
     },
@@ -78,6 +78,39 @@
         {
           "type": "damage_taken",
           "multiplier": 3.0
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:emergency_ration",
+      "name": "비상식량",
+      "description": "황금 사과를 5개 얻습니다.",
+      "rarity": "silver",
+      "stackable": true,
+      "maxStacks": 3,
+      "effects": [
+        {
+          "type": "item_grant",
+          "items": [
+            { "id": "minecraft:golden_apple", "count": 5 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:expedition_kit",
+      "name": "원정 준비물",
+      "description": "화염 저항 포션과 수중 호흡 포션을 하나씩 얻습니다.",
+      "rarity": "silver",
+      "stackable": true,
+      "maxStacks": 3,
+      "effects": [
+        {
+          "type": "item_grant",
+          "items": [
+            { "id": "minecraft:potion", "count": 1, "potion": "minecraft:fire_resistance" },
+            { "id": "minecraft:potion", "count": 1, "potion": "minecraft:water_breathing" }
+          ]
         }
       ]
     }

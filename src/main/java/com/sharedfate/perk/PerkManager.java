@@ -48,6 +48,18 @@ public final class PerkManager {
 
 	public static void reset() {
 		tickCounter = 0;
+		PerkChoiceSession.reset();
+	}
+
+	/** 서버가 켜질 때. 이전 실행에서 얼려 둔 시간이 남아 있지 않은지 확인한다. */
+	public static void onServerStarted(MinecraftServer server) {
+		tickCounter = 0;
+		PerkChoiceSession.onServerStarted(server);
+	}
+
+	/** 서버가 멈추기 직전. 얼어 있는 채로 종료하지 않는다. */
+	public static void onServerStopping(MinecraftServer server) {
+		PerkChoiceSession.onServerStopping(server);
 	}
 
 	// ------------------------------------------------------------------ 구간 감지
@@ -56,6 +68,10 @@ public final class PerkManager {
 		if (server == null) {
 			return;
 		}
+		// 강제 선택 세션은 제한시간을 세야 하므로 감지 주기와 무관하게 매 틱 돌린다.
+		// 시간이 멈춰 있어도 tickServer 는 그대로 도니 이 카운트다운은 절대 멈추지 않는다.
+		PerkChoiceSession.tick(server);
+
 		if (++tickCounter < CHECK_INTERVAL_TICKS) {
 			return;
 		}
@@ -72,6 +88,28 @@ public final class PerkManager {
 			if (changed) {
 				manager.setDirty();
 				broadcastSync(server, team, state);
+			}
+		}
+		beginSessionIfIdle(server, manager);
+	}
+
+	/**
+	 * 대기 중인 선택권이 남아 있으면 강제 선택 세션을 연다.
+	 *
+	 * <p>세션은 서버 전체에 하나뿐이다. 팀이 여럿이면 한 팀이 끝난 뒤 다음 팀 차례가 온다.
+	 * 팀원이 전부 접속을 끊어 중단된 선택권도 누군가 돌아오면 이 경로로 다시 열린다.
+	 */
+	private static void beginSessionIfIdle(MinecraftServer server, TeamManager manager) {
+		if (PerkChoiceSession.isActive()) {
+			return;
+		}
+		for (ShareTeam team : List.copyOf(manager.allTeams())) {
+			TeamState state = manager.stateByTeamId(team.teamId());
+			if (state == null || !state.perksEnabled || state.pending.isEmpty()) {
+				continue;
+			}
+			if (PerkChoiceSession.begin(server, team, state)) {
+				return;
 			}
 		}
 	}
@@ -96,7 +134,8 @@ public final class PerkManager {
 			UUID chooser = pickChooser(server, team, random);
 			PendingOffer offer = new PendingOffer(milestone, Optional.ofNullable(chooser), options);
 			state.pending.add(offer);
-			announceOffer(server, team, offer, chooser);
+			// 알림은 여기서 하지 않는다. 곧바로 강제 선택 세션이 열리면서
+			// PerkChoiceSession 이 구간·등급·선택자·제한시간을 한 번에 알려 준다.
 		}
 		return true;
 	}
@@ -115,7 +154,6 @@ public final class PerkManager {
 				continue;
 			}
 			state.pending.set(i, offer.withChooser(chooser));
-			announceOffer(server, team, offer, chooser);
 			changed = true;
 		}
 		return changed;
@@ -160,6 +198,8 @@ public final class PerkManager {
 			manager.setDirty();
 		}
 		broadcastSync(server, team, state);
+		// 강제 선택이 진행 중이면 늦게 들어온 사람에게도 창을 띄우고 무적을 걸어 준다.
+		PerkChoiceSession.refreshAudience(server);
 		remindIfChooser(player, state);
 	}
 
@@ -195,6 +235,9 @@ public final class PerkManager {
 		if (changed) {
 			manager.setDirty();
 			broadcastSync(server, team, state);
+			// 선택자가 바뀌었으니 남은 사람들의 창을 새 권한으로 다시 띄운다. 이걸 빠뜨리면
+			// 아무도 고를 수 없는 채로 제한시간까지 방치된다.
+			PerkChoiceSession.refreshAudience(server);
 		}
 	}
 
@@ -222,11 +265,27 @@ public final class PerkManager {
 		boolean canChoose = offer.isChooser(player.getUUID());
 		// 관전 화면이 "○○님이 고르는 중입니다"를 띄우려면 선택자 이름이 먼저 가 있어야 한다.
 		broadcastSync(server, team, state);
-		ServerPlayNetworking.send(player, toOfferPayload(offer, canChoose));
+		if (PerkChoiceSession.isActive()
+				&& team.teamId().equals(PerkChoiceSession.activeTeamId())
+				&& PerkChoiceSession.activeMilestone() == offer.milestone()) {
+			// 강제 선택이 진행 중인데 창을 잃어버린 경우다. 마감이 살아 있는 창으로 되돌려 준다.
+			ServerPlayNetworking.send(player, new PerkOfferPayload(offer.milestone(), canChoose,
+					true, PerkChoiceSession.remainingTicks(), describeOptions(offer)));
+		} else {
+			// 직접 여는 경로. 시간을 멈추지도, 무적을 걸지도 않는 단순 확인용이다.
+			ServerPlayNetworking.send(player,
+					PerkOfferPayload.manual(offer.milestone(), canChoose, describeOptions(offer)));
+		}
 		return canChoose ? OpenResult.OPENED : OpenResult.SPECTATING;
 	}
 
-	private static PerkOfferPayload toOfferPayload(PendingOffer offer, boolean canChoose) {
+	/**
+	 * 대기 중인 후보를 화면에 그릴 수 있는 형태로 푼다.
+	 *
+	 * <p>풀에서 사라진 id 는 빠지므로 결과가 빈 목록일 수 있다. 그런 선택권으로는
+	 * 절대 시간을 멈추지 않는다({@link PerkChoiceSession#begin}).
+	 */
+	static List<PerkOfferPayload.PerkOption> describeOptions(PendingOffer offer) {
 		List<PerkOfferPayload.PerkOption> options = new ArrayList<>();
 		for (String id : offer.optionIds()) {
 			Perk perk = PerkRegistry.byId(id).orElse(null);
@@ -237,7 +296,7 @@ public final class PerkManager {
 			options.add(new PerkOfferPayload.PerkOption(
 					perk.id(), perk.name(), perk.description(), perk.rarity().id()));
 		}
-		return new PerkOfferPayload(offer.milestone(), canChoose, options);
+		return options;
 	}
 
 	/**
@@ -274,18 +333,87 @@ public final class PerkManager {
 			return;
 		}
 
-		addStack(state, perkId);
+		commit(server, manager, team, state, perk,
+				player.getGameProfile().name() + "님이 " + gradeAndName(perk) + " 을(를) 골랐습니다.");
+		// 선택이 끝났으니 시간을 다시 흐르게 하고 팀 전원의 창을 닫는다.
+		PerkChoiceSession.onChoiceApplied(server, team.teamId(), milestone);
+	}
+
+	/**
+	 * 제한시간이 끝났을 때 후보 중 하나를 무작위로 골라 적용한다.
+	 *
+	 * <p>{@link PerkChoiceSession} 이 시간을 이미 녹인 뒤에 부른다. <b>고를 수 있는 후보가 하나도
+	 * 없더라도 이 선택권은 반드시 대기열에서 사라진다.</b> 남겨 두면 다음 감지 주기에 같은
+	 * 선택권으로 다시 얼어붙어 영원히 빠져나오지 못한다.
+	 */
+	static void applyRandomChoice(MinecraftServer server, UUID teamId, int milestone) {
+		if (server == null) {
+			return;
+		}
+		TeamManager manager = TeamManager.get(server);
+		ShareTeam team = manager.teamById(teamId);
+		TeamState state = manager.stateByTeamId(teamId);
+		if (team == null || state == null || state.pending.isEmpty()) {
+			return;
+		}
+		PendingOffer offer = state.pending.getFirst();
+		if (offer.milestone() != milestone) {
+			return;
+		}
+
+		Perk perk = pickRandomTakeable(server, state, offer);
+		if (perk == null) {
+			state.pending.removeFirst();
+			manager.setDirty();
+			broadcastSync(server, team, state);
+			SharedFateMod.LOGGER.warn(
+					"{}렙 구간 선택권에 고를 수 있는 후보가 없어 그대로 버립니다.", milestone);
+			broadcast(server, team, Component.literal(
+					"[증강] 시간이 다 되었지만 고를 수 있는 후보가 없어 이번 선택권은 사라집니다."));
+			return;
+		}
+		commit(server, manager, team, state, perk,
+				"시간이 다 되어 " + gradeAndName(perk) + " 이(가) 무작위로 선택되었습니다.");
+	}
+
+	/** 후보 중 지금 실제로 가져갈 수 있는 것 하나를 무작위로 고른다. 하나도 없으면 null. */
+	private static @Nullable Perk pickRandomTakeable(MinecraftServer server, TeamState state,
+			PendingOffer offer) {
+		List<Perk> takeable = new ArrayList<>();
+		for (String id : offer.optionIds()) {
+			Perk perk = PerkRegistry.byId(id).orElse(null);
+			if (perk != null && perk.canTakeMore(stackCount(state, id))) {
+				takeable.add(perk);
+			}
+		}
+		if (takeable.isEmpty()) {
+			return null;
+		}
+		RandomSource random = server.overworld().getRandom();
+		return takeable.get(random.nextInt(takeable.size()));
+	}
+
+	/** 선택을 실제로 반영한다. 직접 고른 경우와 자동 선택이 같은 길을 지나게 하는 자리다. */
+	private static void commit(MinecraftServer server, TeamManager manager, ShareTeam team,
+			TeamState state, Perk perk, String announcement) {
+		addStack(state, perk.id());
 		state.pending.removeFirst();
 		manager.setDirty();
+
+		// 즉시 지급은 여기서만 일어난다. refreshPlayer 는 접속·부활 때마다 다시 도는 길이라
+		// 거기에 두면 접속할 때마다 아이템이 불어난다. 중첩 증강은 고를 때마다 한 번씩 준다.
+		PerkItemGrants.grantOnChoice(server, team, state, perk);
 
 		applyToTeam(server, team, state);
 		// 몹에게 걸리는 증강은 폴링으로도 따라잡지만, 고른 즉시 반영되는 편이 자연스럽다.
 		MobPerkModifiers.invalidateNow(server);
 		broadcastSync(server, team, state);
 		broadcast(server, team, Component.literal(
-				"[증강] " + player.getGameProfile().name() + "님이 "
-						+ perk.rarity().displayName() + " 등급 " + perk.name()
-						+ " 을(를) 골랐습니다. 팀 전체에 적용됩니다."));
+				"[증강] " + announcement + " 팀 전체에 적용됩니다."));
+	}
+
+	private static String gradeAndName(Perk perk) {
+		return perk.rarity().displayName() + " 등급 " + perk.name();
 	}
 
 	// ------------------------------------------------------------------ 효과 적용
@@ -388,6 +516,7 @@ public final class PerkManager {
 		state.ownedPerks.add(new PerkStack(perkId, 1));
 	}
 
+	/** 선택권이 다른 사람에게 넘어갔을 때만 쓰는 알림. 최초 발동 알림은 세션 쪽이 맡는다. */
 	private static void announceOffer(MinecraftServer server, ShareTeam team, PendingOffer offer,
 			@Nullable UUID chooser) {
 		if (chooser == null) {
@@ -395,11 +524,15 @@ public final class PerkManager {
 		}
 		ServerPlayer picked = server.getPlayerList().getPlayer(chooser);
 		String name = picked == null ? "팀원" : picked.getGameProfile().name();
-		PerkRarity rarity = offerRarity(offer);
-		String grade = rarity == null ? "증강" : rarity.displayName() + " 등급 증강";
 		broadcast(server, team, Component.literal(
-				"[증강] " + offer.milestone() + "렙 달성. " + grade + " 선택권이 " + name
-						+ "님에게 생겼습니다. /shareteam perk 로 확인하십시오."));
+				"[증강] " + offer.milestone() + "렙 " + offerGradeLabel(offer) + " 선택권이 "
+						+ name + "님에게 넘어갔습니다."));
+	}
+
+	/** 이 선택권의 등급 표시 문자열. 등급을 알 수 없으면 그냥 "증강". */
+	static String offerGradeLabel(PendingOffer offer) {
+		PerkRarity rarity = offerRarity(offer);
+		return rarity == null ? "증강" : rarity.displayName() + " 등급 증강";
 	}
 
 	/**

@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConfigTest {
@@ -20,6 +21,7 @@ class ConfigTest {
 		SharedFateConfig config = SharedFateConfig.loadOrCreate(file);
 
 		assertEquals(4, config.maxTeamSize);
+		assertTrue(config.singleTeamOnly, "서버 팀 하나 제한은 기본으로 켜져 있어야 한다");
 		assertEquals(20.0, config.sharedMaxHealth);
 		assertEquals(6, config.mainInventoryRows);
 		assertTrue(config.shareEnderChest);
@@ -60,7 +62,21 @@ class ConfigTest {
 		assertEquals(20.0, config.sharedMaxHealth);
 		assertEquals(6, config.mainInventoryRows);
 		assertTrue(config.shareEnderChest);
+		assertTrue(config.singleTeamOnly);
 		assertEquals(30, config.damageAlertDurationTicks);
+	}
+
+	@Test
+	void 서버_팀_하나_제한은_끌_수_있다(@TempDir Path dir) throws Exception {
+		Path file = dir.resolve("sharedfate.json");
+		Files.writeString(file, "{\"singleTeamOnly\": false}", StandardCharsets.UTF_8);
+
+		SharedFateConfig config = SharedFateConfig.loadOrCreate(file);
+
+		assertFalse(config.singleTeamOnly);
+		// 값을 다시 저장해도 꺼진 상태가 유지되어야 한다.
+		config.save(file);
+		assertFalse(SharedFateConfig.loadOrCreate(file).singleTeamOnly);
 	}
 
 	@Test
