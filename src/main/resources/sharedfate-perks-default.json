@@ -74,7 +74,9 @@
         {
           "type": "mob_health",
           "multiplier": 0.5,
-          "excludes": ["minecraft:ender_dragon"]
+          "excludes": [
+            "minecraft:ender_dragon"
+          ]
         },
         {
           "type": "damage_taken",
@@ -92,7 +94,10 @@
         {
           "type": "item_grant",
           "items": [
-            { "id": "minecraft:golden_apple", "count": 5 }
+            {
+              "id": "minecraft:golden_apple",
+              "count": 5
+            }
           ]
         }
       ]
@@ -107,8 +112,16 @@
         {
           "type": "item_grant",
           "items": [
-            { "id": "minecraft:potion", "count": 1, "potion": "minecraft:fire_resistance" },
-            { "id": "minecraft:potion", "count": 1, "potion": "minecraft:water_breathing" }
+            {
+              "id": "minecraft:potion",
+              "count": 1,
+              "potion": "minecraft:fire_resistance"
+            },
+            {
+              "id": "minecraft:potion",
+              "count": 1,
+              "potion": "minecraft:water_breathing"
+            }
           ]
         }
       ]
@@ -242,7 +255,7 @@
     },
     {
       "id": "sharedfate:shared_suffering",
-      "icon": "minecraft:totem_of_undying",
+      "icon": "minecraft:iron_chain",
       "name": "동병상련",
       "description": "팀원이 피해를 받으면 2초간 저항 I 을 얻습니다. 대신 같은 시간 동안 공격력이 감소합니다.",
       "rarity": "silver",
@@ -320,7 +333,9 @@
         },
         {
           "type": "equip_ban",
-          "slots": ["head"]
+          "slots": [
+            "head"
+          ]
         }
       ]
     },
@@ -328,7 +343,7 @@
       "id": "sharedfate:blind_giant",
       "icon": "minecraft:heart_of_the_sea",
       "name": "장님 거인",
-      "description": "최대 체력이 20 증가합니다. 대신 허기 I 을 상시 얻습니다.",
+      "description": "최대 체력이 20 증가합니다. 대신 허기 I 을 상시 얻고 체력과 허기 표시가 가려집니다.",
       "rarity": "prism",
       "effects": [
         {
@@ -339,6 +354,13 @@
           "type": "status_effect",
           "effect": "minecraft:hunger",
           "amplifier": 0
+        },
+        {
+          "type": "hide_hud",
+          "elements": [
+            "health",
+            "food"
+          ]
         }
       ]
     },
@@ -352,12 +374,17 @@
         {
           "type": "item_grant",
           "items": [
-            { "id": "minecraft:netherite_ingot", "count": 3 }
+            {
+              "id": "minecraft:netherite_ingot",
+              "count": 3
+            }
           ]
         },
         {
           "type": "item_ban",
-          "tags": ["sharedfate:diamond_gear"]
+          "tags": [
+            "sharedfate:diamond_gear"
+          ]
         }
       ]
     },
@@ -376,7 +403,9 @@
         },
         {
           "type": "equip_ban",
-          "slots": ["armor"]
+          "slots": [
+            "armor"
+          ]
         }
       ]
     },
@@ -390,7 +419,10 @@
         {
           "type": "item_grant",
           "items": [
-            { "id": "minecraft:totem_of_undying", "count": 1 }
+            {
+              "id": "minecraft:totem_of_undying",
+              "count": 1
+            }
           ]
         },
         {
@@ -408,9 +440,464 @@
       "effects": [
         {
           "type": "weapon_damage",
-          "tags": ["minecraft:shovels"],
+          "tags": [
+            "minecraft:shovels"
+          ],
           "multiplier": 3.0,
           "othersDamage": 1.0
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:overclock",
+      "icon": "minecraft:sugar",
+      "name": "오버클럭",
+      "description": "30초마다 신속 I 을 10초간 얻습니다. 대신 신속이 끝나면 구속 I 을 5초간 얻습니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "periodic",
+          "period_ticks": 600,
+          "phases": [
+            {
+              "ticks": 200,
+              "effects": [
+                {
+                  "type": "status_effect",
+                  "effect": "minecraft:speed",
+                  "amplifier": 0
+                }
+              ]
+            },
+            {
+              "ticks": 100,
+              "effects": [
+                {
+                  "type": "status_effect",
+                  "effect": "minecraft:slowness",
+                  "amplifier": 0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:hunters_meal",
+      "icon": "minecraft:cooked_beef",
+      "name": "사냥꾼의 식사",
+      "description": "몹을 처치하면 팀 허기가 2 회복됩니다. 대신 몹에게 받는 피해가 ×1.15 가 됩니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "on_kill",
+          "food": 2,
+          "saturation": 1.0
+        },
+        {
+          "type": "mob_damage",
+          "multiplier": 1.15
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:predator",
+      "icon": "minecraft:cooked_porkchop",
+      "name": "포식자",
+      "description": "허기가 가득 차 있으면 공격력이 15% 증가합니다. 대신 가득 차 있지 않으면 이동 속도가 20%, 공격력이 30% 감소합니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "conditional",
+          "condition": "hunger_full",
+          "when_true": [
+            {
+              "type": "attribute",
+              "attribute": "minecraft:attack_damage",
+              "operation": "add_multiplied_total",
+              "amount": 0.15
+            }
+          ],
+          "when_false": [
+            {
+              "type": "attribute",
+              "attribute": "minecraft:movement_speed",
+              "operation": "add_multiplied_total",
+              "amount": -0.2
+            },
+            {
+              "type": "attribute",
+              "attribute": "minecraft:attack_damage",
+              "operation": "add_multiplied_total",
+              "amount": -0.3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:flawless",
+      "icon": "minecraft:diamond",
+      "name": "무결점",
+      "description": "체력이 가득 차 있으면 공격력이 15% 증가합니다. 대신 가득 차 있지 않으면 이동 속도가 20%, 공격력이 30% 감소합니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "conditional",
+          "condition": "health_full",
+          "when_true": [
+            {
+              "type": "attribute",
+              "attribute": "minecraft:attack_damage",
+              "operation": "add_multiplied_total",
+              "amount": 0.15
+            }
+          ],
+          "when_false": [
+            {
+              "type": "attribute",
+              "attribute": "minecraft:movement_speed",
+              "operation": "add_multiplied_total",
+              "amount": -0.2
+            },
+            {
+              "type": "attribute",
+              "attribute": "minecraft:attack_damage",
+              "operation": "add_multiplied_total",
+              "amount": -0.3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:brink",
+      "icon": "minecraft:redstone",
+      "name": "벼랑 끝",
+      "description": "체력이 60% 이하일 때 힘 II 를 얻습니다. 대신 체력이 60% 를 넘을 때 나약함 I 을 얻습니다.",
+      "rarity": "prism",
+      "effects": [
+        {
+          "type": "conditional",
+          "condition": "health_below",
+          "threshold": 0.6,
+          "when_true": [
+            {
+              "type": "status_effect",
+              "effect": "minecraft:strength",
+              "amplifier": 1
+            }
+          ],
+          "when_false": [
+            {
+              "type": "status_effect",
+              "effect": "minecraft:weakness",
+              "amplifier": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:devour",
+      "icon": "minecraft:beef",
+      "name": "포식",
+      "description": "몹을 처치하면 허기가 4, 체력이 2 회복됩니다. 대신 음식으로는 허기가 회복되지 않습니다.",
+      "rarity": "prism",
+      "effects": [
+        {
+          "type": "on_kill",
+          "food": 4,
+          "saturation": 2.0,
+          "health": 2.0
+        },
+        {
+          "type": "no_food_hunger"
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:overload",
+      "icon": "minecraft:blaze_powder",
+      "name": "과부하",
+      "description": "힘 II 와 신속 II 를 상시 얻습니다. 대신 30초마다 둘 다 사라지고 5초간 나약함 III 과 구속 III 을 얻습니다.",
+      "rarity": "prism",
+      "effects": [
+        {
+          "type": "periodic",
+          "period_ticks": 600,
+          "base": [
+            {
+              "type": "status_effect",
+              "effect": "minecraft:strength",
+              "amplifier": 1
+            },
+            {
+              "type": "status_effect",
+              "effect": "minecraft:speed",
+              "amplifier": 1
+            }
+          ],
+          "phases": [
+            {
+              "ticks": 100,
+              "effects": [
+                {
+                  "type": "status_effect",
+                  "effect": "minecraft:weakness",
+                  "amplifier": 2
+                },
+                {
+                  "type": "status_effect",
+                  "effect": "minecraft:slowness",
+                  "amplifier": 2
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:shifting_home",
+      "icon": "minecraft:ender_pearl",
+      "name": "본진이 바뀐다",
+      "description": "팀원 위치가 바뀔 때 3초간 저항 IV 를 얻습니다. 대신 위치 교환 주기가 ×0.5 로 짧아집니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "on_swap",
+          "effects": [
+            {
+              "type": "status_effect",
+              "effect": "minecraft:resistance",
+              "amplifier": 3,
+              "duration": 3
+            }
+          ]
+        },
+        {
+          "type": "swap_interval",
+          "multiplier": 0.5
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:rooted_feet",
+      "icon": "minecraft:mangrove_roots",
+      "name": "뿌리내린 발",
+      "description": "팀원 위치가 바뀌지 않습니다. 대신 원래 바뀔 시점마다 실명과 구속을 5초간 얻습니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "swap_block"
+        },
+        {
+          "type": "on_swap",
+          "effects": [
+            {
+              "type": "status_effect",
+              "effect": "minecraft:blindness",
+              "amplifier": 0,
+              "duration": 5
+            },
+            {
+              "type": "status_effect",
+              "effect": "minecraft:slowness",
+              "amplifier": 0,
+              "duration": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:shared_fate_bond",
+      "icon": "minecraft:lead",
+      "name": "운명 공동체",
+      "description": "팀원이 일정 거리 이상 떨어지면 모두 한곳에 모입니다. 대신 이동 후 5초간 실명과 구속을 얻습니다.",
+      "rarity": "prism",
+      "effects": [
+        {
+          "type": "gather",
+          "distance": 64,
+          "cooldown_ticks": 200,
+          "effects": [
+            {
+              "type": "status_effect",
+              "effect": "minecraft:blindness",
+              "amplifier": 0,
+              "duration": 5
+            },
+            {
+              "type": "status_effect",
+              "effect": "minecraft:slowness",
+              "amplifier": 0,
+              "duration": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:rotating_buff",
+      "icon": "minecraft:bell",
+      "name": "버프 돌리기",
+      "description": "일정 시간마다 무작위 팀원이 강한 버프를 받습니다. 대신 그 팀원이 피해를 받으면 디버프를 얻고 버프가 다른 팀원에게 넘어갑니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "holder",
+          "rotate_ticks": 1200,
+          "min_hold_ticks": 200,
+          "pass_on_hurt": true,
+          "on_holder": [
+            {
+              "type": "damage_dealt",
+              "multiplier": 1.5
+            },
+            {
+              "type": "status_effect",
+              "effect": "minecraft:haste",
+              "amplifier": 0
+            }
+          ],
+          "on_others": [],
+          "on_pass": [
+            {
+              "type": "status_effect",
+              "effect": "minecraft:weakness",
+              "amplifier": 0,
+              "duration": 5
+            },
+            {
+              "type": "status_effect",
+              "effect": "minecraft:blindness",
+              "amplifier": 0,
+              "duration": 5
+            },
+            {
+              "type": "status_effect",
+              "effect": "minecraft:mining_fatigue",
+              "amplifier": 0,
+              "duration": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:king_and_subjects",
+      "icon": "minecraft:golden_helmet",
+      "name": "제왕과 신하",
+      "description": "무작위 팀원 한 명이 리더가 되어 강한 버프를 얻습니다. 대신 나머지 팀원은 공격력이 감소합니다.",
+      "rarity": "prism",
+      "effects": [
+        {
+          "type": "holder",
+          "rotate_ticks": 0,
+          "min_hold_ticks": 0,
+          "pass_on_hurt": false,
+          "on_holder": [
+            {
+              "type": "status_effect",
+              "effect": "minecraft:strength",
+              "amplifier": 1
+            },
+            {
+              "type": "status_effect",
+              "effect": "minecraft:resistance",
+              "amplifier": 0
+            }
+          ],
+          "on_others": [
+            {
+              "type": "attribute",
+              "attribute": "minecraft:attack_damage",
+              "operation": "add_multiplied_total",
+              "amount": -0.3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:void_step",
+      "icon": "minecraft:wind_charge",
+      "name": "허공답보",
+      "description": "공중에서 한 번 더 점프할 수 있습니다. 대신 낙하 피해가 2배가 됩니다.",
+      "rarity": "prism",
+      "effects": [
+        {
+          "type": "double_jump",
+          "power": 0.42
+        },
+        {
+          "type": "attribute",
+          "attribute": "minecraft:fall_damage_multiplier",
+          "operation": "add_multiplied_total",
+          "amount": 1.0
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:sleepless_watch",
+      "icon": "minecraft:red_bed",
+      "name": "불면의 파수꾼",
+      "description": "좀비와 스켈레톤의 공격력이 15% 감소합니다. 대신 잠을 잘 수 없습니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "mob_damage",
+          "multiplier": 0.85,
+          "targets": [
+            "minecraft:zombie",
+            "minecraft:skeleton"
+          ]
+        },
+        {
+          "type": "no_sleep"
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:fortress_finder",
+      "icon": "minecraft:compass",
+      "name": "요새 탐지기",
+      "description": "네더에서 나침반이 가장 가까운 네더 요새를 가리킵니다. 대신 화염 피해를 ×1.5 로 받습니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "compass_target",
+          "structure": "minecraft:fortress",
+          "dimension": "minecraft:the_nether",
+          "search_radius": 100
+        },
+        {
+          "type": "damage_taken_from",
+          "multiplier": 1.5,
+          "sources": [
+            "#minecraft:is_fire"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:moonlight_is_enough",
+      "icon": "minecraft:clock",
+      "name": "달빛이면 충분해",
+      "description": "야간 투시를 상시 얻습니다. 대신 시간이 밤으로 고정됩니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "status_effect",
+          "effect": "minecraft:night_vision",
+          "amplifier": 0
+        },
+        {
+          "type": "time_lock",
+          "time": 18000
         }
       ]
     }

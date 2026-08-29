@@ -4,10 +4,13 @@ import com.sharedfate.SharedFateMod;
 import com.sharedfate.client.hud.DamageAlertHud;
 import com.sharedfate.client.hud.HotbarHighlight;
 import com.sharedfate.client.hud.TeamLevelHud;
+import com.sharedfate.client.perk.ClientPerkFeatures;
+import com.sharedfate.client.perk.DoubleJumpHandler;
 import com.sharedfate.client.perk.PerkClientState;
 import com.sharedfate.client.perk.PerkOfferScreen;
 import com.sharedfate.net.DamageAlertPayload;
 import com.sharedfate.net.HandshakePayload;
+import com.sharedfate.net.PerkClientFeaturesPayload;
 import com.sharedfate.net.PerkCloseOfferPayload;
 import com.sharedfate.net.PerkOfferPayload;
 import com.sharedfate.net.PerkSyncPayload;
@@ -15,17 +18,20 @@ import com.sharedfate.net.SelectedSlotPayload;
 import com.sharedfate.net.SharedFateNetworking;
 import com.sharedfate.net.TeamSyncPayload;
 import com.sharedfate.net.WorldResetPayload;
+import com.sharedfate.perk.effect.HideHudEffect;
 import com.sharedfate.inventory.ExpandedInventoryManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientConfigurationNetworking;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.DeathScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
 
 import java.util.UUID;
@@ -74,6 +80,11 @@ public class SharedFateClient implements ClientModInitializer {
 				(payload, context) -> context.client().execute(
 						() -> PerkClientState.update(payload.ownedLines(),
 								payload.pendingCount(), payload.chooserName())));
+		// 클라이언트가 스스로 해야 하는 증강 기능. HUD 가 읽는 값이므로 렌더와 같은
+		// 스레드(클라이언트 본 스레드)에서 갱신한다.
+		ClientPlayNetworking.registerGlobalReceiver(PerkClientFeaturesPayload.TYPE,
+				(payload, context) -> context.client().execute(
+						() -> ClientPerkFeatures.update(payload)));
 
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientTeamState.clear();
@@ -82,11 +93,14 @@ public class SharedFateClient implements ClientModInitializer {
 			ExpandedInventoryManager.clearNegotiatedClientLayout();
 			GameOverClientDisplay.clear();
 			PerkClientState.clear();
+			ClientPerkFeatures.clear();
+			DoubleJumpHandler.reset();
 		});
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			SelectedSlotReporter.tick(client);
 			DamageAlertHud.tick();
 			GameOverClientDisplay.tick(client);
+			DoubleJumpHandler.tick(client);
 		});
 
 		HudElementRegistry.attachElementAfter(
@@ -102,6 +116,33 @@ public class SharedFateClient implements ClientModInitializer {
 				VanillaHudElements.MOB_EFFECTS,
 				SharedFateMod.id("team_level"),
 				new TeamLevelHud());
+
+		// 「장님 거인」 처럼 HUD 를 가리는 증강. 바닐라 요소를 지우지 않고 "가려야 할 때만
+		// 건너뛰는" 껍데기로 감싼다. removeElement 는 되돌릴 수 없어 증강을 잃어도 영영
+		// 안 보이고, Gui/Hud 에 mixin 을 거는 길은 26.2 에서 그리기 메서드가 전부 private
+		// extract* 로 바뀌어 버전마다 깨지기 쉽다. 이 길이 둘 다 피한다.
+		hideWhenPerkSays(VanillaHudElements.HEALTH_BAR, HideHudEffect.Element.HEALTH);
+		hideWhenPerkSays(VanillaHudElements.FOOD_BAR, HideHudEffect.Element.FOOD);
+		hideWhenPerkSays(VanillaHudElements.ARMOR_BAR, HideHudEffect.Element.ARMOR);
+		hideWhenPerkSays(VanillaHudElements.AIR_BAR, HideHudEffect.Element.AIR);
+	}
+
+	/**
+	 * 바닐라 HUD 요소 하나를 "가려야 할 때만 건너뛰는" 껍데기로 바꾼다.
+	 *
+	 * <p>감싸기만 하고 원래 요소를 버리지 않으므로, 증강이 없거나 잃은 뒤에는 바닐라가
+	 * 그대로 그린다. 다른 모드가 같은 요소를 이미 바꿔 놓았어도 그쪽 결과를 그대로 감싼다.
+	 */
+	private static void hideWhenPerkSays(Identifier vanillaElement, HideHudEffect.Element element) {
+		HudElementRegistry.replaceElement(vanillaElement, original -> {
+			HudElement wrapped = (graphics, deltaTracker) -> {
+				if (ClientPerkFeatures.isHidden(element)) {
+					return;
+				}
+				original.extractRenderState(graphics, deltaTracker);
+			};
+			return wrapped;
+		});
 	}
 
 	/**

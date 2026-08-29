@@ -12,12 +12,16 @@ import com.sharedfate.perk.effect.CustomEffect;
 import com.sharedfate.perk.effect.DamageDealtEffect;
 import com.sharedfate.perk.effect.DamageTakenEffect;
 import com.sharedfate.perk.effect.DamageTakenFromEffect;
+import com.sharedfate.perk.effect.CompassTargetEffect;
+import com.sharedfate.perk.effect.NoSleepEffect;
+import com.sharedfate.perk.effect.TimeLockEffect;
 import com.sharedfate.perk.effect.EquipBanEffect;
 import com.sharedfate.perk.effect.FoodNutritionEffect;
 import com.sharedfate.perk.effect.HungerDrainEffect;
 import com.sharedfate.perk.effect.ItemBanEffect;
 import com.sharedfate.perk.effect.ItemGrantEffect;
 import com.sharedfate.perk.effect.LifestealEffect;
+import com.sharedfate.perk.effect.HolderEffect;
 import com.sharedfate.perk.effect.MaxHealthBonusEffect;
 import com.sharedfate.perk.effect.MaxHealthLockEffect;
 import com.sharedfate.perk.effect.MiningSpeedEffect;
@@ -27,10 +31,16 @@ import com.sharedfate.perk.effect.NoFoodHungerEffect;
 import com.sharedfate.perk.effect.NoHungerDrainEffect;
 import com.sharedfate.perk.effect.NoNaturalRegenEffect;
 import com.sharedfate.perk.effect.OffhandLockEffect;
+import com.sharedfate.perk.effect.DoubleJumpEffect;
+import com.sharedfate.perk.effect.HideHudEffect;
 import com.sharedfate.perk.effect.OnBreakEffect;
 import com.sharedfate.perk.effect.OnCriticalEffect;
 import com.sharedfate.perk.effect.OnKillEffect;
 import com.sharedfate.perk.effect.OnTeamHurtEffect;
+import com.sharedfate.perk.effect.GatherEffect;
+import com.sharedfate.perk.effect.OnSwapEffect;
+import com.sharedfate.perk.effect.SwapBlockEffect;
+import com.sharedfate.perk.effect.SwapIntervalEffect;
 import com.sharedfate.perk.effect.PeriodicEffect;
 import com.sharedfate.perk.effect.StatusEffectPerk;
 import com.sharedfate.perk.effect.WeaponDamageEffect;
@@ -70,13 +80,23 @@ public enum PerkEffectType {
 	ON_BREAK("on_break", OnBreakEffect::fromJson),
 	MINING_SPEED("mining_speed", MiningSpeedEffect::fromJson),
 	ON_TEAM_HURT("on_team_hurt", OnTeamHurtEffect::fromJson),
+	SWAP_INTERVAL("swap_interval", SwapIntervalEffect::fromJson),
+	SWAP_BLOCK("swap_block", SwapBlockEffect::fromJson),
+	ON_SWAP("on_swap", OnSwapEffect::fromJson),
+	GATHER("gather", GatherEffect::fromJson),
 	ON_CRITICAL("on_critical", OnCriticalEffect::fromJson),
 	LIFESTEAL("lifesteal", LifestealEffect::fromJson),
+	HOLDER("holder", HolderEffect::fromJson),
 	NO_NATURAL_REGEN("no_natural_regen", NoNaturalRegenEffect::fromJson),
 	DAMAGE_TAKEN_FROM("damage_taken_from", DamageTakenFromEffect::fromJson),
+	NO_SLEEP("no_sleep", NoSleepEffect::fromJson),
+	TIME_LOCK("time_lock", TimeLockEffect::fromJson),
+	COMPASS_TARGET("compass_target", CompassTargetEffect::fromJson),
 	EQUIP_BAN("equip_ban", EquipBanEffect::fromJson),
 	ITEM_BAN("item_ban", ItemBanEffect::fromJson),
 	OFFHAND_LOCK("offhand_lock", OffhandLockEffect::fromJson),
+	DOUBLE_JUMP("double_jump", DoubleJumpEffect::fromJson),
+	HIDE_HUD("hide_hud", HideHudEffect::fromJson),
 	WEAPON_DAMAGE("weapon_damage", WeaponDamageEffect::fromJson),
 	CUSTOM("custom", CustomEffect::fromJson);
 
