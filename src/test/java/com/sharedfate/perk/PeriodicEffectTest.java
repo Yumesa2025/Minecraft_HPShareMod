@@ -362,10 +362,10 @@ class PeriodicEffectTest {
 				}
 				""");
 
-		assertEquals(1.5, effect.multiplierAt(0, 1, true), 1.0e-9);
-		assertEquals(1.5, effect.multiplierAt(99, 1, true), 1.0e-9);
-		assertEquals(1.0, effect.multiplierAt(100, 1, true), 1.0e-9, "구간 밖에서는 배율이 없다");
-		assertEquals(1.0, effect.multiplierAt(0, 1, false), "받는 피해에는 관여하지 않는다");
+		assertEquals(1.5, effect.multiplierAt(0, true), 1.0e-9);
+		assertEquals(1.5, effect.multiplierAt(99, true), 1.0e-9);
+		assertEquals(1.0, effect.multiplierAt(100, true), 1.0e-9, "구간 밖에서는 배율이 없다");
+		assertEquals(1.0, effect.multiplierAt(0, false), "받는 피해에는 관여하지 않는다");
 	}
 
 	@Test
@@ -379,10 +379,10 @@ class PeriodicEffectTest {
 				""");
 
 		PeriodicPerkManager.setCurrentTickForTesting(50);
-		assertEquals(0.5, effect.damageTakenMultiplier(1), 1.0e-9);
+		assertEquals(0.5, effect.damageTakenMultiplier(), 1.0e-9);
 
 		PeriodicPerkManager.setCurrentTickForTesting(150);
-		assertEquals(1.0, effect.damageTakenMultiplier(1), 1.0e-9);
+		assertEquals(1.0, effect.damageTakenMultiplier(), 1.0e-9);
 	}
 
 	@Test
@@ -396,8 +396,8 @@ class PeriodicEffectTest {
 				}
 				""");
 
-		assertEquals(0.5, effect.multiplierAt(0, 1, true), 1.0e-9, "구간 안에서는 구간 값만 쓴다");
-		assertEquals(1.2, effect.multiplierAt(100, 1, true), 1.0e-9);
+		assertEquals(0.5, effect.multiplierAt(0, true), 1.0e-9, "구간 안에서는 구간 값만 쓴다");
+		assertEquals(1.2, effect.multiplierAt(100, true), 1.0e-9);
 	}
 
 	// ------------------------------------------------------------------ 상태이상 공유
@@ -425,7 +425,7 @@ class PeriodicEffectTest {
 
 		TeamState state = TeamState.fresh(20.0F);
 		state.perksEnabled = true;
-		state.ownedPerks.add(new PerkStack("sharedfate:overload", 1));
+		state.ownedPerks.add("sharedfate:overload");
 
 		PerkStatusEffects perkEffects = PerkStatusEffects.of(state);
 

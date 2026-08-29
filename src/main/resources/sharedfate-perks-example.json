@@ -6,14 +6,13 @@
     "name": "선택. 화면에 보이는 이름. 없으면 id 를 쓴다",
     "description": "선택. 화면에 보이는 설명",
     "rarity": "필수. silver / gold / platinum (화면 표시: 실버 / 골드 / 플레)",
-    "stackable": "선택. 기본 false",
-    "maxStacks": "선택. stackable 이면 기본 3, 아니면 1. 상한 64",
+    "_removed": "stackable 과 maxStacks 는 없어졌다. 적어 두어도 오류 없이 무시된다. 한 번 고른 증강은 그 회차 동안 다시 후보로 나오지 않는다.",
     "effects": "필수. 비어 있으면 그 증강은 버려진다",
     "_effectTypes": {
-      "attribute": "attribute(식별자), operation(add_value|add_multiplied_base|add_multiplied_total), amount(실수). 중첩하면 amount 에 중첩 수를 곱한다",
-      "damage_dealt": "multiplier(실수 0~64). 중첩은 거듭제곱",
-      "damage_taken": "multiplier(실수 0~64). 중첩은 거듭제곱",
-      "status_effect": "effect(식별자), amplifier(정수 0~255). 중첩 n 이면 amplifier + (n - 1)",
+      "attribute": "attribute(식별자), operation(add_value|add_multiplied_base|add_multiplied_total), amount(실수)",
+      "damage_dealt": "multiplier(실수 0~64)",
+      "damage_taken": "multiplier(실수 0~64)",
+      "status_effect": "effect(식별자), amplifier(정수 0~255)",
       "custom": "handler(문자열). PerkRegistry.registerCustom 으로 등록한 Java 핸들러에 위임한다"
     }
   },
@@ -23,8 +22,6 @@
       "name": "강골",
       "description": "팀 최대 체력 +2",
       "rarity": "silver",
-      "stackable": true,
-      "maxStacks": 3,
       "effects": [
         {
           "type": "attribute",
@@ -39,7 +36,6 @@
       "name": "유리 대포",
       "description": "주는 피해 1.25배, 받는 피해 1.35배",
       "rarity": "gold",
-      "stackable": false,
       "effects": [
         {
           "type": "damage_dealt",
@@ -56,8 +52,6 @@
       "name": "축복받은 발걸음",
       "description": "상시 신속. 커스텀 핸들러 예시 포함",
       "rarity": "platinum",
-      "stackable": true,
-      "maxStacks": 2,
       "effects": [
         {
           "type": "status_effect",

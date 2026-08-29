@@ -207,26 +207,26 @@ public final class MobPerkModifiers {
 	private static double teamMultiplier(TeamState state, EntityType<?> type, boolean hostile,
 			boolean health) {
 		double total = 1.0;
-		for (PerkStack stack : state.ownedPerks) {
-			Perk perk = PerkRegistry.byId(stack.perkId()).orElse(null);
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			if (perk == null) {
 				continue;
 			}
 			for (PerkEffect effect : perk.effects()) {
-				total *= contribution(effect, type, hostile, health, stack.count());
+				total *= contribution(effect, type, hostile, health);
 			}
 		}
 		return total;
 	}
 
 	private static double contribution(PerkEffect effect, EntityType<?> type, boolean hostile,
-			boolean health, int stacks) {
+			boolean health) {
 		if (health) {
 			return effect instanceof MobHealthEffect mobHealth && mobHealth.appliesTo(type, hostile)
-					? mobHealth.multiplierFor(stacks) : 1.0;
+					? mobHealth.multiplierFor() : 1.0;
 		}
 		return effect instanceof MobDamageEffect mobDamage && mobDamage.appliesTo(type, hostile)
-				? mobDamage.multiplierFor(stacks) : 1.0;
+				? mobDamage.multiplierFor() : 1.0;
 	}
 
 	/**
@@ -359,9 +359,8 @@ public final class MobPerkModifiers {
 			if (state == null || !state.perksEnabled) {
 				continue;
 			}
-			for (PerkStack stack : state.ownedPerks) {
-				hash = hash * 31 + String.valueOf(stack.perkId()).hashCode();
-				hash = hash * 31 + stack.count();
+			for (String perkId : state.ownedPerks) {
+				hash = hash * 31 + String.valueOf(perkId).hashCode();
 			}
 			hash = hash * 31 + 17;
 		}

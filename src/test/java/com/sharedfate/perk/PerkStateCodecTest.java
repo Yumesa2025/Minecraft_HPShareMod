@@ -3,6 +3,7 @@ package com.sharedfate.perk;
 import com.sharedfate.TestBootstrap;
 import com.sharedfate.team.TeamState;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -41,8 +42,8 @@ class PerkStateCodecTest {
 		state.xpLevel = 16;
 		state.perksEnabled = true;
 		state.lastPerkMilestone = 10;
-		state.ownedPerks.add(new PerkStack("sharedfate:tough_body", 2));
-		state.ownedPerks.add(new PerkStack("sharedfate:glass_cannon", 1));
+		state.ownedPerks.add("sharedfate:tough_body");
+		state.ownedPerks.add("sharedfate:glass_cannon");
 		state.pending.add(new PendingOffer(15, Optional.of(CHOOSER),
 				List.of("sharedfate:a", "sharedfate:b", "sharedfate:c")));
 		state.pending.add(new PendingOffer(18, Optional.empty(),
@@ -56,8 +57,8 @@ class PerkStateCodecTest {
 
 		assertTrue(round.perksEnabled);
 		assertEquals(10, round.lastPerkMilestone);
-		assertEquals(List.of(new PerkStack("sharedfate:tough_body", 2),
-						new PerkStack("sharedfate:glass_cannon", 1)),
+		assertEquals(List.of("sharedfate:tough_body",
+						"sharedfate:glass_cannon"),
 				round.ownedPerks);
 		assertEquals(2, round.pending.size());
 		assertEquals(15, round.pending.getFirst().milestone());
@@ -133,14 +134,63 @@ class PerkStateCodecTest {
 		state.perksEnabled = true;
 		state.lastPerkMilestone = 1000;
 		state.pending.add(new PendingOffer(3, Optional.empty(), List.of()));
-		state.ownedPerks.add(new PerkStack("  ", 1));
-		state.ownedPerks.add(new PerkStack("sharedfate:ok", 1));
+		state.ownedPerks.add("  ");
+		state.ownedPerks.add("sharedfate:ok");
 
 		TeamState round = decode(encode(state));
 
 		assertEquals(PerkMilestones.MAX, round.lastPerkMilestone, "구간 상한을 넘으면 35로 잘린다");
 		assertTrue(round.pending.isEmpty(), "후보가 하나도 없는 선택권은 버린다");
-		assertEquals(List.of(new PerkStack("sharedfate:ok", 1)), round.ownedPerks);
+		assertEquals(List.of("sharedfate:ok"), round.ownedPerks);
+	}
+
+	@Test
+	void 중첩이_있던_시절의_저장도_그대로_열린다() {
+		// 예전에는 보유 증강을 {perkId, count} 객체로 적었다. 이미 돌아가는 서버의 월드에
+		// 그 형태가 들어 있으므로 읽을 수 있어야 한다. count 는 뜻이 사라졌으니 버린다.
+		CompoundTag legacy = encode(playedState());
+		CompoundTag perks = legacy.getCompound("perks").orElseThrow();
+		ListTag owned = new ListTag();
+		owned.add(legacyEntry("sharedfate:tough_body", 2));
+		owned.add(legacyEntry("sharedfate:glass_cannon", 1));
+		perks.put("owned", owned);
+
+		TeamState round = decode(legacy);
+
+		assertEquals(List.of("sharedfate:tough_body", "sharedfate:glass_cannon"), round.ownedPerks,
+				"중첩 수는 버리고 id 만 남는다");
+		assertTrue(round.perksEnabled);
+		assertEquals(2, round.pending.size(), "증강 밖의 항목도 손상되면 안 된다");
+	}
+
+	@Test
+	void 중첩_시절_저장에_같은_증강이_두_번_들어_있어도_한_개로_접는다() {
+		CompoundTag legacy = encode(playedState());
+		CompoundTag perks = legacy.getCompound("perks").orElseThrow();
+		ListTag owned = new ListTag();
+		owned.add(legacyEntry("sharedfate:tough_body", 3));
+		owned.add(legacyEntry("sharedfate:tough_body", 1));
+		perks.put("owned", owned);
+
+		assertEquals(List.of("sharedfate:tough_body"), decode(legacy).ownedPerks);
+	}
+
+	@Test
+	void 새로_저장한_보유_증강은_문자열_목록이다() {
+		CompoundTag perks = encode(playedState()).getCompound("perks").orElseThrow();
+		ListTag owned = perks.getList("owned").orElseThrow();
+
+		assertEquals(2, owned.size());
+		assertEquals("sharedfate:tough_body", owned.getString(0).orElseThrow());
+		assertEquals("sharedfate:glass_cannon", owned.getString(1).orElseThrow());
+	}
+
+	/** 중첩이 있던 시절의 보유 증강 한 칸. */
+	private static CompoundTag legacyEntry(String perkId, int count) {
+		CompoundTag tag = new CompoundTag();
+		tag.putString("perkId", perkId);
+		tag.putInt("count", count);
+		return tag;
 	}
 
 	@Test
@@ -164,7 +214,7 @@ class PerkStateCodecTest {
 	void 보유_증강_목록은_저장_뒤에도_계속_수정할_수_있다() {
 		TeamState round = decode(encode(playedState()));
 
-		round.ownedPerks.add(new PerkStack("sharedfate:new", 1));
+		round.ownedPerks.add("sharedfate:new");
 		round.pending.removeFirst();
 
 		assertEquals(3, round.ownedPerks.size());

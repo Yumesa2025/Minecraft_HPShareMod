@@ -295,11 +295,11 @@ public final class PeriodicEffect implements PerkEffect {
 	 * 상태를 믿을 수 없는 자리에서 불리기 때문이다.
 	 */
 	@Override
-	public void apply(ServerPlayer player, int stacks) {
+	public void apply(ServerPlayer player) {
 		if (player == null) {
 			return;
 		}
-		reconcile(player, stacks, phaseAt(gameTime(player)));
+		reconcile(player, phaseAt(gameTime(player)));
 	}
 
 	/**
@@ -307,7 +307,7 @@ public final class PeriodicEffect implements PerkEffect {
 	 *
 	 * @param time {@link PeriodicPerkManager} 가 읽어 온 오버월드 게임 시간
 	 */
-	public void tick(ServerPlayer player, int stacks, long time) {
+	public void tick(ServerPlayer player, long time) {
 		if (player == null) {
 			return;
 		}
@@ -316,7 +316,7 @@ public final class PeriodicEffect implements PerkEffect {
 		if (previous != null && previous == phase) {
 			return;
 		}
-		reconcile(player, stacks, phase);
+		reconcile(player, phase);
 	}
 
 	@Override
@@ -338,7 +338,7 @@ public final class PeriodicEffect implements PerkEffect {
 	 * 서버를 껐다 켠 뒤나 다른 구간에서 접속을 끊었다 돌아온 뒤처럼 이전 구간을 알 수 없는
 	 * 상황에서도 남은 효과가 영영 붙어 있는 일이 없다.
 	 */
-	private void reconcile(ServerPlayer player, int stacks, int phase) {
+	private void reconcile(ServerPlayer player, int phase) {
 		List<PerkEffect> target = activeFor(phase);
 		for (PerkEffect effect : allEffects) {
 			if (!containsSame(target, effect)) {
@@ -346,7 +346,7 @@ public final class PeriodicEffect implements PerkEffect {
 			}
 		}
 		for (PerkEffect effect : target) {
-			safeApply(effect, player, stacks);
+			safeApply(effect, player);
 		}
 		appliedPhase.put(player.getUUID(), phase);
 	}
@@ -364,20 +364,20 @@ public final class PeriodicEffect implements PerkEffect {
 	// ------------------------------------------------------------------ 피해 배율
 
 	@Override
-	public double damageDealtMultiplier(int stacks) {
-		return multiplierAt(PeriodicPerkManager.currentTick(), stacks, true);
+	public double damageDealtMultiplier() {
+		return multiplierAt(PeriodicPerkManager.currentTick(), true);
 	}
 
 	@Override
-	public double damageTakenMultiplier(int stacks) {
-		return multiplierAt(PeriodicPerkManager.currentTick(), stacks, false);
+	public double damageTakenMultiplier() {
+		return multiplierAt(PeriodicPerkManager.currentTick(), false);
 	}
 
 	/** 그 시각에 활성인 하위 효과들의 피해 배율을 모두 곱한 값. */
-	public double multiplierAt(long time, int stacks, boolean dealt) {
+	public double multiplierAt(long time, boolean dealt) {
 		double total = 1.0;
 		for (PerkEffect effect : activeAt(time)) {
-			total *= dealt ? effect.damageDealtMultiplier(stacks) : effect.damageTakenMultiplier(stacks);
+			total *= dealt ? effect.damageDealtMultiplier() : effect.damageTakenMultiplier();
 		}
 		return Double.isFinite(total) && total >= 0.0 ? total : 1.0;
 	}
@@ -479,9 +479,9 @@ public final class PeriodicEffect implements PerkEffect {
 		return server.overworld().getGameTime();
 	}
 
-	private static void safeApply(PerkEffect effect, ServerPlayer player, int stacks) {
+	private static void safeApply(PerkEffect effect, ServerPlayer player) {
 		try {
-			effect.apply(player, stacks);
+			effect.apply(player);
 		} catch (RuntimeException error) {
 			SharedFateMod.LOGGER.warn("periodic 효과의 하위 효과를 적용하지 못했습니다", error);
 		}

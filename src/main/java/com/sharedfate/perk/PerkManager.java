@@ -303,7 +303,7 @@ public final class PerkManager {
 	 * 클라이언트가 보낸 선택을 검증하고 반영한다.
 	 *
 	 * <p>신뢰할 수 없는 입력이므로 팀 소속, 활성 여부, 선택자 본인 여부, 구간 일치, 후보 포함 여부,
-	 * 중첩 상한을 모두 서버에서 다시 확인한다. 지연·재전송된 패킷은 조용히 무시한다.
+	 * 이미 보유했는지를 모두 서버에서 다시 확인한다. 지연·재전송된 패킷은 조용히 무시한다.
 	 */
 	public static void applyChoice(ServerPlayer player, int milestone, String perkId) {
 		MinecraftServer server = player.level().getServer();
@@ -328,8 +328,8 @@ public final class PerkManager {
 		if (perk == null) {
 			return;
 		}
-		int current = stackCount(state, perkId);
-		if (!perk.canTakeMore(current)) {
+		if (state.ownedPerks.contains(perkId)) {
+			// 이미 가진 증강은 후보에 없어야 하지만, 지연된 패킷이 들어올 수 있다.
 			return;
 		}
 
@@ -382,7 +382,7 @@ public final class PerkManager {
 		List<Perk> takeable = new ArrayList<>();
 		for (String id : offer.optionIds()) {
 			Perk perk = PerkRegistry.byId(id).orElse(null);
-			if (perk != null && perk.canTakeMore(stackCount(state, id))) {
+			if (perk != null && !state.ownedPerks.contains(id)) {
 				takeable.add(perk);
 			}
 		}
@@ -396,12 +396,15 @@ public final class PerkManager {
 	/** 선택을 실제로 반영한다. 직접 고른 경우와 자동 선택이 같은 길을 지나게 하는 자리다. */
 	private static void commit(MinecraftServer server, TeamManager manager, ShareTeam team,
 			TeamState state, Perk perk, String announcement) {
-		addStack(state, perk.id());
+		if (!state.ownedPerks.contains(perk.id())) {
+			state.ownedPerks.add(perk.id());
+		}
 		state.pending.removeFirst();
 		manager.setDirty();
 
 		// 즉시 지급은 여기서만 일어난다. refreshPlayer 는 접속·부활 때마다 다시 도는 길이라
-		// 거기에 두면 접속할 때마다 아이템이 불어난다. 중첩 증강은 고를 때마다 한 번씩 준다.
+		// 거기에 두면 접속할 때마다 아이템이 불어난다. 한 증강은 한 회차에 한 번만 고를 수 있으므로
+		// 이 자리를 지나는 횟수도 증강마다 한 번뿐이다.
 		PerkItemGrants.grantOnChoice(server, team, state, perk);
 
 		applyToTeam(server, team, state);
@@ -424,14 +427,14 @@ public final class PerkManager {
 		if (state == null) {
 			return;
 		}
-		for (PerkStack stack : state.ownedPerks) {
-			Perk perk = PerkRegistry.byId(stack.perkId()).orElse(null);
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			if (perk == null) {
 				continue;
 			}
 			for (PerkEffect effect : perk.effects()) {
 				try {
-					effect.apply(player, stack.count());
+					effect.apply(player);
 				} catch (RuntimeException error) {
 					SharedFateMod.LOGGER.warn("증강 '{}' 효과 적용에 실패했습니다.", perk.id(), error);
 				}
@@ -466,15 +469,15 @@ public final class PerkManager {
 		// 조건부 증강은 배율 조회에 플레이어 인자가 없어 대상을 따로 알려 줘야 한다.
 		ConditionalPerkManager.beginMultiplierLookup(player);
 		double total = 1.0;
-		for (PerkStack stack : state.ownedPerks) {
-			Perk perk = PerkRegistry.byId(stack.perkId()).orElse(null);
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			if (perk == null) {
 				continue;
 			}
 			for (PerkEffect effect : perk.effects()) {
 				total *= dealt
-						? effect.damageDealtMultiplier(stack.count())
-						: effect.damageTakenMultiplier(stack.count());
+						? effect.damageDealtMultiplier()
+						: effect.damageTakenMultiplier();
 			}
 		}
 		return Double.isFinite(total) && total > 0.0 ? total : 1.0;
@@ -488,32 +491,11 @@ public final class PerkManager {
 			return List.of();
 		}
 		List<String> lines = new ArrayList<>();
-		for (PerkStack stack : state.ownedPerks) {
-			Perk perk = PerkRegistry.byId(stack.perkId()).orElse(null);
-			String label = perk == null ? stack.perkId() : perk.name();
-			lines.add(stack.count() > 1 ? label + " x" + stack.count() : label);
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
+			lines.add(perk == null ? perkId : perk.name());
 		}
 		return lines;
-	}
-
-	private static int stackCount(TeamState state, String perkId) {
-		for (PerkStack stack : state.ownedPerks) {
-			if (stack.perkId().equals(perkId)) {
-				return stack.count();
-			}
-		}
-		return 0;
-	}
-
-	private static void addStack(TeamState state, String perkId) {
-		for (int i = 0; i < state.ownedPerks.size(); i++) {
-			PerkStack stack = state.ownedPerks.get(i);
-			if (stack.perkId().equals(perkId)) {
-				state.ownedPerks.set(i, stack.plusOne());
-				return;
-			}
-		}
-		state.ownedPerks.add(new PerkStack(perkId, 1));
 	}
 
 	/** 선택권이 다른 사람에게 넘어갔을 때만 쓰는 알림. 최초 발동 알림은 세션 쪽이 맡는다. */

@@ -182,16 +182,16 @@ class MobPerkEffectTest {
 	void 피해_배율은_0을_허용한다() {
 		MobDamageEffect effect = damage("{ \"type\": \"mob_damage\", \"multiplier\": 0.0 }");
 
-		assertEquals(0.0, effect.multiplierFor(1));
+		assertEquals(0.0, effect.multiplierFor());
 	}
 
 	@Test
-	void 중첩은_거듭제곱으로_쌓인다() {
+	void 배율은_정의에_적힌_값_그대로다() {
 		MobHealthEffect effect = health("{ \"type\": \"mob_health\", \"multiplier\": 0.8 }");
 
-		assertEquals(0.8, effect.multiplierFor(1), 1.0e-9);
-		assertEquals(0.64, effect.multiplierFor(2), 1.0e-9);
-		assertEquals(0.8, effect.multiplierFor(0), 1.0e-9, "중첩 0도 1중첩으로 본다");
+		// 중첩이 없으므로 같은 증강을 두 번 가질 수 없다. 배율이 불어날 길이 없다.
+		assertEquals(0.8, effect.multiplierFor(), 1.0e-9);
+		assertEquals(0.8, effect.multiplierFor(), 1.0e-9, "몇 번을 물어도 같은 값이다");
 	}
 
 	@Test
@@ -199,19 +199,19 @@ class MobPerkEffectTest {
 		MobHealthEffect healthEffect = health("{ \"type\": \"mob_health\", \"multiplier\": 0.5 }");
 		MobDamageEffect damageEffect = damage("{ \"type\": \"mob_damage\", \"multiplier\": 0.5 }");
 
-		assertEquals(1.0, healthEffect.damageDealtMultiplier(3));
-		assertEquals(1.0, healthEffect.damageTakenMultiplier(3));
-		assertEquals(1.0, damageEffect.damageDealtMultiplier(3),
+		assertEquals(1.0, healthEffect.damageDealtMultiplier());
+		assertEquals(1.0, healthEffect.damageTakenMultiplier());
+		assertEquals(1.0, damageEffect.damageDealtMultiplier(),
 				"몹의 피해는 PerkDamage 가 따로 조회한다. 팀원의 주는 피해와 섞이면 안 된다");
-		assertEquals(1.0, damageEffect.damageTakenMultiplier(3));
+		assertEquals(1.0, damageEffect.damageTakenMultiplier());
 	}
 
 	@Test
 	void 몹_효과는_팀원에게_아무것도_붙이지_않는다() {
 		// apply/remove 를 불러도 터지지 않고 아무 일도 하지 않아야 한다.
-		health("{ \"type\": \"mob_health\", \"multiplier\": 0.5 }").apply(null, 1);
+		health("{ \"type\": \"mob_health\", \"multiplier\": 0.5 }").apply(null);
 		health("{ \"type\": \"mob_health\", \"multiplier\": 0.5 }").remove(null);
-		damage("{ \"type\": \"mob_damage\", \"multiplier\": 0.5 }").apply(null, 1);
+		damage("{ \"type\": \"mob_damage\", \"multiplier\": 0.5 }").apply(null);
 		damage("{ \"type\": \"mob_damage\", \"multiplier\": 0.5 }").remove(null);
 	}
 

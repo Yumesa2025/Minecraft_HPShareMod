@@ -26,7 +26,7 @@
 | 켜고끄기 | 팀 생성 시 리더가 결정, 그 뒤 변경 불가 |
 | 회차 이월 | 전부 초기화 (`perksEnabled` 만 유지) |
 | 후보 구성 | 구간마다 등급이 하나로 정해지고 그 등급에서만 3개. 15렙은 플레 고정 |
-| 중복 | 증강별 `stackable` 속성. 불가능한 것은 한 번 고르면 풀에서 제외 |
+| 중복 | **중첩 없음.** 한 번 고른 증강은 그 회차 동안 후보에서 영구히 제외 |
 | 정의 위치 | `config/sharedfate-perks.json` + Java 핸들러 하이브리드 |
 
 ## 발동 조건 상세
@@ -45,7 +45,7 @@
 
 ```
 src/main/java/com/sharedfate/perk/
-  Perk.java              증강 정의 (id, 이름, 설명, 등급, 중첩 여부, 최대 중첩, 효과 목록)
+  Perk.java              증강 정의 (id, 이름, 설명, 등급, 효과 목록)
   PerkRarity.java        enum SILVER / GOLD / PLATINUM (실버 / 골드 / 플레)
   PerkEffect.java        효과 인터페이스 (apply / remove)
   PerkEffectType.java    JSON type 문자열 → 효과 팩토리 매핑
@@ -55,9 +55,9 @@ src/main/java/com/sharedfate/perk/
   effect/StatusEffectPerk.java
   effect/CustomEffect.java
   PerkRegistry.java      JSON 로드 + Java 커스텀 핸들러 등록을 합쳐 id→Perk 조회
-  PerkDraft.java         구간 → 등급 배정과 중복 규칙에 따라 같은 등급 후보 3개 추첨
+  PerkDraft.java         구간 → 등급 배정. 보유한 것을 뺀 같은 등급 후보 3개 추첨
   PerkManager.java       구간 감지 → 추첨 → 대기열 → 적용 (서버 틱)
-  PerkStack.java         record {String perkId, int count}
+  (보유 증강은 TeamState 의 List<String>. 중첩이 없어 별도 record 가 필요 없다)
   PendingOffer.java      record {int milestone, UUID chooser, List<String> optionIds}
 
 src/main/java/com/sharedfate/command/PerkCommand.java
@@ -98,9 +98,19 @@ Brigadier 는 첫 단어가 리터럴과 일치하면 그 리터럴 노드로만
 ```java
 public boolean perksEnabled;              // 팀 생성 시 결정, 회차 내내 고정
 public int lastPerkMilestone;             // 마지막 처리 구간 (0, 5, 10, …, 35)
-public final List<PerkStack> ownedPerks;  // 중첩은 count 로 표현
+public final List<String> ownedPerks;     // 보유 증강 id. 같은 id 는 한 번만
 public final List<PendingOffer> pending;  // 대기 중인 선택권, 여러 개 가능
 ```
+
+### 보유 증강 저장 형식과 하위호환
+
+`ownedPerks` 는 증강 id 문자열 목록으로 저장한다.
+
+중첩 개념이 있던 시절에는 `{ "perkId": …, "count": … }` 객체 목록이었다. 이미 돌아가는
+서버의 월드에 그 형태가 들어 있으므로 **읽을 때는 두 형태를 모두 받아들인다**
+(`Codec.either(Codec.STRING, Codec.STRING.fieldOf("perkId").codec())`).
+`count` 는 뜻이 사라졌으므로 읽고 버린다. 새로 저장할 때는 문자열만 적는다.
+같은 id 가 두 번 들어 있으면 `TeamState.sanitizePerks` 가 한 개로 접는다.
 
 ### 후보 확정 저장
 
@@ -128,8 +138,6 @@ public final List<PendingOffer> pending;  // 대기 중인 선택권, 여러 개
       "name": "강골",
       "description": "팀 최대 체력 +2",
       "rarity": "silver",
-      "stackable": true,
-      "maxStacks": 3,
       "effects": [
         { "type": "attribute", "attribute": "minecraft:max_health",
           "operation": "add_value", "amount": 2.0 }
@@ -198,6 +206,7 @@ public final List<PendingOffer> pending;  // 대기 중인 선택권, 여러 개
 | 선택자가 아닌 사람이 선택 시도 | 서버에서 거부. 클라이언트 버튼도 비활성 |
 | 이미 처리된 offer 에 중복 선택 | 서버에서 무시 (재전송·지연 패킷 방어) |
 | JSON 파싱 실패 | 해당 증강만 건너뛰고 경고 로그. 시스템 전체는 계속 동작 |
+| 이미 보유한 증강 | 그 회차 동안 후보에서 영구히 제외. 풀이 그만큼 줄어든다 |
 | 후보를 3개 못 채움 | 가능한 개수만 제시. 0개면 그 구간은 건너뛰고 로그 |
 | `perksEnabled == false` | 구간 감지 자체를 하지 않음 |
 | 클라 모드 없는 접속 | 기존 `ClientModGate` 가 이미 차단. 별도 처리 불필요 |
@@ -216,9 +225,9 @@ JSON 오류, 알 수 없는 `type`, 없는 `handler` 는 모두 **해당 증강�
 | 테스트 | 검증 내용 |
 |---|---|
 | `PerkMilestonesTest` | 구간 감지, 건너뛴 구간 누적, 레벨 하락 후 재상승 시 미발동, 35 초과 시 미발동, 구 3배수 데이터 유입 |
-| `PerkDraftTest` | 구간별 등급 배정, 한 라운드 동일 등급, 중복 제외, `maxStacks` 도달 시 제외, 폴백 우선순위 |
+| `PerkDraftTest` | 구간별 등급 배정, 한 라운드 동일 등급, 보유 증강 영구 제외, 풀 고갈, 폴백 우선순위 |
 | `PerkRegistryTest` | JSON 파싱, 잘못된 항목 건너뛰기, 알 수 없는 type·handler 처리 |
-| `PerkStateCodecTest` | `TeamState` 왕복 직렬화, 증강 필드 없는 구 데이터 로드 |
+| `PerkStateCodecTest` | `TeamState` 왕복 직렬화, 증강 필드 없는 구 데이터 로드, 중첩 시절 `{perkId, count}` 형식 로드 |
 | `PerkOfferLifecycleTest` | 선택자 이탈 시 재추첨, 중복 선택 거부, 대기열 순서 |
 
 ## 효과 타입 구현 상태

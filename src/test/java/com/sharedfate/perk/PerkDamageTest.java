@@ -20,18 +20,19 @@ class PerkDamageTest {
 
 	@Test
 	void 주는_피해와_받는_피해_배율은_곱해서_한_번에_걸린다() {
-		double dealt = new DamageDealtEffect(1.5).damageDealtMultiplier(1);
-		double taken = new DamageTakenEffect(0.5).damageTakenMultiplier(1);
+		double dealt = new DamageDealtEffect(1.5).damageDealtMultiplier();
+		double taken = new DamageTakenEffect(0.5).damageTakenMultiplier();
 
 		assertEquals(6.0F, PerkDamage.combine(8.0F, dealt * taken), 1.0e-5F);
 	}
 
 	@Test
-	void 중첩은_거듭제곱으로_쌓인다() {
-		double twoStacks = new DamageDealtEffect(1.2).damageDealtMultiplier(2);
+	void 배율은_정의에_적힌_값_그대로_걸린다() {
+		// 중첩이 없으므로 같은 증강을 두 번 가질 수 없다. 배율이 불어날 길이 없다.
+		double dealt = new DamageDealtEffect(1.2).damageDealtMultiplier();
 
-		assertEquals(1.44, twoStacks, 1.0e-9);
-		assertEquals(14.4F, PerkDamage.combine(10.0F, twoStacks), 1.0e-4F);
+		assertEquals(1.2, dealt, 1.0e-9);
+		assertEquals(12.0F, PerkDamage.combine(10.0F, dealt), 1.0e-4F);
 	}
 
 	@Test

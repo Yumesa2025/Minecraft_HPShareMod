@@ -17,7 +17,7 @@ import net.minecraft.world.entity.EntityType;
  * 같은 자리에서 정확히 한 번만 걸린다. 화살처럼 던진 것에 맞아도
  * {@code DamageSource.getEntity()}가 쏜 몹을 가리키므로 함께 반영된다.
  *
- * <p>중첩은 거듭제곱이다. 값 범위는 0.0 ~ 64.0 으로, 0이면 그 몹의 피해가 사라진다.
+ * <p>값 범위는 0.0 ~ 64.0 으로, 0이면 그 몹의 피해가 사라진다.
  */
 public final class MobDamageEffect implements PerkEffect {
 	static final double MIN_MULTIPLIER = 0.0;
@@ -41,9 +41,9 @@ public final class MobDamageEffect implements PerkEffect {
 		return new MobDamageEffect(multiplier, MobPerkModifiers.parseTargets(perkId, json));
 	}
 
-	/** 중첩까지 반영한 배율. */
-	public double multiplierFor(int stacks) {
-		return DamageDealtEffect.power(multiplier, stacks);
+	/** 안전한 범위로 자른 배율. */
+	public double multiplierFor() {
+		return DamageDealtEffect.clamp(multiplier);
 	}
 
 	/** 이 종류의 몹에 걸리는 효과인지. */

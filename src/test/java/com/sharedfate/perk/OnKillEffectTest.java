@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -89,17 +90,25 @@ class OnKillEffectTest {
 	}
 
 	@Test
-	void 중첩하면_회복량이_배로_늘고_상한에서_멈춘다() {
+	void 회복량은_정의에_적힌_값_그대로다() {
 		OnKillEffect effect = onKill("""
 				{ "type": "on_kill", "food": 8, "saturation": 1.5, "health": 2.0 }
 				""");
 
-		assertEquals(8, effect.foodFor(1));
-		assertEquals(16, effect.foodFor(2));
-		assertEquals(20, effect.foodFor(3), "허기 회복량은 20 을 넘지 않는다");
-		assertEquals(3.0F, effect.saturationFor(2));
-		assertEquals(4.0F, effect.healthFor(2));
-		assertEquals(2.0F, effect.healthFor(0), "중첩 수가 0 이하로 와도 1개로 본다");
+		// 중첩이 없으므로 같은 증강을 두 번 가질 수 없다. 회복량이 불어날 길이 없다.
+		assertEquals(8, effect.foodFor());
+		assertEquals(1.5F, effect.saturationFor());
+		assertEquals(2.0F, effect.healthFor());
+	}
+
+	@Test
+	void 생성자로_말도_안_되는_값이_들어와도_상한에서_멈춘다() {
+		// JSON 경로는 이미 범위를 검사한다. 여기서 보는 것은 Java 쪽에서 직접 만든 경우다.
+		OnKillEffect huge = new OnKillEffect(999, 999.0F, 99999.0F, List.of());
+
+		assertEquals(20, huge.foodFor(), "허기 회복량은 20 을 넘지 않는다");
+		assertEquals(20.0F, huge.saturationFor());
+		assertEquals(1024.0F, huge.healthFor());
 	}
 
 	// ------------------------------------------------------------------ 하위 효과
@@ -229,9 +238,9 @@ class OnKillEffectTest {
 
 		TeamState state = TeamState.fresh(20.0F);
 		state.perksEnabled = true;
-		state.ownedPerks.add(new PerkStack("sharedfate:hunter_meal", 1));
-		state.ownedPerks.add(new PerkStack("sharedfate:devour", 1));
-		state.ownedPerks.add(new PerkStack("sharedfate:unrelated", 1));
+		state.ownedPerks.add("sharedfate:hunter_meal");
+		state.ownedPerks.add("sharedfate:devour");
+		state.ownedPerks.add("sharedfate:unrelated");
 
 		PerkKillRewards.Reward reward = PerkKillRewards.rewardFor(state);
 
@@ -246,7 +255,7 @@ class OnKillEffectTest {
 		PerkRegistry.load(dir);
 
 		TeamState state = TeamState.fresh(20.0F);
-		state.ownedPerks.add(new PerkStack("sharedfate:사라진것", 1));
+		state.ownedPerks.add("sharedfate:사라진것");
 
 		assertTrue(PerkKillRewards.rewardFor(state).isEmpty());
 	}

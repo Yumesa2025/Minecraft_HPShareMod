@@ -17,8 +17,6 @@ import net.minecraft.world.entity.EntityType;
  * <p>이 효과는 팀원에게 붙이는 것이 아니므로 {@link #apply}/{@link #remove} 는 아무 일도 하지
  * 않는다. 실제로 몹에게 수정자를 붙이고 떼는 일은 {@link MobPerkModifiers} 가 맡는다.
  * 여기서는 "얼마를, 누구에게" 만 들고 있다.
- *
- * <p>중첩은 거듭제곱이다. 0.8배 증강을 두 번 쌓으면 0.64배가 된다.
  */
 public final class MobHealthEffect implements PerkEffect {
 	/**
@@ -44,9 +42,9 @@ public final class MobHealthEffect implements PerkEffect {
 		return new MobHealthEffect(multiplier, MobPerkModifiers.parseTargets(perkId, json));
 	}
 
-	/** 중첩까지 반영한 배율. */
-	public double multiplierFor(int stacks) {
-		return DamageDealtEffect.power(multiplier, stacks);
+	/** 안전한 범위로 자른 배율. */
+	public double multiplierFor() {
+		return DamageDealtEffect.clamp(multiplier);
 	}
 
 	/** 이 종류의 몹에 걸리는 효과인지. */

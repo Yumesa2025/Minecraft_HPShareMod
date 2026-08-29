@@ -18,8 +18,8 @@ import java.util.Optional;
 /**
  * 팀원에게 속성 수정자를 붙이는 효과.
  *
- * <p>중첩하면 {@code amount}에 중첩 수를 곱한다. 수정자는 임시(transient)로 붙이므로
- * 저장되지 않는다. 회차가 끝나 월드가 새로 생기면 자연히 사라지고, 접속할 때마다 다시 붙인다.
+ * <p>수정자는 임시(transient)로 붙으므로 저장되지 않는다. 회차가 끝나 월드가 새로 생기면
+ * 자연히 사라지고, 접속할 때마다 다시 붙인다.
  *
  * <p>수정자 식별자는 증강 id와 효과 순번으로 만든다. 같은 식별자를 쓰면 서로 덮어쓰기 때문에
  * 증강마다, 효과마다 달라야 한다.
@@ -83,14 +83,13 @@ public final class AttributeEffect implements PerkEffect {
 	}
 
 	@Override
-	public void apply(ServerPlayer player, int stacks) {
+	public void apply(ServerPlayer player) {
 		AttributeInstance instance = instanceFor(player);
 		if (instance == null) {
 			return;
 		}
 		instance.removeModifier(modifierId);
-		instance.addTransientModifier(
-				new AttributeModifier(modifierId, amount * Math.max(1, stacks), operation));
+		instance.addTransientModifier(new AttributeModifier(modifierId, amount, operation));
 		clampHealth(player);
 	}
 

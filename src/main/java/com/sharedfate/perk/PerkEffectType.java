@@ -126,12 +126,6 @@ public enum PerkEffectType {
 		return (int) value;
 	}
 
-	/** 참거짓 필드. 없거나 참거짓이 아니면 기본값. */
-	public static boolean readBoolean(JsonObject json, String key, boolean fallback) {
-		JsonPrimitive primitive = primitive(json, key);
-		return primitive != null && primitive.isBoolean() ? primitive.getAsBoolean() : fallback;
-	}
-
 	/**
 	 * 문자열 배열 필드.
 	 *

@@ -115,19 +115,19 @@ public final class OnKillEffect implements PerkEffect {
 		return new OnKillEffect(food, saturation, health, grants);
 	}
 
-	/** 중첩까지 반영한 허기 회복량. */
-	public int foodFor(int stacks) {
-		return (int) Math.min(MAX_FOOD, (long) food * Math.max(1, stacks));
+	/** 안전한 범위로 자른 허기 회복량. */
+	public int foodFor() {
+		return Math.min(MAX_FOOD, Math.max(0, food));
 	}
 
-	/** 중첩까지 반영한 포만감 회복량. */
-	public float saturationFor(int stacks) {
-		return Math.min(MAX_SATURATION, saturation * Math.max(1, stacks));
+	/** 안전한 범위로 자른 포만감 회복량. */
+	public float saturationFor() {
+		return Math.min(MAX_SATURATION, Math.max(0.0F, saturation));
 	}
 
-	/** 중첩까지 반영한 체력 회복량. */
-	public float healthFor(int stacks) {
-		return Math.min(MAX_HEALTH, health * Math.max(1, stacks));
+	/** 안전한 범위로 자른 체력 회복량. */
+	public float healthFor() {
+		return Math.min(MAX_HEALTH, Math.max(0.0F, health));
 	}
 
 	/**
@@ -139,23 +139,23 @@ public final class OnKillEffect implements PerkEffect {
 	 *
 	 * <p>하위 효과 하나가 실패해도 나머지는 계속 얹는다.
 	 */
-	public void grantTemporaryEffects(@Nullable ServerPlayer killer, int stacks) {
+	public void grantTemporaryEffects(@Nullable ServerPlayer killer) {
 		if (killer == null || grants.isEmpty()) {
 			return;
 		}
 		for (Grant grant : grants) {
 			try {
-				grantOne(killer, grant, stacks);
+				grantOne(killer, grant);
 			} catch (RuntimeException error) {
 				SharedFateMod.LOGGER.warn("on_kill 의 하위 효과를 얹지 못했습니다", error);
 			}
 		}
 	}
 
-	private static void grantOne(ServerPlayer killer, Grant grant, int stacks) {
+	private static void grantOne(ServerPlayer killer, Grant grant) {
 		if (!(grant.effect() instanceof StatusEffectPerk status)) {
 			// 붙였다 떼는 보통의 효과다. 그대로 적용한다.
-			grant.effect().apply(killer, stacks);
+			grant.effect().apply(killer);
 			return;
 		}
 		Holder<MobEffect> resolved = status.resolvedEffect();
@@ -164,7 +164,7 @@ public final class OnKillEffect implements PerkEffect {
 		}
 		// 무한 지속이 아니라 정해진 시간만 걸어야 "처치 순간에 잠깐"이 된다.
 		killer.addEffect(new MobEffectInstance(
-				resolved, grant.durationTicks(), status.amplifierFor(stacks), false, false, true));
+				resolved, grant.durationTicks(), status.amplifier(), false, false, true));
 	}
 
 	public int food() {

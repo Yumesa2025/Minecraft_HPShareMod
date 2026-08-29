@@ -296,7 +296,7 @@ public final class ConditionalEffect implements PerkEffect {
 	 * 날아간 상태에서도 불리기 때문이다.
 	 */
 	@Override
-	public void apply(ServerPlayer player, int stacks) {
+	public void apply(ServerPlayer player) {
 		if (player == null) {
 			return;
 		}
@@ -305,7 +305,7 @@ public final class ConditionalEffect implements PerkEffect {
 			return;
 		}
 		boolean met = matches(state);
-		switchTo(player, stacks, met);
+		switchTo(player, met);
 		applied.put(player.getUUID(), met);
 	}
 
@@ -327,7 +327,7 @@ public final class ConditionalEffect implements PerkEffect {
 	 *
 	 * @return 실제로 갈아 끼웠으면 true
 	 */
-	public boolean refresh(ServerPlayer player, int stacks) {
+	public boolean refresh(ServerPlayer player) {
 		if (player == null) {
 			return false;
 		}
@@ -340,7 +340,7 @@ public final class ConditionalEffect implements PerkEffect {
 		if (previous != null && previous == met) {
 			return false;
 		}
-		switchTo(player, stacks, met);
+		switchTo(player, met);
 		applied.put(player.getUUID(), met);
 		return true;
 	}
@@ -356,15 +356,15 @@ public final class ConditionalEffect implements PerkEffect {
 	}
 
 	/** 지는 쪽을 먼저 떼고 이기는 쪽을 붙인다. 두 묶음이 같은 대상을 건드려도 순서가 안전하다. */
-	private void switchTo(ServerPlayer player, int stacks, boolean met) {
+	private void switchTo(ServerPlayer player, boolean met) {
 		removeAll(met ? whenFalse : whenTrue, player);
-		applyAll(met ? whenTrue : whenFalse, player, stacks);
+		applyAll(met ? whenTrue : whenFalse, player);
 	}
 
-	private void applyAll(List<PerkEffect> effects, ServerPlayer player, int stacks) {
+	private void applyAll(List<PerkEffect> effects, ServerPlayer player) {
 		for (PerkEffect effect : effects) {
 			try {
-				effect.apply(player, stacks);
+				effect.apply(player);
 			} catch (RuntimeException error) {
 				SharedFateMod.LOGGER.warn("조건부 증강의 하위 효과를 적용하지 못했습니다", error);
 			}
@@ -396,34 +396,34 @@ public final class ConditionalEffect implements PerkEffect {
 	 * 엇갈리면 관여하지 않는다는 뜻으로 1.0 을 돌려준다.
 	 */
 	@Override
-	public double damageDealtMultiplier(int stacks) {
+	public double damageDealtMultiplier() {
 		Boolean met = resolveCondition();
-		return met == null ? 1.0 : damageDealtMultiplier(met, stacks);
+		return met == null ? 1.0 : damageDealtMultiplier(met);
 	}
 
 	@Override
-	public double damageTakenMultiplier(int stacks) {
+	public double damageTakenMultiplier() {
 		Boolean met = resolveCondition();
-		return met == null ? 1.0 : damageTakenMultiplier(met, stacks);
+		return met == null ? 1.0 : damageTakenMultiplier(met);
 	}
 
 	/** 조건 판정을 직접 주고 구하는 주는 피해 배율. */
-	public double damageDealtMultiplier(boolean conditionMet, int stacks) {
-		return branchMultiplier(conditionMet ? whenTrue : whenFalse, stacks, true);
+	public double damageDealtMultiplier(boolean conditionMet) {
+		return branchMultiplier(conditionMet ? whenTrue : whenFalse, true);
 	}
 
 	/** 조건 판정을 직접 주고 구하는 받는 피해 배율. */
-	public double damageTakenMultiplier(boolean conditionMet, int stacks) {
-		return branchMultiplier(conditionMet ? whenTrue : whenFalse, stacks, false);
+	public double damageTakenMultiplier(boolean conditionMet) {
+		return branchMultiplier(conditionMet ? whenTrue : whenFalse, false);
 	}
 
-	private static double branchMultiplier(List<PerkEffect> effects, int stacks, boolean dealt) {
+	private static double branchMultiplier(List<PerkEffect> effects, boolean dealt) {
 		double total = 1.0;
 		for (PerkEffect effect : effects) {
 			try {
 				total *= dealt
-						? effect.damageDealtMultiplier(stacks)
-						: effect.damageTakenMultiplier(stacks);
+						? effect.damageDealtMultiplier()
+						: effect.damageTakenMultiplier();
 			} catch (RuntimeException error) {
 				SharedFateMod.LOGGER.warn("조건부 증강의 하위 피해 배율을 구하지 못했습니다", error);
 				return 1.0;

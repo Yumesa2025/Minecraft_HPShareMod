@@ -55,8 +55,6 @@ class PerkStatusEffectsTest {
 				      "id": "sharedfate:swift",
 				      "name": "쾌속",
 				      "rarity": "common",
-				      "stackable": true,
-				      "maxStacks": 3,
 				      "effects": [
 				        { "type": "status_effect", "effect": "minecraft:speed", "amplifier": 0 }
 				      ]
@@ -88,17 +86,17 @@ class PerkStatusEffectsTest {
 		TeamState state = TeamState.fresh(20.0F);
 		state.perksEnabled = true;
 		for (String id : perkIds) {
-			state.ownedPerks.add(new PerkStack(id, 1));
+			state.ownedPerks.add(id);
 		}
 		return state;
 	}
 
 	/** 증강이 실제로 걸어 두는 모양 그대로의 인스턴스. */
-	private static MobEffectInstance perkGranted(String perkId, int stacks) {
+	private static MobEffectInstance perkGranted(String perkId) {
 		Perk perk = PerkRegistry.byId(perkId).orElseThrow();
 		for (PerkEffect candidate : perk.effects()) {
 			if (candidate instanceof StatusEffectPerk status) {
-				return status.grantedInstance(stacks);
+				return status.grantedInstance();
 			}
 		}
 		throw new IllegalArgumentException("status_effect 효과가 없는 증강: " + perkId);
@@ -151,20 +149,21 @@ class PerkStatusEffectsTest {
 
 		assertFalse(perkEffects.isEmpty());
 		assertTrue(perkEffects.covers(MobEffects.SPEED));
-		assertTrue(perkEffects.grants(perkGranted("sharedfate:swift", 1)));
-		assertTrue(perkEffects.shareable(List.of(perkGranted("sharedfate:swift", 1))).isEmpty());
+		assertTrue(perkEffects.grants(perkGranted("sharedfate:swift")));
+		assertTrue(perkEffects.shareable(List.of(perkGranted("sharedfate:swift"))).isEmpty());
 	}
 
 	@Test
-	void 중첩해서_등급이_오른_증강분도_그대로_걸러진다(@TempDir Path dir) throws IOException {
+	void 증강분_등급은_정의에_적힌_값_그대로다(@TempDir Path dir) throws IOException {
 		loadPerks(dir);
 		TeamState state = TeamState.fresh(20.0F);
-		state.ownedPerks.add(new PerkStack("sharedfate:swift", 3));
+		state.ownedPerks.add("sharedfate:swift");
 
 		PerkStatusEffects perkEffects = PerkStatusEffects.of(state);
-		MobEffectInstance granted = perkGranted("sharedfate:swift", 3);
+		MobEffectInstance granted = perkGranted("sharedfate:swift");
 
-		assertEquals(2, granted.getAmplifier(), "3중첩이면 등급이 두 단계 오른다");
+		// 중첩이 없으므로 같은 증강을 두 번 가질 수 없다. 등급이 오를 길이 없다.
+		assertEquals(0, granted.getAmplifier());
 		assertTrue(perkEffects.grants(granted));
 	}
 
@@ -176,8 +175,8 @@ class PerkStatusEffectsTest {
 		PerkStatusEffects perkEffects = PerkStatusEffects.of(state);
 
 		assertTrue(perkEffects.shareable(List.of(
-				perkGranted("sharedfate:swift", 1),
-				perkGranted("sharedfate:mending_blood", 1))).isEmpty());
+				perkGranted("sharedfate:swift"),
+				perkGranted("sharedfate:mending_blood"))).isEmpty());
 	}
 
 	// ------------------------------------------------------------------ 포션분은 살아남는다
@@ -226,7 +225,7 @@ class PerkStatusEffectsTest {
 		MobEffectInstance strengthPotion = new MobEffectInstance(MobEffects.STRENGTH, POTION_TICKS, 0);
 		MobEffectInstance speedPotion = new MobEffectInstance(MobEffects.SPEED, POTION_TICKS, 1);
 		List<MobEffectInstance> active = List.of(
-				perkGranted("sharedfate:mending_blood", 1),
+				perkGranted("sharedfate:mending_blood"),
 				strengthPotion,
 				speedPotion);
 
@@ -241,7 +240,7 @@ class PerkStatusEffectsTest {
 	void 증강을_잃으면_그_상태이상은_다시_평범한_공유_대상이_된다(@TempDir Path dir) throws IOException {
 		loadPerks(dir);
 		TeamState state = stateWith("sharedfate:swift");
-		MobEffectInstance granted = perkGranted("sharedfate:swift", 1);
+		MobEffectInstance granted = perkGranted("sharedfate:swift");
 
 		assertTrue(PerkStatusEffects.of(state).shareable(List.of(granted)).isEmpty());
 

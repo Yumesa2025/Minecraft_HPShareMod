@@ -120,8 +120,7 @@ public final class PerkKillRewards {
 	 * 이 팀이 가진 {@code on_kill} 들이 한 번의 처치로 주는 회복량의 합.
 	 *
 	 * <p>같은 팀이 {@code on_kill} 증강을 여러 개 가졌으면 전부 더한다. 서로 다른 증강이 각각
-	 * 약속한 보상이라 하나만 골라 줄 이유가 없다. 중첩분은 각 효과가
-	 * {@code stacks} 로 이미 반영한다.
+	 * 약속한 보상이라 하나만 골라 줄 이유가 없다.
 	 */
 	public static Reward rewardFor(@Nullable TeamState state) {
 		if (state == null || state.ownedPerks.isEmpty()) {
@@ -130,8 +129,8 @@ public final class PerkKillRewards {
 		int food = 0;
 		float saturation = 0.0F;
 		float health = 0.0F;
-		for (PerkStack stack : state.ownedPerks) {
-			Perk perk = PerkRegistry.byId(stack.perkId()).orElse(null);
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			if (perk == null) {
 				continue;
 			}
@@ -139,9 +138,9 @@ public final class PerkKillRewards {
 				if (!(effect instanceof OnKillEffect onKill)) {
 					continue;
 				}
-				food += onKill.foodFor(stack.count());
-				saturation += onKill.saturationFor(stack.count());
-				health += onKill.healthFor(stack.count());
+				food += onKill.foodFor();
+				saturation += onKill.saturationFor();
+				health += onKill.healthFor();
 			}
 		}
 		return new Reward(Math.min(MAX_FOOD, food), saturation, health);
@@ -172,14 +171,14 @@ public final class PerkKillRewards {
 	 * 위해서다. 하위 효과가 없는 정의가 대부분이라 이 순회는 대개 아무 일도 하지 않는다.
 	 */
 	private static void grantTemporaryEffects(ServerPlayer killer, TeamState state) {
-		for (PerkStack stack : state.ownedPerks) {
-			Perk perk = PerkRegistry.byId(stack.perkId()).orElse(null);
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			if (perk == null) {
 				continue;
 			}
 			for (PerkEffect effect : perk.effects()) {
 				if (effect instanceof OnKillEffect onKill) {
-					onKill.grantTemporaryEffects(killer, stack.count());
+					onKill.grantTemporaryEffects(killer);
 				}
 			}
 		}
