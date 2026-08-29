@@ -166,7 +166,12 @@ public final class TeamBroadcaster {
 		TeamState state = TeamManager.get(server).stateByTeamId(team.teamId());
 		int xpLevel = state == null ? 0 : Math.max(0, state.xpLevel);
 		int nextPerkLevel = state == null ? 0 : nextPerkLevel(state);
-		return new TeamSyncPayload(members, xpLevel, nextPerkLevel);
+		float maxHealth = state == null ? 20.0F : state.maxHealth;
+		int swapMinutes = state != null && state.positionSwapEnabled()
+				? state.positionSwapIntervalMinutes() : 0;
+		boolean perksEnabled = state != null && state.perksEnabled;
+		return new TeamSyncPayload(members, team.name(), xpLevel, nextPerkLevel,
+				maxHealth, swapMinutes, perksEnabled, team.leader());
 	}
 
 	private static void sendIfSupported(ServerPlayer player, CustomPacketPayload payload) {

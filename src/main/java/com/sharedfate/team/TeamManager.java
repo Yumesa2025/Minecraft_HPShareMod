@@ -25,7 +25,6 @@ public class TeamManager extends SavedData {
 	private final Map<UUID, ShareTeam> teams = new LinkedHashMap<>();
 	private final Map<UUID, TeamState> states = new HashMap<>();
 	private final Map<UUID, UUID> playerToTeam = new HashMap<>();
-	private final Map<UUID, Set<UUID>> pendingInvites = new HashMap<>();
 	private final Set<UUID> pendingEffectClears = new HashSet<>();
 	private final Set<UUID> pendingExperienceClears = new HashSet<>();
 
@@ -38,8 +37,6 @@ public class TeamManager extends SavedData {
 
 	public static final Codec<TeamManager> CODEC = RecordCodecBuilder.create(instance -> instance.group(
 			Entry.CODEC.listOf().fieldOf("teams").forGetter(TeamManager::toEntries),
-			Codec.unboundedMap(UUIDUtil.STRING_CODEC, UUIDUtil.STRING_CODEC.listOf())
-					.optionalFieldOf("invites", Map.of()).forGetter(TeamManager::invitesForCodec),
 			UUIDUtil.STRING_CODEC.listOf().optionalFieldOf("pendingEffectClears", List.of())
 					.forGetter(manager -> List.copyOf(manager.pendingEffectClears)),
 			UUIDUtil.STRING_CODEC.listOf().optionalFieldOf("pendingExperienceClears", List.of())
@@ -131,7 +128,6 @@ public class TeamManager extends SavedData {
 			}
 		}
 
-		pendingInvites.clear();
 		pendingEffectClears.clear();
 		pendingExperienceClears.clear();
 		for (ShareTeam team : snapshot) {
@@ -159,7 +155,6 @@ public class TeamManager extends SavedData {
 		teams.put(team.teamId(), team);
 		states.put(team.teamId(), initialState);
 		playerToTeam.put(leader, team.teamId());
-		pendingInvites.remove(leader);
 		setDirty();
 		return team;
 	}
@@ -171,7 +166,6 @@ public class TeamManager extends SavedData {
 		}
 		teams.put(teamId, team.withMemberAdded(player));
 		playerToTeam.put(player, teamId);
-		pendingInvites.remove(player);
 		setDirty();
 		return true;
 	}
@@ -191,7 +185,6 @@ public class TeamManager extends SavedData {
 				}
 				teams.remove(teamId);
 				states.remove(teamId);
-				removeInvitesForTeam(teamId);
 			} else {
 				teams.put(teamId, next);
 			}
@@ -207,51 +200,12 @@ public class TeamManager extends SavedData {
 		}
 		ShareTeam team = teams.remove(teamId);
 		states.remove(teamId);
-		removeInvitesForTeam(teamId);
 		if (team != null) {
 			for (UUID member : team.members()) {
 				playerToTeam.remove(member);
 			}
 			setDirty();
 		}
-	}
-
-	public void invite(UUID teamId, UUID player) {
-		if (!teams.containsKey(teamId) || playerToTeam.containsKey(player)) {
-			return;
-		}
-		if (pendingInvites.computeIfAbsent(player, ignored -> new HashSet<>()).add(teamId)) {
-			setDirty();
-		}
-	}
-
-	public boolean hasInvite(UUID player, UUID teamId) {
-		Set<UUID> invites = pendingInvites.get(player);
-		return invites != null && invites.contains(teamId);
-	}
-
-	public List<ShareTeam> invitedTeams(UUID player) {
-		Set<UUID> invites = pendingInvites.get(player);
-		if (invites == null) {
-			return List.of();
-		}
-		return invites.stream().map(teams::get).filter(java.util.Objects::nonNull).toList();
-	}
-
-	public boolean declineInvite(UUID player, UUID teamId) {
-		return consumeInvite(player, teamId);
-	}
-
-	public boolean consumeInvite(UUID player, UUID teamId) {
-		Set<UUID> invites = pendingInvites.get(player);
-		if (invites == null || !invites.remove(teamId)) {
-			return false;
-		}
-		if (invites.isEmpty()) {
-			pendingInvites.remove(player);
-		}
-		setDirty();
-		return true;
 	}
 
 	public void markEffectClear(UUID player) {
@@ -290,11 +244,6 @@ public class TeamManager extends SavedData {
 		}
 	}
 
-	private void removeInvitesForTeam(UUID teamId) {
-		pendingInvites.values().forEach(invites -> invites.remove(teamId));
-		pendingInvites.entrySet().removeIf(entry -> entry.getValue().isEmpty());
-	}
-
 	private List<Entry> toEntries() {
 		List<Entry> entries = new ArrayList<>();
 		for (ShareTeam team : teams.values()) {
@@ -306,13 +255,14 @@ public class TeamManager extends SavedData {
 		return entries;
 	}
 
-	private Map<UUID, List<UUID>> invitesForCodec() {
-		Map<UUID, List<UUID>> invites = new HashMap<>();
-		pendingInvites.forEach((player, teamIds) -> invites.put(player, List.copyOf(teamIds)));
-		return invites;
-	}
-
-	private static TeamManager fromCodec(List<Entry> entries, Map<UUID, List<UUID>> invites,
+	/**
+	 * 저장 데이터를 되살린다.
+	 *
+	 * <p>0.5.1-dev 까지 있던 {@code invites} 항목은 더 읽지 않는다. 초대는 리더가 부르는
+	 * 즉시 합류로 바뀌어 대기열 자체가 없어졌다. 예전 저장 파일에 그 항목이 남아 있어도
+	 * 코덱이 모르는 항목으로 지나치므로 오류가 나지 않는다.
+	 */
+	private static TeamManager fromCodec(List<Entry> entries,
 			List<UUID> pendingEffectClears, List<UUID> pendingExperienceClears) {
 		TeamManager manager = new TeamManager();
 		for (Entry entry : entries) {
@@ -335,17 +285,6 @@ public class TeamManager extends SavedData {
 				manager.playerToTeam.put(member, team.teamId());
 			}
 		}
-		invites.forEach((player, teamIds) -> {
-			Set<UUID> valid = new HashSet<>();
-			for (UUID teamId : teamIds) {
-				if (manager.teams.containsKey(teamId) && !manager.playerToTeam.containsKey(player)) {
-					valid.add(teamId);
-				}
-			}
-			if (!valid.isEmpty()) {
-				manager.pendingInvites.put(player, valid);
-			}
-		});
 		manager.pendingEffectClears.addAll(pendingEffectClears);
 		manager.pendingExperienceClears.addAll(pendingExperienceClears);
 		return manager;

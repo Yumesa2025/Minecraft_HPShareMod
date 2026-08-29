@@ -4,12 +4,14 @@ import com.sharedfate.SharedFateMod;
 import com.sharedfate.client.hud.DamageAlertHud;
 import com.sharedfate.client.hud.HotbarHighlight;
 import com.sharedfate.client.hud.TeamLevelHud;
+import com.sharedfate.client.team.TeamScreen;
 import com.sharedfate.client.perk.ClientPerkFeatures;
 import com.sharedfate.client.perk.DoubleJumpHandler;
 import com.sharedfate.client.perk.PerkClientState;
 import com.sharedfate.client.perk.PerkOfferScreen;
 import com.sharedfate.net.DamageAlertPayload;
 import com.sharedfate.net.HandshakePayload;
+import com.sharedfate.net.OpenTeamScreenPayload;
 import com.sharedfate.net.PerkClientFeaturesPayload;
 import com.sharedfate.net.PerkCloseOfferPayload;
 import com.sharedfate.net.PerkOfferPayload;
@@ -67,6 +69,15 @@ public class SharedFateClient implements ClientModInitializer {
 				(payload, context) -> GameOverClientDisplay.show(
 						payload.runNumber(), payload.delayTicks()));
 
+		// /shareteam 화면. 네트워크 스레드에서 화면을 열 수 없으므로 클라이언트 스레드로 넘긴다.
+		// 다른 창이 이미 떠 있으면 열지 않는다. 증강 강제 선택 창을 밀어내면 안 된다.
+		ClientPlayNetworking.registerGlobalReceiver(OpenTeamScreenPayload.TYPE,
+				(payload, context) -> context.client().execute(() -> {
+					if (context.client().gui.screen() == null) {
+						context.client().setScreenAndShow(new TeamScreen());
+					}
+				}));
+
 		// 증강 후보 제시 — 네트워크 스레드에서 화면을 열 수 없으므로 클라이언트 스레드로 넘긴다.
 		ClientPlayNetworking.registerGlobalReceiver(PerkOfferPayload.TYPE,
 				(payload, context) -> context.client().execute(
@@ -110,10 +121,10 @@ public class SharedFateClient implements ClientModInitializer {
 		HudElementRegistry.addLast(
 				SharedFateMod.id("damage_alert"),
 				new DamageAlertHud());
-		// 상태이상 아이콘 바로 뒤에 붙인다. 아이콘 위에 겹쳐 그려지고, F1 로 HUD 를 끄면
-		// 바닐라가 이 구간 자체를 건너뛰므로 같이 사라진다.
+		// 경험치 레벨 숫자 바로 뒤에 붙인다. 그려지는 자리도 그 옆이라 순서를 맞춰 둔다.
+		// F1 로 HUD 를 끄면 바닐라가 이 구간 자체를 건너뛰므로 같이 사라진다.
 		HudElementRegistry.attachElementAfter(
-				VanillaHudElements.MOB_EFFECTS,
+				VanillaHudElements.EXPERIENCE_LEVEL,
 				SharedFateMod.id("team_level"),
 				new TeamLevelHud());
 

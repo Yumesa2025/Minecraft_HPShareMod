@@ -8,8 +8,11 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TeamSyncLevelTest {
+	private static final java.util.UUID LEADER = new java.util.UUID(1L, 2L);
 	@BeforeAll
 	static void bootstrap() {
 		TestBootstrap.ensureInitialized();
@@ -56,7 +59,7 @@ class TeamSyncLevelTest {
 
 	@Test
 	void 남은_레벨은_다음_구간에서_현재_레벨을_뺀_값이다() {
-		TeamSyncPayload payload = new TeamSyncPayload(List.of(), 12, 15);
+		TeamSyncPayload payload = new TeamSyncPayload(List.of(), "우리팀", 12, 15, 20.0F, 0, true, LEADER);
 
 		assertEquals(12, payload.xpLevel());
 		assertEquals(3, payload.levelsToNextPerk());
@@ -64,24 +67,49 @@ class TeamSyncLevelTest {
 
 	@Test
 	void 다음_구간이_없으면_남은_레벨은_음수로_알린다() {
-		TeamSyncPayload payload = new TeamSyncPayload(List.of(), 37, 0);
+		TeamSyncPayload payload = new TeamSyncPayload(List.of(), "우리팀", 37, 0, 20.0F, 0, true, LEADER);
 
 		assertEquals(-1, payload.levelsToNextPerk());
 	}
 
 	@Test
 	void 현재_레벨이_다음_구간을_이미_넘었으면_0으로_묶는다() {
-		TeamSyncPayload payload = new TeamSyncPayload(List.of(), 17, 15);
+		TeamSyncPayload payload = new TeamSyncPayload(List.of(), "우리팀", 17, 15, 20.0F, 0, true, LEADER);
 
 		assertEquals(0, payload.levelsToNextPerk());
 	}
 
 	@Test
 	void 음수_레벨은_0으로_맞춘다() {
-		TeamSyncPayload payload = new TeamSyncPayload(List.of(), -5, -1);
+		TeamSyncPayload payload = new TeamSyncPayload(List.of(), "우리팀", -5, -1, 20.0F, 0, true, LEADER);
 
 		assertEquals(0, payload.xpLevel());
 		assertEquals(0, payload.nextPerkLevel());
 		assertEquals(-1, payload.levelsToNextPerk());
+	}
+
+	@Test
+	void 리더_판정은_받는_사람의_UUID로_한다() {
+		TeamSyncPayload payload =
+				new TeamSyncPayload(List.of(), "우리팀", 5, 10, 20.0F, 0, true, LEADER);
+
+		assertTrue(payload.isLeader(LEADER));
+		assertFalse(payload.isLeader(new java.util.UUID(9L, 9L)));
+	}
+
+	@Test
+	void 교환_주기가_0이면_꺼진_것이고_음수는_0으로_맞춘다() {
+		TeamSyncPayload off =
+				new TeamSyncPayload(List.of(), "우리팀", 5, 10, 20.0F, 0, true, LEADER);
+		TeamSyncPayload on =
+				new TeamSyncPayload(List.of(), "우리팀", 5, 10, 20.0F, 7, true, LEADER);
+		TeamSyncPayload negative =
+				new TeamSyncPayload(List.of(), "우리팀", 5, 10, 20.0F, -3, true, LEADER);
+
+		assertFalse(off.swapEnabled());
+		assertTrue(on.swapEnabled());
+		assertEquals(7, on.swapIntervalMinutes());
+		assertEquals(0, negative.swapIntervalMinutes());
+		assertFalse(negative.swapEnabled());
 	}
 }

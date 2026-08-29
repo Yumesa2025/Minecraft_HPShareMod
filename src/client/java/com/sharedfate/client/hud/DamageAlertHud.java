@@ -47,17 +47,13 @@ public class DamageAlertHud implements HudElement {
 			return;
 		}
 
-		int heartRows = Math.max(1,
-				(int) Math.ceil((player.getMaxHealth() + player.getAbsorptionAmount()) / 20.0F));
-		int rowSpacing = Math.max(10 - (heartRows - 2), 3);
-		int y = graphics.guiHeight() - 39 - (heartRows - 1) * rowSpacing - 10;
-		if (player.getArmorValue() > 0) {
-			y -= 10;
-		}
-		int x = graphics.guiWidth() / 2 - 91;
+		// 팀 레벨 표시가 바닥을 차지하므로 그 위에서 시작한다. 자세한 것은 BottomLeftStack.
+		int x = BottomLeftStack.left(graphics);
+		int y = BottomLeftStack.baseline(player, graphics.guiHeight())
+				- BottomLeftStack.teamLevelLines() * BottomLeftStack.LINE_HEIGHT;
 		for (String name : ALERTS.keySet()) {
 			graphics.text(client.font, name + " 피격", x, y, 0xFFFF5555);
-			y -= 10;
+			y -= BottomLeftStack.LINE_HEIGHT;
 		}
 	}
 }

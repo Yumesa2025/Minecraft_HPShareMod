@@ -5,21 +5,22 @@ Minecraft Java Edition 26.2 / Fabric용 협동 모드입니다. 최대 4명이 �
 팀 공유 레벨이 오르면 팀 전체에 적용되는 **증강**을 함께 고르고, 팀 전멸 뒤에는 다음 회차의
 새 월드를 시작하며, 엔더 드래곤을 처치하면 승리와 엔딩으로 마무리됩니다.
 
-> 현재 버전은 **`0.5.1-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
+> 현재 버전은 **`0.6.0-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
 > SharedFate 버전을 사용해야 합니다.
 >
-> **0.4.0-dev 이하에서 올라오는 경우 클라이언트를 반드시 함께 갱신하세요.** 통신 규약이
-> 5에서 10으로 바뀌어 예전 클라이언트로는 접속할 수 없습니다.
+> **0.5.x 이하에서 올라오는 경우 서버와 모든 클라이언트를 함께 갱신하세요.** 통신 규약이
+> 11로 바뀌어 예전 클라이언트로는 접속할 수 없습니다.
+> (참고: 0.4.0-dev 는 5, 0.5.x 는 10입니다.)
 
 ## 다운로드
 
 | 파일 | 용도 |
 |---|---|
-| [SharedFate-0.5.1-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.5.1-dev/SharedFate-0.5.1-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
-| [sharedfate-0.5.1-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.5.1-dev/sharedfate-0.5.1-dev.jar) | 서버 운영자·수동 설치용 모드 JAR |
-| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.5.1-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
+| [SharedFate-0.6.0-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.6.0-dev/SharedFate-0.6.0-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
+| [sharedfate-0.6.0-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.6.0-dev/sharedfate-0.6.0-dev.jar) | 서버 운영자·수동 설치용 모드 JAR |
+| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.6.0-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
 
-[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.5.1-dev)
+[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.6.0-dev)
 
 ### 클라이언트 설치
 
@@ -68,28 +69,45 @@ Java 25가 필요합니다. SharedFate JAR만 받았다면 Fabric API
 
 ## 명령어
 
+대부분은 `/shareteam` 창에서 할 수 있습니다. 명령으로도 그대로 됩니다.
+
 ```text
+/shareteam                      팀 화면 열기 (모드가 있는 클라이언트)
 /shareteam help
 /shareteam create <팀 이름>
 /shareteam create perks <on|off> <팀 이름>
-/shareteam perk
-/shareteam perk list
-/shareteam invite <플레이어>
-/shareteam invites
-/shareteam accept <팀 이름>
-/shareteam decline <팀 이름>
-/shareteam status
-/shareteam health <20~40>
+/shareteam invite <플레이어>     상대를 곧바로 팀에 넣습니다 (리더)
+/shareteam perks <on|off>        증강 사용 여부 (리더)
+/shareteam health <20~40>        공유 최대 체력 (리더)
 /shareteam swap on <1~120분>
 /shareteam swap off
 /shareteam swap status
+/shareteam perk
+/shareteam perk list
+/shareteam status
 /shareteam list
 /shareteam leave
 /shareteam disband confirm
 ```
 
+**초대에 수락 절차가 없습니다.** 리더가 `invite` 를 치면 상대가 곧바로 들어옵니다.
+그때 상대의 개인 아이템은 있던 자리에 드랍되고 개인 경험치는 공유 풀에 합쳐지므로,
+부르기 전에 미리 알려 주는 편이 좋습니다.
+
 증강은 기본으로 꺼져 있습니다. `/shareteam create <팀 이름>` 으로 만들면 증강 없이
-시작하고, 켜려면 `/shareteam create perks on <팀 이름>` 으로 만듭니다.
+시작하고, 켜려면 `/shareteam create perks on <팀 이름>` 으로 만들거나 나중에
+`/shareteam perks on` 으로 켭니다.
+
+## 팀 화면
+
+`/shareteam` 을 인자 없이 치면 창이 열립니다. 탭은 넷입니다.
+
+| 탭 | 하는 일 |
+|---|---|
+| 현황 | 팀 이름, 접속 인원, 팀 레벨, 다음 증강까지 남은 레벨, 공유 체력, 교환 주기, 증강 사용 여부 |
+| 팀 | 팀 만들기, 접속자별 초대, 나가기·해체 |
+| 설정 | 최대 체력, 위치 교환, 증강 켜고 끄기 — **리더만** |
+| 증강 | 보유 증강 목록, 증강 선택창 열기 |
 
 ## 증강 설정
 

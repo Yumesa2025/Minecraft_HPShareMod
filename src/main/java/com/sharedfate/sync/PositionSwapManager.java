@@ -91,11 +91,16 @@ public final class PositionSwapManager {
 	 *
 	 * <p>카운트다운이 0까지 갔는데 아무 일도 일어나지 않으면 고장으로 보인다. 대가는 곧이어
 	 * {@code on_swap} 이 얹으므로 여기서는 "버텼다"는 사실만 짧게 보여 준다.
+	 *
+	 * <p><b>자막에 증강 이름을 그대로 적는다.</b> 예전에는 「뿌리내린 발」이라는 이름에 맞춰
+	 * "발이 땅에 붙어"라고 적었는데, 땅에 서 있는지가 조건인 것처럼 읽혀 공중에 떠서 교환을
+	 * 피할 수 있다는 오해를 낳았다. 교환에는 땅 접촉 조건이 없다. 막는 것은
+	 * {@link PerkSwapRules#blocksSwap} 이 보는 {@code swap_block} 증강뿐이다.
 	 */
 	private static void announceBlockedSwap(List<ServerPlayer> players) {
 		TitleMessenger.showTitle(players,
 				Component.literal("제자리").withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD),
-				Component.literal("발이 땅에 붙어 위치가 바뀌지 않았습니다").withStyle(ChatFormatting.WHITE),
+				Component.literal("「뿌리내린 발」이 위치 교환을 막았습니다").withStyle(ChatFormatting.WHITE),
 				0, SWAP_TITLE_STAY_TICKS, SWAP_TITLE_FADE_OUT_TICKS);
 	}
 
