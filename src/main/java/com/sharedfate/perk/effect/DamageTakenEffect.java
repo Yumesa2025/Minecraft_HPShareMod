@@ -6,7 +6,7 @@ import com.sharedfate.perk.PerkEffect;
 /**
  * 팀원이 받는 피해에 배율을 건다.
  *
- * <p>1보다 작으면 방어형, 크면 트레이드오프형 증강이 된다. 중첩 규칙과 값 범위는
+ * <p>1보다 작으면 방어형, 크면 트레이드오프형 증강이 된다. 값 범위는
  * {@link DamageDealtEffect}와 같다.
  */
 public final class DamageTakenEffect implements PerkEffect {
@@ -23,8 +23,8 @@ public final class DamageTakenEffect implements PerkEffect {
 	}
 
 	@Override
-	public double damageTakenMultiplier(int stacks) {
-		return DamageDealtEffect.power(multiplier, stacks);
+	public double damageTakenMultiplier() {
+		return DamageDealtEffect.clamp(multiplier);
 	}
 
 	public double multiplier() {

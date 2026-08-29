@@ -10,6 +10,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.util.RandomSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -161,10 +162,10 @@ class ItemGrantEffectTest {
 
 		// 접속·부활·효과 갱신 때마다 불리는 자리다. 여기서 아이템을 주면 접속할 때마다 불어난다.
 		// 플레이어가 null 이어도 손댈 것이 없으므로 그냥 지나가야 한다.
-		assertDoesNotThrow(() -> effect.apply(null, 3));
+		assertDoesNotThrow(() -> effect.apply(null));
 		assertDoesNotThrow(() -> effect.remove(null));
-		assertEquals(1.0, effect.damageDealtMultiplier(3));
-		assertEquals(1.0, effect.damageTakenMultiplier(3));
+		assertEquals(1.0, effect.damageDealtMultiplier());
+		assertEquals(1.0, effect.damageTakenMultiplier());
 	}
 
 	@Test
@@ -243,7 +244,6 @@ class ItemGrantEffectTest {
 	void 지급한_아이템은_팀_공유_목록에_들어간다(@TempDir Path dir) throws IOException {
 		Perk perk = loadSingle(dir, """
 				{ "id": "sharedfate:비상식량", "rarity": "silver", "name": "비상식량",
-				  "stackable": true, "maxStacks": 3,
 				  "effects": [ { "type": "item_grant",
 				    "items": [ { "id": "minecraft:golden_apple", "count": 5 } ] } ] }
 				""");
@@ -257,26 +257,27 @@ class ItemGrantEffectTest {
 	}
 
 	@Test
-	void 고를_때마다_한_번씩_더_준다(@TempDir Path dir) throws IOException {
+	void 즉시_지급_증강은_한_회차에_한_번만_후보로_나온다(@TempDir Path dir) throws IOException {
 		Perk perk = loadSingle(dir, """
 				{ "id": "sharedfate:비상식량", "rarity": "silver", "name": "비상식량",
-				  "stackable": true, "maxStacks": 3,
 				  "effects": [ { "type": "item_grant",
 				    "items": [ { "id": "minecraft:golden_apple", "count": 5 } ] } ] }
 				""");
 		TeamState state = TeamState.fresh(20.0F);
 
 		PerkItemGrants.grantOnChoice(null, null, state, perk);
-		PerkItemGrants.grantOnChoice(null, null, state, perk);
+		state.ownedPerks.add(perk.id());
 
-		assertEquals(10, countOf(state, Items.GOLDEN_APPLE), "두 번 골랐으면 두 번 준다");
+		// 중첩이 없으므로 한 번 고른 뒤에는 다시 뽑히지 않는다. 지급도 그만큼 한 번뿐이다.
+		assertTrue(PerkDraft.draw(PerkRarity.SILVER, List.of(perk), state.ownedPerks,
+				RandomSource.create(20260829L), 3).isEmpty());
+		assertEquals(5, countOf(state, Items.GOLDEN_APPLE), "한 번 골랐으면 한 번만 준다");
 	}
 
 	@Test
 	void 물약_두_종류가_각각_한_칸씩_들어간다(@TempDir Path dir) throws IOException {
 		Perk perk = loadSingle(dir, """
 				{ "id": "sharedfate:원정준비물", "rarity": "silver", "name": "원정 준비물",
-				  "stackable": true, "maxStacks": 3,
 				  "effects": [ { "type": "item_grant", "items": [
 				    { "id": "minecraft:potion", "count": 1, "potion": "minecraft:fire_resistance" },
 				    { "id": "minecraft:potion", "count": 1, "potion": "minecraft:water_breathing" }
@@ -342,8 +343,6 @@ class ItemGrantEffectTest {
 		Perk ration = PerkRegistry.byId("sharedfate:emergency_ration").orElseThrow();
 		assertEquals("비상식량", ration.name());
 		assertEquals(PerkRarity.SILVER, ration.rarity());
-		assertTrue(ration.stackable());
-		assertEquals(3, ration.maxStacks());
 		List<ItemStack> rationStacks = grantEffectOf(ration).grantStacks();
 		assertEquals(1, rationStacks.size());
 		assertSame(Items.GOLDEN_APPLE, rationStacks.getFirst().getItem());
@@ -352,7 +351,6 @@ class ItemGrantEffectTest {
 		Perk kit = PerkRegistry.byId("sharedfate:expedition_kit").orElseThrow();
 		assertEquals("원정 준비물", kit.name());
 		assertEquals(PerkRarity.SILVER, kit.rarity());
-		assertEquals(3, kit.maxStacks());
 		List<ItemStack> kitStacks = grantEffectOf(kit).grantStacks();
 		assertEquals(2, kitStacks.size());
 		assertEquals(Identifier.parse("minecraft:fire_resistance"), potionOf(kitStacks.get(0)));

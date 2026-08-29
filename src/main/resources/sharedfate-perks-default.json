@@ -1,13 +1,13 @@
 {
   "_comment": "SharedFate 기본 증강 풀. 설정 폴더에 sharedfate-perks.json 이 없으면 이 파일이 그대로 만들어진다. 자유롭게 편집해도 되고, 지우면 다음 실행 때 다시 생긴다.",
   "_rarity": "구간마다 등급 하나가 정해지고 그 등급에서만 후보 3개가 나온다. 15렙은 항상 플레, 나머지 구간(5·10·20·25·30·35)은 실버 또는 골드다. 해당 등급이 3개에 모자라면 실버→골드→플레 순으로 채운다.",
+  "_duplicate": "중첩은 없다. 한 번 고른 증강은 그 회차 동안 다시 후보로 나오지 않는다. 예전 형식의 stackable·maxStacks 가 적혀 있어도 무시된다.",
   "perks": [
     {
       "id": "sharedfate:light_step",
       "name": "가벼운 발걸음",
       "description": "낙하 피해가 40% 감소합니다. 대신 넉백을 3배로 받습니다.",
       "rarity": "silver",
-      "stackable": false,
       "effects": [
         {
           "type": "attribute",
@@ -28,7 +28,6 @@
       "name": "바람 빠진 방패",
       "description": "폭발에 훨씬 덜 밀립니다. 대신 그 밖의 넉백은 2배로 받습니다.",
       "rarity": "silver",
-      "stackable": false,
       "effects": [
         {
           "type": "attribute",
@@ -49,7 +48,6 @@
       "name": "밑 빠진 독",
       "description": "재생 II 를 상시 얻습니다. 대신 허기 IV 도 상시 얻습니다.",
       "rarity": "platinum",
-      "stackable": false,
       "effects": [
         {
           "type": "status_effect",
@@ -68,7 +66,6 @@
       "name": "유리 세계",
       "description": "엔더 드래곤을 제외한 모든 몹의 체력이 절반이 됩니다. 대신 받는 피해가 3배가 됩니다.",
       "rarity": "platinum",
-      "stackable": false,
       "effects": [
         {
           "type": "mob_health",
@@ -86,8 +83,6 @@
       "name": "비상식량",
       "description": "황금 사과를 5개 얻습니다.",
       "rarity": "silver",
-      "stackable": true,
-      "maxStacks": 3,
       "effects": [
         {
           "type": "item_grant",
@@ -102,8 +97,6 @@
       "name": "원정 준비물",
       "description": "화염 저항 포션과 수중 호흡 포션을 하나씩 얻습니다.",
       "rarity": "silver",
-      "stackable": true,
-      "maxStacks": 3,
       "effects": [
         {
           "type": "item_grant",

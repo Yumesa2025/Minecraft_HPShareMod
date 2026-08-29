@@ -29,8 +29,7 @@ import java.util.Optional;
  * 불어난다. 지급 시점은 {@link com.sharedfate.perk.PerkManager#applyChoice} 한 곳뿐이고,
  * 실제 전달은 {@link com.sharedfate.perk.PerkItemGrants}가 맡는다.
  *
- * <p>중첩 가능한 증강은 고를 때마다 한 번씩 준다. 그래서 {@link #grantStacks()}는 중첩 수를
- * 받지 않는다. 세 번 고르면 지급도 세 번 일어난다.
+ * <p>중첩은 없다. 한 증강은 한 회차에 한 번만 고를 수 있으므로 지급도 한 번뿐이다.
  *
  * <p>JSON 형식:
  * <pre>

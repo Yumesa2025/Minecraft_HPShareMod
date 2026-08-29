@@ -59,8 +59,8 @@ public final class PerkStatusEffects {
 		}
 
 		Map<Holder<MobEffect>, Integer> collected = null;
-		for (PerkStack stack : state.ownedPerks) {
-			Perk perk = PerkRegistry.byId(stack.perkId()).orElse(null);
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			if (perk == null) {
 				continue;
 			}
@@ -74,7 +74,7 @@ public final class PerkStatusEffects {
 						collected = new HashMap<>();
 					}
 					// 같은 종류를 여러 증강이 걸면 결국 가장 센 것만 겉으로 남는다.
-					collected.merge(resolved, status.amplifierFor(stack.count()), Math::max);
+					collected.merge(resolved, status.amplifier(), Math::max);
 				}
 			}
 		}

@@ -346,25 +346,23 @@ class ConditionalEffectTest {
 				List.of(new DamageDealtEffect(1.5)),
 				List.of(new DamageDealtEffect(0.7), new DamageTakenEffect(1.2)));
 
-		assertEquals(1.5, effect.damageDealtMultiplier(true, 1), 1.0e-9);
-		assertEquals(1.0, effect.damageTakenMultiplier(true, 1), 1.0e-9,
+		assertEquals(1.5, effect.damageDealtMultiplier(true), 1.0e-9);
+		assertEquals(1.0, effect.damageTakenMultiplier(true), 1.0e-9,
 				"참 쪽에는 받는 피해 효과가 없다");
 
-		assertEquals(0.7, effect.damageDealtMultiplier(false, 1), 1.0e-9);
-		assertEquals(1.2, effect.damageTakenMultiplier(false, 1), 1.0e-9);
+		assertEquals(0.7, effect.damageDealtMultiplier(false), 1.0e-9);
+		assertEquals(1.2, effect.damageTakenMultiplier(false), 1.0e-9);
 	}
 
 	@Test
-	void 피해_배율은_같은_묶음_안에서_곱해지고_중첩을_따른다() {
+	void 피해_배율은_같은_묶음_안에서_곱해진다() {
 		ConditionalEffect effect = new ConditionalEffect(
 				ConditionalEffect.Condition.HEALTH_FULL, 0.0,
 				List.of(new DamageDealtEffect(1.2), new DamageDealtEffect(1.5)),
 				List.of());
 
-		assertEquals(1.8, effect.damageDealtMultiplier(true, 1), 1.0e-9);
-		assertEquals(1.2 * 1.2 * 1.5 * 1.5, effect.damageDealtMultiplier(true, 2), 1.0e-9,
-				"중첩 수가 하위 효과까지 그대로 전달돼야 한다");
-		assertEquals(1.0, effect.damageDealtMultiplier(false, 2), 1.0e-9, "빈 묶음은 1.0");
+		assertEquals(1.8, effect.damageDealtMultiplier(true), 1.0e-9);
+		assertEquals(1.0, effect.damageDealtMultiplier(false), 1.0e-9, "빈 묶음은 1.0");
 	}
 
 	@Test
@@ -375,9 +373,9 @@ class ConditionalEffectTest {
 				List.of(new DamageDealtEffect(1.5)),
 				List.of(new DamageDealtEffect(0.7)));
 
-		assertEquals(1.0, effect.damageDealtMultiplier(1), 1.0e-9,
+		assertEquals(1.0, effect.damageDealtMultiplier(), 1.0e-9,
 				"누구를 위한 조회인지 모르고 기억해 둔 판정도 없으면 1.0 이다");
-		assertEquals(1.0, effect.damageTakenMultiplier(1), 1.0e-9);
+		assertEquals(1.0, effect.damageTakenMultiplier(), 1.0e-9);
 	}
 
 	@Test
@@ -432,7 +430,7 @@ class ConditionalEffectTest {
 
 		TeamState state = state(20.0F, 20);
 		state.perksEnabled = true;
-		state.ownedPerks.add(new PerkStack("sharedfate:brink", 1));
+		state.ownedPerks.add("sharedfate:brink");
 
 		PerkStatusEffects granted = PerkStatusEffects.of(state);
 		assertTrue(granted.covers(BuiltInRegistries.MOB_EFFECT.get(Identifier.parse("minecraft:strength"))

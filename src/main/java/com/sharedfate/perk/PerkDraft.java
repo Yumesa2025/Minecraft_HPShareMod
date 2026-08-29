@@ -4,7 +4,6 @@ import net.minecraft.util.RandomSource;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -14,7 +13,7 @@ import java.util.Set;
  * 증강 후보 추첨.
  *
  * <p>구간마다 등급이 하나로 정해지고 <b>그 등급에서만</b> 후보를 뽑는다. 한 라운드에
- * 나오는 3개는 전부 같은 등급이다. 이미 보유해서 더 고를 수 없는 증강은 후보에서 빠지고,
+ * 나오는 3개는 전부 같은 등급이다. 이미 보유한 증강은 어떤 경우에도 후보에서 빠지고,
  * 한 번의 추첨 안에서 같은 증강이 두 번 나오지 않는다.
  *
  * <p>후보 풀은 호출자가 넘긴다. {@code PerkRegistry}에 직접 붙지 않아야 게임 실행 없이
@@ -80,11 +79,11 @@ public final class PerkDraft {
 	 *
 	 * @param milestone 이 추첨이 속한 레벨 구간 (5, 10, …, 35)
 	 * @param pool      전체 증강 목록
-	 * @param owned     팀이 이미 보유한 증강과 중첩 수
+	 * @param owned     팀이 이미 보유한 증강의 id 목록
 	 * @param random    난수원. 고정 시드를 주면 결과가 결정론적이다
 	 * @param count     뽑을 개수
 	 */
-	public static List<String> draw(int milestone, List<Perk> pool, List<PerkStack> owned,
+	public static List<String> draw(int milestone, List<Perk> pool, List<String> owned,
 			RandomSource random, int count) {
 		if (pool == null || pool.isEmpty() || random == null || count <= 0) {
 			return List.of();
@@ -93,7 +92,7 @@ public final class PerkDraft {
 	}
 
 	/** 기본 개수(3개)로 뽑는다. */
-	public static List<String> draw(int milestone, List<Perk> pool, List<PerkStack> owned,
+	public static List<String> draw(int milestone, List<Perk> pool, List<String> owned,
 			RandomSource random) {
 		return draw(milestone, pool, owned, random, DEFAULT_OPTIONS);
 	}
@@ -105,7 +104,7 @@ public final class PerkDraft {
 	 *
 	 * @param rarity 뽑을 등급
 	 */
-	public static List<String> draw(PerkRarity rarity, List<Perk> pool, List<PerkStack> owned,
+	public static List<String> draw(PerkRarity rarity, List<Perk> pool, List<String> owned,
 			RandomSource random, int count) {
 		if (rarity == null || pool == null || pool.isEmpty() || random == null || count <= 0) {
 			return List.of();
@@ -126,14 +125,13 @@ public final class PerkDraft {
 	}
 
 	/**
-	 * 아직 더 고를 수 있는 증강만 등급별로 모은다.
+	 * 아직 고르지 않은 증강만 등급별로 모은다.
 	 *
-	 * <p>중첩 불가({@code stackable == false}) 증강은 {@link Perk}의 규칙상 {@code maxStacks}가
-	 * 1이므로 한 번 보유하면 자동으로 빠진다. 중첩 가능한 증강도 상한에 닿으면 빠진다.
+	 * <p>증강은 중첩되지 않는다. 한 번 보유하면 그 회차 동안 영원히 후보에서 빠진다.
 	 * 풀에 같은 id가 두 번 들어 있어도 한 번만 담는다.
 	 */
-	private static Map<PerkRarity, List<Perk>> eligibleByRarity(List<Perk> pool, List<PerkStack> owned) {
-		Map<String, Integer> stacks = ownedStacks(owned);
+	private static Map<PerkRarity, List<Perk>> eligibleByRarity(List<Perk> pool, List<String> owned) {
+		Set<String> ownedIds = ownedIds(owned);
 		Map<PerkRarity, List<Perk>> byRarity = new EnumMap<>(PerkRarity.class);
 		for (PerkRarity rarity : PerkRarity.values()) {
 			byRarity.put(rarity, new ArrayList<>());
@@ -146,7 +144,7 @@ public final class PerkDraft {
 			if (!seen.add(perk.id())) {
 				continue;
 			}
-			if (!perk.canTakeMore(stacks.getOrDefault(perk.id(), 0))) {
+			if (ownedIds.contains(perk.id())) {
 				continue;
 			}
 			byRarity.get(perk.rarity()).add(perk);
@@ -154,17 +152,16 @@ public final class PerkDraft {
 		return byRarity;
 	}
 
-	private static Map<String, Integer> ownedStacks(List<PerkStack> owned) {
-		Map<String, Integer> stacks = new HashMap<>();
+	private static Set<String> ownedIds(List<String> owned) {
+		Set<String> ids = new HashSet<>();
 		if (owned == null) {
-			return stacks;
+			return ids;
 		}
-		for (PerkStack stack : owned) {
-			if (stack == null || stack.perkId() == null) {
-				continue;
+		for (String perkId : owned) {
+			if (perkId != null) {
+				ids.add(perkId);
 			}
-			stacks.merge(stack.perkId(), stack.count(), Integer::sum);
 		}
-		return stacks;
+		return ids;
 	}
 }

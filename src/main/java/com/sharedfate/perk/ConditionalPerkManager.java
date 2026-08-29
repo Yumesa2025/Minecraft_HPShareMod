@@ -75,8 +75,8 @@ public final class ConditionalPerkManager {
 		if (state == null || !state.perksEnabled || state.ownedPerks.isEmpty()) {
 			return;
 		}
-		for (PerkStack stack : state.ownedPerks) {
-			Perk perk = PerkRegistry.byId(stack.perkId()).orElse(null);
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			if (perk == null) {
 				continue;
 			}
@@ -85,7 +85,7 @@ public final class ConditionalPerkManager {
 					continue;
 				}
 				try {
-					conditional.refresh(player, stack.count());
+					conditional.refresh(player);
 				} catch (RuntimeException error) {
 					warnOnce(perk.id(), error);
 				}

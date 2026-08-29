@@ -110,8 +110,6 @@ class PerkRegistryTest {
 		assertEquals("강골", tough.name());
 		assertEquals("팀 최대 체력 +2", tough.description());
 		assertEquals(PerkRarity.SILVER, tough.rarity());
-		assertTrue(tough.stackable());
-		assertEquals(3, tough.maxStacks());
 		AttributeEffect attribute = assertInstanceOf(AttributeEffect.class, tough.effects().get(0));
 		assertEquals("minecraft:max_health", attribute.attributeId().toString());
 		assertEquals(AttributeModifier.Operation.ADD_VALUE, attribute.operation());
@@ -120,8 +118,6 @@ class PerkRegistryTest {
 		Perk cannon = PerkRegistry.byId("sharedfate:glass_cannon").orElseThrow();
 		assertEquals("sharedfate:glass_cannon", cannon.name(), "이름이 없으면 id 를 쓴다");
 		assertEquals(PerkRarity.GOLD, cannon.rarity());
-		assertFalse(cannon.stackable());
-		assertEquals(1, cannon.maxStacks(), "중첩 불가면 상한은 1이다");
 		assertEquals(1.25, assertInstanceOf(DamageDealtEffect.class, cannon.effects().get(0)).multiplier());
 		assertEquals(1.35, assertInstanceOf(DamageTakenEffect.class, cannon.effects().get(1)).multiplier());
 
@@ -202,9 +198,9 @@ class PerkRegistryTest {
 		Perk perk = PerkRegistry.byId("sharedfate:custom").orElseThrow();
 		CustomEffect effect = assertInstanceOf(CustomEffect.class, perk.effects().get(0));
 		assertFalse(effect.isResolved());
-		assertEquals(1.0, effect.damageDealtMultiplier(2), "핸들러가 없으면 배율은 그대로 1.0");
-		assertEquals(1.0, effect.damageTakenMultiplier(2));
-		effect.apply(null, 1);
+		assertEquals(1.0, effect.damageDealtMultiplier(), "핸들러가 없으면 배율은 그대로 1.0");
+		assertEquals(1.0, effect.damageTakenMultiplier());
+		effect.apply(null);
 		effect.remove(null);
 
 		assertTrue(PerkRegistry.byId("sharedfate:no_handler_field").isEmpty(),
@@ -225,16 +221,15 @@ class PerkRegistryTest {
 
 		PerkRegistry.registerCustom("sharedfate:double_damage", new PerkEffect() {
 			@Override
-			public double damageDealtMultiplier(int stacks) {
-				return 2.0 * stacks;
+			public double damageDealtMultiplier() {
+				return 2.0;
 			}
 		});
 
 		CustomEffect effect = assertInstanceOf(CustomEffect.class,
 				PerkRegistry.byId("sharedfate:custom").orElseThrow().effects().get(0));
 		assertTrue(effect.isResolved());
-		assertEquals(2.0, effect.damageDealtMultiplier(1));
-		assertEquals(4.0, effect.damageDealtMultiplier(2), "중첩 수가 핸들러까지 전달돼야 한다");
+		assertEquals(2.0, effect.damageDealtMultiplier(), "핸들러가 돌려준 값이 그대로 나와야 한다");
 	}
 
 	@Test
@@ -250,20 +245,20 @@ class PerkRegistryTest {
 		PerkRegistry.load(dir);
 		PerkRegistry.registerCustom("sharedfate:broken", new PerkEffect() {
 			@Override
-			public double damageDealtMultiplier(int stacks) {
+			public double damageDealtMultiplier() {
 				return Double.NaN;
 			}
 
 			@Override
-			public double damageTakenMultiplier(int stacks) {
+			public double damageTakenMultiplier() {
 				throw new IllegalStateException("일부러 터뜨린다");
 			}
 		});
 
 		CustomEffect effect = assertInstanceOf(CustomEffect.class,
 				PerkRegistry.byId("sharedfate:custom").orElseThrow().effects().get(0));
-		assertEquals(1.0, effect.damageDealtMultiplier(1));
-		assertEquals(1.0, effect.damageTakenMultiplier(1));
+		assertEquals(1.0, effect.damageDealtMultiplier());
+		assertEquals(1.0, effect.damageTakenMultiplier());
 	}
 
 	@Test
@@ -306,11 +301,11 @@ class PerkRegistryTest {
 	}
 
 	@Test
-	void 피해_배율_중첩은_거듭제곱이다(@TempDir Path dir) throws IOException {
+	void 피해_배율은_정의에_적힌_값_그대로다(@TempDir Path dir) throws IOException {
 		write(dir, """
 				{
 				  "perks": [
-				    { "id": "sharedfate:stacked", "rarity": "rare", "stackable": true, "maxStacks": 3,
+				    { "id": "sharedfate:trade_off", "rarity": "rare",
 				      "effects": [ { "type": "damage_dealt", "multiplier": 1.2 },
 				                   { "type": "damage_taken", "multiplier": 0.9 } ] }
 				  ]
@@ -319,20 +314,19 @@ class PerkRegistryTest {
 
 		PerkRegistry.load(dir);
 
-		List<PerkEffect> effects = PerkRegistry.byId("sharedfate:stacked").orElseThrow().effects();
-		assertEquals(1.2, effects.get(0).damageDealtMultiplier(1), 1.0e-9);
-		assertEquals(1.44, effects.get(0).damageDealtMultiplier(2), 1.0e-9);
-		assertEquals(1.0, effects.get(0).damageTakenMultiplier(2), "받는 피해에는 관여하지 않는다");
-		assertEquals(0.81, effects.get(1).damageTakenMultiplier(2), 1.0e-9);
-		assertEquals(0.9, effects.get(1).damageTakenMultiplier(0), 1.0e-9, "중첩 0도 1중첩으로 본다");
+		List<PerkEffect> effects = PerkRegistry.byId("sharedfate:trade_off").orElseThrow().effects();
+		assertEquals(1.2, effects.get(0).damageDealtMultiplier(), 1.0e-9);
+		assertEquals(1.0, effects.get(0).damageTakenMultiplier(), "받는 피해에는 관여하지 않는다");
+		assertEquals(0.9, effects.get(1).damageTakenMultiplier(), 1.0e-9);
+		assertEquals(1.0, effects.get(1).damageDealtMultiplier(), "주는 피해에는 관여하지 않는다");
 	}
 
 	@Test
-	void 상태이상_중첩은_등급을_한_단계씩_올린다(@TempDir Path dir) throws IOException {
+	void 상태이상_등급은_정의에_적힌_값_그대로다(@TempDir Path dir) throws IOException {
 		write(dir, """
 				{
 				  "perks": [
-				    { "id": "sharedfate:haste", "rarity": "rare", "stackable": true, "maxStacks": 3,
+				    { "id": "sharedfate:haste", "rarity": "rare",
 				      "effects": [ { "type": "status_effect", "effect": "haste", "amplifier": 1 } ] }
 				  ]
 				}
@@ -343,8 +337,33 @@ class PerkRegistryTest {
 		StatusEffectPerk effect = assertInstanceOf(StatusEffectPerk.class,
 				PerkRegistry.byId("sharedfate:haste").orElseThrow().effects().get(0));
 		assertEquals("minecraft:haste", effect.effectId().toString(), "이름공간을 생략하면 minecraft 로 본다");
-		assertEquals(1, effect.amplifierFor(1));
-		assertEquals(3, effect.amplifierFor(3));
+		assertEquals(1, effect.amplifier());
+	}
+
+	@Test
+	void 예전_형식의_stackable_과_maxStacks_는_오류_없이_무시된다(@TempDir Path dir) throws IOException {
+		// 중첩이 있던 시절에 적어 둔 파일이 서버에 그대로 남아 있을 수 있다. 그 파일도 열려야 한다.
+		write(dir, """
+				{
+				  "perks": [
+				    { "id": "sharedfate:legacy", "name": "옛 형식", "rarity": "silver",
+				      "stackable": true, "maxStacks": 7,
+				      "effects": [ { "type": "damage_dealt", "multiplier": 1.1 } ] },
+				    { "id": "sharedfate:legacy_bad_type", "rarity": "silver",
+				      "stackable": "예", "maxStacks": "많이",
+				      "effects": [ { "type": "damage_dealt", "multiplier": 1.1 } ] }
+				  ]
+				}
+				""");
+
+		PerkRegistry.load(dir);
+
+		assertEquals(2, PerkRegistry.all().size(), "옛 필드가 있어도 증강은 그대로 읽힌다");
+		Perk legacy = PerkRegistry.byId("sharedfate:legacy").orElseThrow();
+		assertEquals("옛 형식", legacy.name());
+		assertEquals(PerkRarity.SILVER, legacy.rarity());
+		assertEquals(1.1, assertInstanceOf(DamageDealtEffect.class, legacy.effects().getFirst())
+				.multiplier(), 1.0e-9);
 	}
 
 	@Test

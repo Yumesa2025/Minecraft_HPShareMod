@@ -23,11 +23,7 @@ class PerkDraftTest {
 	private static final int[] RANDOM_MILESTONES = {5, 10, 20, 25, 30, 35};
 
 	private static Perk once(String id, PerkRarity rarity) {
-		return new Perk(id, id, "설명 " + id, rarity, false, 1, List.of());
-	}
-
-	private static Perk stacking(String id, PerkRarity rarity, int maxStacks) {
-		return new Perk(id, id, "설명 " + id, rarity, true, maxStacks, List.of());
+		return new Perk(id, id, "설명 " + id, rarity, List.of());
 	}
 
 	/** 실버 3개 / 골드 3개 / 플레 3개짜리 표준 풀. */
@@ -213,46 +209,55 @@ class PerkDraftTest {
 		}
 	}
 
-	// ------------------------------------------------------------------ 보유·중첩 처리
+	// ------------------------------------------------------------------ 보유 처리
 
 	@Test
-	void 중첩_불가_증강은_한_번_고르면_후보에서_빠진다() {
+	void 한_번_고른_증강은_다시_후보로_나오지_않는다() {
 		List<Perk> pool = List.of(
 				once("s1", PerkRarity.SILVER),
 				once("s2", PerkRarity.SILVER),
 				once("g1", PerkRarity.GOLD));
-		List<PerkStack> owned = List.of(new PerkStack("s1", 1));
+		List<String> owned = List.of("s1");
 		RandomSource random = RandomSource.create(SEED);
 
 		for (int i = 0; i < 200; i++) {
 			List<String> drawn = PerkDraft.draw(PerkRarity.SILVER, pool, owned, random, 3);
 
 			assertEquals(2, drawn.size(), "남은 후보는 두 개뿐이다");
-			assertFalse(drawn.contains("s1"), "이미 보유한 중첩 불가 증강이 다시 나왔다");
+			assertFalse(drawn.contains("s1"), "이미 보유한 증강이 다시 나왔다");
 		}
 	}
 
 	@Test
-	void 중첩_가능_증강은_상한에_닿기_전까지는_계속_나온다() {
-		List<Perk> pool = List.of(stacking("s1", PerkRarity.SILVER, 3));
+	void 고를수록_풀이_줄어들다_결국_바닥난다() {
+		List<Perk> pool = List.of(
+				once("s1", PerkRarity.SILVER),
+				once("s2", PerkRarity.SILVER),
+				once("s3", PerkRarity.SILVER));
 		RandomSource random = RandomSource.create(SEED);
 
-		assertEquals(List.of("s1"), PerkDraft.draw(PerkRarity.SILVER, pool, List.of(), random, 3));
-		assertEquals(List.of("s1"),
-				PerkDraft.draw(PerkRarity.SILVER, pool, List.of(new PerkStack("s1", 1)), random, 3));
-		assertEquals(List.of("s1"),
-				PerkDraft.draw(PerkRarity.SILVER, pool, List.of(new PerkStack("s1", 2)), random, 3));
+		// 한 회차에 실버 구간이 이어지면 고른 만큼 후보가 사라진다.
+		assertEquals(3, PerkDraft.draw(PerkRarity.SILVER, pool, List.of(), random, 3).size());
+		assertEquals(2, PerkDraft.draw(PerkRarity.SILVER, pool, List.of("s1"), random, 3).size());
+		assertEquals(1, PerkDraft.draw(PerkRarity.SILVER, pool, List.of("s1", "s2"), random, 3).size());
+		assertTrue(PerkDraft.draw(PerkRarity.SILVER, pool, List.of("s1", "s2", "s3"), random, 3)
+				.isEmpty());
 	}
 
 	@Test
-	void 최대_중첩에_도달하면_후보에서_빠진다() {
+	void 보유한_증강은_어느_등급에서든_후보에서_빠진다() {
+		// 폴백으로 끌어온 등급이라도 이미 가진 것은 다시 나오면 안 된다.
 		List<Perk> pool = List.of(
-				stacking("s1", PerkRarity.SILVER, 3),
-				once("s2", PerkRarity.SILVER));
-		List<PerkStack> owned = List.of(new PerkStack("s1", 3));
+				once("s1", PerkRarity.SILVER),
+				once("g1", PerkRarity.GOLD),
+				once("g2", PerkRarity.GOLD),
+				once("p1", PerkRarity.PLATINUM));
+		List<String> owned = List.of("s1", "g1");
 		RandomSource random = RandomSource.create(SEED);
 
-		assertEquals(List.of("s2"), PerkDraft.draw(PerkRarity.SILVER, pool, owned, random, 3));
+		List<String> drawn = PerkDraft.draw(PerkRarity.SILVER, pool, owned, random, 3);
+
+		assertEquals(Set.of("g2", "p1"), new HashSet<>(drawn));
 	}
 
 	// ------------------------------------------------------------------ 풀 부족 시 폴백
@@ -347,7 +352,7 @@ class PerkDraftTest {
 		List<Perk> pool = List.of(once("s1", PerkRarity.SILVER));
 		RandomSource random = RandomSource.create(SEED);
 
-		assertTrue(PerkDraft.draw(10, pool, List.of(new PerkStack("s1", 1)), random, 3).isEmpty());
+		assertTrue(PerkDraft.draw(10, pool, List.of("s1"), random, 3).isEmpty());
 		assertTrue(PerkDraft.draw(10, List.of(), List.of(), random, 3).isEmpty());
 		assertTrue(PerkDraft.draw(10, pool, List.of(), random, 0).isEmpty());
 		assertTrue(PerkDraft.draw(10, pool, List.of(), null, 3).isEmpty());

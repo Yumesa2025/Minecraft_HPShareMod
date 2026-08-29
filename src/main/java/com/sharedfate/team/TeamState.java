@@ -1,18 +1,21 @@
 package com.sharedfate.team;
 
+import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.sharedfate.perk.PendingOffer;
 import com.sharedfate.perk.PerkMilestones;
-import com.sharedfate.perk.PerkStack;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.inventory.PlayerEnderChestContainer;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 
 public class TeamState {
 	public static final int MAIN_SIZE = 36;
@@ -41,8 +44,8 @@ public class TeamState {
 	public boolean perksEnabled;
 	/** 마지막으로 처리한 레벨 구간 (0, 3, 6, …, 36). */
 	public int lastPerkMilestone;
-	/** 팀이 보유한 증강. 중첩은 {@link PerkStack#count()}로 표현한다. */
-	public final List<PerkStack> ownedPerks = new ArrayList<>();
+	/** 팀이 보유한 증강의 id. 중첩이 없으므로 같은 id 가 두 번 들어가지 않는다. */
+	public final List<String> ownedPerks = new ArrayList<>();
 	/** 아직 고르지 않은 선택권. 구간 순서대로 쌓이며 여러 개일 수 있다. */
 	public final List<PendingOffer> pending = new ArrayList<>();
 
@@ -244,14 +247,25 @@ public class TeamState {
 	 * 통째로 빠지므로 예전 서버 저장과 형태가 같다.
 	 */
 	public record PerkSection(boolean enabled, int lastMilestone,
-			List<PerkStack> owned, List<PendingOffer> pending) {
+			List<String> owned, List<PendingOffer> pending) {
 		/** 증강을 쓰지 않는 상태. 기존 월드를 읽을 때의 기본값이다. */
 		public static final PerkSection EMPTY = new PerkSection(false, 0, List.of(), List.of());
+
+		/**
+		 * 보유 증강 하나의 저장 형식.
+		 *
+		 * <p>중첩 개념이 있던 시절에는 {@code {perkId, count}} 객체로 적었다. 이미 돌아가는
+		 * 서버의 월드에 그 형태가 들어 있으므로 <b>읽을 때는 두 형태를 모두 받아들인다.</b>
+		 * {@code count} 는 뜻이 사라졌으므로 읽고 버린다. 새로 저장할 때는 id 문자열만 적는다.
+		 */
+		private static final Codec<String> OWNED_CODEC = Codec.either(
+						Codec.STRING, Codec.STRING.fieldOf("perkId").codec())
+				.xmap(either -> either.map(Function.identity(), Function.identity()), Either::left);
 
 		public static final Codec<PerkSection> CODEC = RecordCodecBuilder.create(instance -> instance.group(
 				Codec.BOOL.optionalFieldOf("enabled", false).forGetter(PerkSection::enabled),
 				Codec.INT.optionalFieldOf("lastMilestone", 0).forGetter(PerkSection::lastMilestone),
-				PerkStack.CODEC.listOf().optionalFieldOf("owned", List.of())
+				OWNED_CODEC.listOf().optionalFieldOf("owned", List.of())
 						.forGetter(PerkSection::owned),
 				PendingOffer.CODEC.listOf().optionalFieldOf("pending", List.of())
 						.forGetter(PerkSection::pending)
@@ -286,7 +300,10 @@ public class TeamState {
 	 */
 	public void sanitizePerks() {
 		lastPerkMilestone = PerkMilestones.clampMilestone(lastPerkMilestone);
-		ownedPerks.removeIf(stack -> stack == null || stack.perkId() == null || stack.perkId().isBlank());
+		// 중첩이 없으므로 같은 증강이 두 번 들어 있으면 안 된다. 중첩 시절 저장이나 손상된
+		// 저장에서 흘러들어와도 여기서 한 개로 접어 둔다.
+		Set<String> seen = new HashSet<>();
+		ownedPerks.removeIf(perkId -> perkId == null || perkId.isBlank() || !seen.add(perkId));
 		pending.removeIf(offer -> offer == null || offer.optionIds().isEmpty());
 	}
 

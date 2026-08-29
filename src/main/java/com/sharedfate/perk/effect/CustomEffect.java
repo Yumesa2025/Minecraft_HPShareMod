@@ -46,13 +46,13 @@ public final class CustomEffect implements PerkEffect {
 	}
 
 	@Override
-	public void apply(ServerPlayer player, int stacks) {
+	public void apply(ServerPlayer player) {
 		PerkEffect delegate = delegate();
 		if (delegate == null) {
 			return;
 		}
 		try {
-			delegate.apply(player, stacks);
+			delegate.apply(player);
 		} catch (Exception error) {
 			SharedFateMod.LOGGER.warn("custom 핸들러 {} 적용 중 오류", handlerId, error);
 		}
@@ -72,13 +72,13 @@ public final class CustomEffect implements PerkEffect {
 	}
 
 	@Override
-	public double damageDealtMultiplier(int stacks) {
+	public double damageDealtMultiplier() {
 		PerkEffect delegate = delegate();
 		if (delegate == null) {
 			return 1.0;
 		}
 		try {
-			return safe(delegate.damageDealtMultiplier(stacks));
+			return safe(delegate.damageDealtMultiplier());
 		} catch (Exception error) {
 			SharedFateMod.LOGGER.warn("custom 핸들러 {} 의 피해 배율 계산 중 오류", handlerId, error);
 			return 1.0;
@@ -86,13 +86,13 @@ public final class CustomEffect implements PerkEffect {
 	}
 
 	@Override
-	public double damageTakenMultiplier(int stacks) {
+	public double damageTakenMultiplier() {
 		PerkEffect delegate = delegate();
 		if (delegate == null) {
 			return 1.0;
 		}
 		try {
-			return safe(delegate.damageTakenMultiplier(stacks));
+			return safe(delegate.damageTakenMultiplier());
 		} catch (Exception error) {
 			SharedFateMod.LOGGER.warn("custom 핸들러 {} 의 피해 배율 계산 중 오류", handlerId, error);
 			return 1.0;

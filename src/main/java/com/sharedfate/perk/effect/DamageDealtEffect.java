@@ -8,9 +8,6 @@ import com.sharedfate.perk.PerkEffectType;
 /**
  * 팀원이 주는 피해에 배율을 건다.
  *
- * <p>중첩은 거듭제곱이다. 1.2배 증강을 두 번 쌓으면 1.44배가 된다. 곱셈이 아니라 덧셈으로
- * 쌓으면 중첩 상한이 높은 증강에서 배율이 걷잡을 수 없이 커진다.
- *
  * <p>붙였다 떼는 효과가 아니라 피해 계산 때 조회하는 효과라
  * {@link #apply}/{@link #remove}는 아무 일도 하지 않는다.
  */
@@ -18,7 +15,7 @@ public final class DamageDealtEffect implements PerkEffect {
 	/** 설정에서 받아들이는 배율 범위. */
 	static final double MIN_MULTIPLIER = 0.0;
 	static final double MAX_MULTIPLIER = 64.0;
-	/** 중첩을 다 곱한 뒤의 상한. */
+	/** 실제로 돌려주는 배율의 상한. */
 	static final double MAX_RESULT = 1.0e6;
 
 	private final double multiplier;
@@ -34,8 +31,8 @@ public final class DamageDealtEffect implements PerkEffect {
 	}
 
 	@Override
-	public double damageDealtMultiplier(int stacks) {
-		return power(multiplier, stacks);
+	public double damageDealtMultiplier() {
+		return clamp(multiplier);
 	}
 
 	public double multiplier() {
@@ -53,13 +50,16 @@ public final class DamageDealtEffect implements PerkEffect {
 		return multiplier;
 	}
 
-	/** 중첩 수만큼 거듭제곱하고 안전한 범위로 자른다. */
-	static double power(double multiplier, int stacks) {
-		int safeStacks = Math.max(1, stacks);
-		double result = Math.pow(multiplier, safeStacks);
-		if (!Double.isFinite(result)) {
+	/**
+	 * 배율을 안전한 범위로 자른다.
+	 *
+	 * <p>JSON 경로는 이미 {@link #readMultiplier}가 범위를 검사하지만, 생성자는 공개돼 있어
+	 * Java 쪽에서 어떤 값이든 들어올 수 있다. 피해 계산이 NaN 이나 무한대를 보면 안 된다.
+	 */
+	static double clamp(double multiplier) {
+		if (!Double.isFinite(multiplier)) {
 			return MAX_RESULT;
 		}
-		return Math.max(0.0, Math.min(MAX_RESULT, result));
+		return Math.max(0.0, Math.min(MAX_RESULT, multiplier));
 	}
 }

@@ -44,8 +44,8 @@ public final class PerkFoodRules {
 		if (state == null || state.ownedPerks.isEmpty()) {
 			return false;
 		}
-		for (PerkStack stack : state.ownedPerks) {
-			Perk perk = PerkRegistry.byId(stack.perkId()).orElse(null);
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			if (perk == null) {
 				continue;
 			}

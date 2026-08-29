@@ -101,8 +101,8 @@ public final class PeriodicPerkManager {
 
 	private static void tickTeam(MinecraftServer server, ShareTeam team, TeamState state,
 			long time, boolean cleanup) {
-		for (PerkStack stack : state.ownedPerks) {
-			Perk perk = PerkRegistry.byId(stack.perkId()).orElse(null);
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			if (perk == null) {
 				continue;
 			}
@@ -113,7 +113,7 @@ public final class PeriodicPerkManager {
 				for (UUID member : team.members()) {
 					ServerPlayer online = server.getPlayerList().getPlayer(member);
 					if (online != null) {
-						periodic.tick(online, stack.count(), time);
+						periodic.tick(online, time);
 					}
 				}
 				if (cleanup) {

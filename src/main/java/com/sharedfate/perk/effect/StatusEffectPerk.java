@@ -18,8 +18,7 @@ import java.util.Optional;
  * 팀원에게 상시 상태이상을 건다.
  *
  * <p>지속시간은 무한으로 두고, 증강을 잃을 때 {@link #remove}로 걷어낸다.
- * 중첩하면 등급이 한 단계씩 올라간다. 즉 중첩 수가 n일 때 실제 등급은 {@code amplifier + (n - 1)}이다.
- * 중첩 1일 때는 설정한 값 그대로여야 하므로 곱하지 않고 더한다.
+ * 등급은 정의에 적힌 {@code amplifier} 그대로다.
  *
  * <p>상태이상 자체는 처음 적용할 때 찾는다. 정의를 읽는 시점에는 레지스트리가 아직
  * 준비되지 않았을 수 있기 때문이다.
@@ -62,11 +61,11 @@ public final class StatusEffectPerk implements PerkEffect {
 	}
 
 	@Override
-	public void apply(ServerPlayer player, int stacks) {
+	public void apply(ServerPlayer player) {
 		if (player == null) {
 			return;
 		}
-		MobEffectInstance granted = grantedInstance(stacks);
+		MobEffectInstance granted = grantedInstance();
 		if (granted != null) {
 			player.addEffect(granted);
 		}
@@ -78,13 +77,13 @@ public final class StatusEffectPerk implements PerkEffect {
 	 * <p>{@link #apply}와 {@link com.sharedfate.perk.PerkStatusEffects}가 같은 정의를 보도록
 	 * 만드는 곳을 여기 하나로 모았다. 상태이상을 찾지 못하면 null.
 	 */
-	public @Nullable MobEffectInstance grantedInstance(int stacks) {
+	public @Nullable MobEffectInstance grantedInstance() {
 		Holder<MobEffect> resolved = resolve();
 		if (resolved == null) {
 			return null;
 		}
 		return new MobEffectInstance(resolved, MobEffectInstance.INFINITE_DURATION,
-				amplifierFor(stacks), false, false, true);
+				amplifier, false, false, true);
 	}
 
 	/**
@@ -104,12 +103,6 @@ public final class StatusEffectPerk implements PerkEffect {
 		if (resolved != null) {
 			player.removeEffect(resolved);
 		}
-	}
-
-	/** 중첩 수를 반영한 실제 등급. */
-	public int amplifierFor(int stacks) {
-		int extra = Math.max(1, stacks) - 1;
-		return Math.min(MAX_AMPLIFIER, amplifier + extra);
 	}
 
 	public Identifier effectId() {

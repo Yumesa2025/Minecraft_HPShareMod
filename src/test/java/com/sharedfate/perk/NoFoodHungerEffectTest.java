@@ -61,7 +61,7 @@ class NoFoodHungerEffectTest {
 
 		TeamState state = TeamState.fresh(20.0F);
 		state.perksEnabled = true;
-		state.ownedPerks.add(new PerkStack("sharedfate:devour", 1));
+		state.ownedPerks.add("sharedfate:devour");
 
 		assertTrue(PerkFoodRules.blocks(state));
 	}
@@ -72,7 +72,7 @@ class NoFoodHungerEffectTest {
 
 		TeamState state = TeamState.fresh(20.0F);
 		state.perksEnabled = true;
-		state.ownedPerks.add(new PerkStack("sharedfate:hunter_meal", 1));
+		state.ownedPerks.add("sharedfate:hunter_meal");
 
 		assertFalse(PerkFoodRules.blocks(state), "on_kill 만 가진 팀은 평소처럼 먹는다");
 	}
@@ -83,7 +83,7 @@ class NoFoodHungerEffectTest {
 
 		TeamState state = TeamState.fresh(20.0F);
 		state.perksEnabled = true;
-		state.ownedPerks.add(new PerkStack("sharedfate:사라진것", 1));
+		state.ownedPerks.add("sharedfate:사라진것");
 
 		assertFalse(PerkFoodRules.blocks(state));
 	}

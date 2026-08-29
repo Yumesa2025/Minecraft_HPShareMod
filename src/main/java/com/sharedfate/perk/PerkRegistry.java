@@ -32,10 +32,6 @@ public final class PerkRegistry {
 	public static final String FILE_NAME = "sharedfate-perks.json";
 	/** 모드 안에 들어 있는 기본 증강 풀. 설정 파일이 없으면 이걸 꺼내 놓는다. */
 	private static final String DEFAULT_RESOURCE = "sharedfate-perks-default.json";
-	/** 중첩 상한이 아무리 커도 이 값을 넘기지 않는다. */
-	private static final int MAX_STACK_LIMIT = 64;
-	/** stackable 인데 maxStacks 를 안 적었을 때 쓰는 기본값. */
-	private static final int DEFAULT_STACKABLE_MAX = 3;
 
 	private static final Map<String, Perk> PERKS = new LinkedHashMap<>();
 	private static final Map<String, PerkEffect> CUSTOM_HANDLERS = new HashMap<>();
@@ -198,17 +194,15 @@ public final class PerkRegistry {
 				description = "";
 			}
 
-			boolean stackable = PerkEffectType.readBoolean(json, "stackable", false);
-			int maxStacks = PerkEffectType.readInt(json, "maxStacks",
-					stackable ? DEFAULT_STACKABLE_MAX : 1);
-			maxStacks = Math.max(1, Math.min(MAX_STACK_LIMIT, maxStacks));
+			// stackable 과 maxStacks 는 더 이상 읽지 않는다. 중첩 개념이 사라졌기 때문이다.
+			// 예전 형식으로 적어 둔 파일이 그대로 열려야 하므로 남아 있어도 그냥 지나친다.
 
 			List<PerkEffect> effects = parseEffects(id, json);
 			if (effects == null) {
 				return null;
 			}
 
-			return new Perk(id, name, description, rarity, stackable, maxStacks, effects);
+			return new Perk(id, name, description, rarity, effects);
 		} catch (Exception error) {
 			SharedFateMod.LOGGER.warn("증강 항목을 읽다가 실패해 건너뜁니다", error);
 			return null;
