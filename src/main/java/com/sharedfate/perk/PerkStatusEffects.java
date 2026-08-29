@@ -1,6 +1,7 @@
 package com.sharedfate.perk;
 
 import com.sharedfate.perk.effect.ConditionalEffect;
+import com.sharedfate.perk.effect.HolderEffect;
 import com.sharedfate.perk.effect.PeriodicEffect;
 import com.sharedfate.perk.effect.StatusEffectPerk;
 import com.sharedfate.team.TeamState;
@@ -99,6 +100,15 @@ public final class PerkStatusEffects {
 			// 지금 어느 쪽이 붙어 있든 둘 다 증강분이므로 양쪽 하위 효과를 모두 본다.
 			List<StatusEffectPerk> nested = new ArrayList<>();
 			for (PerkEffect child : conditional.children()) {
+				nested.addAll(statusEffectsIn(child));
+			}
+			return nested;
+		}
+		if (effect instanceof HolderEffect holder) {
+			// 지금 누가 보유자든 둘 다 증강분이므로 양쪽 하위 효과를 모두 본다.
+			// on_pass 는 언제나 유한 지속이라 여기서 볼 필요가 없다.
+			List<StatusEffectPerk> nested = new ArrayList<>();
+			for (PerkEffect child : holder.children()) {
 				nested.addAll(statusEffectsIn(child));
 			}
 			return nested;

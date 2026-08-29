@@ -28,6 +28,13 @@ import java.util.UUID;
  * {@link #beginMultiplierLookup} 으로 대상 플레이어를 적어 두고, 조건부 효과가
  * {@link #multiplierContext} 로 그것을 읽는다. 서버 스레드에서만 오가고 조회할 때마다
  * 덮어쓰므로 남아 있는 값이 문제를 일으키지 않는다.
+ *
+ * <p>이 장치는 조건부 효과 전용이 아니다. 배율 조회에 플레이어 인자가 없다는 문제는 모든
+ * 래퍼 효과가 똑같이 겪으므로, {@code holder}
+ * ({@link com.sharedfate.perk.effect.HolderEffect}) 도 "지금 배율을 묻는 사람이 보유자인가"를
+ * 여기서 알아낸다. 여기 두는 이유는 {@link #beginMultiplierLookup} 을 부르는 자리가
+ * {@code PerkManager.multiplier} 한 곳뿐이라, 문맥을 여러 관리자에 나눠 두면 그 한 자리에서
+ * 여러 번 같은 값을 적어야 하기 때문이다.
  */
 public final class ConditionalPerkManager {
 	/** 조건을 다시 보는 주기. 반 초면 체감상 즉시 반응하는 것과 다르지 않다. */
@@ -103,6 +110,16 @@ public final class ConditionalPerkManager {
 	/** 지금 배율 조회의 대상. 알 수 없으면 null. */
 	public static @Nullable UUID multiplierContext() {
 		return multiplierContext;
+	}
+
+	/**
+	 * 테스트가 살아 있는 플레이어 없이 배율 문맥을 세울 때 쓴다.
+	 *
+	 * <p>{@link #beginMultiplierLookup} 은 {@code ServerPlayer} 를 받는데, 시험에서는 그것을
+	 * 만들 수 없다. 실제 경로는 그대로 두고 UUID 만 직접 넣을 길을 열어 둔다.
+	 */
+	static void beginMultiplierLookupForTesting(@Nullable UUID playerId) {
+		multiplierContext = playerId;
 	}
 
 	// ------------------------------------------------------------------ 정리
