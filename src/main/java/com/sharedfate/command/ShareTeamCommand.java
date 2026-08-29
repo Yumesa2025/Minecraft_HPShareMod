@@ -6,6 +6,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.sharedfate.config.SharedFateConfig;
+import com.sharedfate.perk.PerkHealthRules;
 import com.sharedfate.sync.InventorySwapper;
 import com.sharedfate.sync.EffectSync;
 import com.sharedfate.sync.MaxHealthAttribute;
@@ -35,9 +36,19 @@ public final class ShareTeamCommand {
 		dispatcher.register(Commands.literal("shareteam")
 				.executes(ShareTeamCommand::help)
 				.then(Commands.literal("help").executes(ShareTeamCommand::help))
+				// create 는 name 이 greedyString 이라 뒤에 인자를 못 붙인다.
+				// 그래서 증강 켜고끄기는 이름 앞에 오는 별도 가지로 둔다.
+				// 기존 /shareteam create <이름> 은 그대로 동작하고 증강은 꺼진 상태가 된다.
 				.then(Commands.literal("create")
+						.then(Commands.literal("perks")
+								.then(Commands.literal("on")
+										.then(Commands.argument("name", StringArgumentType.greedyString())
+												.executes(context -> create(context, config, true))))
+								.then(Commands.literal("off")
+										.then(Commands.argument("name", StringArgumentType.greedyString())
+												.executes(context -> create(context, config, false)))))
 						.then(Commands.argument("name", StringArgumentType.greedyString())
-								.executes(context -> create(context, config))))
+								.executes(context -> create(context, config, false))))
 				.then(Commands.literal("invite")
 						.then(Commands.argument("target", EntityArgument.player())
 								.executes(context -> invite(context, config))))
@@ -77,18 +88,30 @@ public final class ShareTeamCommand {
 										TeamState.PositionSwapLimits.MIN_MINUTES,
 										TeamState.PositionSwapLimits.MAX_MINUTES))
 										.executes(ShareTeamCommand::enablePositionSwap))))
+				.then(PerkCommand.node())
 				.then(Commands.literal("list").executes(ShareTeamCommand::list))
 				.then(Commands.literal("status").executes(context -> status(context, config))));
 	}
 
-	private static int create(CommandContext<CommandSourceStack> context, SharedFateConfig config)
-			throws CommandSyntaxException {
+	private static int create(CommandContext<CommandSourceStack> context, SharedFateConfig config,
+			boolean perksEnabled) throws CommandSyntaxException {
 		ServerPlayer self = context.getSource().getPlayerOrException();
 		TeamManager manager = manager(context);
 
 		if (manager.teamOf(self.getUUID()) != null) {
 			context.getSource().sendFailure(Component.literal(
 					"이미 팀에 속해 있습니다. 먼저 /shareteam leave를 사용하세요."));
+			return 0;
+		}
+		// 팀이 여럿이면 몹 증강처럼 월드 전체에 걸리는 효과가 팀끼리 충돌한다.
+		// 이미 있는 팀은 그대로 두고 새로 만드는 것만 막는다. 해체하면 다시 만들 수 있다.
+		if (!manager.canCreateNewTeam(config.singleTeamOnly)) {
+			String existing = manager.allTeams().stream().map(ShareTeam::name)
+					.collect(Collectors.joining(", "));
+			context.getSource().sendFailure(Component.literal(
+					"이 서버에는 팀을 하나만 만들 수 있습니다. 이미 있는 팀: " + existing
+							+ "\n/shareteam accept <이름> 으로 초대를 수락하거나, "
+							+ "리더가 /shareteam disband confirm 으로 해체한 뒤 다시 만드세요."));
 			return 0;
 		}
 
@@ -108,6 +131,8 @@ public final class ShareTeamCommand {
 		}
 
 		TeamState initialState = initialState(self, config);
+		// 증강 사용 여부는 팀 생성 시에만 정해지고 그 뒤로는 바꿀 수 없다.
+		initialState.perksEnabled = perksEnabled;
 		InventorySwapper.prepareJoin(self);
 		ShareTeam team = manager.createTeam(name, self.getUUID(), initialState);
 		if (team == null) {
@@ -120,7 +145,8 @@ public final class ShareTeamCommand {
 		EffectSync.refreshPlayer(self);
 		TeamBroadcaster.broadcast(context.getSource().getServer(), manager.teamOf(self.getUUID()));
 
-		context.getSource().sendSuccess(() -> Component.literal("팀 '" + name + "'을 만들었습니다."), false);
+		context.getSource().sendSuccess(() -> Component.literal(
+				"팀 '" + name + "'을 만들었습니다. 증강: " + (perksEnabled ? "켬" : "끔")), false);
 		return 1;
 	}
 
@@ -290,11 +316,13 @@ public final class ShareTeamCommand {
 	private static int help(CommandContext<CommandSourceStack> context) {
 		context.getSource().sendSuccess(() -> Component.literal("""
 				SharedFate 팀 명령
-				/shareteam create <이름> — 현재 상태로 팀 생성
+				/shareteam create <이름> — 현재 상태로 팀 생성 (증강 끔)
+				/shareteam create perks <on|off> <이름> — 증강 사용 여부를 정해서 생성
 				/shareteam invite <플레이어> | invites | accept <이름> | decline <이름>
 				/shareteam status | list | leave | disband confirm
 				/shareteam health <20~40> — 팀 공유 최대 체력 설정 (리더)
 				/shareteam swap on <1~120분> | off | status — 주기적 위치 교환
+				/shareteam perk | perk list — 증강 선택 창 열기 / 보유 증강 보기
 				가입하면 개인 아이템은 드랍되고 개인 경험치는 공유 풀에 합쳐집니다.
 				""".strip()), false);
 		return 1;
@@ -360,19 +388,35 @@ public final class ShareTeamCommand {
 		}
 
 		int maximum = IntegerArgumentType.getInteger(context, "value");
-		state.maxHealth = maximum;
-		state.health = Math.min(state.health, state.maxHealth);
+		// 명령이 정하는 것은 "팀이 정한 기본값" 이다. 증강 보너스나 고정을 얹어 실제로 걸릴
+		// 상한을 내는 계산은 PerkHealthRules 한 곳에만 둔다. 그래야 증강을 잃었을 때 여기서
+		// 적어 둔 값이 그대로 돌아온다.
+		state.baseMaxHealth = maximum;
+		state.maxHealth = PerkHealthRules.effectiveMaxHealth(state);
+		// 공유 체력은 일부러 건드리지 않는다. 상한이 줄면 바닐라가 팀원의 현재 체력을 자르고
+		// StatMirror 가 그 감소를 이번 틱의 피해로 관측해 공유 체력에서 뺀다. 여기서 미리 깎으면
+		// 같은 감소가 두 번 들어가 팀이 전멸한다. 자세한 까닭은 PerkHealthRules 에 적어 뒀다.
+		float effective = state.maxHealth;
 		for (UUID memberId : team.members()) {
 			ServerPlayer member = context.getSource().getServer().getPlayerList().getPlayer(memberId);
 			if (member != null) {
-				MaxHealthAttribute.apply(member, state.maxHealth);
+				MaxHealthAttribute.apply(member, effective);
 				StatMirror.syncPlayerNow(team.teamId(), state, member);
 				member.sendSystemMessage(Component.literal(
-						"팀 공유 최대 체력이 " + maximum + "으로 설정되었습니다."));
+						"팀 공유 최대 체력이 " + maximum + "으로 설정되었습니다."
+								+ (effective == maximum ? ""
+										: " (증강이 적용되어 지금은 " + trimZero(effective) + "입니다.)")));
 			}
 		}
 		manager.setDirty();
 		return 1;
+	}
+
+	/** 20.0 처럼 소수점이 의미 없는 값을 "20" 으로 보여 준다. */
+	private static String trimZero(float value) {
+		return value == Math.rint(value)
+				? String.valueOf((long) value)
+				: String.format(java.util.Locale.ROOT, "%.1f", value);
 	}
 
 	private static int enablePositionSwap(CommandContext<CommandSourceStack> context)
