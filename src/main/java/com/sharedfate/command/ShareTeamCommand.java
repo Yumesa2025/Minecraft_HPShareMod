@@ -6,7 +6,9 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.sharedfate.config.SharedFateConfig;
+import com.sharedfate.net.OpenTeamScreenPayload;
 import com.sharedfate.perk.PerkHealthRules;
+import com.sharedfate.perk.PerkManager;
 import com.sharedfate.sync.InventorySwapper;
 import com.sharedfate.sync.EffectSync;
 import com.sharedfate.sync.MaxHealthAttribute;
@@ -15,9 +17,9 @@ import com.sharedfate.net.TeamBroadcaster;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -34,7 +36,7 @@ public final class ShareTeamCommand {
 
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, SharedFateConfig config) {
 		dispatcher.register(Commands.literal("shareteam")
-				.executes(ShareTeamCommand::help)
+				.executes(ShareTeamCommand::openScreen)
 				.then(Commands.literal("help").executes(ShareTeamCommand::help))
 				// create 는 name 이 greedyString 이라 뒤에 인자를 못 붙인다.
 				// 그래서 증강 켜고끄기는 이름 앞에 오는 별도 가지로 둔다.
@@ -52,25 +54,15 @@ public final class ShareTeamCommand {
 				.then(Commands.literal("invite")
 						.then(Commands.argument("target", EntityArgument.player())
 								.executes(context -> invite(context, config))))
-				.then(Commands.literal("accept")
-						.then(Commands.argument("name", StringArgumentType.greedyString())
-								.suggests((context, builder) -> SharedSuggestionProvider.suggest(
-										TeamManager.get(context.getSource().getServer())
-												.invitedTeams(context.getSource().getPlayerOrException().getUUID()).stream()
-												.map(ShareTeam::name), builder))
-								.executes(context -> accept(context, config))))
-				.then(Commands.literal("invites").executes(ShareTeamCommand::invites))
-				.then(Commands.literal("decline")
-						.then(Commands.argument("name", StringArgumentType.greedyString())
-								.suggests((context, builder) -> SharedSuggestionProvider.suggest(
-										TeamManager.get(context.getSource().getServer())
-												.invitedTeams(context.getSource().getPlayerOrException().getUUID()).stream()
-												.map(ShareTeam::name), builder))
-								.executes(ShareTeamCommand::decline)))
 				.then(Commands.literal("leave").executes(ShareTeamCommand::leave))
 				.then(Commands.literal("disband")
 						.executes(ShareTeamCommand::disbandPrompt)
 						.then(Commands.literal("confirm").executes(ShareTeamCommand::disband)))
+				.then(Commands.literal("perks")
+						.then(Commands.literal("on")
+								.executes(context -> setPerksEnabled(context, true)))
+						.then(Commands.literal("off")
+								.executes(context -> setPerksEnabled(context, false))))
 				.then(Commands.literal("health")
 						.then(Commands.argument("value", IntegerArgumentType.integer(20, 40))
 								.executes(ShareTeamCommand::setTeamHealth)))
@@ -110,7 +102,7 @@ public final class ShareTeamCommand {
 					.collect(Collectors.joining(", "));
 			context.getSource().sendFailure(Component.literal(
 					"이 서버에는 팀을 하나만 만들 수 있습니다. 이미 있는 팀: " + existing
-							+ "\n/shareteam accept <이름> 으로 초대를 수락하거나, "
+							+ "\n그 팀의 리더에게 /shareteam invite 로 불러 달라고 하거나, "
 							+ "리더가 /shareteam disband confirm 으로 해체한 뒤 다시 만드세요."));
 			return 0;
 		}
@@ -179,67 +171,49 @@ public final class ShareTeamCommand {
 					target.getPlainTextName() + "님은 이미 팀에 속해 있습니다."));
 			return 0;
 		}
-		if (manager.hasInvite(target.getUUID(), team.teamId())) {
-			context.getSource().sendFailure(Component.literal("이미 초대한 플레이어입니다."));
-			return 0;
-		}
 
-		manager.invite(team.teamId(), target.getUUID());
-		target.sendSystemMessage(Component.literal(
-				self.getPlainTextName() + "님이 '" + team.name() + "' 팀에 초대했습니다. "
-						+ "/shareteam accept " + team.name() + " 으로 수락하세요.\n"
-						+ "주의: 수락하면 개인 인벤토리·장비"
-						+ (config.shareEnderChest ? "·엔더상자" : "")
-						+ " 아이템은 현재 위치에 드랍되고, 개인 경험치는 공유 풀에 합쳐집니다."));
-		context.getSource().sendSuccess(
-				() -> Component.literal(target.getPlainTextName() + "님을 초대했습니다."), false);
-		return 1;
+		return joinTeam(context, config, target, team, self.getPlainTextName());
 	}
 
-	private static int accept(CommandContext<CommandSourceStack> context, SharedFateConfig config)
-			throws CommandSyntaxException {
-		ServerPlayer self = context.getSource().getPlayerOrException();
-		TeamManager manager = manager(context);
-		String name = StringArgumentType.getString(context, "name").trim();
-		ShareTeam team = manager.teamByName(name);
-
-		if (team == null) {
-			context.getSource().sendFailure(Component.literal("그런 팀이 없습니다: " + name));
-			return 0;
-		}
-		if (!manager.hasInvite(self.getUUID(), team.teamId())) {
-			context.getSource().sendFailure(Component.literal("초대받지 않았습니다."));
-			return 0;
-		}
-		if (manager.teamOf(self.getUUID()) != null) {
-			context.getSource().sendFailure(Component.literal("이미 팀에 속해 있습니다."));
-			return 0;
-		}
-		if (team.size() >= config.maxTeamSize) {
-			context.getSource().sendFailure(Component.literal(
-					"팀 정원이 찼습니다 (최대 " + config.maxTeamSize + "명)."));
-			return 0;
-		}
-
+	/**
+	 * 초대받은 사람을 곧바로 팀에 넣는다.
+	 *
+	 * <p>수락 절차가 없으므로 <b>본인 확인 없이 개인 아이템이 드랍된다.</b> 리더만 부를 수
+	 * 있다는 점이 유일한 안전장치라, 부르기 전에 정원과 소속을 모두 확인해 두어야 한다.
+	 * 그 확인은 {@link #invite} 가 이미 마친 뒤 여기로 넘어온다.
+	 *
+	 * <p>아이템을 드랍하는 {@code prepareJoin} 뒤에 {@code addMember} 가 실패하면 되돌릴
+	 * 방법이 없다. 그래서 실패 메시지가 드랍물을 주우라고 알린다.
+	 */
+	private static int joinTeam(CommandContext<CommandSourceStack> context, SharedFateConfig config,
+			ServerPlayer target, ShareTeam team, String inviterName) {
 		int personalExperience = config.shareExperience
-				? StatMirror.currentExperiencePoints(self) : 0;
-		InventorySwapper.prepareJoin(self);
-		if (!manager.addMember(team.teamId(), self.getUUID(), config.maxTeamSize)) {
+				? StatMirror.currentExperiencePoints(target) : 0;
+		InventorySwapper.prepareJoin(target);
+		TeamManager manager = manager(context);
+		if (!manager.addMember(team.teamId(), target.getUUID(), config.maxTeamSize)) {
 			context.getSource().sendFailure(Component.literal(
 					"팀 가입 처리 중 상태가 바뀌었습니다. 드랍된 개인 아이템을 회수해 주세요."));
 			return 0;
 		}
 
-		TeamState joinedState = manager.stateOf(self.getUUID());
+		TeamState joinedState = manager.stateOf(target.getUUID());
 		if (config.shareExperience) {
 			StatMirror.addSharedExperience(joinedState, personalExperience);
 		}
-		InventorySwapper.finishJoin(self, joinedState);
-		MaxHealthAttribute.apply(self, joinedState.maxHealth);
-		StatMirror.syncPlayerNow(team.teamId(), manager.stateOf(self.getUUID()), self);
-		EffectSync.refreshPlayer(self);
-		TeamBroadcaster.broadcast(context.getSource().getServer(), manager.teamOf(self.getUUID()));
-		context.getSource().sendSuccess(() -> Component.literal("'" + team.name() + "' 팀에 들어왔습니다."), false);
+		InventorySwapper.finishJoin(target, joinedState);
+		MaxHealthAttribute.apply(target, joinedState.maxHealth);
+		StatMirror.syncPlayerNow(team.teamId(), manager.stateOf(target.getUUID()), target);
+		EffectSync.refreshPlayer(target);
+		TeamBroadcaster.broadcast(context.getSource().getServer(), manager.teamOf(target.getUUID()));
+
+		target.sendSystemMessage(Component.literal(
+				inviterName + "님이 '" + team.name() + "' 팀에 넣었습니다.\n"
+						+ "개인 인벤토리·장비"
+						+ (config.shareEnderChest ? "·엔더상자" : "")
+						+ " 아이템은 있던 자리에 드랍됐고, 개인 경험치는 공유 풀에 합쳐졌습니다."));
+		context.getSource().sendSuccess(
+				() -> Component.literal(target.getPlainTextName() + "님을 팀에 넣었습니다."), false);
 		return 1;
 	}
 
@@ -313,41 +287,63 @@ public final class ShareTeamCommand {
 		return 1;
 	}
 
+	/**
+	 * 인자 없는 {@code /shareteam}. 모드가 있는 클라이언트면 팀 화면을 연다.
+	 *
+	 * <p>모드가 없으면 창을 띄울 방법이 없으므로 예전처럼 도움말을 글로 찍는다.
+	 * {@code /shareteam help} 는 어느 쪽이든 그대로 도움말이다.
+	 */
+	private static int openScreen(CommandContext<CommandSourceStack> context)
+			throws CommandSyntaxException {
+		ServerPlayer self = context.getSource().getPlayerOrException();
+		if (!ServerPlayNetworking.canSend(self, OpenTeamScreenPayload.TYPE)) {
+			return help(context);
+		}
+		ServerPlayNetworking.send(self, OpenTeamScreenPayload.INSTANCE);
+		return 1;
+	}
+
+	/**
+	 * 팀의 증강 사용 여부를 바꾼다. 리더만 할 수 있다.
+	 *
+	 * <p>끄면 이미 받은 증강 효과도 함께 걷힌다. 다시 켜면 보유 목록은 남아 있으므로 그대로
+	 * 되살아난다. 지우지 않는 이유는 실수로 껐을 때 회차가 통째로 날아가지 않게 하기 위해서다.
+	 */
+	private static int setPerksEnabled(CommandContext<CommandSourceStack> context, boolean enabled)
+			throws CommandSyntaxException {
+		ServerPlayer self = context.getSource().getPlayerOrException();
+		TeamManager manager = manager(context);
+		ShareTeam team = manager.teamOf(self.getUUID());
+		TeamState state = manager.stateOf(self.getUUID());
+		if (!canManageTeam(context, self, team, state)) {
+			return 0;
+		}
+		if (state.perksEnabled == enabled) {
+			context.getSource().sendSuccess(() -> Component.literal(
+					"증강은 이미 " + (enabled ? "켜져" : "꺼져") + " 있습니다."), false);
+			return 0;
+		}
+		PerkManager.setPerksEnabled(context.getSource().getServer(), team, state, enabled);
+		manager.setDirty();
+		TeamBroadcaster.broadcast(context.getSource().getServer(), team);
+		broadcastSystemMessage(context, team, "증강을 " + (enabled ? "켰습니다." : "껐습니다."));
+		return 1;
+	}
+
 	private static int help(CommandContext<CommandSourceStack> context) {
 		context.getSource().sendSuccess(() -> Component.literal("""
 				SharedFate 팀 명령
 				/shareteam create <이름> — 현재 상태로 팀 생성 (증강 끔)
 				/shareteam create perks <on|off> <이름> — 증강 사용 여부를 정해서 생성
-				/shareteam invite <플레이어> | invites | accept <이름> | decline <이름>
+				/shareteam — 팀 화면을 엽니다 (모드가 있는 클라이언트)
+				/shareteam invite <플레이어> — 상대를 곧바로 팀에 넣습니다 (리더)
+				/shareteam perks <on|off> — 증강 사용 여부 (리더)
 				/shareteam status | list | leave | disband confirm
 				/shareteam health <20~40> — 팀 공유 최대 체력 설정 (리더)
 				/shareteam swap on <1~120분> | off | status — 주기적 위치 교환
 				/shareteam perk | perk list — 증강 선택 창 열기 / 보유 증강 보기
 				가입하면 개인 아이템은 드랍되고 개인 경험치는 공유 풀에 합쳐집니다.
 				""".strip()), false);
-		return 1;
-	}
-
-	private static int invites(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-		ServerPlayer self = context.getSource().getPlayerOrException();
-		String names = manager(context).invitedTeams(self.getUUID()).stream()
-				.map(ShareTeam::name).sorted(String.CASE_INSENSITIVE_ORDER)
-				.collect(Collectors.joining(", "));
-		context.getSource().sendSuccess(() -> Component.literal(
-				names.isEmpty() ? "대기 중인 팀 초대가 없습니다." : "받은 초대: " + names), false);
-		return names.isEmpty() ? 0 : 1;
-	}
-
-	private static int decline(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-		ServerPlayer self = context.getSource().getPlayerOrException();
-		String name = StringArgumentType.getString(context, "name").trim();
-		TeamManager manager = manager(context);
-		ShareTeam team = manager.teamByName(name);
-		if (team == null || !manager.declineInvite(self.getUUID(), team.teamId())) {
-			context.getSource().sendFailure(Component.literal("그 팀의 초대가 없습니다: " + name));
-			return 0;
-		}
-		context.getSource().sendSuccess(() -> Component.literal("'" + team.name() + "' 팀 초대를 거절했습니다."), false);
 		return 1;
 	}
 
@@ -359,7 +355,7 @@ public final class ShareTeamCommand {
 		TeamState state = manager.stateOf(self.getUUID());
 		if (team == null || state == null) {
 			context.getSource().sendSuccess(() -> Component.literal(
-					"팀이 없습니다. /shareteam invites 로 초대를 확인할 수 있습니다."), false);
+					"팀이 없습니다. 팀 리더에게 /shareteam invite 로 불러 달라고 하세요."), false);
 			return 0;
 		}
 		long online = team.members().stream().filter(uuid ->
@@ -409,6 +405,7 @@ public final class ShareTeamCommand {
 			}
 		}
 		manager.setDirty();
+		TeamBroadcaster.broadcast(context.getSource().getServer(), team);
 		return 1;
 	}
 
@@ -433,6 +430,7 @@ public final class ShareTeamCommand {
 		manager.setDirty();
 		broadcastSystemMessage(context, team,
 				"랜덤 위치 교환을 켰습니다. 온라인 생존 팀원의 위치가 " + minutes + "분마다 서로 바뀝니다.");
+		TeamBroadcaster.broadcast(context.getSource().getServer(), team);
 		return 1;
 	}
 
@@ -448,6 +446,7 @@ public final class ShareTeamCommand {
 		state.disablePositionSwap();
 		manager.setDirty();
 		broadcastSystemMessage(context, team, "랜덤 위치 교환을 껐습니다.");
+		TeamBroadcaster.broadcast(context.getSource().getServer(), team);
 		return 1;
 	}
 

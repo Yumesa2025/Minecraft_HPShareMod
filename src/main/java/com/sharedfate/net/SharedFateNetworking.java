@@ -18,7 +18,10 @@ public final class SharedFateNetworking {
 	//     기존 페이로드의 형식은 그대로지만, 이 패킷을 모르는 클라이언트는 공중 점프가
 	//     조용히 안 되고 HUD 가림도 걸리지 않는다. 그 상태로 붙어 있는 편이 더 나쁘므로
 	//     악수 단계에서 걸러지도록 번호를 올린다.
-	public static final int PROTOCOL_VERSION = 10;
+	// 11: /shareteam 화면 — TeamSyncPayload 에 팀 이름·최대 체력·교환 주기·증강 사용
+	//     여부·리더 UUID 를 추가하고 OpenTeamScreenPayload 를 신설했다.
+	//     TeamSyncPayload 의 형식 자체가 바뀌었으므로 예전 클라이언트는 읽지 못한다.
+	public static final int PROTOCOL_VERSION = 11;
 
 	private SharedFateNetworking() {
 	}
@@ -34,6 +37,8 @@ public final class SharedFateNetworking {
 				PerkCloseOfferPayload.TYPE, PerkCloseOfferPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(
 				PerkClientFeaturesPayload.TYPE, PerkClientFeaturesPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(
+				OpenTeamScreenPayload.TYPE, OpenTeamScreenPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(SelectedSlotC2SPayload.TYPE, SelectedSlotC2SPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(PerkChoiceC2SPayload.TYPE, PerkChoiceC2SPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DoubleJumpPayload.TYPE, DoubleJumpPayload.CODEC);

@@ -163,15 +163,13 @@ class TeamManagerTest {
 	}
 
 	@Test
-	void 마지막_멤버가_탈퇴하면_팀과_상태와_초대가_사라진다() {
+	void 마지막_멤버가_탈퇴하면_팀과_상태가_사라진다() {
 		ShareTeam team = manager.createTeam("우리팀", A, 40.0F);
-		manager.invite(team.teamId(), B);
 
 		manager.removeMember(A);
 
 		assertNull(manager.teamOf(A));
 		assertNull(manager.stateByTeamId(team.teamId()));
-		assertFalse(manager.hasInvite(B, team.teamId()));
 		assertTrue(manager.allTeams().isEmpty());
 	}
 
@@ -184,74 +182,15 @@ class TeamManagerTest {
 	}
 
 	@Test
-	void 초대는_소비하기_전까지_유지된다() {
-		ShareTeam team = manager.createTeam("우리팀", A, 40.0F);
-
-		assertFalse(manager.hasInvite(B, team.teamId()));
-		manager.invite(team.teamId(), B);
-		assertTrue(manager.hasInvite(B, team.teamId()));
-		assertTrue(manager.consumeInvite(B, team.teamId()));
-		assertFalse(manager.consumeInvite(B, team.teamId()));
-		assertFalse(manager.hasInvite(B, team.teamId()));
-	}
-
-	@Test
-	void 초대_목록은_해당_플레이어의_유효한_팀만_보여준다() {
-		ShareTeam first = manager.createTeam("첫팀", A, 40.0F);
-		manager.createTeam("둘째팀", B, 40.0F);
-		manager.invite(first.teamId(), C);
-
-		assertEquals(java.util.List.of("첫팀"), manager.invitedTeams(C).stream().map(ShareTeam::name).toList());
-		assertTrue(manager.declineInvite(C, first.teamId()));
-		assertTrue(manager.invitedTeams(C).isEmpty());
-	}
-
-	@Test
-	void 존재하지_않는_팀의_초대는_기록하지_않는다() {
-		UUID missingTeam = UUID.randomUUID();
-
-		manager.invite(missingTeam, B);
-
-		assertFalse(manager.hasInvite(B, missingTeam));
-	}
-
-	@Test
-	void 팀에_가입하면_다른_팀의_오래된_초대도_모두_사라진다() {
-		ShareTeam first = manager.createTeam("첫팀", A, 40.0F);
-		ShareTeam second = manager.createTeam("둘째팀", B, 40.0F);
-		manager.invite(first.teamId(), C);
-		manager.invite(second.teamId(), C);
-
-		assertTrue(manager.addMember(first.teamId(), C, 4));
-		manager.removeMember(C);
-
-		assertFalse(manager.hasInvite(C, first.teamId()));
-		assertFalse(manager.hasInvite(C, second.teamId()));
-	}
-
-	@Test
-	void 초대받은_플레이어가_자기_팀을_만들어도_오래된_초대가_사라진다() {
-		ShareTeam first = manager.createTeam("첫팀", A, 40.0F);
-		manager.invite(first.teamId(), B);
-
-		ShareTeam own = manager.createTeam("내팀", B, 40.0F);
-		manager.disband(own.teamId());
-
-		assertFalse(manager.hasInvite(B, first.teamId()));
-	}
-
-	@Test
-	void 팀을_해체하면_모든_멤버와_초대의_역참조가_사라진다() {
+	void 팀을_해체하면_모든_멤버의_역참조가_사라진다() {
 		ShareTeam team = manager.createTeam("우리팀", A, 40.0F);
 		manager.addMember(team.teamId(), B, 4);
-		manager.invite(team.teamId(), C);
 
 		manager.disband(team.teamId());
 
 		assertNull(manager.teamOf(A));
 		assertNull(manager.teamOf(B));
 		assertNull(manager.stateByTeamId(team.teamId()));
-		assertFalse(manager.hasInvite(C, team.teamId()));
 	}
 
 	@Test
@@ -271,7 +210,6 @@ class TeamManagerTest {
 	void 팀_상태_코덱은_인벤토리_엔더상자_장비와_스탯을_보존한다() {
 		ShareTeam team = manager.createTeam("우리팀", A, 40.0F);
 		manager.addMember(team.teamId(), B, 4);
-		manager.invite(team.teamId(), C);
 		TeamState state = manager.stateOf(A);
 		state.mainItems.set(0, new ItemStack(Items.DIAMOND_PICKAXE));
 		state.extraItems.set(4, new ItemStack(Items.EMERALD, 9));
@@ -293,7 +231,6 @@ class TeamManagerTest {
 
 		assertNotNull(round.teamOf(A));
 		assertSame(round.stateOf(A), round.stateOf(B));
-		assertTrue(round.hasInvite(C, team.teamId()));
 		assertTrue(round.stateOf(A).mainItems.get(0).is(Items.DIAMOND_PICKAXE));
 		assertEquals(9, round.stateOf(A).extraItems.get(4).getCount());
 		assertEquals(12, round.stateOf(A).enderContainer.getItem(3).getCount());

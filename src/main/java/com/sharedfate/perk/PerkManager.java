@@ -444,6 +444,49 @@ public final class PerkManager {
 		}
 	}
 
+	/**
+	 * 팀의 증강 사용 여부를 바꾸고, 이미 붙어 있던 효과까지 정리한다.
+	 *
+	 * <p>피해 배율이나 교환 규칙처럼 <b>그때그때 계산에 끼어드는</b> 효과는 조회할 때마다
+	 * {@code perksEnabled} 를 보므로 플래그만 내리면 곧바로 멈춘다. 반면 속성·상태이상처럼
+	 * <b>플레이어에게 붙여 둔</b> 효과는 아무도 걷어내지 않으면 그대로 남는다. 그래서 끌 때는
+	 * 여기서 직접 {@link PerkEffect#remove} 를 돌려 준다.
+	 *
+	 * <p>보유 목록({@code ownedPerks})은 건드리지 않는다. 실수로 껐다가 다시 켰을 때 회차가
+	 * 통째로 날아가지 않게 하기 위해서다.
+	 *
+	 * @param enabled 켤 것인가
+	 */
+	public static void setPerksEnabled(MinecraftServer server, ShareTeam team, TeamState state,
+			boolean enabled) {
+		state.perksEnabled = enabled;
+		if (enabled) {
+			applyToTeam(server, team, state);
+			broadcastSync(server, team, state);
+			return;
+		}
+		for (UUID member : team.members()) {
+			ServerPlayer online = server.getPlayerList().getPlayer(member);
+			if (online == null) {
+				continue;
+			}
+			for (String perkId : state.ownedPerks) {
+				Perk perk = PerkRegistry.byId(perkId).orElse(null);
+				if (perk == null) {
+					continue;
+				}
+				for (PerkEffect effect : perk.effects()) {
+					try {
+						effect.remove(online);
+					} catch (RuntimeException error) {
+						SharedFateMod.LOGGER.warn("증강 '{}' 효과 해제에 실패했습니다.", perk.id(), error);
+					}
+				}
+			}
+		}
+		broadcastSync(server, team, state);
+	}
+
 	private static void applyToTeam(MinecraftServer server, ShareTeam team, TeamState state) {
 		for (UUID member : team.members()) {
 			ServerPlayer online = server.getPlayerList().getPlayer(member);
