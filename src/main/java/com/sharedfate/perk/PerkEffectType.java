@@ -39,6 +39,7 @@ import com.sharedfate.perk.effect.OnKillEffect;
 import com.sharedfate.perk.effect.OnTeamHurtEffect;
 import com.sharedfate.perk.effect.GatherEffect;
 import com.sharedfate.perk.effect.OnSwapEffect;
+import com.sharedfate.perk.effect.ProximityEffect;
 import com.sharedfate.perk.effect.SwapBlockEffect;
 import com.sharedfate.perk.effect.SwapIntervalEffect;
 import com.sharedfate.perk.effect.PeriodicEffect;
@@ -84,6 +85,7 @@ public enum PerkEffectType {
 	SWAP_BLOCK("swap_block", SwapBlockEffect::fromJson),
 	ON_SWAP("on_swap", OnSwapEffect::fromJson),
 	GATHER("gather", GatherEffect::fromJson),
+	PROXIMITY("proximity", ProximityEffect::fromJson),
 	ON_CRITICAL("on_critical", OnCriticalEffect::fromJson),
 	LIFESTEAL("lifesteal", LifestealEffect::fromJson),
 	HOLDER("holder", HolderEffect::fromJson),

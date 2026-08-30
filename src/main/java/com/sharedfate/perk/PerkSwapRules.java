@@ -2,6 +2,7 @@ package com.sharedfate.perk;
 
 import com.sharedfate.perk.effect.GatherEffect;
 import com.sharedfate.perk.effect.OnSwapEffect;
+import com.sharedfate.perk.effect.ProximityEffect;
 import com.sharedfate.perk.effect.SwapBlockEffect;
 import com.sharedfate.perk.effect.SwapIntervalEffect;
 import com.sharedfate.team.TeamState;
@@ -20,13 +21,14 @@ import java.util.List;
  * {@link PerkFoodRules} 와 같다. 실행부에는 "어디서 끼어드는가"만 남는 편이 읽기 쉽고,
  * 판정을 월드 없이 시험할 수 있다.
  *
- * <p>여기서 답하는 물음은 넷이다.
+ * <p>여기서 답하는 물음은 다섯이다.
  *
  * <ul>
  *   <li>{@link #blocksSwap} — 자리를 바꾸지 않는가 ({@code swap_block})</li>
  *   <li>{@link #nextRemainingTicks} — 다음 교환까지 몇 틱을 남길 것인가 ({@code swap_interval})</li>
  *   <li>{@link #grantOnSwap} — 교환 시점에 무엇을 얹을 것인가 ({@code on_swap})</li>
  *   <li>{@link #gathers} — 멀어지면 모으는 규칙이 있는가 ({@code gather})</li>
+ *   <li>{@link #proximities} — 붙어 있으면 무엇을 얹을 것인가 ({@code proximity})</li>
  * </ul>
  *
  * <p>보유 증강이 하나도 없으면 어느 물음도 팀 상태 두 번만 보고 곧바로 "해당 없음"이다.
@@ -181,6 +183,20 @@ public final class PerkSwapRules {
 	}
 
 	// ------------------------------------------------------------------ 집합
+
+	/** 이 팀이 가진 {@code proximity} 효과들. 해당 없으면 빈 목록. */
+	public static List<ProximityEffect> proximities(@Nullable TeamState state) {
+		if (!usesPerks(state)) {
+			return List.of();
+		}
+		List<ProximityEffect> found = new ArrayList<>();
+		for (PerkEffect effect : effectsOf(state)) {
+			if (effect instanceof ProximityEffect proximity) {
+				found.add(proximity);
+			}
+		}
+		return found;
+	}
 
 	/** 이 팀이 가진 {@code gather} 규칙들. 없으면 빈 목록. */
 	public static List<GatherEffect> gathers(@Nullable TeamState state) {

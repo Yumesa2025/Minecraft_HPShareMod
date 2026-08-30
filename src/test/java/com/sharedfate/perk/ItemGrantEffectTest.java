@@ -346,7 +346,7 @@ class ItemGrantEffectTest {
 		List<ItemStack> rationStacks = grantEffectOf(ration).grantStacks();
 		assertEquals(1, rationStacks.size());
 		assertSame(Items.GOLDEN_APPLE, rationStacks.getFirst().getItem());
-		assertEquals(5, rationStacks.getFirst().getCount());
+		assertEquals(10, rationStacks.getFirst().getCount());
 
 		Perk kit = PerkRegistry.byId("sharedfate:expedition_kit").orElseThrow();
 		assertEquals("원정 준비물", kit.name());
