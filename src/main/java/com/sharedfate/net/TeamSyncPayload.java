@@ -25,13 +25,13 @@ import java.util.UUID;
  * @param nextPerkLevel 다음 증강이 나오는 레벨. 남은 증강이 없거나 증강을 쓰지 않으면 0
  * @param maxHealth     팀이 정한 공유 최대 체력
  * @param swapIntervalMinutes 위치 교환 주기(분). 꺼져 있으면 0
- * @param perksEnabled  이 팀이 증강을 쓰는가
+ * @param options       팀을 만들 때 정한 켜고 끄기 셋
  * @param leaderId      팀 리더의 UUID. 팀이 없으면 0 UUID.
  *                      묶음을 팀 전체에 한 번만 만들어 보내므로, 받는 쪽이 자기 UUID 와
  *                      견주어 리더인지 판단한다
  */
 public record TeamSyncPayload(List<Member> members, String teamName, int xpLevel, int nextPerkLevel,
-		float maxHealth, int swapIntervalMinutes, boolean perksEnabled, UUID leaderId)
+		float maxHealth, int swapIntervalMinutes, Options options, UUID leaderId)
 		implements CustomPacketPayload {
 	public record Member(UUID id, String name, int selectedSlot) {
 		public static final StreamCodec<RegistryFriendlyByteBuf, Member> CODEC =
@@ -42,9 +42,32 @@ public record TeamSyncPayload(List<Member> members, String teamName, int xpLevel
 						Member::new);
 	}
 
+	/**
+	 * 켜고 끄기 셋을 한 칸에 담는 묶음.
+	 *
+	 * <p>따로 묶은 이유는 자리가 없어서다. 바깥 {@link #CODEC} 의
+	 * {@code StreamCodec.composite} 는 항목 <b>8개가 상한</b>이고 이미 다 찼다. 앞으로 켜고
+	 * 끄기가 더 늘어도 이 안에 넣으면 바깥은 그대로다.
+	 *
+	 * @param perks       이 팀이 증강을 쓰는가
+	 * @param damageAlert 피격 알림을 보여 주는가
+	 * @param deathAlert  사망 알림을 보여 주는가
+	 */
+	public record Options(boolean perks, boolean damageAlert, boolean deathAlert) {
+		/** 셋 다 꺼진 상태. 팀에 속하지 않았을 때의 값이다. */
+		public static final Options NONE = new Options(false, false, false);
+
+		public static final StreamCodec<RegistryFriendlyByteBuf, Options> CODEC =
+				StreamCodec.composite(
+						ByteBufCodecs.BOOL, Options::perks,
+						ByteBufCodecs.BOOL, Options::damageAlert,
+						ByteBufCodecs.BOOL, Options::deathAlert,
+						Options::new);
+	}
+
 	/** 팀에 속하지 않은 상태. */
 	public static final TeamSyncPayload EMPTY =
-			new TeamSyncPayload(List.of(), "", 0, 0, 20.0F, 0, false, new UUID(0L, 0L));
+			new TeamSyncPayload(List.of(), "", 0, 0, 20.0F, 0, Options.NONE, new UUID(0L, 0L));
 
 	public static final Type<TeamSyncPayload> TYPE = new Type<>(SharedFateMod.id("team_sync"));
 	public static final StreamCodec<RegistryFriendlyByteBuf, TeamSyncPayload> CODEC =
@@ -55,7 +78,7 @@ public record TeamSyncPayload(List<Member> members, String teamName, int xpLevel
 					ByteBufCodecs.VAR_INT, TeamSyncPayload::nextPerkLevel,
 					ByteBufCodecs.FLOAT, TeamSyncPayload::maxHealth,
 					ByteBufCodecs.VAR_INT, TeamSyncPayload::swapIntervalMinutes,
-					ByteBufCodecs.BOOL, TeamSyncPayload::perksEnabled,
+					Options.CODEC, TeamSyncPayload::options,
 					UUIDUtil.STREAM_CODEC, TeamSyncPayload::leaderId,
 					TeamSyncPayload::new);
 
@@ -65,6 +88,21 @@ public record TeamSyncPayload(List<Member> members, String teamName, int xpLevel
 		xpLevel = Math.max(0, xpLevel);
 		nextPerkLevel = Math.max(0, nextPerkLevel);
 		swapIntervalMinutes = Math.max(0, swapIntervalMinutes);
+	}
+
+	/** 이 팀이 증강을 쓰는가. */
+	public boolean perksEnabled() {
+		return options.perks();
+	}
+
+	/** 피격 알림을 보여 주는 팀인가. */
+	public boolean damageAlertEnabled() {
+		return options.damageAlert();
+	}
+
+	/** 사망 알림을 보여 주는 팀인가. */
+	public boolean deathAlertEnabled() {
+		return options.deathAlert();
 	}
 
 	/** 이 사람이 팀 리더인가. */

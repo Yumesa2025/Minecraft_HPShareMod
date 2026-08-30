@@ -3,6 +3,8 @@ package com.sharedfate.command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.sharedfate.config.SharedFateConfig;
@@ -38,19 +40,7 @@ public final class ShareTeamCommand {
 		dispatcher.register(Commands.literal("shareteam")
 				.executes(ShareTeamCommand::openScreen)
 				.then(Commands.literal("help").executes(ShareTeamCommand::help))
-				// create 는 name 이 greedyString 이라 뒤에 인자를 못 붙인다.
-				// 그래서 증강 켜고끄기는 이름 앞에 오는 별도 가지로 둔다.
-				// 기존 /shareteam create <이름> 은 그대로 동작하고 증강은 꺼진 상태가 된다.
-				.then(Commands.literal("create")
-						.then(Commands.literal("perks")
-								.then(Commands.literal("on")
-										.then(Commands.argument("name", StringArgumentType.greedyString())
-												.executes(context -> create(context, config, true))))
-								.then(Commands.literal("off")
-										.then(Commands.argument("name", StringArgumentType.greedyString())
-												.executes(context -> create(context, config, false)))))
-						.then(Commands.argument("name", StringArgumentType.greedyString())
-								.executes(context -> create(context, config, false))))
+				.then(createNode(config))
 				.then(Commands.literal("invite")
 						.then(Commands.argument("target", EntityArgument.player())
 								.executes(context -> invite(context, config))))
@@ -85,8 +75,73 @@ public final class ShareTeamCommand {
 				.then(Commands.literal("status").executes(context -> status(context, config))));
 	}
 
+	/**
+	 * {@code create} 가지를 만든다.
+	 *
+	 * <p>{@code name} 이 greedyString 이라 뒤에는 아무것도 못 붙는다. 그래서 켜고 끄기 셋은
+	 * <b>이름 앞에</b> 정해진 순서로 온다.
+	 *
+	 * <pre>
+	 * /shareteam create [perks on|off] [damagealert on|off] [deathalert on|off] &lt;이름&gt;
+	 * </pre>
+	 *
+	 * <p>각 단계에서 곧바로 이름으로 빠져나갈 수 있으므로 {@code /shareteam create 우리팀} 도
+	 * {@code /shareteam create perks on 우리팀} 도 예전 그대로 동작하고, 적지 않은 것은 꺼진다.
+	 * 팀 화면은 늘 셋을 모두 적은 완전한 형태를 보낸다.
+	 *
+	 * <p>가지를 손으로 다 적으면 여덟 갈래가 되어 어디가 빠졌는지 눈으로 못 찾는다. 그래서
+	 * 켜고 끄기 한 쌍씩 겹쳐 쌓는다.
+	 */
+	private static LiteralArgumentBuilder<CommandSourceStack> createNode(SharedFateConfig config) {
+		LiteralArgumentBuilder<CommandSourceStack> create = Commands.literal("create");
+		create.then(createName(config, false, false, false));
+
+		LiteralArgumentBuilder<CommandSourceStack> perks = Commands.literal("perks");
+		for (boolean perksEnabled : BOTH) {
+			LiteralArgumentBuilder<CommandSourceStack> perksValue = onOff(perksEnabled);
+			perksValue.then(createName(config, perksEnabled, false, false));
+
+			LiteralArgumentBuilder<CommandSourceStack> damage = Commands.literal("damagealert");
+			for (boolean damageAlert : BOTH) {
+				LiteralArgumentBuilder<CommandSourceStack> damageValue = onOff(damageAlert);
+				damageValue.then(createName(config, perksEnabled, damageAlert, false));
+
+				LiteralArgumentBuilder<CommandSourceStack> death = Commands.literal("deathalert");
+				for (boolean deathAlert : BOTH) {
+					death.then(onOff(deathAlert).then(
+							createName(config, perksEnabled, damageAlert, deathAlert)));
+				}
+				damageValue.then(death);
+				damage.then(damageValue);
+			}
+			perksValue.then(damage);
+			perks.then(perksValue);
+		}
+		create.then(perks);
+		return create;
+	}
+
+	private static final boolean[] BOTH = {true, false};
+
+	private static String onOffText(boolean value) {
+		return value ? "켬" : "끔";
+	}
+
+	private static LiteralArgumentBuilder<CommandSourceStack> onOff(boolean value) {
+		return Commands.literal(value ? "on" : "off");
+	}
+
+	private static RequiredArgumentBuilder<CommandSourceStack, String> createName(
+			SharedFateConfig config, boolean perksEnabled,
+			boolean damageAlertEnabled, boolean deathAlertEnabled) {
+		return Commands.argument("name", StringArgumentType.greedyString())
+				.executes(context -> create(context, config,
+						perksEnabled, damageAlertEnabled, deathAlertEnabled));
+	}
+
 	private static int create(CommandContext<CommandSourceStack> context, SharedFateConfig config,
-			boolean perksEnabled) throws CommandSyntaxException {
+			boolean perksEnabled, boolean damageAlertEnabled, boolean deathAlertEnabled)
+			throws CommandSyntaxException {
 		ServerPlayer self = context.getSource().getPlayerOrException();
 		TeamManager manager = manager(context);
 
@@ -123,8 +178,9 @@ public final class ShareTeamCommand {
 		}
 
 		TeamState initialState = initialState(self, config);
-		// 증강 사용 여부는 팀 생성 시에만 정해지고 그 뒤로는 바꿀 수 없다.
 		initialState.perksEnabled = perksEnabled;
+		initialState.damageAlertEnabled = damageAlertEnabled;
+		initialState.deathAlertEnabled = deathAlertEnabled;
 		InventorySwapper.prepareJoin(self);
 		ShareTeam team = manager.createTeam(name, self.getUUID(), initialState);
 		if (team == null) {
@@ -138,7 +194,11 @@ public final class ShareTeamCommand {
 		TeamBroadcaster.broadcast(context.getSource().getServer(), manager.teamOf(self.getUUID()));
 
 		context.getSource().sendSuccess(() -> Component.literal(
-				"팀 '" + name + "'을 만들었습니다. 증강: " + (perksEnabled ? "켬" : "끔")), false);
+				"팀 '" + name + "'을 만들었습니다."
+						+ " 증강: " + onOffText(perksEnabled)
+						+ " · 피격 알림: " + onOffText(damageAlertEnabled)
+						+ " · 사망 알림: " + onOffText(deathAlertEnabled)
+						+ "\n두 알림은 나중에 바꿀 수 없습니다."), false);
 		return 1;
 	}
 
@@ -333,8 +393,9 @@ public final class ShareTeamCommand {
 	private static int help(CommandContext<CommandSourceStack> context) {
 		context.getSource().sendSuccess(() -> Component.literal("""
 				SharedFate 팀 명령
-				/shareteam create <이름> — 현재 상태로 팀 생성 (증강 끔)
-				/shareteam create perks <on|off> <이름> — 증강 사용 여부를 정해서 생성
+				/shareteam create <이름> — 현재 상태로 팀 생성 (셋 다 끔)
+				/shareteam create [perks on|off] [damagealert on|off] [deathalert on|off] <이름>
+				  — 적은 것만 켜고 나머지는 끕니다. 두 알림은 나중에 바꿀 수 없습니다.
 				/shareteam — 팀 화면을 엽니다 (모드가 있는 클라이언트)
 				/shareteam invite <플레이어> — 상대를 곧바로 팀에 넣습니다 (리더)
 				/shareteam perks <on|off> — 증강 사용 여부 (리더)
@@ -368,7 +429,10 @@ public final class ShareTeamCommand {
 				+ ", 경험치=" + config.shareExperience
 				+ ", 효과=" + config.shareStatusEffects
 				+ "\n위치 교환=" + (state.positionSwapEnabled()
-						? state.positionSwapIntervalMinutes() + "분 주기" : "꺼짐");
+						? state.positionSwapIntervalMinutes() + "분 주기" : "꺼짐")
+				+ "\n피격 알림=" + onOffText(state.damageAlertEnabled)
+				+ ", 사망 알림=" + onOffText(state.deathAlertEnabled)
+				+ " (팀을 만들 때 정한 값)";
 		context.getSource().sendSuccess(() -> Component.literal(text), false);
 		return 1;
 	}

@@ -22,7 +22,7 @@ class SingleTeamOnlyTest {
 	private static java.util.List<TeamRosterStore.RestoredTeam> roster(
 			java.util.Collection<ShareTeam> teams, float maxHealth) {
 		return teams.stream()
-				.map(team -> new TeamRosterStore.RestoredTeam(team, false, maxHealth, 0))
+				.map(team -> new TeamRosterStore.RestoredTeam(team, false, maxHealth, 0, false, false))
 				.toList();
 	}
 

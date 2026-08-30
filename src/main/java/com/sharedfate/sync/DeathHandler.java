@@ -1,6 +1,7 @@
 package com.sharedfate.sync;
 
 import com.sharedfate.SharedFateMod;
+import com.sharedfate.net.TeamBroadcaster;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
@@ -41,6 +42,12 @@ public final class DeathHandler {
 		}
 		if (!CASCADING_TEAMS.add(team.teamId())) {
 			return;
+		}
+
+		// 여기 온 사람이 팀에서 먼저 죽어 전멸을 부른 사람이다. 아래에서 죽이는 나머지
+		// 팀원은 CASCADING_TEAMS 에 막혀 이 자리를 지나지 않는다.
+		if (state.deathAlertEnabled) {
+			TeamBroadcaster.broadcastTeamWipe(server, team, dead.getPlainTextName());
 		}
 
 		boolean keepInventory = dead.level().getGameRules().get(GameRules.KEEP_INVENTORY);

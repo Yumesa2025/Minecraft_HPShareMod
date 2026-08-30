@@ -25,11 +25,13 @@ public final class TeamRosterStore {
 	public static final String FILE_NAME = "sharedfate-team-roster.json";
 	/**
 	 * 2: 팀 설정(증강 사용 여부·최대 체력·위치 교환 주기)을 함께 적기 시작했다.
+	 * 3: 피격 알림·사망 알림 표시 여부를 함께 적기 시작했다.
 	 *
-	 * <p>1로 적힌 예전 파일도 그대로 읽는다. 설정 항목이 없으면 기본값으로 시작한다.
+	 * <p>2·1로 적힌 예전 파일도 그대로 읽는다. 설정 항목이 없으면 기본값으로 시작하고,
+	 * 두 알림의 기본값은 꺼짐이다.
 	 */
-	private static final int FORMAT_VERSION = 2;
-	private static final int LEGACY_FORMAT_VERSION = 1;
+	private static final int FORMAT_VERSION = 3;
+	private static final List<Integer> READABLE_FORMAT_VERSIONS = List.of(3, 2, 1);
 	private static final int MAX_STORED_TEAMS = 1024;
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
@@ -40,11 +42,14 @@ public final class TeamRosterStore {
 	 * 안 되고, 이어져야 하는 것은 <b>"이 팀은 증강을 쓰기로 했다"</b> 는 결정뿐이다.
 	 * 최대 체력과 위치 교환 주기도 같은 이유로 결정에 해당한다.
 	 *
-	 * @param perksEnabled       증강을 쓰기로 한 팀인가
-	 * @param maxHealth          팀이 정한 공유 최대 체력. 증강 보너스가 아닌 기본값이다
-	 * @param swapIntervalTicks  위치 교환 주기(틱). 꺼져 있으면 0
+	 * @param perksEnabled        증강을 쓰기로 한 팀인가
+	 * @param maxHealth           팀이 정한 공유 최대 체력. 증강 보너스가 아닌 기본값이다
+	 * @param swapIntervalTicks   위치 교환 주기(틱). 꺼져 있으면 0
+	 * @param damageAlertEnabled  피격 알림을 켜기로 한 팀인가
+	 * @param deathAlertEnabled   사망 알림을 켜기로 한 팀인가
 	 */
-	private record StoredSettings(boolean perksEnabled, float maxHealth, int swapIntervalTicks) {
+	private record StoredSettings(boolean perksEnabled, float maxHealth, int swapIntervalTicks,
+			boolean damageAlertEnabled, boolean deathAlertEnabled) {
 	}
 
 	private record StoredTeam(String teamId, String name, List<String> members,
@@ -53,7 +58,7 @@ public final class TeamRosterStore {
 
 	/** 명단과 그 팀이 이어 갈 설정을 함께 들고 다니는 짝. */
 	public record RestoredTeam(ShareTeam team, boolean perksEnabled, float maxHealth,
-			int swapIntervalTicks) {
+			int swapIntervalTicks, boolean damageAlertEnabled, boolean deathAlertEnabled) {
 	}
 
 	private record StoredRoster(int formatVersion, List<StoredTeam> teams) {
@@ -105,7 +110,8 @@ public final class TeamRosterStore {
 				continue;
 			}
 			result.add(new RestoredTeam(team, state.perksEnabled, state.baseMaxHealth,
-					state.positionSwapIntervalTicks));
+					state.positionSwapIntervalTicks,
+					state.damageAlertEnabled, state.deathAlertEnabled));
 		}
 		return result;
 	}
@@ -116,7 +122,8 @@ public final class TeamRosterStore {
 						entry.team().teamId().toString(), entry.team().name(),
 						entry.team().members().stream().map(UUID::toString).toList(),
 						new StoredSettings(entry.perksEnabled(), entry.maxHealth(),
-								entry.swapIntervalTicks())))
+								entry.swapIntervalTicks(),
+								entry.damageAlertEnabled(), entry.deathAlertEnabled())))
 				.toList();
 		StoredRoster roster = new StoredRoster(FORMAT_VERSION, storedTeams);
 		Path parent = file.getParent();
@@ -146,8 +153,7 @@ public final class TeamRosterStore {
 			throw new IOException("팀 명단 JSON이 손상되었습니다: " + file, e);
 		}
 		boolean known = stored != null
-				&& (stored.formatVersion() == FORMAT_VERSION
-						|| stored.formatVersion() == LEGACY_FORMAT_VERSION);
+				&& READABLE_FORMAT_VERSIONS.contains(stored.formatVersion());
 		if (!known || stored.teams() == null || stored.teams().size() > MAX_STORED_TEAMS) {
 			throw new IOException("지원하지 않거나 손상된 팀 명단입니다: " + file);
 		}
@@ -161,12 +167,14 @@ public final class TeamRosterStore {
 				}
 				List<UUID> members = team.members().stream().map(UUID::fromString).toList();
 				ShareTeam share = new ShareTeam(UUID.fromString(team.teamId()), team.name(), members);
-				// 형식 1 에는 설정이 없다. 그때는 기본값으로 시작한다.
+				// 형식 1 에는 설정이 없다. 그때는 기본값으로 시작한다. 형식 2 에는 알림
+				// 항목이 없는데, Gson 이 없는 boolean 을 false 로 두므로 저절로 꺼짐이 된다.
 				StoredSettings settings = team.settings();
 				teams.add(settings == null
-						? new RestoredTeam(share, false, defaultMaxHealth(), 0)
+						? new RestoredTeam(share, false, defaultMaxHealth(), 0, false, false)
 						: new RestoredTeam(share, settings.perksEnabled(),
-								settings.maxHealth(), settings.swapIntervalTicks()));
+								settings.maxHealth(), settings.swapIntervalTicks(),
+								settings.damageAlertEnabled(), settings.deathAlertEnabled()));
 			}
 		} catch (RuntimeException e) {
 			throw new IOException("팀 명단 값이 손상되었습니다: " + file, e);
