@@ -3,6 +3,7 @@ package com.sharedfate.team;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.sharedfate.SharedFateMod;
+import com.sharedfate.sync.TeamRosterStore;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.saveddata.SavedData;
@@ -102,13 +103,23 @@ public class TeamManager extends SavedData {
 		return !singleTeamOnly || teams.isEmpty();
 	}
 
-	public int restoreFreshRoster(Collection<ShareTeam> roster, float maxHealth) {
+	/**
+	 * 새 회차의 빈 월드에 팀 명단과 그 팀이 정해 둔 설정을 되살린다.
+	 *
+	 * <p>공유 아이템·체력·경험치는 새로 시작하지만 <b>증강 사용 여부·최대 체력·위치 교환
+	 * 주기는 이어진다.</b> 이것들은 회차마다 달라지는 진행 상황이 아니라 팀이 한 번 내린
+	 * 결정이라, 회차가 넘어갈 때마다 다시 켜라고 하면 매번 같은 명령을 치게 된다.
+	 *
+	 * <p>보유 증강은 이어지지 않는다. 회차마다 새로 고르는 것이 규칙이다.
+	 */
+	public int restoreFreshRoster(Collection<TeamRosterStore.RestoredTeam> roster) {
 		Objects.requireNonNull(roster, "roster");
 		if (!teams.isEmpty()) {
 			throw new IllegalStateException("기존 팀이 있는 저장소에는 팀 명단을 복원할 수 없습니다.");
 		}
 
-		List<ShareTeam> snapshot = List.copyOf(roster);
+		List<TeamRosterStore.RestoredTeam> entries = List.copyOf(roster);
+		List<ShareTeam> snapshot = entries.stream().map(TeamRosterStore.RestoredTeam::team).toList();
 		Set<UUID> teamIds = new HashSet<>();
 		Set<String> names = new HashSet<>();
 		Set<UUID> members = new HashSet<>();
@@ -130,9 +141,13 @@ public class TeamManager extends SavedData {
 
 		pendingEffectClears.clear();
 		pendingExperienceClears.clear();
-		for (ShareTeam team : snapshot) {
+		for (TeamRosterStore.RestoredTeam entry : entries) {
+			ShareTeam team = entry.team();
+			TeamState state = TeamState.fresh(sanitizeMaxHealth(entry.maxHealth()));
+			state.perksEnabled = entry.perksEnabled();
+			state.positionSwapIntervalTicks = Math.max(0, entry.swapIntervalTicks());
 			teams.put(team.teamId(), team);
-			states.put(team.teamId(), TeamState.fresh(maxHealth));
+			states.put(team.teamId(), state);
 			for (UUID member : team.members()) {
 				playerToTeam.put(member, team.teamId());
 			}
@@ -141,6 +156,16 @@ public class TeamManager extends SavedData {
 			setDirty();
 		}
 		return snapshot.size();
+	}
+
+	/** 손상된 저장값이 와도 허용 범위 안으로 맞춘다. */
+	private static float sanitizeMaxHealth(float stored) {
+		float fallback = SharedFateMod.config == null
+				? 20.0F : (float) SharedFateMod.config.sharedMaxHealth;
+		if (!Float.isFinite(stored) || stored < 20.0F || stored > 40.0F) {
+			return fallback;
+		}
+		return stored;
 	}
 
 	public @Nullable ShareTeam createTeam(String name, UUID leader, float maxHealth) {

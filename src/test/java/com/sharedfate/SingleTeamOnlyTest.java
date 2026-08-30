@@ -1,5 +1,7 @@
 package com.sharedfate;
 
+import com.sharedfate.sync.TeamRosterStore;
+
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
 import org.junit.jupiter.api.BeforeAll;
@@ -16,6 +18,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** 서버에 팀을 하나만 두는 제한(singleTeamOnly) 검증. */
 class SingleTeamOnlyTest {
+	/** 시험용: 명단만 있는 목록을 설정 기본값과 함께 복원 입력으로 바꾼다. */
+	private static java.util.List<TeamRosterStore.RestoredTeam> roster(
+			java.util.Collection<ShareTeam> teams, float maxHealth) {
+		return teams.stream()
+				.map(team -> new TeamRosterStore.RestoredTeam(team, false, maxHealth, 0))
+				.toList();
+	}
+
 	private static final UUID A = UUID.fromString("00000000-0000-0000-0000-0000000000a1");
 	private static final UUID B = UUID.fromString("00000000-0000-0000-0000-0000000000b1");
 	private static final UUID C = UUID.fromString("00000000-0000-0000-0000-0000000000c1");
@@ -101,7 +111,7 @@ class SingleTeamOnlyTest {
 
 		// 새 월드의 빈 TeamManager 로 명단을 되살린다. createTeam 을 거치지 않는 경로다.
 		TeamManager fresh = new TeamManager();
-		int restored = fresh.restoreFreshRoster(source.allTeams(), 40.0F);
+		int restored = fresh.restoreFreshRoster(roster(source.allTeams(), 40.0F));
 
 		assertEquals(2, restored);
 		assertEquals(2, fresh.allTeams().size());
@@ -116,7 +126,7 @@ class SingleTeamOnlyTest {
 		source.createTeam("첫팀", A, 40.0F);
 
 		TeamManager fresh = new TeamManager();
-		fresh.restoreFreshRoster(List.copyOf(source.allTeams()), 40.0F);
+		fresh.restoreFreshRoster(roster(source.allTeams(), 40.0F));
 
 		assertFalse(fresh.canCreateNewTeam(true));
 	}

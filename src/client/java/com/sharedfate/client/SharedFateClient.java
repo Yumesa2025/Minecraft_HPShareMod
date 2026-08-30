@@ -8,13 +8,16 @@ import com.sharedfate.client.team.TeamScreen;
 import com.sharedfate.client.perk.ClientPerkFeatures;
 import com.sharedfate.client.perk.DoubleJumpHandler;
 import com.sharedfate.client.perk.PerkClientState;
+import com.sharedfate.client.perk.PerkDrawScreen;
 import com.sharedfate.client.perk.PerkOfferScreen;
 import com.sharedfate.net.DamageAlertPayload;
 import com.sharedfate.net.HandshakePayload;
 import com.sharedfate.net.OpenTeamScreenPayload;
 import com.sharedfate.net.PerkClientFeaturesPayload;
 import com.sharedfate.net.PerkCloseOfferPayload;
+import com.sharedfate.net.PerkDrawPayload;
 import com.sharedfate.net.PerkOfferPayload;
+import com.sharedfate.net.PerkResultPayload;
 import com.sharedfate.net.PerkSyncPayload;
 import com.sharedfate.net.SelectedSlotPayload;
 import com.sharedfate.net.SharedFateNetworking;
@@ -89,8 +92,16 @@ public class SharedFateClient implements ClientModInitializer {
 						() -> closeOfferScreen(context.client(), payload)));
 		ClientPlayNetworking.registerGlobalReceiver(PerkSyncPayload.TYPE,
 				(payload, context) -> context.client().execute(
-						() -> PerkClientState.update(payload.ownedLines(),
+						() -> PerkClientState.update(payload.owned(),
 								payload.pendingCount(), payload.chooserName())));
+		// 선택자 뽑기 연출. 서버가 선택창을 보낼 때까지 이 화면이 떠 있는다.
+		ClientPlayNetworking.registerGlobalReceiver(PerkDrawPayload.TYPE,
+				(payload, context) -> context.client().execute(
+						() -> openDrawScreen(context.client(), payload)));
+		// 무엇이 골라졌는지 알려 준다. 창은 서버가 조금 뒤에 닫는다.
+		ClientPlayNetworking.registerGlobalReceiver(PerkResultPayload.TYPE,
+				(payload, context) -> context.client().execute(
+						() -> showPerkResult(context.client(), payload)));
 		// 클라이언트가 스스로 해야 하는 증강 기능. HUD 가 읽는 값이므로 렌더와 같은
 		// 스레드(클라이언트 본 스레드)에서 갱신한다.
 		ClientPlayNetworking.registerGlobalReceiver(PerkClientFeaturesPayload.TYPE,
@@ -167,6 +178,31 @@ public class SharedFateClient implements ClientModInitializer {
 			return;
 		}
 		client.setScreenAndShow(new PerkOfferScreen(payload));
+	}
+
+	/**
+	 * 선택자 뽑기 연출을 연다.
+	 *
+	 * <p>선택창과 같은 이유로 사망 화면만은 밀어내지 않는다. 연출을 못 봐도 곧이어 오는
+	 * 선택창이 알아서 뜨고, 그마저 못 봐도 서버가 시간이 다 되면 대신 골라 준다.
+	 */
+	private static void openDrawScreen(Minecraft client, PerkDrawPayload payload) {
+		if (client.gui.screen() instanceof DeathScreen) {
+			return;
+		}
+		client.setScreenAndShow(new PerkDrawScreen(payload));
+	}
+
+	/**
+	 * 골라진 증강을 선택창에 표시한다.
+	 *
+	 * <p>선택창이 떠 있지 않으면 아무것도 하지 않는다. 사망 화면을 보고 있었거나 창을 놓친
+	 * 사람에게 억지로 띄우지는 않는다. 무엇이 정해졌는지는 채팅으로도 나간다.
+	 */
+	private static void showPerkResult(Minecraft client, PerkResultPayload payload) {
+		if (client.gui.screen() instanceof PerkOfferScreen offer) {
+			offer.showResult(payload.perkId(), payload.chooserName(), payload.holdTicks());
+		}
 	}
 
 	/**

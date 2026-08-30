@@ -338,7 +338,8 @@ public final class PerkManager {
 		commit(server, manager, team, state, perk,
 				player.getGameProfile().name() + "님이 " + gradeAndName(perk) + " 을(를) 골랐습니다.");
 		// 선택이 끝났으니 시간을 다시 흐르게 하고 팀 전원의 창을 닫는다.
-		PerkChoiceSession.onChoiceApplied(server, team.teamId(), milestone);
+		PerkChoiceSession.onChoiceApplied(server, team.teamId(), milestone,
+				perk.id(), player.getGameProfile().name());
 	}
 
 	/**
@@ -376,6 +377,8 @@ public final class PerkManager {
 		}
 		commit(server, manager, team, state, perk,
 				"시간이 다 되어 " + gradeAndName(perk) + " 이(가) 무작위로 선택되었습니다.");
+		// 자동 선택도 직접 고른 것과 똑같이 결과를 보여 준다. 고른 사람 이름은 비운다.
+		PerkChoiceSession.onChoiceApplied(server, teamId, milestone, perk.id(), "");
 	}
 
 	/** 후보 중 지금 실제로 가져갈 수 있는 것 하나를 무작위로 고른다. 하나도 없으면 null. */
@@ -530,15 +533,19 @@ public final class PerkManager {
 
 	// ------------------------------------------------------------------ 조회와 알림
 
-	public static List<String> ownedLines(ServerPlayer player) {
+	public static List<PerkSyncPayload.Owned> ownedLines(ServerPlayer player) {
 		TeamState state = com.sharedfate.team.TeamLookup.stateOf(player.getUUID());
 		if (state == null || state.ownedPerks.isEmpty()) {
 			return List.of();
 		}
-		List<String> lines = new ArrayList<>();
+		List<PerkSyncPayload.Owned> lines = new ArrayList<>();
 		for (String perkId : state.ownedPerks) {
 			Perk perk = PerkRegistry.byId(perkId).orElse(null);
-			lines.add(perk == null ? perkId : perk.name());
+			// 정의가 사라진 증강도 보유 목록에는 남아 있다. 식별자라도 보여 준다.
+			lines.add(perk == null
+					? new PerkSyncPayload.Owned(perkId, "정의를 찾을 수 없는 증강입니다.", "silver")
+					: new PerkSyncPayload.Owned(perk.name(), perk.description(),
+							perk.rarity().name().toLowerCase(java.util.Locale.ROOT)));
 		}
 		return lines;
 	}

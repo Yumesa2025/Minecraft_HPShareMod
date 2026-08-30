@@ -8,6 +8,16 @@
 )
 
 $ErrorActionPreference = 'Stop'
+
+# 콘솔을 UTF-8 로 맞춘다. Windows 콘솔은 기본이 CP949 인데 Java 와 이 스크립트는
+# UTF-8 로 찍으므로, 맞춰 두지 않으면 한글이 전부 깨져 보인다.
+try {
+    chcp 65001 > $null
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch {
+    Write-Host '[SharedFate] 콘솔 인코딩을 UTF-8 로 바꾸지 못했습니다. 한글이 깨질 수 있습니다.'
+}
 $markerName = '.sharedfate-world-reset.pending'
 $markerHeader = 'sharedfate-world-reset-v1'
 $runStateName = 'sharedfate-run-state.json'
@@ -163,7 +173,11 @@ if ($null -eq $jarParent -or
 Set-Location -LiteralPath $resolvedServerRoot
 while ($true) {
     Write-Host '[SharedFate] Minecraft 서버를 시작합니다.' -ForegroundColor Cyan
-    & $JavaExecutable "-Xms$MinMemory" "-Xmx$MaxMemory" '-jar' $resolvedJar 'nogui'
+    # Java 가 콘솔로 내보내는 글자도 UTF-8 로 고정한다. stdout/stderr 인코딩을 지정하지
+    # 않으면 Windows 에서는 콘솔 코드페이지를 따라가 위에서 맞춰 둔 것과 어긋난다.
+    & $JavaExecutable "-Xms$MinMemory" "-Xmx$MaxMemory" `
+        '-Dfile.encoding=UTF-8' '-Dstdout.encoding=UTF-8' '-Dstderr.encoding=UTF-8' `
+        '-jar' $resolvedJar 'nogui'
     $serverExitCode = $LASTEXITCODE
 
     if (-not (Test-Path -LiteralPath $markerPath)) {

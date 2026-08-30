@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
+import com.sharedfate.team.TeamState;
 import net.minecraft.server.MinecraftServer;
 
 import java.io.IOException;
@@ -22,11 +23,37 @@ import java.util.UUID;
 
 public final class TeamRosterStore {
 	public static final String FILE_NAME = "sharedfate-team-roster.json";
-	private static final int FORMAT_VERSION = 1;
+	/**
+	 * 2: 팀 설정(증강 사용 여부·최대 체력·위치 교환 주기)을 함께 적기 시작했다.
+	 *
+	 * <p>1로 적힌 예전 파일도 그대로 읽는다. 설정 항목이 없으면 기본값으로 시작한다.
+	 */
+	private static final int FORMAT_VERSION = 2;
+	private static final int LEGACY_FORMAT_VERSION = 1;
 	private static final int MAX_STORED_TEAMS = 1024;
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-	private record StoredTeam(String teamId, String name, List<String> members) {
+	/**
+	 * 회차를 넘겨 이어 갈 팀 설정.
+	 *
+	 * <p>보유 증강은 여기 담지 않는다. 증강은 회차마다 새로 고르는 것이 규칙이라 이어지면
+	 * 안 되고, 이어져야 하는 것은 <b>"이 팀은 증강을 쓰기로 했다"</b> 는 결정뿐이다.
+	 * 최대 체력과 위치 교환 주기도 같은 이유로 결정에 해당한다.
+	 *
+	 * @param perksEnabled       증강을 쓰기로 한 팀인가
+	 * @param maxHealth          팀이 정한 공유 최대 체력. 증강 보너스가 아닌 기본값이다
+	 * @param swapIntervalTicks  위치 교환 주기(틱). 꺼져 있으면 0
+	 */
+	private record StoredSettings(boolean perksEnabled, float maxHealth, int swapIntervalTicks) {
+	}
+
+	private record StoredTeam(String teamId, String name, List<String> members,
+			StoredSettings settings) {
+	}
+
+	/** 명단과 그 팀이 이어 갈 설정을 함께 들고 다니는 짝. */
+	public record RestoredTeam(ShareTeam team, boolean perksEnabled, float maxHealth,
+			int swapIntervalTicks) {
 	}
 
 	private record StoredRoster(int formatVersion, List<StoredTeam> teams) {
@@ -40,7 +67,7 @@ public final class TeamRosterStore {
 		TeamManager manager = TeamManager.get(server);
 		try {
 			if (!manager.allTeams().isEmpty()) {
-				save(file, manager.allTeams());
+				save(file, snapshot(manager));
 				SharedFateMod.LOGGER.info(
 						"[TEAM-ROSTER] 현재 월드 팀 명단 저장: teams={}", manager.allTeams().size());
 				return;
@@ -48,8 +75,7 @@ public final class TeamRosterStore {
 			if (!Files.exists(file)) {
 				return;
 			}
-			int restored = manager.restoreFreshRoster(
-					load(file), (float) SharedFateMod.config.sharedMaxHealth);
+			int restored = manager.restoreFreshRoster(load(file));
 			SharedFateMod.LOGGER.info(
 					"[TEAM-ROSTER] 새 월드 팀 명단 복원·공유 자원 초기화: teams={}", restored);
 		} catch (IOException | IllegalArgumentException | IllegalStateException e) {
@@ -67,14 +93,30 @@ public final class TeamRosterStore {
 	}
 
 	public static void saveCurrent(MinecraftServer server) throws IOException {
-		save(rosterFile(server), TeamManager.get(server).allTeams());
+		save(rosterFile(server), snapshot(TeamManager.get(server)));
 	}
 
-	static void save(Path file, Collection<ShareTeam> teams) throws IOException {
+	/** 지금 팀들의 명단과 이어 갈 설정을 함께 뜬다. */
+	private static List<RestoredTeam> snapshot(TeamManager manager) {
+		List<RestoredTeam> result = new ArrayList<>();
+		for (ShareTeam team : manager.allTeams()) {
+			TeamState state = manager.stateByTeamId(team.teamId());
+			if (state == null) {
+				continue;
+			}
+			result.add(new RestoredTeam(team, state.perksEnabled, state.baseMaxHealth,
+					state.positionSwapIntervalTicks));
+		}
+		return result;
+	}
+
+	static void save(Path file, Collection<RestoredTeam> teams) throws IOException {
 		List<StoredTeam> storedTeams = teams.stream()
-				.map(team -> new StoredTeam(
-						team.teamId().toString(), team.name(),
-						team.members().stream().map(UUID::toString).toList()))
+				.map(entry -> new StoredTeam(
+						entry.team().teamId().toString(), entry.team().name(),
+						entry.team().members().stream().map(UUID::toString).toList(),
+						new StoredSettings(entry.perksEnabled(), entry.maxHealth(),
+								entry.swapIntervalTicks())))
 				.toList();
 		StoredRoster roster = new StoredRoster(FORMAT_VERSION, storedTeams);
 		Path parent = file.getParent();
@@ -93,7 +135,7 @@ public final class TeamRosterStore {
 		}
 	}
 
-	static List<ShareTeam> load(Path file) throws IOException {
+	static List<RestoredTeam> load(Path file) throws IOException {
 		if (!Files.isRegularFile(file)) {
 			throw new IOException("팀 명단이 일반 파일이 아닙니다: " + file);
 		}
@@ -103,12 +145,14 @@ public final class TeamRosterStore {
 		} catch (RuntimeException e) {
 			throw new IOException("팀 명단 JSON이 손상되었습니다: " + file, e);
 		}
-		if (stored == null || stored.formatVersion() != FORMAT_VERSION
-				|| stored.teams() == null || stored.teams().size() > MAX_STORED_TEAMS) {
+		boolean known = stored != null
+				&& (stored.formatVersion() == FORMAT_VERSION
+						|| stored.formatVersion() == LEGACY_FORMAT_VERSION);
+		if (!known || stored.teams() == null || stored.teams().size() > MAX_STORED_TEAMS) {
 			throw new IOException("지원하지 않거나 손상된 팀 명단입니다: " + file);
 		}
 
-		List<ShareTeam> teams = new ArrayList<>();
+		List<RestoredTeam> teams = new ArrayList<>();
 		try {
 			for (StoredTeam team : stored.teams()) {
 				if (team == null || team.teamId() == null || team.name() == null
@@ -116,12 +160,29 @@ public final class TeamRosterStore {
 					throw new IllegalArgumentException("필수 팀 필드가 없습니다.");
 				}
 				List<UUID> members = team.members().stream().map(UUID::fromString).toList();
-				teams.add(new ShareTeam(UUID.fromString(team.teamId()), team.name(), members));
+				ShareTeam share = new ShareTeam(UUID.fromString(team.teamId()), team.name(), members);
+				// 형식 1 에는 설정이 없다. 그때는 기본값으로 시작한다.
+				StoredSettings settings = team.settings();
+				teams.add(settings == null
+						? new RestoredTeam(share, false, defaultMaxHealth(), 0)
+						: new RestoredTeam(share, settings.perksEnabled(),
+								settings.maxHealth(), settings.swapIntervalTicks()));
 			}
 		} catch (RuntimeException e) {
 			throw new IOException("팀 명단 값이 손상되었습니다: " + file, e);
 		}
 		return List.copyOf(teams);
+	}
+
+	/**
+	 * 설정이 없는 예전 명단을 읽을 때 쓸 최대 체력.
+	 *
+	 * <p>{@code SharedFateMod.config} 는 서버가 뜨기 전이나 단위 시험에서는 null 이다.
+	 * 그때는 모드 기본값 20 으로 둔다.
+	 */
+	private static float defaultMaxHealth() {
+		return SharedFateMod.config == null
+				? 20.0F : (float) SharedFateMod.config.sharedMaxHealth;
 	}
 
 	private static Path rosterFile(MinecraftServer server) {

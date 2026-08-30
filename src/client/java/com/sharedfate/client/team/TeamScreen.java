@@ -1,7 +1,10 @@
 package com.sharedfate.client.team;
 
 import com.sharedfate.client.ClientTeamState;
+import com.sharedfate.client.perk.ClientPerkFeatures;
 import com.sharedfate.client.perk.PerkClientState;
+import com.sharedfate.net.PerkSyncPayload;
+import com.sharedfate.perk.effect.HideHudEffect;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -303,11 +306,17 @@ public class TeamScreen extends Screen {
 				left, y, TEXT_WARN);
 		y += ROW_HEIGHT + 2;
 
-		Player player = this.minecraft == null ? null : this.minecraft.player;
-		String health = player == null
-				? trimZero(ClientTeamState.maxHealth())
-				: trimZero(player.getHealth()) + " / " + trimZero(ClientTeamState.maxHealth());
-		graphics.text(this.font, "공유 체력 " + health, left, y, TEXT_MAIN);
+		// 「장님 거인」처럼 체력 표시를 가리는 증강이 걸려 있으면 여기서도 감춘다.
+		// HUD 만 가리고 이 창에서 그대로 보여 주면 증강의 대가가 무의미해진다.
+		if (ClientPerkFeatures.isHidden(HideHudEffect.Element.HEALTH)) {
+			graphics.text(this.font, "공유 체력 ???  (증강으로 가려짐)", left, y, TEXT_DIM);
+		} else {
+			Player player = this.minecraft == null ? null : this.minecraft.player;
+			String health = player == null
+					? trimZero(ClientTeamState.maxHealth())
+					: trimZero(player.getHealth()) + " / " + trimZero(ClientTeamState.maxHealth());
+			graphics.text(this.font, "공유 체력 " + health, left, y, TEXT_MAIN);
+		}
 		y += ROW_HEIGHT;
 		graphics.text(this.font, "위치 교환 " + (ClientTeamState.swapEnabled()
 				? ClientTeamState.swapIntervalMinutes() + "분 주기" : "꺼짐"), left, y, TEXT_DIM);
@@ -381,21 +390,40 @@ public class TeamScreen extends Screen {
 			graphics.text(this.font, "이 팀은 증강을 쓰지 않습니다.", left, y, TEXT_DIM);
 			return;
 		}
-		List<String> owned = PerkClientState.ownedLines();
+		List<PerkSyncPayload.Owned> owned = PerkClientState.owned();
 		if (owned.isEmpty()) {
 			graphics.text(this.font, "아직 고른 증강이 없습니다.", left, y, TEXT_DIM);
 			return;
 		}
 		graphics.text(this.font, "보유 증강 " + owned.size() + "개", left, y, TEXT_MAIN);
 		y += ROW_HEIGHT + 2;
-		for (String line : owned) {
+		for (PerkSyncPayload.Owned perk : owned) {
 			if (y > this.height - 60) {
 				graphics.text(this.font, "…", left, y, TEXT_DIM);
 				break;
 			}
-			graphics.text(this.font, "· " + line, left, y, TEXT_DIM);
+			graphics.text(this.font, "· " + perk.name(), left, y, rarityColor(perk.rarity()));
 			y += ROW_HEIGHT;
+			// 설명은 폭에 맞춰 접는다. 이름만으로는 무엇을 들고 있는지 알 수 없다.
+			for (net.minecraft.util.FormattedCharSequence line
+					: this.font.split(Component.literal(perk.description()), PANEL_WIDTH - 8)) {
+				if (y > this.height - 60) {
+					break;
+				}
+				graphics.text(this.font, line, left + 8, y, TEXT_DIM);
+				y += ROW_HEIGHT;
+			}
+			y += 2;
 		}
+	}
+
+	/** 등급별 글자색. 서버가 보낸 등급 이름을 그대로 받는다. */
+	private static int rarityColor(String rarity) {
+		return switch (rarity) {
+			case "gold" -> 0xFFFFC63A;
+			case "prism" -> 0xFF5FE0D8;
+			default -> 0xFFC0C6CC;
+		};
 	}
 
 	// ------------------------------------------------------------------ 거들기

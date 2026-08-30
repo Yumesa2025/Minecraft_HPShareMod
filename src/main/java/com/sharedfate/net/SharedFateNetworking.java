@@ -21,7 +21,9 @@ public final class SharedFateNetworking {
 	// 11: /shareteam 화면 — TeamSyncPayload 에 팀 이름·최대 체력·교환 주기·증강 사용
 	//     여부·리더 UUID 를 추가하고 OpenTeamScreenPayload 를 신설했다.
 	//     TeamSyncPayload 의 형식 자체가 바뀌었으므로 예전 클라이언트는 읽지 못한다.
-	public static final int PROTOCOL_VERSION = 11;
+	// 12: 증강 선택 연출 — PerkDrawPayload(선택자 뽑기)·PerkResultPayload(고른 카드 보여주기)
+	//     신설, PerkSyncPayload 가 이름만이 아니라 설명·등급까지 담도록 바뀌었다.
+	public static final int PROTOCOL_VERSION = 12;
 
 	private SharedFateNetworking() {
 	}
@@ -39,6 +41,9 @@ public final class SharedFateNetworking {
 				PerkClientFeaturesPayload.TYPE, PerkClientFeaturesPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(
 				OpenTeamScreenPayload.TYPE, OpenTeamScreenPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(PerkDrawPayload.TYPE, PerkDrawPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(
+				PerkResultPayload.TYPE, PerkResultPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(SelectedSlotC2SPayload.TYPE, SelectedSlotC2SPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(PerkChoiceC2SPayload.TYPE, PerkChoiceC2SPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DoubleJumpPayload.TYPE, DoubleJumpPayload.CODEC);
