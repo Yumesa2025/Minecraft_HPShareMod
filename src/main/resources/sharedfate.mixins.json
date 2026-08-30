@@ -30,6 +30,7 @@
     "PlayerBannedToolMixin",
     "SlotOffhandLockMixin",
     "PlayerMiningSpeedMixin",
+    "EnchantmentHelperLootingMixin",
     "ServerPlayerCritMixin",
     "ServerPlayerDeathMessageMixin",
     "SlotAccessor"

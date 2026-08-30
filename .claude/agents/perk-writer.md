@@ -21,8 +21,8 @@ model: sonnet
 
 | 등급 | 지금 | 목표 |
 |---|---|---|
-| silver | 14 | **50** |
-| gold | 18 | **50** |
+| silver | 25 | **50** |
+| gold | 26 | **50** |
 | prism | 15 | **25** |
 
 한 회차에 증강을 7번만 고른다. 풀이 커지는 이유는 게임이 굴러가게 하려는 것이 아니라
@@ -92,7 +92,7 @@ unzip -p "$CL" assets/minecraft/lang/en_us.json | grep -oE '"(effect\.minecraft|
 쓰므로 lang 검사는 삭제된 아이템도 통과시킨다. 실제로 26.2 에서 `minecraft:chain` 은
 `minecraft:iron_chain` 으로 바뀌었는데 lang 검사가 통과시킨 적이 있다.
 
-## 쓸 수 있는 효과 타입 40종
+## 쓸 수 있는 효과 타입 41종
 
 각 타입의 JSON 형식은 `src/main/java/com/sharedfate/perk/effect/` 의 해당 클래스
 **맨 위 주석**에 예시와 함께 적혀 있다. 새 타입을 만들기 전에 **반드시 기존 것으로
@@ -102,7 +102,7 @@ unzip -p "$CL" assets/minecraft/lang/en_us.json | grep -oE '"(effect\.minecraft|
 |---|---|
 | 능력치·피해 | `attribute` `damage_dealt` `damage_taken` `damage_taken_from` `weapon_damage` `lifesteal` `on_critical` |
 | 상태이상 | `status_effect` `conditional` `periodic` `holder` |
-| 몹 | `mob_health` `mob_damage` `on_kill` |
+| 몹 | `mob_health` `mob_damage` `on_kill` `loot_bonus` |
 | 체력·허기 | `max_health_bonus` `max_health_lock` `hunger_drain` `no_hunger_drain` `no_food_hunger` `food_nutrition` `no_natural_regen` |
 | 채굴·블록 | `mining_speed` `bonus_drop` `on_break` |
 | 아이템·장비 | `item_grant` `equip_ban` `item_ban` `offhand_lock` |

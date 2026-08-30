@@ -21,6 +21,7 @@ import com.sharedfate.perk.effect.HungerDrainEffect;
 import com.sharedfate.perk.effect.ItemBanEffect;
 import com.sharedfate.perk.effect.ItemGrantEffect;
 import com.sharedfate.perk.effect.LifestealEffect;
+import com.sharedfate.perk.effect.LootBonusEffect;
 import com.sharedfate.perk.effect.HolderEffect;
 import com.sharedfate.perk.effect.MaxHealthBonusEffect;
 import com.sharedfate.perk.effect.MaxHealthLockEffect;
@@ -100,6 +101,7 @@ public enum PerkEffectType {
 	DOUBLE_JUMP("double_jump", DoubleJumpEffect::fromJson),
 	HIDE_HUD("hide_hud", HideHudEffect::fromJson),
 	WEAPON_DAMAGE("weapon_damage", WeaponDamageEffect::fromJson),
+	LOOT_BONUS("loot_bonus", LootBonusEffect::fromJson),
 	CUSTOM("custom", CustomEffect::fromJson);
 
 	/** 효과 하나를 만드는 팩토리. 정의가 잘못됐으면 {@code null}을 돌려준다. */

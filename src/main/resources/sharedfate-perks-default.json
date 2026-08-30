@@ -888,6 +888,256 @@
       ]
     },
     {
+      "id": "sharedfate:arrow_guard",
+      "icon": "minecraft:arrow",
+      "name": "화살막이",
+      "description": "화살과 던진 것에 받는 피해가 ×0.7 이 됩니다. 대신 폭발 피해를 ×1.5 로 받습니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "damage_taken_from",
+          "multiplier": 0.7,
+          "sources": [
+            "#minecraft:is_projectile"
+          ]
+        },
+        {
+          "type": "damage_taken_from",
+          "multiplier": 1.5,
+          "sources": [
+            "#minecraft:is_explosion"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:practiced_wrist",
+      "icon": "minecraft:golden_pickaxe",
+      "name": "익숙한 손목",
+      "description": "모든 블록의 채굴 속도가 15% 빨라집니다. 대신 공격력이 15% 감소합니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "attribute",
+          "attribute": "minecraft:block_break_speed",
+          "operation": "add_multiplied_total",
+          "amount": 0.15
+        },
+        {
+          "type": "attribute",
+          "attribute": "minecraft:attack_damage",
+          "operation": "add_multiplied_total",
+          "amount": -0.15
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:woodcutters_greed",
+      "icon": "minecraft:oak_log",
+      "name": "나무꾼의 욕심",
+      "description": "원목을 캘 때 25% 확률로 하나 더 나옵니다. 대신 광석의 채굴 속도가 30% 감소합니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "bonus_drop",
+          "chance": 0.25,
+          "blocks": [
+            "#minecraft:logs"
+          ]
+        },
+        {
+          "type": "mining_speed",
+          "multiplier": 0.7,
+          "blocks": [
+            "#c:ores",
+            "#minecraft:coal_ores",
+            "#minecraft:copper_ores",
+            "#minecraft:diamond_ores",
+            "#minecraft:emerald_ores",
+            "#minecraft:gold_ores",
+            "#minecraft:iron_ores",
+            "#minecraft:lapis_ores",
+            "#minecraft:redstone_ores",
+            "minecraft:nether_quartz_ore",
+            "minecraft:nether_gold_ore",
+            "minecraft:ancient_debris"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:trophy_shield",
+      "icon": "minecraft:gold_ingot",
+      "name": "전리품 방패",
+      "description": "몹을 처치하면 8초간 흡수 I 을 얻습니다. 대신 최대 체력이 2 감소합니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "on_kill",
+          "effects": [
+            {
+              "type": "status_effect",
+              "effect": "minecraft:absorption",
+              "amplifier": 0,
+              "duration": 8
+            }
+          ]
+        },
+        {
+          "type": "max_health_bonus",
+          "amount": -2.0
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:in_step",
+      "icon": "minecraft:goat_horn",
+      "name": "발맞춰 걷기",
+      "description": "팀원 전원이 16칸 안에 있으면 신속 I 을 얻습니다. 대신 모든 몹의 체력이 ×1.15 가 됩니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "proximity",
+          "distance": 16,
+          "effects": [
+            {
+              "type": "status_effect",
+              "effect": "minecraft:speed",
+              "amplifier": 0,
+              "duration": 3
+            }
+          ]
+        },
+        {
+          "type": "mob_health",
+          "multiplier": 1.15,
+          "excludes": [
+            "minecraft:ender_dragon"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:light_disguise",
+      "icon": "minecraft:dried_kelp",
+      "name": "가벼운 위장",
+      "description": "움직일 때 허기 소모가 30% 줄어듭니다. 대신 받는 피해가 ×1.15 가 됩니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "hunger_drain",
+          "multiplier": 0.7
+        },
+        {
+          "type": "damage_taken",
+          "multiplier": 1.15
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:bare_skin_resolve",
+      "icon": "minecraft:leather",
+      "name": "맨살의 각오",
+      "description": "방어력이 2 증가합니다. 대신 채굴 속도가 15% 감소합니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "attribute",
+          "attribute": "minecraft:armor",
+          "operation": "add_value",
+          "amount": 2.0
+        },
+        {
+          "type": "attribute",
+          "attribute": "minecraft:block_break_speed",
+          "operation": "add_multiplied_total",
+          "amount": -0.15
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:small_frame",
+      "icon": "minecraft:rabbit_foot",
+      "name": "작아진 몸",
+      "description": "몸 크기가 0.85배가 됩니다. 대신 공격력이 15% 감소합니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "attribute",
+          "attribute": "minecraft:scale",
+          "operation": "add_multiplied_total",
+          "amount": -0.15
+        },
+        {
+          "type": "attribute",
+          "attribute": "minecraft:attack_damage",
+          "operation": "add_multiplied_total",
+          "amount": -0.15
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:sweeping_edge",
+      "icon": "minecraft:diamond_sword",
+      "name": "휩쓸기",
+      "description": "검의 휩쓸기 공격이 온전한 피해를 줍니다. 대신 공격력이 20% 감소합니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "attribute",
+          "attribute": "minecraft:sweeping_damage_ratio",
+          "operation": "add_value",
+          "amount": 1.0
+        },
+        {
+          "type": "attribute",
+          "attribute": "minecraft:attack_damage",
+          "operation": "add_multiplied_total",
+          "amount": -0.2
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:hushed_step",
+      "icon": "minecraft:chainmail_boots",
+      "name": "숨죽인 걸음",
+      "description": "웅크린 채로도 거의 평소 속도로 움직입니다. 대신 서서 걷는 속도가 10% 감소합니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "attribute",
+          "attribute": "minecraft:sneaking_speed",
+          "operation": "add_value",
+          "amount": 0.6
+        },
+        {
+          "type": "attribute",
+          "attribute": "minecraft:movement_speed",
+          "operation": "add_multiplied_total",
+          "amount": -0.1
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:lucky_day",
+      "icon": "minecraft:fishing_rod",
+      "name": "운수 좋은 날",
+      "description": "행운이 3 증가해 낚시와 상자 전리품의 등급이 올라갑니다. 대신 몹에게 받는 피해가 ×1.15 가 됩니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "attribute",
+          "attribute": "minecraft:luck",
+          "operation": "add_value",
+          "amount": 3.0
+        },
+        {
+          "type": "mob_damage",
+          "multiplier": 1.15
+        }
+      ]
+    },
+    {
       "id": "sharedfate:fortress_finder",
       "icon": "minecraft:compass",
       "name": "요새 탐지기",
@@ -1203,6 +1453,188 @@
         {
           "type": "damage_taken",
           "multiplier": 1.15
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:lone_swordsman",
+      "icon": "minecraft:stone_sword",
+      "name": "외길 검사",
+      "description": "검의 공격력이 ×1.5 가 됩니다. 대신 방어력이 5 감소합니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "weapon_damage",
+          "tags": [
+            "minecraft:swords"
+          ],
+          "multiplier": 1.5
+        },
+        {
+          "type": "attribute",
+          "attribute": "minecraft:armor",
+          "operation": "add_value",
+          "amount": -5.0
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:pickaxe_fighter",
+      "icon": "minecraft:iron_pickaxe",
+      "name": "곡괭이 전사",
+      "description": "곡괭이의 공격력이 ×2 가 됩니다. 대신 그 밖의 무기와 도구의 공격력이 1이 됩니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "weapon_damage",
+          "tags": [
+            "minecraft:pickaxes"
+          ],
+          "multiplier": 2.0,
+          "othersDamage": 1.0
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:giant",
+      "icon": "minecraft:iron_block",
+      "name": "거인",
+      "description": "몸 크기가 1.2배가 되고 최대 체력이 6 증가합니다. 대신 받는 피해가 ×1.3 이 됩니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "attribute",
+          "attribute": "minecraft:scale",
+          "operation": "add_multiplied_total",
+          "amount": 0.2
+        },
+        {
+          "type": "max_health_bonus",
+          "amount": 6.0
+        },
+        {
+          "type": "damage_taken",
+          "multiplier": 1.3
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:knockback_blow",
+      "icon": "minecraft:piston",
+      "name": "밀어내기",
+      "description": "때린 적이 크게 날아갑니다. 대신 공격력이 25% 감소합니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "attribute",
+          "attribute": "minecraft:attack_knockback",
+          "operation": "add_value",
+          "amount": 2.0
+        },
+        {
+          "type": "attribute",
+          "attribute": "minecraft:attack_damage",
+          "operation": "add_multiplied_total",
+          "amount": -0.25
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:moonwalker",
+      "icon": "minecraft:phantom_membrane",
+      "name": "달 위를 걷다",
+      "description": "중력이 30% 줄어 높이 뛰고 천천히 떨어집니다. 대신 넉백을 크게 받습니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "attribute",
+          "attribute": "minecraft:gravity",
+          "operation": "add_multiplied_total",
+          "amount": -0.3
+        },
+        {
+          "type": "attribute",
+          "attribute": "minecraft:knockback_resistance",
+          "operation": "add_value",
+          "amount": -1.0
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:offbeat",
+      "icon": "minecraft:note_block",
+      "name": "엇박자",
+      "description": "15초간 힘 I 을 얻습니다. 대신 이어지는 10초간 나약함 I 을 얻고, 이것이 계속 반복됩니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "periodic",
+          "period_ticks": 500,
+          "phases": [
+            {
+              "ticks": 300,
+              "effects": [
+                {
+                  "type": "status_effect",
+                  "effect": "minecraft:strength",
+                  "amplifier": 0
+                }
+              ]
+            },
+            {
+              "ticks": 200,
+              "effects": [
+                {
+                  "type": "status_effect",
+                  "effect": "minecraft:weakness",
+                  "amplifier": 0
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:icy_feet",
+      "icon": "minecraft:blue_ice",
+      "name": "얼음 발",
+      "description": "이동 속도가 25% 증가합니다. 대신 땅이 얼음처럼 미끄러워집니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "attribute",
+          "attribute": "minecraft:movement_speed",
+          "operation": "add_multiplied_total",
+          "amount": 0.25
+        },
+        {
+          "type": "attribute",
+          "attribute": "minecraft:friction_modifier",
+          "operation": "add_multiplied_total",
+          "amount": 0.5
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:hoe_harvester",
+      "icon": "minecraft:diamond_hoe",
+      "name": "수확자",
+      "description": "다이아몬드 호미로 몹을 잡으면 약탈 V 를 얻은 것처럼 전리품이 늘어납니다. 대신 공격 속도가 35% 감소합니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "loot_bonus",
+          "levels": 5,
+          "items": [
+            "minecraft:diamond_hoe"
+          ]
+        },
+        {
+          "type": "attribute",
+          "attribute": "minecraft:attack_speed",
+          "operation": "add_multiplied_total",
+          "amount": -0.35
         }
       ]
     }
