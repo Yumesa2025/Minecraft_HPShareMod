@@ -107,7 +107,7 @@ public final class StatMirror {
 					continue;
 				}
 
-				StatDelta delta = collectDeltas(team, online);
+				StatDelta delta = collectDeltas(team, online, state.damageAlertEnabled);
 				int adjustedFoodDelta = FoodOverflowBuffer.get(server).apply(
 						team.teamId(), state.foodLevel, delta.foodLevel());
 				delta = new StatDelta(delta.healthLoss(), delta.healthGain(),
@@ -150,7 +150,13 @@ public final class StatMirror {
 		return player != null && !player.isRemoved() && !player.isDeadOrDying();
 	}
 
-	private static StatDelta collectDeltas(ShareTeam team, List<ServerPlayer> online) {
+	/**
+	 * @param damageAlert 이 팀이 피격 알림을 쓰는가. 꺼져 있으면 <b>서버가 패킷을 아예 보내지
+	 *                    않는다.</b> 클라이언트에서 걸러도 되지만 그러면 표시 여부를 판단하는
+	 *                    자리가 둘로 갈라진다
+	 */
+	private static StatDelta collectDeltas(ShareTeam team, List<ServerPlayer> online,
+			boolean damageAlert) {
 		UUID teamId = team.teamId();
 		List<PlayerDelta> deltas = new ArrayList<>(online.size());
 
@@ -165,7 +171,7 @@ public final class StatMirror {
 			float consumedAbsorption = consumedAbsorption(
 					last.absorption(), player.getAbsorptionAmount(), player.getMaxAbsorption());
 			recordDamage(team, player, last);
-			if (playerHealthDelta < -0.01F || consumedAbsorption > 0.01F) {
+			if (damageAlert && (playerHealthDelta < -0.01F || consumedAbsorption > 0.01F)) {
 				TeamBroadcaster.broadcastDamageAlert(online, player.getPlainTextName());
 			}
 			deltas.add(new PlayerDelta(

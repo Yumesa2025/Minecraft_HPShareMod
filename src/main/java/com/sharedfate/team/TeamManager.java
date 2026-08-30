@@ -107,8 +107,9 @@ public class TeamManager extends SavedData {
 	 * 새 회차의 빈 월드에 팀 명단과 그 팀이 정해 둔 설정을 되살린다.
 	 *
 	 * <p>공유 아이템·체력·경험치는 새로 시작하지만 <b>증강 사용 여부·최대 체력·위치 교환
-	 * 주기는 이어진다.</b> 이것들은 회차마다 달라지는 진행 상황이 아니라 팀이 한 번 내린
-	 * 결정이라, 회차가 넘어갈 때마다 다시 켜라고 하면 매번 같은 명령을 치게 된다.
+	 * 주기·두 알림 설정은 이어진다.</b> 이것들은 회차마다 달라지는 진행 상황이 아니라 팀이
+	 * 한 번 내린 결정이라, 회차가 넘어갈 때마다 다시 켜라고 하면 매번 같은 명령을 치게 된다.
+	 * 두 알림은 팀을 만들 때만 정할 수 있어 더더욱 이어져야 한다.
 	 *
 	 * <p>보유 증강은 이어지지 않는다. 회차마다 새로 고르는 것이 규칙이다.
 	 */
@@ -145,6 +146,8 @@ public class TeamManager extends SavedData {
 			ShareTeam team = entry.team();
 			TeamState state = TeamState.fresh(sanitizeMaxHealth(entry.maxHealth()));
 			state.perksEnabled = entry.perksEnabled();
+			state.damageAlertEnabled = entry.damageAlertEnabled();
+			state.deathAlertEnabled = entry.deathAlertEnabled();
 			state.positionSwapIntervalTicks = Math.max(0, entry.swapIntervalTicks());
 			teams.put(team.teamId(), team);
 			states.put(team.teamId(), state);

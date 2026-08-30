@@ -22,6 +22,7 @@ import com.sharedfate.net.PerkSyncPayload;
 import com.sharedfate.net.SelectedSlotPayload;
 import com.sharedfate.net.SharedFateNetworking;
 import com.sharedfate.net.TeamSyncPayload;
+import com.sharedfate.net.TeamWipePayload;
 import com.sharedfate.net.WorldResetPayload;
 import com.sharedfate.perk.effect.HideHudEffect;
 import com.sharedfate.inventory.ExpandedInventoryManager;
@@ -71,6 +72,8 @@ public class SharedFateClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(WorldResetPayload.TYPE,
 				(payload, context) -> GameOverClientDisplay.show(
 						payload.runNumber(), payload.delayTicks()));
+		ClientPlayNetworking.registerGlobalReceiver(TeamWipePayload.TYPE,
+				(payload, context) -> GameOverClientDisplay.showVictim(payload.victimName()));
 
 		// /shareteam 화면. 네트워크 스레드에서 화면을 열 수 없으므로 클라이언트 스레드로 넘긴다.
 		// 다른 창이 이미 떠 있으면 열지 않는다. 증강 강제 선택 창을 밀어내면 안 된다.

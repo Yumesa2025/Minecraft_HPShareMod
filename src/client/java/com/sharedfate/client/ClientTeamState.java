@@ -24,6 +24,8 @@ public final class ClientTeamState {
 	private static float maxHealth = 20.0F;
 	private static int swapIntervalMinutes;
 	private static boolean perksEnabled;
+	private static boolean damageAlertEnabled;
+	private static boolean deathAlertEnabled;
 	private static boolean leader;
 
 	private ClientTeamState() {
@@ -50,6 +52,8 @@ public final class ClientTeamState {
 		maxHealth = payload.maxHealth();
 		swapIntervalMinutes = payload.swapIntervalMinutes();
 		perksEnabled = payload.perksEnabled();
+		damageAlertEnabled = payload.damageAlertEnabled();
+		deathAlertEnabled = payload.deathAlertEnabled();
 		leader = payload.isLeader(localPlayer);
 		for (TeamSyncPayload.Member member : payload.members()) {
 			MEMBER_NAMES.put(member.id(), member.name());
@@ -71,6 +75,8 @@ public final class ClientTeamState {
 		maxHealth = 20.0F;
 		swapIntervalMinutes = 0;
 		perksEnabled = false;
+		damageAlertEnabled = false;
+		deathAlertEnabled = false;
 		leader = false;
 	}
 
@@ -115,6 +121,16 @@ public final class ClientTeamState {
 	/** 이 팀이 증강을 쓰는가. */
 	public static boolean perksEnabled() {
 		return perksEnabled;
+	}
+
+	/** 이 팀이 피격 알림을 쓰는가. 팀을 만들 때 정한 값이라 바뀌지 않는다. */
+	public static boolean damageAlertEnabled() {
+		return damageAlertEnabled;
+	}
+
+	/** 이 팀이 사망 알림을 쓰는가. 팀을 만들 때 정한 값이라 바뀌지 않는다. */
+	public static boolean deathAlertEnabled() {
+		return deathAlertEnabled;
 	}
 
 	/** 내가 팀 리더인가. 설정 단추를 열지 말지 정하는 데 쓴다. */

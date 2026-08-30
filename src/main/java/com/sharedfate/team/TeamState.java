@@ -60,8 +60,11 @@ public class TeamState {
 	public int positionSwapIntervalTicks;
 	public int positionSwapRemainingTicks;
 
-	/** 증강 시스템 사용 여부. 팀 생성 시 리더가 정하고 그 뒤로는 바뀌지 않는다. */
 	public boolean perksEnabled;
+	/** 피격 알림 표시 여부. 팀을 만들 때 정하고 그 뒤로는 바꾸는 경로가 없다. */
+	public boolean damageAlertEnabled;
+	/** 사망 알림 표시 여부. 팀을 만들 때 정하고 그 뒤로는 바꾸는 경로가 없다. */
+	public boolean deathAlertEnabled;
 	/** 마지막으로 처리한 레벨 구간 (0, 3, 6, …, 36). */
 	public int lastPerkMilestone;
 	/** 팀이 보유한 증강의 id. 중첩이 없으므로 같은 id 가 두 번 들어가지 않는다. */
@@ -310,6 +313,38 @@ public class TeamState {
 		}
 	}
 
+	/**
+	 * 알림 설정 저장 묶음.
+	 *
+	 * <p>{@link PerkSection} 과 같은 이유로 따로 묶는다. {@code TeamState.CODEC} 의 본체는
+	 * {@code BASE_CODEC} 이 이미 {@code RecordCodecBuilder.group} 인자 상한(P16)을 다 쓰고
+	 * 있어, 새 항목은 바깥쪽에 묶음으로만 붙일 수 있다.
+	 *
+	 * <p>두 항목 모두 {@code optionalFieldOf} 이고 묶음 자체도 선택 항목이라, 이 항목이 없는
+	 * 기존 월드는 {@link #NONE} — 둘 다 꺼짐 — 으로 읽힌다. 알림을 쓰지 않는 팀은 저장할 때
+	 * 이 묶음이 통째로 빠지므로 저장 형태가 예전과 같다.
+	 */
+	public record AlertSection(boolean damage, boolean death) {
+		/** 둘 다 꺼진 상태. 기본값이자 기존 월드를 읽을 때의 값이다. */
+		public static final AlertSection NONE = new AlertSection(false, false);
+
+		public static final Codec<AlertSection> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+				Codec.BOOL.optionalFieldOf("damage", false).forGetter(AlertSection::damage),
+				Codec.BOOL.optionalFieldOf("death", false).forGetter(AlertSection::death)
+		).apply(instance, AlertSection::new));
+	}
+
+	/** 현재 알림 설정을 저장용 묶음으로 뽑아낸다. */
+	public AlertSection alertSection() {
+		return new AlertSection(damageAlertEnabled, deathAlertEnabled);
+	}
+
+	/** 저장에서 읽은 알림 묶음을 이 상태에 채운다. */
+	public void applyAlertSection(AlertSection section) {
+		damageAlertEnabled = section.damage();
+		deathAlertEnabled = section.death();
+	}
+
 	/** 현재 증강 상태를 저장용 묶음으로 뽑아낸다. */
 	public PerkSection perkSection() {
 		return new PerkSection(perksEnabled, lastPerkMilestone, ownedPerks, pending);
@@ -372,14 +407,16 @@ public class TeamState {
 	 *
 	 * <p>{@code "baseMaxHealth"} 를 {@link #BASE_CODEC} 안에 넣지 않은 이유는
 	 * {@link PerkSection} 과 같다. {@code RecordCodecBuilder.group} 의 인자 상한(P16)이 이미
-	 * 다 찼다.
+	 * 다 찼다. {@code "alerts"} 도 마찬가지다.
 	 */
 	public static final Codec<TeamState> CODEC = RecordCodecBuilder.create(instance -> instance.group(
 			BASE_CODEC.<TeamState>forGetter(state -> state),
 			PerkSection.CODEC.optionalFieldOf("perks", PerkSection.EMPTY)
 					.<TeamState>forGetter(TeamState::perkSection),
 			Codec.FLOAT.optionalFieldOf("baseMaxHealth")
-					.<TeamState>forGetter(TeamState::storedBaseMaxHealth)
+					.<TeamState>forGetter(TeamState::storedBaseMaxHealth),
+			AlertSection.CODEC.optionalFieldOf("alerts", AlertSection.NONE)
+					.<TeamState>forGetter(TeamState::alertSection)
 	).apply(instance, TeamState::withStoredSections));
 
 	/**
@@ -401,8 +438,9 @@ public class TeamState {
 	 * {@code maxHealth} 였으므로 이게 정확한 복원이다.
 	 */
 	private static TeamState withStoredSections(TeamState state, PerkSection perks,
-			Optional<Float> baseMaxHealth) {
+			Optional<Float> baseMaxHealth, AlertSection alerts) {
 		state.applyPerkSection(perks);
+		state.applyAlertSection(alerts);
 		baseMaxHealth.ifPresent(value -> state.baseMaxHealth = sanitizeMaximum(value, state.maxHealth));
 		return state;
 	}

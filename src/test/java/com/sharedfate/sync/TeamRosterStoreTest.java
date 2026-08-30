@@ -25,12 +25,12 @@ class TeamRosterStoreTest {
 		Path file = server.resolve(TeamRosterStore.FILE_NAME);
 		ShareTeam team = new ShareTeam(TEAM, "원정대", List.of(A, B));
 
-		TeamRosterStore.save(file, List.of(new TeamRosterStore.RestoredTeam(team, false, 20.0F, 0)));
+		TeamRosterStore.save(file, List.of(new TeamRosterStore.RestoredTeam(team, false, 20.0F, 0, false, false)));
 
 		assertEquals(List.of(team),
 				TeamRosterStore.load(file).stream()
 						.map(TeamRosterStore.RestoredTeam::team).toList());
-		assertTrue(Files.readString(file, StandardCharsets.UTF_8).contains("\"formatVersion\": 2"));
+		assertTrue(Files.readString(file, StandardCharsets.UTF_8).contains("\"formatVersion\": 3"));
 	}
 
 	@Test
@@ -39,12 +39,43 @@ class TeamRosterStoreTest {
 		ShareTeam team = new ShareTeam(TEAM, "원정대", List.of(A, B));
 
 		TeamRosterStore.save(file,
-				List.of(new TeamRosterStore.RestoredTeam(team, true, 34.0F, 2400)));
+				List.of(new TeamRosterStore.RestoredTeam(team, true, 34.0F, 2400, true, true)));
 
 		TeamRosterStore.RestoredTeam loaded = TeamRosterStore.load(file).getFirst();
 		assertTrue(loaded.perksEnabled());
 		assertEquals(34.0F, loaded.maxHealth());
 		assertEquals(2400, loaded.swapIntervalTicks());
+		assertTrue(loaded.damageAlertEnabled());
+		assertTrue(loaded.deathAlertEnabled());
+	}
+
+	@Test
+	void 알림_항목이_없는_형식_2_명단은_둘_다_꺼진_채로_읽힌다(@TempDir Path server) throws Exception {
+		Path file = server.resolve(TeamRosterStore.FILE_NAME);
+		// 0.7.0-dev 까지의 형식. 설정 묶음은 있는데 알림 두 항목만 없다.
+		Files.writeString(file, """
+				{
+				  "formatVersion": 2,
+				  "teams": [
+				    {
+				      "teamId": "%s",
+				      "name": "원정대",
+				      "members": ["%s"],
+				      "settings": {
+				        "perksEnabled": true,
+				        "maxHealth": 34.0,
+				        "swapIntervalTicks": 2400
+				      }
+				    }
+				  ]
+				}
+				""".formatted(TEAM, A), StandardCharsets.UTF_8);
+
+		TeamRosterStore.RestoredTeam loaded = TeamRosterStore.load(file).getFirst();
+		assertTrue(loaded.perksEnabled(), "예전 항목은 그대로 읽혀야 한다");
+		assertEquals(2400, loaded.swapIntervalTicks());
+		assertFalse(loaded.damageAlertEnabled());
+		assertFalse(loaded.deathAlertEnabled());
 	}
 
 	@Test

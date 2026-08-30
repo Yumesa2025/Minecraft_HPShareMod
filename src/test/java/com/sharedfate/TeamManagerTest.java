@@ -32,7 +32,7 @@ class TeamManagerTest {
 	private static java.util.List<TeamRosterStore.RestoredTeam> roster(
 			java.util.Collection<ShareTeam> teams, float maxHealth) {
 		return teams.stream()
-				.map(team -> new TeamRosterStore.RestoredTeam(team, false, maxHealth, 0))
+				.map(team -> new TeamRosterStore.RestoredTeam(team, false, maxHealth, 0, false, false))
 				.toList();
 	}
 
@@ -109,16 +109,21 @@ class TeamManagerTest {
 		manager.addMember(team.teamId(), B, 4);
 		TeamState previous = manager.stateOf(A);
 		previous.perksEnabled = true;
+		previous.damageAlertEnabled = true;
+		previous.deathAlertEnabled = true;
 		previous.enablePositionSwap(3);
 		previous.baseMaxHealth = 34.0F;
 
 		TeamManager fresh = new TeamManager();
 		fresh.restoreFreshRoster(java.util.List.of(new TeamRosterStore.RestoredTeam(
 				team, previous.perksEnabled, previous.baseMaxHealth,
-				previous.positionSwapIntervalTicks)));
+				previous.positionSwapIntervalTicks,
+				previous.damageAlertEnabled, previous.deathAlertEnabled)));
 
 		TeamState restored = fresh.stateOf(A);
 		assertTrue(restored.perksEnabled, "증강 사용 여부는 회차를 넘겨 이어져야 한다");
+		assertTrue(restored.damageAlertEnabled, "피격 알림은 회차를 넘겨 이어져야 한다");
+		assertTrue(restored.deathAlertEnabled, "사망 알림은 회차를 넘겨 이어져야 한다");
 		assertEquals(3, restored.positionSwapIntervalMinutes());
 		assertEquals(34.0F, restored.maxHealth);
 		// 진행 상황은 이어지지 않는다.

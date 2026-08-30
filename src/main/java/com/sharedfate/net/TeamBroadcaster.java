@@ -155,6 +155,22 @@ public final class TeamBroadcaster {
 		}
 	}
 
+	/**
+	 * 전멸을 부른 사람의 이름을 팀 전원에게 보낸다.
+	 *
+	 * <p>부르는 쪽이 사망 알림 설정을 이미 확인한다. 여기서 다시 따지지 않는 이유는,
+	 * 판단이 두 곳으로 갈라지면 한쪽만 고쳐지기 때문이다.
+	 */
+	public static void broadcastTeamWipe(MinecraftServer server, ShareTeam team, String victimName) {
+		TeamWipePayload payload = new TeamWipePayload(victimName);
+		for (UUID id : team.members()) {
+			ServerPlayer player = server.getPlayerList().getPlayer(id);
+			if (player != null) {
+				sendIfSupported(player, payload);
+			}
+		}
+	}
+
 	private static TeamSyncPayload build(MinecraftServer server, ShareTeam team) {
 		List<TeamSyncPayload.Member> members = new ArrayList<>();
 		for (UUID id : team.members()) {
@@ -169,9 +185,12 @@ public final class TeamBroadcaster {
 		float maxHealth = state == null ? 20.0F : state.maxHealth;
 		int swapMinutes = state != null && state.positionSwapEnabled()
 				? state.positionSwapIntervalMinutes() : 0;
-		boolean perksEnabled = state != null && state.perksEnabled;
+		TeamSyncPayload.Options options = state == null
+				? TeamSyncPayload.Options.NONE
+				: new TeamSyncPayload.Options(state.perksEnabled,
+						state.damageAlertEnabled, state.deathAlertEnabled);
 		return new TeamSyncPayload(members, team.name(), xpLevel, nextPerkLevel,
-				maxHealth, swapMinutes, perksEnabled, team.leader());
+				maxHealth, swapMinutes, options, team.leader());
 	}
 
 	private static void sendIfSupported(ServerPlayer player, CustomPacketPayload payload) {

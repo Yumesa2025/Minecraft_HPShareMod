@@ -80,6 +80,24 @@ public class TeamScreen extends Screen {
 	/** 마지막으로 위젯을 만들 때의 팀 상태 요약. 달라지면 다시 만든다. */
 	private String lastSignature = "";
 
+	/**
+	 * 팀을 만들 때 정할 켜고 끄기 셋. 아직 팀이 없으니 서버에 있을 수 없어 화면이 들고 있다가
+	 * 「팀 만들기」를 누를 때 명령 한 줄로 보낸다. 창을 닫았다 열면 기본값으로 돌아간다.
+	 *
+	 * <p>셋 다 기본은 끔이다. 특히 두 알림은 <b>만든 뒤에 바꿀 수 없으므로</b> 켜는 것을
+	 * 일부러 손으로 고르게 한다.
+	 */
+	private boolean newTeamPerks;
+	private boolean newTeamDamageAlert;
+	private boolean newTeamDeathAlert;
+	/**
+	 * 적다 만 팀 이름.
+	 *
+	 * <p>단추를 누르면 위젯을 통째로 다시 만들므로 {@link EditBox} 도 새것이 된다. 여기에
+	 * 옮겨 두지 않으면 <b>켜고 끄기를 누를 때마다 적던 이름이 지워진다.</b>
+	 */
+	private String newTeamName = "";
+
 	public TeamScreen() {
 		super(Component.literal("SharedFate 팀"));
 	}
@@ -137,15 +155,24 @@ public class TeamScreen extends Screen {
 			nameBox = new EditBox(this.font, left, PANEL_TOP + 14, PANEL_WIDTH, BUTTON_HEIGHT,
 					Component.literal("팀 이름"));
 			nameBox.setMaxLength(MAX_TEAM_NAME_LENGTH);
+			nameBox.setValue(newTeamName);
+			nameBox.setResponder(value -> newTeamName = value);
 			addRenderableWidget(nameBox);
 
-			addRenderableWidget(Button.builder(Component.literal("증강 켜고 만들기"),
-					button -> createTeam(true))
-					.bounds(left, PANEL_TOP + 40, PANEL_WIDTH / 2 - 2, BUTTON_HEIGHT).build());
-			addRenderableWidget(Button.builder(Component.literal("증강 없이 만들기"),
-					button -> createTeam(false))
-					.bounds(left + PANEL_WIDTH / 2 + 2, PANEL_TOP + 40,
-							PANEL_WIDTH / 2 - 2, BUTTON_HEIGHT).build());
+			int y = PANEL_TOP + 40;
+			addRenderableWidget(toggle(left, y, "증강", newTeamPerks, "사용", "사용 안 함",
+					() -> newTeamPerks = !newTeamPerks));
+			y += BUTTON_HEIGHT + 2;
+			addRenderableWidget(toggle(left, y, "피격 알림", newTeamDamageAlert, "켬", "끔",
+					() -> newTeamDamageAlert = !newTeamDamageAlert));
+			y += BUTTON_HEIGHT + 2;
+			addRenderableWidget(toggle(left, y, "사망 알림", newTeamDeathAlert, "켬", "끔",
+					() -> newTeamDeathAlert = !newTeamDeathAlert));
+
+			y += BUTTON_HEIGHT + 8;
+			addRenderableWidget(Button.builder(Component.literal("팀 만들기"),
+					button -> createTeam())
+					.bounds(left, y, PANEL_WIDTH, BUTTON_HEIGHT).build());
 			return;
 		}
 
@@ -175,7 +202,24 @@ public class TeamScreen extends Screen {
 		}
 	}
 
-	private void createTeam(boolean perks) {
+	/**
+	 * 켜고 끄기 단추 하나. 누르면 값이 뒤집히고 화면을 다시 만든다.
+	 *
+	 * <p>글자만으로도 지금 값이 보이지만 색까지 바꾼다. 셋을 훑을 때 무엇이 켜져 있는지
+	 * 한눈에 들어와야 한다.
+	 */
+	private Button toggle(int left, int y, String label, boolean value,
+			String onText, String offText, Runnable flip) {
+		Component text = Component.literal(label + " — " + (value ? onText : offText))
+				.withStyle(value ? ChatFormatting.GREEN : ChatFormatting.GRAY);
+		return Button.builder(text, button -> {
+			flip.run();
+			rebuild();
+		}).bounds(left, y, PANEL_WIDTH, BUTTON_HEIGHT).build();
+	}
+
+	/** 화면이 들고 있던 셋을 모두 적어 보낸다. 적지 않은 것은 서버가 끄므로 늘 완전히 적는다. */
+	private void createTeam() {
 		if (nameBox == null) {
 			return;
 		}
@@ -183,7 +227,14 @@ public class TeamScreen extends Screen {
 		if (name.isEmpty()) {
 			return;
 		}
-		run(perks ? "create perks on " + name : "create " + name);
+		run("create perks " + onOff(newTeamPerks)
+				+ " damagealert " + onOff(newTeamDamageAlert)
+				+ " deathalert " + onOff(newTeamDeathAlert)
+				+ " " + name);
+	}
+
+	private static String onOff(boolean value) {
+		return value ? "on" : "off";
 	}
 
 	/** 팀에 없는 접속자 이름. 자기 자신은 뺀다. */
@@ -336,9 +387,14 @@ public class TeamScreen extends Screen {
 	private void renderTeam(GuiGraphicsExtractor graphics, int left) {
 		int y = PANEL_TOP;
 		if (!ClientTeamState.inTeam()) {
-			graphics.text(this.font, "새 팀 이름을 적고 아래 단추를 누르세요.", left, y, TEXT_DIM);
-			graphics.text(this.font, "증강은 만들 때 정하며 나중에 설정 탭에서 바꿉니다.",
-					left, PANEL_TOP + 66, TEXT_DIM);
+			graphics.text(this.font, "새 팀 이름을 적고 셋을 정한 뒤 만드세요.", left, y, TEXT_DIM);
+			// 「팀 만들기」 단추 바로 아래. 두 알림은 정말 되돌릴 수 없으므로 눈에 띄는 색으로
+			// 적고, 줄 수를 둘로 줄여 창이 낮을 때 닫기 단추와 겹치지 않게 한다.
+			int noteY = PANEL_TOP + 40 + (BUTTON_HEIGHT + 2) * 3 + 8 + BUTTON_HEIGHT + 6;
+			graphics.text(this.font, "피격·사망 알림은 만들 때만 정합니다. 바꾸려면 팀을 해체하세요.",
+					left, noteY, TEXT_WARN);
+			graphics.text(this.font, "증강은 나중에 설정 탭에서 바꿀 수 있습니다.",
+					left, noteY + ROW_HEIGHT, TEXT_DIM);
 			return;
 		}
 
@@ -378,6 +434,20 @@ public class TeamScreen extends Screen {
 				left, y + BUTTON_HEIGHT + 14, TEXT_MAIN);
 		graphics.text(this.font, "증강 " + (ClientTeamState.perksEnabled() ? "사용 중" : "사용 안 함"),
 				left, y + (BUTTON_HEIGHT + 14) * 2, TEXT_MAIN);
+
+		// 단추 없이 글자만. 팀을 만들 때 정해졌고 바꾸는 길이 없으므로 확인만 할 수 있다.
+		// initSettings 의 마지막 단추(증강) 아래에서 시작한다. 두 자리가 어긋나면 겹친다.
+		int alertY = PANEL_TOP + 24 + (BUTTON_HEIGHT + 14) * 2 + BUTTON_HEIGHT + 6;
+		graphics.text(this.font, "피격 알림 " + onOffText(ClientTeamState.damageAlertEnabled()),
+				left, alertY, TEXT_MAIN);
+		graphics.text(this.font, "사망 알림 " + onOffText(ClientTeamState.deathAlertEnabled()),
+				left, alertY + ROW_HEIGHT, TEXT_MAIN);
+		graphics.text(this.font, "두 알림은 팀을 만들 때 정한 값이라 바꿀 수 없습니다.",
+				left, alertY + ROW_HEIGHT * 2 + 2, TEXT_DIM);
+	}
+
+	private static String onOffText(boolean value) {
+		return value ? "켜짐" : "꺼짐";
 	}
 
 	private void renderPerks(GuiGraphicsExtractor graphics, int left) {
@@ -473,6 +543,7 @@ public class TeamScreen extends Screen {
 				+ "|" + ClientTeamState.memberIds().size() + "|" + ClientTeamState.swapEnabled()
 				+ "|" + ClientTeamState.swapIntervalMinutes() + "|" + ClientTeamState.perksEnabled()
 				+ "|" + ClientTeamState.maxHealth() + "|" + PerkClientState.hasPending()
+				+ "|" + newTeamPerks + newTeamDamageAlert + newTeamDeathAlert
 				+ "|" + invitableNames();
 	}
 
