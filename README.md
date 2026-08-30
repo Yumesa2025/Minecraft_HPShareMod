@@ -129,15 +129,34 @@ Java 25가 필요합니다. SharedFate JAR만 받았다면 Fabric API
 공중 점프, 「장님 거인」의 체력·허기 UI 숨김, 「본진이 바뀐다」·「뿌리내린 발」의 위치 교환이
 모두 의도대로 동작합니다.
 
+## 문서
+
+| 문서 | 무엇 |
+|---|---|
+| [PROGRESS.md](PROGRESS.md) | **지금 어디까지 왔고 다음에 무엇을 할지.** 서버 운영 주의사항도 여기 |
+| [CHANGELOG.md](CHANGELOG.md) | 판별로 무엇이 바뀌었는지 |
+| [docs/증강-작성표.md](docs/증강-작성표.md) | 증강 47개 전체 표와 설계 근거 |
+
 ## 소스 빌드
 
 JDK 25에서 실행합니다.
 
 ```powershell
+$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-25.0.1.8-hotspot"
 .\gradlew.bat build --no-daemon
 ```
 
-`JAVA_HOME`이 JDK 25를 가리키도록 설정하세요. 또는 Gradle 실행 시
-`-Dorg.gradle.java.home=<JDK 25 경로>`를 지정할 수 있습니다.
+`JAVA_HOME` 을 지정하지 않으면 시스템 기본 JDK 를 따라갑니다. 그것이 21 미만이면
+Fabric Loom 을 해석하지 못해 빌드가 시작조차 되지 않습니다. PATH 의 `java` 가 25 여도
+`JAVA_HOME` 이 다르면 실패하므로 위처럼 함께 지정하는 편이 안전합니다.
+
+## 서버 실행
+
+**반드시 `scripts/start-sharedfate-server.bat` 로 켜십시오.** 이 스크립트는 재시작 루프를
+거치는데, 모드가 팀 전멸 시 월드를 직접 지우지 않고 표식만 남기고 종료하기 때문입니다.
+`java -jar` 로 직접 띄우면 전멸 뒤 서버가 다시 켜지지 않습니다.
+
+**서버가 켜져 있는 동안 `mods` 의 JAR 를 바꾸지 마십시오.** Fabric 은 클래스를 필요할 때마다
+JAR 에서 읽으므로, 실행 중에 파일이 바뀌면 아직 읽지 않은 클래스를 찾는 순간 죽습니다.
 
 MIT License입니다.
