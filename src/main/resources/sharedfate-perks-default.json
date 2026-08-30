@@ -88,7 +88,7 @@
       "id": "sharedfate:emergency_ration",
       "icon": "minecraft:golden_apple",
       "name": "비상식량",
-      "description": "황금 사과를 5개 얻습니다.",
+      "description": "황금 사과를 10개 얻습니다.",
       "rarity": "silver",
       "effects": [
         {
@@ -96,7 +96,7 @@
           "items": [
             {
               "id": "minecraft:golden_apple",
-              "count": 5
+              "count": 10
             }
           ]
         }
@@ -623,7 +623,7 @@
       "id": "sharedfate:overload",
       "icon": "minecraft:blaze_powder",
       "name": "과부하",
-      "description": "힘 II 와 신속 II 를 상시 얻습니다. 대신 30초마다 둘 다 사라지고 5초간 나약함 III 과 구속 III 을 얻습니다.",
+      "description": "힘 II 와 신속 II 를 상시 얻습니다. 대신 30초마다 둘 다 사라지고 8초간 나약함 III 과 구속 III 을 얻습니다.",
       "rarity": "prism",
       "effects": [
         {
@@ -643,7 +643,7 @@
           ],
           "phases": [
             {
-              "ticks": 100,
+              "ticks": 160,
               "effects": [
                 {
                   "type": "status_effect",
@@ -718,12 +718,36 @@
       "id": "sharedfate:shared_fate_bond",
       "icon": "minecraft:lead",
       "name": "운명 공동체",
-      "description": "팀원이 일정 거리 이상 떨어지면 모두 한곳에 모입니다. 대신 이동 후 5초간 실명과 구속을 얻습니다.",
+      "description": "팀원 전원이 30칸 안에 있으면 재생 I·성급함 I·저항 I 을 얻습니다. 대신 30칸 넘게 떨어지면 모두 한곳에 모이고 5초간 실명과 구속을 얻습니다.",
       "rarity": "prism",
       "effects": [
         {
+          "type": "proximity",
+          "distance": 30,
+          "effects": [
+            {
+              "type": "status_effect",
+              "effect": "minecraft:regeneration",
+              "amplifier": 0,
+              "duration": 3
+            },
+            {
+              "type": "status_effect",
+              "effect": "minecraft:haste",
+              "amplifier": 0,
+              "duration": 3
+            },
+            {
+              "type": "status_effect",
+              "effect": "minecraft:resistance",
+              "amplifier": 0,
+              "duration": 3
+            }
+          ]
+        },
+        {
           "type": "gather",
-          "distance": 64,
+          "distance": 30,
           "cooldown_ticks": 20,
           "effects": [
             {
@@ -934,14 +958,14 @@
       "id": "sharedfate:assassin",
       "icon": "minecraft:golden_sword",
       "name": "암살자",
-      "description": "이동 속도가 25% 증가하고 주는 피해가 ×1.25 가 됩니다. 대신 받는 피해가 ×1.4 가 됩니다.",
+      "description": "이동 속도가 10% 증가하고 주는 피해가 ×1.25 가 됩니다. 대신 받는 피해가 ×1.4 가 됩니다.",
       "rarity": "gold",
       "effects": [
         {
           "type": "attribute",
           "attribute": "minecraft:movement_speed",
           "operation": "add_multiplied_total",
-          "amount": 0.25
+          "amount": 0.1
         },
         {
           "type": "damage_dealt",
@@ -1007,7 +1031,7 @@
       "id": "sharedfate:excavator",
       "icon": "minecraft:netherite_pickaxe",
       "name": "굴착기",
-      "description": "돌과 흙의 채굴 속도가 ×3 이 됩니다. 대신 광석의 채굴 속도가 절반이 됩니다.",
+      "description": "돌의 채굴 속도가 ×3 이 됩니다. 대신 광석의 채굴 속도가 절반이 됩니다.",
       "rarity": "gold",
       "effects": [
         {
@@ -1015,9 +1039,7 @@
           "multiplier": 3.0,
           "blocks": [
             "#minecraft:base_stone_overworld",
-            "#minecraft:base_stone_nether",
-            "#minecraft:dirt",
-            "minecraft:grass_block"
+            "#minecraft:base_stone_nether"
           ]
         },
         {

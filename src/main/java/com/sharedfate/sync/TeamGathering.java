@@ -4,6 +4,7 @@ import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.PerkChoiceSession;
 import com.sharedfate.perk.PerkSwapRules;
 import com.sharedfate.perk.effect.GatherEffect;
+import com.sharedfate.perk.effect.ProximityEffect;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
@@ -98,6 +99,10 @@ public final class TeamGathering {
 				if (state == null || !state.perksEnabled || state.ownedPerks.isEmpty()) {
 					continue;
 				}
+				List<ProximityEffect> proximities = PerkSwapRules.proximities(state);
+				if (!proximities.isEmpty()) {
+					tickProximity(server, team, proximities);
+				}
 				List<GatherEffect> gathers = PerkSwapRules.gathers(state);
 				if (gathers.isEmpty()) {
 					continue;
@@ -138,6 +143,32 @@ public final class TeamGathering {
 			gatherTeam(online, gather, ThreadLocalRandom.current());
 			// 한 번 모으면 다른 gather 정의로 또 옮길 이유가 없다.
 			return;
+		}
+	}
+
+	/**
+	 * 팀원 전원이 붙어 있으면 {@code proximity} 효과를 다시 얹는다.
+	 *
+	 * <p>혼자면 붙어 있는 것으로 본다. 조건을 "전원이 가깝다"로 읽으면 비교할 상대가 없는
+	 * 한 명짜리 팀은 언제나 참이다. 접속자가 한 명뿐이라고 보상을 끊으면, 팀원이 나갔다는
+	 * 이유로 효과가 사라지는 셈이라 오히려 이상하다.
+	 *
+	 * <p>조건이 깨졌을 때 걷어내지 않는다. 얹는 효과의 지속시간이 판정 주기보다 조금 길
+	 * 뿐이라 저절로 사라진다. 자세한 까닭은 {@link ProximityEffect} 에 적어 뒀다.
+	 */
+	private static void tickProximity(MinecraftServer server, ShareTeam team,
+			List<ProximityEffect> proximities) {
+		List<ServerPlayer> online = onlineMembers(server, team);
+		if (online.isEmpty()) {
+			return;
+		}
+		for (ProximityEffect proximity : proximities) {
+			if (online.size() >= MIN_MEMBERS && scattered(online, proximity.distance())) {
+				continue;
+			}
+			for (ServerPlayer member : online) {
+				proximity.grantTo(member);
+			}
 		}
 	}
 
