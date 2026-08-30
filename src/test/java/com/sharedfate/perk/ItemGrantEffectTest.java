@@ -353,8 +353,19 @@ class ItemGrantEffectTest {
 		assertEquals(PerkRarity.SILVER, kit.rarity());
 		List<ItemStack> kitStacks = grantEffectOf(kit).grantStacks();
 		assertEquals(2, kitStacks.size());
-		assertEquals(Identifier.parse("minecraft:fire_resistance"), potionOf(kitStacks.get(0)));
-		assertEquals(Identifier.parse("minecraft:water_breathing"), potionOf(kitStacks.get(1)));
+		// 30분짜리라 바닐라 물약이 아니라 그 길이로 담은 사용자 효과로 들어간다.
+		assertStretchedPotion(kitStacks.get(0), "fire_resistance", 30);
+		assertStretchedPotion(kitStacks.get(1), "water_breathing", 30);
+	}
+
+	/** 사용자 효과로 담긴 물약이 이름과 지속시간을 제대로 갖고 있는지 본다. */
+	private static void assertStretchedPotion(ItemStack stack, String name, int minutes) {
+		PotionContents contents = stack.get(DataComponents.POTION_CONTENTS);
+		assertNotNull(contents, "물약 컴포넌트가 붙어 있어야 한다");
+		assertTrue(contents.potion().isEmpty(),
+				"기본 물약을 비워야 원래 길이의 효과가 겹치지 않는다");
+		assertEquals(1, contents.customEffects().size());
+		assertEquals(minutes * 20 * 60, contents.customEffects().getFirst().getDuration());
 	}
 
 	// ------------------------------------------------------------------ 도우미

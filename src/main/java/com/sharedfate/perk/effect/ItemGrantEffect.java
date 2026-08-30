@@ -14,6 +14,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.item.alchemy.PotionContents;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,12 +38,20 @@ import java.util.Optional;
  *   "type": "item_grant",
  *   "items": [
  *     { "id": "minecraft:golden_apple", "count": 5 },
- *     { "id": "minecraft:potion", "count": 1, "potion": "minecraft:fire_resistance" }
+ *     { "id": "minecraft:potion", "count": 1, "potion": "minecraft:fire_resistance" },
+ *     { "id": "minecraft:potion", "count": 1, "potion": "minecraft:water_breathing",
+ *       "duration_minutes": 30 }
  *   ]
  * }
  * </pre>
  *
  * <p>{@code potion}은 26.2의 아이템 컴포넌트({@code minecraft:potion_contents})로 붙는다.
+ *
+ * <h2>{@code duration_minutes}</h2>
+ * <p>바닐라에서 가장 긴 물약도 8분이라 그보다 길게 주려면 지속시간을 직접 적어야 한다.
+ * 이 값을 적으면 <b>기본 물약 대신</b> 같은 효과를 그 길이로 담은 사용자 효과를 넣는다.
+ * 기본 물약을 함께 두면 3분짜리와 30분짜리가 겹쳐 설명이 두 줄로 나오기 때문이다.
+ * 이름은 원래 물약 이름을 그대로 쓰므로 「화염 저항 물약」처럼 보인다.
  *
  * <p>잘못된 항목 하나가 증강 전체를 날리지 않도록, 읽을 수 없는 항목은 경고를 남기고 그 항목만
  * 버린다. 다만 쓸 만한 항목이 하나도 남지 않으면 줄 것이 없는 셈이므로 효과 자체를 버린다.
@@ -54,6 +63,9 @@ public final class ItemGrantEffect implements PerkEffect {
 	public static final int MAX_COUNT = 64;
 	/** 효과 하나가 가질 수 있는 최대 항목 수. */
 	public static final int MAX_ENTRIES = 16;
+	/** 적을 수 있는 최대 지속시간(분). 한 회차보다 길 이유가 없다. */
+	public static final int MAX_DURATION_MINUTES = 120;
+	private static final int TICKS_PER_MINUTE = 20 * 60;
 
 	/**
 	 * 지급 항목 하나.
@@ -61,8 +73,10 @@ public final class ItemGrantEffect implements PerkEffect {
 	 * @param itemId   아이템 식별자
 	 * @param count    개수. 1 이상 {@link #MAX_COUNT} 이하
 	 * @param potionId 물약 종류. 물약 아이템이 아니면 null
+	 * @param durationMinutes 지속시간(분). 0 이면 물약이 원래 가진 길이를 그대로 쓴다
 	 */
-	public record Entry(Identifier itemId, int count, @Nullable Identifier potionId) {
+	public record Entry(Identifier itemId, int count, @Nullable Identifier potionId,
+			int durationMinutes) {
 	}
 
 	private final List<Entry> entries;
@@ -148,7 +162,20 @@ public final class ItemGrantEffect implements PerkEffect {
 			}
 		}
 
-		return new Entry(itemId, count, potionId);
+		int durationMinutes = 0;
+		String durationKey = json.has("duration_minutes") ? "duration_minutes" : "durationMinutes";
+		Double rawDuration = PerkEffectType.readDouble(json, durationKey);
+		if (rawDuration != null) {
+			if (potionId == null || rawDuration < 1 || rawDuration > MAX_DURATION_MINUTES) {
+				SharedFateMod.LOGGER.warn(
+						"증강 {}: {} 값이 올바르지 않아 건너뜁니다 ({}). 물약 항목에만 1~{} 로 적을 수 있습니다",
+						perkId, durationKey, rawDuration, MAX_DURATION_MINUTES);
+				return null;
+			}
+			durationMinutes = (int) Math.round(rawDuration);
+		}
+
+		return new Entry(itemId, count, potionId, durationMinutes);
 	}
 
 	/**
@@ -207,21 +234,47 @@ public final class ItemGrantEffect implements PerkEffect {
 		}
 
 		ItemStack stack = new ItemStack(item, entry.count());
-		if (entry.potionId() != null && !applyPotion(stack, entry.potionId())) {
+		if (entry.potionId() != null
+				&& !applyPotion(stack, entry.potionId(), entry.durationMinutes())) {
 			return null;
 		}
 		return stack;
 	}
 
-	/** 물약 종류를 컴포넌트로 붙인다. 찾지 못하면 false. */
-	private static boolean applyPotion(ItemStack stack, Identifier potionId) {
+	/**
+	 * 물약 종류를 컴포넌트로 붙인다. 찾지 못하면 false.
+	 *
+	 * @param durationMinutes 0 이면 기본 물약 그대로, 1 이상이면 그 길이의 사용자 효과로 담는다
+	 */
+	private static boolean applyPotion(ItemStack stack, Identifier potionId, int durationMinutes) {
 		try {
 			Optional<Holder.Reference<Potion>> found = BuiltInRegistries.POTION.get(potionId);
 			if (found.isEmpty()) {
 				SharedFateMod.LOGGER.warn("증강이 주려는 물약을 찾을 수 없어 건너뜁니다: {}", potionId);
 				return false;
 			}
-			stack.set(DataComponents.POTION_CONTENTS, new PotionContents(found.get()));
+			if (durationMinutes <= 0) {
+				stack.set(DataComponents.POTION_CONTENTS, new PotionContents(found.get()));
+				return true;
+			}
+
+			int ticks = durationMinutes * TICKS_PER_MINUTE;
+			List<MobEffectInstance> stretched = new ArrayList<>();
+			for (MobEffectInstance original : found.get().value().getEffects()) {
+				stretched.add(new MobEffectInstance(original.getEffect(), ticks,
+						original.getAmplifier(), original.isAmbient(), original.isVisible(),
+						original.showIcon()));
+			}
+			if (stretched.isEmpty()) {
+				SharedFateMod.LOGGER.warn("물약 {} 에 늘릴 효과가 없어 기본값으로 줍니다", potionId);
+				stack.set(DataComponents.POTION_CONTENTS, new PotionContents(found.get()));
+				return true;
+			}
+			// 기본 물약은 비운다. 함께 두면 원래 길이의 효과가 하나 더 붙어 설명이 겹친다.
+			// 이름만 원래 물약에서 가져와 「화염 저항 물약」처럼 보이게 한다.
+			stack.set(DataComponents.POTION_CONTENTS, new PotionContents(
+					Optional.empty(), Optional.empty(), stretched,
+					Optional.of(potionId.getPath())));
 			return true;
 		} catch (Exception error) {
 			SharedFateMod.LOGGER.warn("물약 {} 을 찾다가 실패했습니다", potionId, error);

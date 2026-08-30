@@ -106,7 +106,7 @@
       "id": "sharedfate:expedition_kit",
       "icon": "minecraft:potion",
       "name": "원정 준비물",
-      "description": "화염 저항 포션과 수중 호흡 포션을 하나씩 얻습니다.",
+      "description": "30분짜리 화염 저항 포션과 수중 호흡 포션을 하나씩 얻습니다.",
       "rarity": "silver",
       "effects": [
         {
@@ -115,12 +115,14 @@
             {
               "id": "minecraft:potion",
               "count": 1,
-              "potion": "minecraft:fire_resistance"
+              "potion": "minecraft:fire_resistance",
+              "duration_minutes": 30
             },
             {
               "id": "minecraft:potion",
               "count": 1,
-              "potion": "minecraft:water_breathing"
+              "potion": "minecraft:water_breathing",
+              "duration_minutes": 30
             }
           ]
         }
@@ -343,17 +345,17 @@
       "id": "sharedfate:blind_giant",
       "icon": "minecraft:heart_of_the_sea",
       "name": "장님 거인",
-      "description": "최대 체력이 20 증가합니다. 대신 허기 I 을 상시 얻고 체력과 허기 표시가 가려집니다.",
+      "description": "최대 체력이 15 증가합니다. 대신 허기 II 를 상시 얻고 체력과 허기 표시가 가려집니다.",
       "rarity": "prism",
       "effects": [
         {
           "type": "max_health_bonus",
-          "amount": 20.0
+          "amount": 15.0
         },
         {
           "type": "status_effect",
           "effect": "minecraft:hunger",
-          "amplifier": 0
+          "amplifier": 1
         },
         {
           "type": "hide_hud",
@@ -663,7 +665,7 @@
       "id": "sharedfate:shifting_home",
       "icon": "minecraft:ender_pearl",
       "name": "본진이 바뀐다",
-      "description": "팀원 위치가 바뀔 때 3초간 저항 IV 를 얻습니다. 대신 위치 교환 주기가 ×0.5 로 짧아집니다.",
+      "description": "팀원 위치가 바뀔 때 3초간 저항 IV 를 얻습니다. 대신 위치 교환 주기가 1분으로 고정됩니다.",
       "rarity": "silver",
       "effects": [
         {
@@ -679,7 +681,7 @@
         },
         {
           "type": "swap_interval",
-          "multiplier": 0.5
+          "fixed_minutes": 1
         }
       ]
     },

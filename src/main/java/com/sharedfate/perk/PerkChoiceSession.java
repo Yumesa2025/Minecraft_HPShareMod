@@ -2,6 +2,8 @@ package com.sharedfate.perk;
 
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.net.PerkCloseOfferPayload;
+import com.sharedfate.net.PerkDrawPayload;
+import com.sharedfate.net.PerkResultPayload;
 import com.sharedfate.net.PerkOfferPayload;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
@@ -59,6 +61,20 @@ import java.util.UUID;
 public final class PerkChoiceSession {
 	/** 선택 제한시간. 60초. */
 	public static final int TIMEOUT_TICKS = 1200;
+	/** 선택자를 뽑는 연출 시간. 5초. */
+	public static final int DRAW_TICKS = 100;
+	/** 고른 증강을 보여 주는 시간. 3초. */
+	public static final int RESULT_TICKS = 60;
+
+	/** 세션이 지나가는 세 단계. */
+	private enum Phase {
+		/** 누가 고를지 뽑는 연출 중. 아직 선택창은 뜨지 않았다. */
+		DRAW,
+		/** 선택창이 떠 있고 제한시간이 흐르는 중. */
+		CHOOSE,
+		/** 고른 증강을 보여 주는 중. 이 시간이 끝나면 창을 닫고 시간을 녹인다. */
+		RESULT
+	}
 
 	/** 남은 시간을 채팅으로 한 번 더 알려 주는 지점(초). */
 	private static final int[] WARN_SECONDS = {30, 10, 5};
@@ -83,6 +99,9 @@ public final class PerkChoiceSession {
 		final Set<UUID> guarded = new LinkedHashSet<>();
 		int remainingTicks;
 		int nextWarnIndex;
+		Phase phase = Phase.DRAW;
+		/** 지금 단계가 끝나기까지 남은 틱. DRAW 와 RESULT 에서만 쓴다. */
+		int phaseTicks = DRAW_TICKS;
 
 		State(UUID teamId, int milestone, boolean frozenBefore, int remainingTicks) {
 			this.teamId = teamId;
@@ -188,12 +207,9 @@ public final class PerkChoiceSession {
 					"증강 선택을 시작하지만 서버가 이미 정지 상태였습니다. 선택이 끝나도 정지 상태를 그대로 둡니다.");
 		}
 
-		sendOffer(server, offer, audience);
+		sendDraw(server, offer, audience);
 		broadcast(server, team, Component.literal(
-				"[증강] " + offer.milestone() + "렙 달성. 시간을 멈춥니다. "
-						+ PerkManager.offerGradeLabel(offer) + " 선택권은 "
-						+ chooserName(server, offer) + "님에게 있습니다. 제한시간 "
-						+ seconds(opened.remainingTicks) + "초."));
+				"[증강] " + offer.milestone() + "렙 달성. 시간을 멈추고 선택자를 뽑습니다."));
 		return true;
 	}
 
@@ -247,17 +263,45 @@ public final class PerkChoiceSession {
 			current.guarded.add(member.getUUID());
 		}
 
+		if (current.phase == Phase.DRAW) {
+			if (current.phaseTicks > 0) {
+				current.phaseTicks--;
+				return;
+			}
+			// 뽑기 연출이 끝났다. 이제 진짜 선택창을 띄운다.
+			current.phase = Phase.CHOOSE;
+			PendingOffer offer = teamState.pending.getFirst();
+			sendOffer(server, offer, audience);
+			broadcast(server, team, Component.literal(
+					"[증강] " + PerkManager.offerGradeLabel(offer) + " 선택권은 "
+							+ chooserName(server, offer) + "님에게 있습니다. 제한시간 "
+							+ seconds(current.remainingTicks) + "초."));
+			return;
+		}
+
+		if (current.phase == Phase.RESULT) {
+			if (current.phaseTicks > 0) {
+				current.phaseTicks--;
+				return;
+			}
+			finish(server, null);
+			return;
+		}
+
 		if (current.remainingTicks > 0) {
 			current.remainingTicks--;
 			warnIfNeeded(server, team, current);
 			return;
 		}
 
-		// 제한시간 종료. 무조건 녹이고, 무조건 대기열에서 뺀다.
+		// 제한시간 종료. 대기열에서 빼고 결과 연출로 넘어간다. 시간은 그때까지 멈춰 있다.
 		int milestone = current.milestone;
 		UUID teamId = current.teamId;
-		finish(server, null);
 		PerkManager.applyRandomChoice(server, teamId, milestone);
+		// 후보가 하나도 없어 아무것도 고르지 못했으면 결과 화면도 없다. 그대로 녹인다.
+		if (state != null && state.phase != Phase.RESULT) {
+			finish(server, null);
+		}
 	}
 
 	private static void warnIfNeeded(MinecraftServer server, ShareTeam team, State current) {
@@ -276,12 +320,23 @@ public final class PerkChoiceSession {
 	// ------------------------------------------------------------------ 세션 종료
 
 	/** 선택이 성사돼 세션이 할 일을 다 했을 때. */
-	public static void onChoiceApplied(MinecraftServer server, UUID teamId, int milestone) {
+	public static void onChoiceApplied(MinecraftServer server, UUID teamId, int milestone,
+			String perkId, String chooserName) {
 		State current = state;
 		if (current == null || !current.teamId.equals(teamId) || current.milestone != milestone) {
 			return;
 		}
-		finish(server, null);
+		// 곧바로 닫지 않는다. 고른 카드를 잠깐 보여 주고 그때까지 시간도 멈춰 둔다.
+		// 바로 닫으면 고른 사람 말고는 무엇이 정해졌는지 모른 채 게임으로 돌아간다.
+		current.phase = Phase.RESULT;
+		current.phaseTicks = RESULT_TICKS;
+		PerkResultPayload result = new PerkResultPayload(perkId, chooserName, RESULT_TICKS);
+		for (UUID member : new HashSet<>(current.guarded)) {
+			ServerPlayer online = server == null ? null : server.getPlayerList().getPlayer(member);
+			if (online != null) {
+				ServerPlayNetworking.send(online, result);
+			}
+		}
 	}
 
 	/**
@@ -382,6 +437,24 @@ public final class PerkChoiceSession {
 	}
 
 	// ------------------------------------------------------------------ 보조
+
+	/**
+	 * 선택자를 뽑는 연출을 시작하라고 알린다.
+	 *
+	 * <p>선택자는 서버가 이미 정해 두었다. 클라이언트는 그 결과에서 멈추도록 이름만 굴린다.
+	 */
+	private static void sendDraw(MinecraftServer server, PendingOffer offer,
+			List<ServerPlayer> audience) {
+		List<String> names = new ArrayList<>();
+		for (ServerPlayer member : audience) {
+			names.add(member.getGameProfile().name());
+		}
+		PerkDrawPayload draw =
+				new PerkDrawPayload(names, chooserName(server, offer), DRAW_TICKS);
+		for (ServerPlayer member : audience) {
+			ServerPlayNetworking.send(member, draw);
+		}
+	}
 
 	private static void sendOffer(MinecraftServer server, PendingOffer offer,
 			List<ServerPlayer> audience) {

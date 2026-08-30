@@ -1,5 +1,7 @@
 package com.sharedfate;
 
+import com.sharedfate.sync.TeamRosterStore;
+
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
@@ -26,6 +28,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TeamManagerTest {
+	/** 시험용: 명단만 있는 목록을 설정 기본값과 함께 복원 입력으로 바꾼다. */
+	private static java.util.List<TeamRosterStore.RestoredTeam> roster(
+			java.util.Collection<ShareTeam> teams, float maxHealth) {
+		return teams.stream()
+				.map(team -> new TeamRosterStore.RestoredTeam(team, false, maxHealth, 0))
+				.toList();
+	}
+
 	private static final UUID A = UUID.fromString("00000000-0000-0000-0000-00000000000a");
 	private static final UUID B = UUID.fromString("00000000-0000-0000-0000-00000000000b");
 	private static final UUID C = UUID.fromString("00000000-0000-0000-0000-00000000000c");
@@ -75,7 +85,7 @@ class TeamManagerTest {
 		oldState.effects.add(new MobEffectInstance(MobEffects.POISON, 200));
 
 		TeamManager fresh = new TeamManager();
-		int restored = fresh.restoreFreshRoster(manager.allTeams(), 40.0F);
+		int restored = fresh.restoreFreshRoster(roster(manager.allTeams(), 40.0F));
 
 		assertEquals(1, restored);
 		assertEquals(rosterTeam, fresh.teamOf(A));
@@ -94,12 +104,35 @@ class TeamManagerTest {
 	}
 
 	@Test
+	void 회차가_넘어가도_증강_사용_여부와_교환_주기와_체력은_이어진다() {
+		ShareTeam team = manager.createTeam("원정대", A, 40.0F);
+		manager.addMember(team.teamId(), B, 4);
+		TeamState previous = manager.stateOf(A);
+		previous.perksEnabled = true;
+		previous.enablePositionSwap(3);
+		previous.baseMaxHealth = 34.0F;
+
+		TeamManager fresh = new TeamManager();
+		fresh.restoreFreshRoster(java.util.List.of(new TeamRosterStore.RestoredTeam(
+				team, previous.perksEnabled, previous.baseMaxHealth,
+				previous.positionSwapIntervalTicks)));
+
+		TeamState restored = fresh.stateOf(A);
+		assertTrue(restored.perksEnabled, "증강 사용 여부는 회차를 넘겨 이어져야 한다");
+		assertEquals(3, restored.positionSwapIntervalMinutes());
+		assertEquals(34.0F, restored.maxHealth);
+		// 진행 상황은 이어지지 않는다.
+		assertTrue(restored.ownedPerks.isEmpty());
+		assertEquals(0, restored.totalExperience);
+	}
+
+	@Test
 	void 중복_멤버가_있는_명단은_부분_복원하지_않는다() {
 		ShareTeam first = new ShareTeam(UUID.randomUUID(), "첫팀", java.util.List.of(A));
 		ShareTeam second = new ShareTeam(UUID.randomUUID(), "둘째팀", java.util.List.of(A, B));
 
 		assertThrows(IllegalArgumentException.class,
-				() -> manager.restoreFreshRoster(java.util.List.of(first, second), 40.0F));
+				() -> manager.restoreFreshRoster(roster(java.util.List.of(first, second), 40.0F)));
 		assertTrue(manager.allTeams().isEmpty());
 		assertNull(manager.teamOf(A));
 	}
@@ -110,7 +143,7 @@ class TeamManagerTest {
 		ShareTeam incoming = new ShareTeam(UUID.randomUUID(), "새팀", java.util.List.of(B));
 
 		assertThrows(IllegalStateException.class,
-				() -> manager.restoreFreshRoster(java.util.List.of(incoming), 40.0F));
+				() -> manager.restoreFreshRoster(roster(java.util.List.of(incoming), 40.0F)));
 		assertEquals(existing, manager.teamOf(A));
 		assertNull(manager.teamOf(B));
 	}

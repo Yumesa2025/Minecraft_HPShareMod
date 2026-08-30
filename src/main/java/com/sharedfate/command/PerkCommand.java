@@ -69,13 +69,18 @@ public final class PerkCommand {
 	/** 팀이 지금까지 얻은 증강을 나열한다. */
 	private static int list(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		ServerPlayer self = context.getSource().getPlayerOrException();
-		List<String> lines = PerkManager.ownedLines(self);
+		List<com.sharedfate.net.PerkSyncPayload.Owned> lines = PerkManager.ownedLines(self);
 		if (lines.isEmpty()) {
 			context.getSource().sendSuccess(
 					() -> Component.literal("보유한 증강이 없습니다."), false);
 			return 0;
 		}
-		String text = "보유 증강 " + lines.size() + "종\n" + String.join("\n", lines);
+		// 글로 볼 때도 설명까지 함께 보여 준다. 이름만으로는 무엇을 들고 있는지 알기 어렵다.
+		StringBuilder body = new StringBuilder("보유 증강 ").append(lines.size()).append("종");
+		for (com.sharedfate.net.PerkSyncPayload.Owned owned : lines) {
+			body.append("\n· ").append(owned.name()).append(" — ").append(owned.description());
+		}
+		String text = body.toString();
 		context.getSource().sendSuccess(() -> Component.literal(text), false);
 		return 1;
 	}

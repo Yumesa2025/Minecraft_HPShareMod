@@ -275,9 +275,9 @@ class MaxHealthBonusEffectTest {
 		assertEquals(26.0F,
 				PerkHealthRules.effectiveMaxHealth(perkTeam("sharedfate:health_over_helmet")),
 				"실버 「뚝배기 대신 피통」 은 최대 체력 +6 이다");
-		assertEquals(40.0F,
+		assertEquals(35.0F,
 				PerkHealthRules.effectiveMaxHealth(perkTeam("sharedfate:blind_giant")),
-				"프리즘 「장님 거인」 은 최대 체력 +20 이다");
+				"프리즘 「장님 거인」 은 최대 체력 +15 이다");
 		assertEquals(10.0F,
 				PerkHealthRules.effectiveMaxHealth(perkTeam("sharedfate:ascetic")),
 				"프리즘 「고행자」 는 최대 체력 10 고정이다");

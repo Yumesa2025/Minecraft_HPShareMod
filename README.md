@@ -5,22 +5,22 @@ Minecraft Java Edition 26.2 / Fabric용 협동 모드입니다. 최대 4명이 �
 팀 공유 레벨이 오르면 팀 전체에 적용되는 **증강**을 함께 고르고, 팀 전멸 뒤에는 다음 회차의
 새 월드를 시작하며, 엔더 드래곤을 처치하면 승리와 엔딩으로 마무리됩니다.
 
-> 현재 버전은 **`0.6.0-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
+> 현재 버전은 **`0.7.0-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
 > SharedFate 버전을 사용해야 합니다.
 >
-> **0.5.x 이하에서 올라오는 경우 서버와 모든 클라이언트를 함께 갱신하세요.** 통신 규약이
-> 11로 바뀌어 예전 클라이언트로는 접속할 수 없습니다.
-> (참고: 0.4.0-dev 는 5, 0.5.x 는 10입니다.)
+> **0.6.0-dev 이하에서 올라오는 경우 서버와 모든 클라이언트를 함께 갱신하세요.** 통신 규약이
+> 12로 바뀌어 예전 클라이언트로는 접속할 수 없습니다.
+> (참고: 0.4.0-dev 는 5, 0.5.x 는 10, 0.6.0-dev 는 11입니다.)
 
 ## 다운로드
 
 | 파일 | 용도 |
 |---|---|
-| [SharedFate-0.6.0-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.6.0-dev/SharedFate-0.6.0-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
-| [sharedfate-0.6.0-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.6.0-dev/sharedfate-0.6.0-dev.jar) | 서버 운영자·수동 설치용 모드 JAR |
-| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.6.0-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
+| [SharedFate-0.7.0-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.7.0-dev/SharedFate-0.7.0-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
+| [sharedfate-0.7.0-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.7.0-dev/sharedfate-0.7.0-dev.jar) | 서버 운영자·수동 설치용 모드 JAR |
+| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.7.0-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
 
-[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.6.0-dev)
+[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.7.0-dev)
 
 ### 클라이언트 설치
 

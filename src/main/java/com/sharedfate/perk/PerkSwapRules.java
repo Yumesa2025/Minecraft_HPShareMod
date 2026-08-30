@@ -78,11 +78,35 @@ public final class PerkSwapRules {
 		}
 		double total = 1.0;
 		for (PerkEffect effect : effectsOf(state)) {
-			if (effect instanceof SwapIntervalEffect interval) {
+			if (effect instanceof SwapIntervalEffect interval && !interval.hasFixedMinutes()) {
 				total *= interval.multiplier();
 			}
 		}
 		return Double.isFinite(total) && total > 0.0 ? total : 1.0;
+	}
+
+	/**
+	 * 주기를 못박는 증강이 있으면 그 값(틱). 없으면 0.
+	 *
+	 * <p>여러 개면 <b>가장 짧은 것</b>이 이긴다. 못박는 증강은 "이 팀은 이 간격으로 흔들린다"를
+	 * 약속하는 것이라, 둘을 곱하거나 평균 내면 어느 쪽 약속도 지켜지지 않는다. 짧은 쪽을
+	 * 택하면 적어도 그 증강의 약속은 그대로 성립한다.
+	 */
+	public static int fixedIntervalTicks(@Nullable TeamState state) {
+		if (!usesPerks(state)) {
+			return 0;
+		}
+		int shortest = 0;
+		for (PerkEffect effect : effectsOf(state)) {
+			if (!(effect instanceof SwapIntervalEffect interval) || !interval.hasFixedMinutes()) {
+				continue;
+			}
+			int ticks = interval.fixedMinutes() * TeamState.PositionSwapLimits.TICKS_PER_MINUTE;
+			if (shortest == 0 || ticks < shortest) {
+				shortest = ticks;
+			}
+		}
+		return shortest;
 	}
 
 	/**
@@ -93,6 +117,19 @@ public final class PerkSwapRules {
 	 */
 	public static int nextRemainingTicks(@Nullable TeamState state) {
 		int interval = state == null ? 0 : state.positionSwapIntervalTicks;
+		if (interval <= 0) {
+			return 0;
+		}
+		// 못박는 증강이 있으면 팀이 정한 주기와 배율을 모두 제친다.
+		//
+		// 다만 팀이 정한 주기보다 길게는 못 간다. TeamState.sanitize 가 저장을 읽을 때 남은
+		// 틱을 [0, 주기] 로 자르기 때문에, 더 긴 값을 남겨 두면 서버를 껐다 켜는 순간 조용히
+		// 줄어들어 재시작 전후로 팀이 다르게 움직인다. 어차피 이 증강들은 주기를 "짧게"
+		// 만드는 쪽이라 실제로 걸리는 일은 거의 없다.
+		int fixed = fixedIntervalTicks(state);
+		if (fixed > 0) {
+			return Math.max(MIN_REMAINING_TICKS, Math.min(interval, fixed));
+		}
 		return scaleInterval(interval, intervalMultiplier(state));
 	}
 

@@ -154,6 +154,18 @@ public class PerkOfferScreen extends Screen {
 	/** 강제 오픈에서 선택을 보낸 뒤. 서버가 창을 닫아 줄 때까지 클릭을 막는다. */
 	private boolean choiceSent;
 
+	/**
+	 * 결정된 증강의 후보 번호. 아직 결정 전이면 -1.
+	 *
+	 * <p>서버가 {@code PerkResultPayload} 를 보내면 그 카드 하나만 남기고 나머지를 지운다.
+	 * 고른 사람 말고는 무엇이 정해졌는지 모른 채 창이 사라지던 것을 막기 위한 자리다.
+	 */
+	private int resultIndex = -1;
+	/** 결과를 보여 주는 남은 시간(틱). 0 이면 결과 화면이 아니다. */
+	private int resultTicks;
+	/** 결과를 고른 사람 이름. 시간이 다 되어 자동으로 정해졌으면 빈 문자열. */
+	private String resultChooser = "";
+
 	private int timerY;
 	private int titleY;
 	private int subtitleY;
@@ -193,6 +205,45 @@ public class PerkOfferScreen extends Screen {
 	/** 서버의 닫기 지시로 창을 닫는다. 강제 오픈이든 아니든 그대로 닫힌다. */
 	public void closeFromServer() {
 		super.onClose();
+	}
+
+	/**
+	 * 무엇이 골라졌는지 서버가 알려 왔다. 그 카드 하나만 남겨 잠깐 보여 준다.
+	 *
+	 * <p>후보에 없는 식별자가 오면 아무것도 하지 않는다. 늦게 도착한 지시가 다음 구간의 창을
+	 * 건드리는 일을 막는다.
+	 */
+	public void showResult(String perkId, String chooserName, int holdTicks) {
+		for (int index = 0; index < options.size(); index++) {
+			if (options.get(index).id().equals(perkId)) {
+				resultIndex = index;
+				resultTicks = Math.max(1, holdTicks);
+				resultChooser = chooserName == null ? "" : chooserName;
+				choiceSent = true;
+				playResultSound();
+				return;
+			}
+		}
+	}
+
+	private void playResultSound() {
+		if (this.minecraft == null) {
+			return;
+		}
+		this.minecraft.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance
+				.forUI(net.minecraft.sounds.SoundEvents.PLAYER_LEVELUP, 1.1F, 0.7F));
+	}
+
+	/** 결과를 보여 주는 중인지. */
+	public boolean showingResult() {
+		return resultIndex >= 0;
+	}
+
+	@Override
+	public void tick() {
+		if (resultTicks > 0) {
+			resultTicks--;
+		}
 	}
 
 	@Override
@@ -264,6 +315,10 @@ public class PerkOfferScreen extends Screen {
 		graphics.centeredText(this.font, subtitle(), centerX, subtitleY, subtitleColor());
 
 		for (int index = 0; index < cards.size(); index++) {
+			// 결과를 보여 주는 중에는 정해진 카드 하나만 남긴다.
+			if (showingResult() && index != resultIndex) {
+				continue;
+			}
 			renderCard(graphics, index, mouseX, mouseY);
 		}
 
@@ -468,7 +523,7 @@ public class PerkOfferScreen extends Screen {
 	}
 
 	private boolean clickable() {
-		return canChoose && !choiceSent;
+		return canChoose && !choiceSent && !showingResult();
 	}
 
 	private boolean hasDeadline() {
@@ -512,6 +567,11 @@ public class PerkOfferScreen extends Screen {
 	}
 
 	private Component subtitle() {
+		if (showingResult()) {
+			return resultChooser.isEmpty()
+					? Component.literal("시간이 다 되어 무작위로 정해졌습니다")
+					: Component.literal(resultChooser + "님이 골랐습니다");
+		}
 		if (choiceSent) {
 			return Component.literal("선택을 보냈습니다. 잠시만 기다리십시오");
 		}
@@ -532,6 +592,9 @@ public class PerkOfferScreen extends Screen {
 	}
 
 	private Component footerHint() {
+		if (showingResult()) {
+			return Component.literal("팀 전체에 적용됩니다");
+		}
 		if (forced) {
 			if (escapable()) {
 				return Component.literal("응답이 없습니다 · ESC로 닫을 수 있습니다");

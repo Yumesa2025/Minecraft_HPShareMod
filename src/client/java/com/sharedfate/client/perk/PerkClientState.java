@@ -1,5 +1,7 @@
 package com.sharedfate.client.perk;
 
+import com.sharedfate.net.PerkSyncPayload;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -9,7 +11,7 @@ import java.util.List;
  * 서버의 PerkSyncPayload 로 갱신되며, 월드에서 나가면 clear() 로 초기화된다.
  */
 public final class PerkClientState {
-	private static final List<String> OWNED_LINES = new ArrayList<>();
+	private static final List<PerkSyncPayload.Owned> OWNED = new ArrayList<>();
 	private static int pendingCount;
 	private static String chooserName = "";
 
@@ -17,18 +19,18 @@ public final class PerkClientState {
 	}
 
 	/** PerkSyncPayload 수신 시 호출한다. */
-	public static void update(List<String> ownedLines, int pending, String chooser) {
-		OWNED_LINES.clear();
-		if (ownedLines != null) {
-			OWNED_LINES.addAll(ownedLines);
+	public static void update(List<PerkSyncPayload.Owned> owned, int pending, String chooser) {
+		OWNED.clear();
+		if (owned != null) {
+			OWNED.addAll(owned);
 		}
 		pendingCount = Math.max(0, pending);
 		chooserName = chooser == null ? "" : chooser;
 	}
 
-	/** 보유 중인 증강을 사람이 읽을 수 있는 형태로 정리한 목록. */
-	public static List<String> ownedLines() {
-		return Collections.unmodifiableList(OWNED_LINES);
+	/** 보유 중인 증강. 이름과 설명, 등급을 함께 들고 있다. */
+	public static List<PerkSyncPayload.Owned> owned() {
+		return Collections.unmodifiableList(OWNED);
 	}
 
 	/** 아직 처리되지 않은 선택권 개수. */
@@ -48,7 +50,7 @@ public final class PerkClientState {
 
 	/** 월드에서 나갈 때 호출한다. */
 	public static void clear() {
-		OWNED_LINES.clear();
+		OWNED.clear();
 		pendingCount = 0;
 		chooserName = "";
 	}
