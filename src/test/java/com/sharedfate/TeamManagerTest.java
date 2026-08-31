@@ -113,22 +113,28 @@ class TeamManagerTest {
 		previous.deathAlertEnabled = true;
 		previous.enablePositionSwap(3);
 		previous.baseMaxHealth = 34.0F;
+		previous.difficultyEscalationEnabled = true;
+		previous.difficultyElapsedTicks = 72000;
 
 		TeamManager fresh = new TeamManager();
 		fresh.restoreFreshRoster(java.util.List.of(new TeamRosterStore.RestoredTeam(
 				team, previous.perksEnabled, previous.baseMaxHealth,
 				previous.positionSwapIntervalTicks,
-				previous.damageAlertEnabled, previous.deathAlertEnabled)));
+				previous.damageAlertEnabled, previous.deathAlertEnabled,
+				java.util.List.of(), previous.difficultyEscalationEnabled)));
 
 		TeamState restored = fresh.stateOf(A);
 		assertTrue(restored.perksEnabled, "증강 사용 여부는 회차를 넘겨 이어져야 한다");
 		assertTrue(restored.damageAlertEnabled, "피격 알림은 회차를 넘겨 이어져야 한다");
 		assertTrue(restored.deathAlertEnabled, "사망 알림은 회차를 넘겨 이어져야 한다");
+		assertTrue(restored.difficultyEscalationEnabled, "난이도 상승 설정은 회차를 넘겨 이어져야 한다");
 		assertEquals(3, restored.positionSwapIntervalMinutes());
 		assertEquals(34.0F, restored.maxHealth);
 		// 진행 상황은 이어지지 않는다.
 		assertTrue(restored.ownedPerks.isEmpty());
 		assertEquals(0, restored.totalExperience);
+		assertEquals(0, restored.difficultyElapsedTicks,
+				"난이도가 오른 시간은 회차마다 0 에서 다시 센다");
 	}
 
 	@Test

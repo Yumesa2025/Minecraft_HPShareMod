@@ -14,6 +14,9 @@ import net.minecraft.world.entity.player.Player;
  * <p>바닥에 <b>팀 레벨</b>이 오고 그 위로 <b>피격 알림</b>이 올라간다. 팀 레벨은 늘 떠 있고
  * 피격 알림은 잠깐 떴다 사라지므로, 항상 있는 것을 고정된 자리에 두어야 눈이 익는다.
  * 반대로 두면 팀 레벨이 피격 때마다 위아래로 흔들린다.
+ *
+ * <p>{@link PerkProgressHud} 는 화면 가운데에 그리지만 <b>왼쪽 끝이 핫바 왼쪽 끝과 같은
+ * x</b> 라 이 글줄들과 세로로 부딪힌다. 그래서 바닥선을 잴 때 그 게이지도 함께 센다.
  */
 public final class BottomLeftStack {
 	/** 글줄 높이. 바닐라 기본 글꼴 기준이다. */
@@ -47,7 +50,11 @@ public final class BottomLeftStack {
 		int heartRows = Math.max(1,
 				(int) Math.ceil((player.getMaxHealth() + player.getAbsorptionAmount()) / 20.0F));
 		int rowSpacing = Math.max(HEART_ROW_SPACING - (heartRows - 2), MIN_HEART_ROW_SPACING);
-		int y = guiHeight - BOTTOM_BARS_HEIGHT - (heartRows - 1) * rowSpacing - LINE_HEIGHT;
+		// 증강 게이지는 핫바 왼쪽 끝과 같은 x 에서 시작하므로 이 글줄들과 세로로 부딪힌다.
+		// 게이지가 떠 있으면 그 위에서 쌓기 시작한다.
+		int bottom = Math.min(guiHeight - BOTTOM_BARS_HEIGHT,
+				PerkProgressHud.clearanceTop(guiHeight));
+		int y = bottom - (heartRows - 1) * rowSpacing - LINE_HEIGHT;
 		if (player.getArmorValue() > 0) {
 			y -= ARMOR_ROW_HEIGHT;
 		}

@@ -2,6 +2,7 @@ package com.sharedfate.perk;
 
 import com.sharedfate.perk.effect.EquipBanEffect;
 import com.sharedfate.perk.effect.ItemBanEffect;
+import com.sharedfate.perk.effect.NoDamageBoostEffect;
 import com.sharedfate.perk.effect.OffhandLockEffect;
 import com.sharedfate.perk.effect.WeaponDamageEffect;
 import com.sharedfate.team.TeamLookup;
@@ -137,6 +138,16 @@ public final class PerkGearRules {
 	/** 이 플레이어의 무기 공격력 규칙. 없으면 null. */
 	public static @Nullable WeaponDamageEffect weaponRule(@Nullable ServerPlayer player) {
 		return weaponRule(activeState(player));
+	}
+
+	/** 이 팀이 "공격력 증가 효과를 못 받는다"({@code no_damage_boost})를 가졌는가. */
+	public static boolean hasNoDamageBoost(@Nullable TeamState state) {
+		return find(state, NoDamageBoostEffect.class, effect -> true) != null;
+	}
+
+	/** 이 플레이어에게 그 제한이 걸렸는가. */
+	public static boolean hasNoDamageBoost(@Nullable ServerPlayer player) {
+		return hasNoDamageBoost(activeState(player));
 	}
 
 	// ------------------------------------------------------------------ 공통

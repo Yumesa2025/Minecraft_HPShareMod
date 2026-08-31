@@ -203,12 +203,16 @@ public final class PerkRegistry {
 			// stackable 과 maxStacks 는 더 이상 읽지 않는다. 중첩 개념이 사라졌기 때문이다.
 			// 예전 형식으로 적어 둔 파일이 그대로 열려야 하므로 남아 있어도 그냥 지나친다.
 
+			// 특정 구간부터만 후보로 나오게 하는 필드. 안 적으면 0(제한 없음).
+			// 음수는 뜻이 없으므로 0으로 접어 둔다.
+			int minLevel = Math.max(0, PerkEffectType.readInt(json, "min_level", 0));
+
 			List<PerkEffect> effects = parseEffects(id, json);
 			if (effects == null) {
 				return null;
 			}
 
-			return new Perk(id, name, description, rarity, parseIcon(id, json), effects);
+			return new Perk(id, name, description, rarity, parseIcon(id, json), minLevel, effects);
 		} catch (Exception error) {
 			SharedFateMod.LOGGER.warn("증강 항목을 읽다가 실패해 건너뜁니다", error);
 			return null;

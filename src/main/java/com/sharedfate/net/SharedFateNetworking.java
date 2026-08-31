@@ -27,7 +27,10 @@ public final class SharedFateNetworking {
 	//     TeamSyncPayload 의 perksEnabled 자리가 Options(perks/damageAlert/deathAlert)
 	//     중첩 묶음으로 바뀌었고 TeamWipePayload 를 신설했다. TeamSyncPayload 의 형식
 	//     자체가 바뀌었으므로 예전 클라이언트는 읽지 못한다.
-	public static final int PROTOCOL_VERSION = 13;
+	// 14: 증강 후보 다시 뽑기 — PerkRerollC2SPayload(C2S) 를 신설하고 PerkOfferPayload 에
+	//     이번 회차에 남은 다시 뽑기 횟수를 실었다. PerkOfferPayload 의 형식 자체가 바뀌었으므로
+	//     예전 클라이언트는 선택창을 아예 읽지 못한다. 이 판은 클라이언트를 함께 배포한다.
+	public static final int PROTOCOL_VERSION = 14;
 
 	private SharedFateNetworking() {
 	}
@@ -51,6 +54,8 @@ public final class SharedFateNetworking {
 				PerkResultPayload.TYPE, PerkResultPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(SelectedSlotC2SPayload.TYPE, SelectedSlotC2SPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(PerkChoiceC2SPayload.TYPE, PerkChoiceC2SPayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(
+				PerkRerollC2SPayload.TYPE, PerkRerollC2SPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DoubleJumpPayload.TYPE, DoubleJumpPayload.CODEC);
 		PayloadTypeRegistry.clientboundConfiguration().register(HandshakePayload.TYPE, HandshakePayload.CODEC);
 
@@ -60,6 +65,11 @@ public final class SharedFateNetworking {
 		ServerPlayNetworking.registerGlobalReceiver(PerkChoiceC2SPayload.TYPE,
 				(payload, context) -> PerkManager.applyChoice(
 						context.player(), payload.milestone(), payload.perkId()));
+		// 다시 뽑기 요청. 남은 횟수 검사도 재추첨도 전부 서버가 한다. 클라이언트는 눌렀다는
+		// 사실과 어느 창에서 눌렀는지만 보낸다.
+		ServerPlayNetworking.registerGlobalReceiver(PerkRerollC2SPayload.TYPE,
+				(payload, context) -> PerkManager.applyReroll(
+						context.player(), payload.milestone()));
 		// 공중 점프 요청. 세기도 가능 여부도 전부 서버가 다시 따진다.
 		ServerPlayNetworking.registerGlobalReceiver(DoubleJumpPayload.TYPE,
 				(payload, context) -> PerkClientRules.onDoubleJumpRequest(context.player()));

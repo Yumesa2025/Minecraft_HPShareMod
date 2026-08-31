@@ -1,10 +1,11 @@
 package com.sharedfate.client.team;
 
 import com.sharedfate.client.ClientTeamState;
-import com.sharedfate.client.perk.ClientPerkFeatures;
 import com.sharedfate.client.perk.PerkClientState;
 import com.sharedfate.net.PerkSyncPayload;
-import com.sharedfate.perk.effect.HideHudEffect;
+import com.sharedfate.team.TeamCreationSettings;
+import com.sharedfate.ui.PanelScroll;
+import com.sharedfate.ui.TeamCreationCycle;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -13,7 +14,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.util.FormattedCharSequence;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -53,14 +54,37 @@ public class TeamScreen extends Screen {
 	private static final int TEXT_GOOD = 0xFF80FF20;
 	private static final int TEXT_WARN = 0xFFFFD24A;
 	private static final int PANEL_BG = 0xC0101018;
+	private static final int SCROLL_TRACK = 0x40FFFFFF;
+	private static final int SCROLL_THUMB = 0xC0C0C6CC;
+
+	/** 스크롤 막대의 폭. 판 오른쪽 여백(6px) 안에 들어가야 한다. */
+	private static final int SCROLL_BAR_WIDTH = 3;
+	/** 손잡이가 아무리 짧아져도 이만큼은 남긴다. 사라지면 어디까지 왔는지 알 수 없다. */
+	private static final int SCROLL_THUMB_MIN = 12;
+	/** 휠 한 칸에 밀리는 거리. 두 줄씩 움직이는 편이 손에 붙는다. */
+	private static final int SCROLL_STEP = ROW_HEIGHT * 2;
+	/** 증강 목록 아래에 「증강 선택 창 열기」 단추가 있을 때 비워 둘 자리. */
+	private static final int PERK_LIST_BOTTOM_WITH_BUTTON = 58;
+	/** 단추가 없을 때 비워 둘 자리. 판 바닥(height − 32)과 닫기 단추를 침범하지 않는 값이다. */
+	private static final int PERK_LIST_BOTTOM_PLAIN = 36;
 
 	/** 팀 이름 길이 상한. 서버의 {@code MAX_TEAM_NAME_LENGTH} 와 같아야 한다. */
 	private static final int MAX_TEAM_NAME_LENGTH = 32;
-	private static final int MIN_HEALTH = 20;
-	private static final int MAX_HEALTH = 40;
+	private static final int MIN_HEALTH = TeamCreationSettings.MIN_MAX_HEALTH;
+	private static final int MAX_HEALTH = TeamCreationSettings.MAX_MAX_HEALTH;
 	private static final int HEALTH_STEP = 2;
-	private static final int MIN_SWAP_MINUTES = 1;
-	private static final int MAX_SWAP_MINUTES = 120;
+
+	/**
+	 * 팀 만들기 탭의 설정 줄들.
+	 *
+	 * <p>정할 것이 일곱 가지로 늘어 한 줄에 하나씩 두면 창을 넘긴다. 절반씩 둘을 나란히 놓고,
+	 * 숫자는 −/+ 두 단추 대신 <b>누를 때마다 값이 굴러가는</b> 단추 하나로 줄였다
+	 * ({@link TeamCreationCycle}).
+	 */
+	private static final int FORM_TOP = PANEL_TOP + 34;
+	private static final int FORM_ROW = 20;
+	/** 설정 줄의 단추 높이. 기본 20 보다 낮춰야 일곱 가지가 창 안에 들어간다. */
+	private static final int FORM_BUTTON_HEIGHT = 18;
 
 	private enum Tab {
 		STATUS("현황"),
@@ -81,15 +105,41 @@ public class TeamScreen extends Screen {
 	private String lastSignature = "";
 
 	/**
-	 * 팀을 만들 때 정할 켜고 끄기 셋. 아직 팀이 없으니 서버에 있을 수 없어 화면이 들고 있다가
+	 * 증강 탭에 그릴 줄을 미리 접어 둔 것.
+	 *
+	 * <p>{@code font.split} 은 폭이 정해져야 할 수 있는 계산이라 {@link #init()} 에서 한 번만
+	 * 한다. 매 프레임 다시 접으면 증강이 늘어날수록 그리기가 무거워진다.
+	 */
+	private final List<PerkLine> perkLines = new ArrayList<>();
+	/** 증강 목록 전체의 세로 길이(px). 스크롤 범위의 분모다. */
+	private int perkContentHeight;
+	/** 증강 목록이 보이는 창의 세로 길이(px). */
+	private int perkViewHeight;
+	/** 증강 목록을 위로 밀어 올린 거리(px). 0이면 맨 위다. */
+	private int perkScroll;
+
+	/**
+	 * 팀을 만들 때 정할 일곱 가지. 아직 팀이 없으니 서버에 있을 수 없어 화면이 들고 있다가
 	 * 「팀 만들기」를 누를 때 명령 한 줄로 보낸다. 창을 닫았다 열면 기본값으로 돌아간다.
 	 *
-	 * <p>셋 다 기본은 끔이다. 특히 두 알림은 <b>만든 뒤에 바꿀 수 없으므로</b> 켜는 것을
-	 * 일부러 손으로 고르게 한다.
+	 * <p><b>기본값은 서버의 {@link TeamCreationSettings} 와 같아야 한다.</b> 화면에 보이는
+	 * 값과 아무것도 안 적었을 때 서버가 쓰는 값이 다르면, 사람이 화면을 보고 짐작한 것과
+	 * 실제 팀이 어긋난다. 증강만 켬이고 나머지는 끔·서버 설정값이다.
+	 *
+	 * <p>두 알림과 난이도 상승은 <b>만든 뒤에 바꿀 수 없으므로</b> 켜는 것을 일부러 손으로
+	 * 고르게 한다.
 	 */
-	private boolean newTeamPerks;
+	private boolean newTeamPerks = TeamCreationSettings.DEFAULT_PERKS_ENABLED;
 	private boolean newTeamDamageAlert;
 	private boolean newTeamDeathAlert;
+	private boolean newTeamDifficulty = TeamCreationSettings.DEFAULT_DIFFICULTY_ESCALATION;
+	/**
+	 * 서버가 정한 기본 최대 체력을 화면이 알 길이 없다 — 팀에 속하기 전에는 동기화가 오지
+	 * 않는다. 명령이 받는 아래 끝(20)에서 시작한다.
+	 */
+	private int newTeamMaxHealth = MIN_HEALTH;
+	private int newTeamSwapMinutes = TeamCreationCycle.SWAP_OFF;
+	private int newTeamRerollCount = TeamCreationSettings.DEFAULT_REROLL_COUNT;
 	/**
 	 * 적다 만 팀 이름.
 	 *
@@ -129,6 +179,10 @@ public class TeamScreen extends Screen {
 	}
 
 	private void switchTo(Tab next) {
+		// 탭을 옮기면 목록을 맨 위부터 다시 본다. 틱마다 도는 rebuild() 는 자리를 지킨다.
+		if (next != tab) {
+			perkScroll = 0;
+		}
 		tab = next;
 		rebuild();
 	}
@@ -152,27 +206,45 @@ public class TeamScreen extends Screen {
 
 	private void initTeam(int left) {
 		if (!ClientTeamState.inTeam()) {
-			nameBox = new EditBox(this.font, left, PANEL_TOP + 14, PANEL_WIDTH, BUTTON_HEIGHT,
+			nameBox = new EditBox(this.font, left, PANEL_TOP + 12, PANEL_WIDTH, FORM_BUTTON_HEIGHT,
 					Component.literal("팀 이름"));
 			nameBox.setMaxLength(MAX_TEAM_NAME_LENGTH);
 			nameBox.setValue(newTeamName);
 			nameBox.setResponder(value -> newTeamName = value);
 			addRenderableWidget(nameBox);
 
-			int y = PANEL_TOP + 40;
-			addRenderableWidget(toggle(left, y, "증강", newTeamPerks, "사용", "사용 안 함",
-					() -> newTeamPerks = !newTeamPerks));
-			y += BUTTON_HEIGHT + 2;
-			addRenderableWidget(toggle(left, y, "피격 알림", newTeamDamageAlert, "켬", "끔",
-					() -> newTeamDamageAlert = !newTeamDamageAlert));
-			y += BUTTON_HEIGHT + 2;
-			addRenderableWidget(toggle(left, y, "사망 알림", newTeamDeathAlert, "켬", "끔",
-					() -> newTeamDeathAlert = !newTeamDeathAlert));
+			int half = PANEL_WIDTH / 2 - 2;
+			int right = left + PANEL_WIDTH / 2 + 2;
 
-			y += BUTTON_HEIGHT + 8;
+			addRenderableWidget(toggle(left, formRowY(0), half, "증강", newTeamPerks,
+					"사용", "사용 안 함", () -> newTeamPerks = !newTeamPerks));
+			addRenderableWidget(toggle(right, formRowY(0), half, "난이도 상승", newTeamDifficulty,
+					"켬", "끔", () -> newTeamDifficulty = !newTeamDifficulty));
+
+			addRenderableWidget(toggle(left, formRowY(1), half, "피격 알림", newTeamDamageAlert,
+					"켬", "끔", () -> newTeamDamageAlert = !newTeamDamageAlert));
+			addRenderableWidget(toggle(right, formRowY(1), half, "사망 알림", newTeamDeathAlert,
+					"켬", "끔", () -> newTeamDeathAlert = !newTeamDeathAlert));
+
+			// 숫자 셋은 누를 때마다 다음 값으로 굴러간다. 위 끝을 넘으면 아래 끝으로 돌아온다.
+			addRenderableWidget(cycle(left, formRowY(2), half,
+					"최대 체력 — " + newTeamMaxHealth,
+					() -> newTeamMaxHealth = TeamCreationCycle.nextMaxHealth(
+							newTeamMaxHealth, MIN_HEALTH, MAX_HEALTH, HEALTH_STEP)));
+			addRenderableWidget(cycle(right, formRowY(2), half,
+					"위치 교환 — " + TeamCreationCycle.swapLabel(newTeamSwapMinutes),
+					() -> newTeamSwapMinutes =
+							TeamCreationCycle.nextSwapMinutes(newTeamSwapMinutes)));
+			addRenderableWidget(cycle(left, formRowY(3), half,
+					"다시 뽑기 — " + newTeamRerollCount + "회",
+					() -> newTeamRerollCount = TeamCreationCycle.nextRerollCount(
+							newTeamRerollCount,
+							TeamCreationSettings.MIN_REROLL_COUNT,
+							TeamCreationSettings.MAX_REROLL_COUNT)));
+
 			addRenderableWidget(Button.builder(Component.literal("팀 만들기"),
 					button -> createTeam())
-					.bounds(left, y, PANEL_WIDTH, BUTTON_HEIGHT).build());
+					.bounds(left, formRowY(4) + 4, PANEL_WIDTH, FORM_BUTTON_HEIGHT).build());
 			return;
 		}
 
@@ -202,23 +274,47 @@ public class TeamScreen extends Screen {
 		}
 	}
 
+	/** 설정 줄 {@code index} 의 y 좌표. 0부터 센다. */
+	private static int formRowY(int index) {
+		return FORM_TOP + FORM_ROW * index;
+	}
+
 	/**
 	 * 켜고 끄기 단추 하나. 누르면 값이 뒤집히고 화면을 다시 만든다.
 	 *
-	 * <p>글자만으로도 지금 값이 보이지만 색까지 바꾼다. 셋을 훑을 때 무엇이 켜져 있는지
+	 * <p>글자만으로도 지금 값이 보이지만 색까지 바꾼다. 일곱을 훑을 때 무엇이 켜져 있는지
 	 * 한눈에 들어와야 한다.
 	 */
-	private Button toggle(int left, int y, String label, boolean value,
+	private Button toggle(int x, int y, int width, String label, boolean value,
 			String onText, String offText, Runnable flip) {
 		Component text = Component.literal(label + " — " + (value ? onText : offText))
 				.withStyle(value ? ChatFormatting.GREEN : ChatFormatting.GRAY);
 		return Button.builder(text, button -> {
 			flip.run();
 			rebuild();
-		}).bounds(left, y, PANEL_WIDTH, BUTTON_HEIGHT).build();
+		}).bounds(x, y, width, FORM_BUTTON_HEIGHT).build();
 	}
 
-	/** 화면이 들고 있던 셋을 모두 적어 보낸다. 적지 않은 것은 서버가 끄므로 늘 완전히 적는다. */
+	/**
+	 * 숫자를 굴리는 단추 하나. 누르면 다음 값이 되고 화면을 다시 만든다.
+	 *
+	 * <p>켜고 끄기와 달리 색을 바꾸지 않는다. 어떤 값이 「켜짐」인지 정할 수 없는 값들이라,
+	 * 초록·회색으로 물들이면 없는 뜻이 생긴다.
+	 */
+	private Button cycle(int x, int y, int width, String label, Runnable next) {
+		return Button.builder(Component.literal(label), button -> {
+			next.run();
+			rebuild();
+		}).bounds(x, y, width, FORM_BUTTON_HEIGHT).build();
+	}
+
+	/**
+	 * 화면이 들고 있던 일곱을 모두 적어 보낸다.
+	 *
+	 * <p>적지 않은 항목은 서버가 기본값으로 두는데, 화면에는 이미 다른 값이 보이고 있을 수
+	 * 있어 눈에 보이는 것과 실제가 어긋난다. 그래서 늘 완전한 형태를 보낸다. 낱말 순서는
+	 * {@link TeamCreationCycle#createCommand} 가 서버 명령과 맞춰 둔다.
+	 */
 	private void createTeam() {
 		if (nameBox == null) {
 			return;
@@ -227,14 +323,8 @@ public class TeamScreen extends Screen {
 		if (name.isEmpty()) {
 			return;
 		}
-		run("create perks " + onOff(newTeamPerks)
-				+ " damagealert " + onOff(newTeamDamageAlert)
-				+ " deathalert " + onOff(newTeamDeathAlert)
-				+ " " + name);
-	}
-
-	private static String onOff(boolean value) {
-		return value ? "on" : "off";
+		run(TeamCreationCycle.createCommand(newTeamPerks, newTeamDamageAlert, newTeamDeathAlert,
+				newTeamDifficulty, newTeamMaxHealth, newTeamSwapMinutes, newTeamRerollCount, name));
 	}
 
 	/** 팀에 없는 접속자 이름. 자기 자신은 뺀다. */
@@ -257,53 +347,15 @@ public class TeamScreen extends Screen {
 
 	// ------------------------------------------------------------------ 설정
 
+	/**
+	 * 설정 탭에는 단추가 하나도 없다.
+	 *
+	 * <p>최대 체력·위치 교환·증강 사용 여부는 <b>팀을 만들 때만</b> 정하는 값이 되어, 누르면
+	 * 서버가 거부만 하는 단추가 셋 남아 있었다. 없는 기능을 있는 것처럼 보여 주는 쪽이 더
+	 * 나쁘므로 단추를 걷어내고 {@link #renderSettings} 가 글자로만 보여 준다.
+	 */
 	private void initSettings(int left) {
-		if (!ClientTeamState.inTeam() || !ClientTeamState.isLeader()) {
-			return;
-		}
-		int y = PANEL_TOP + 24;
-		int half = PANEL_WIDTH / 2 - 2;
-
-		int health = Math.round(ClientTeamState.maxHealth());
-		addRenderableWidget(Button.builder(Component.literal("최대 체력 −" + HEALTH_STEP),
-				button -> run("health " + clampHealth(health - HEALTH_STEP)))
-				.bounds(left, y, half, BUTTON_HEIGHT).build());
-		addRenderableWidget(Button.builder(Component.literal("최대 체력 +" + HEALTH_STEP),
-				button -> run("health " + clampHealth(health + HEALTH_STEP)))
-				.bounds(left + PANEL_WIDTH / 2 + 2, y, half, BUTTON_HEIGHT).build());
-
-		y += BUTTON_HEIGHT + 14;
-		int minutes = ClientTeamState.swapIntervalMinutes();
-		if (ClientTeamState.swapEnabled()) {
-			addRenderableWidget(Button.builder(Component.literal("교환 주기 −1분"),
-					button -> run("swap on " + clampMinutes(minutes - 1)))
-					.bounds(left, y, half / 2 - 1, BUTTON_HEIGHT).build());
-			addRenderableWidget(Button.builder(Component.literal("+1분"),
-					button -> run("swap on " + clampMinutes(minutes + 1)))
-					.bounds(left + half / 2 + 1, y, half / 2 - 1, BUTTON_HEIGHT).build());
-			addRenderableWidget(Button.builder(Component.literal("위치 교환 끄기"),
-					button -> run("swap off"))
-					.bounds(left + PANEL_WIDTH / 2 + 2, y, half, BUTTON_HEIGHT).build());
-		} else {
-			addRenderableWidget(Button.builder(Component.literal("위치 교환 켜기 (5분)"),
-					button -> run("swap on 5"))
-					.bounds(left, y, PANEL_WIDTH, BUTTON_HEIGHT).build());
-		}
-
-		y += BUTTON_HEIGHT + 14;
-		boolean perks = ClientTeamState.perksEnabled();
-		addRenderableWidget(Button.builder(
-				Component.literal(perks ? "증강 끄기" : "증강 켜기"),
-				button -> run(perks ? "perks off" : "perks on"))
-				.bounds(left, y, PANEL_WIDTH, BUTTON_HEIGHT).build());
-	}
-
-	private static int clampHealth(int value) {
-		return Math.max(MIN_HEALTH, Math.min(MAX_HEALTH, value));
-	}
-
-	private static int clampMinutes(int value) {
-		return Math.max(MIN_SWAP_MINUTES, Math.min(MAX_SWAP_MINUTES, value));
+		// 그릴 위젯이 없다. 값 표시는 renderSettings 가 맡는다.
 	}
 
 	// ------------------------------------------------------------------ 증강
@@ -314,6 +366,58 @@ public class TeamScreen extends Screen {
 					Component.literal("증강 선택 창 열기"), button -> run("perk"))
 					.bounds(left, this.height - 54, PANEL_WIDTH, BUTTON_HEIGHT).build());
 		}
+		layoutPerkList();
+	}
+
+	/**
+	 * 증강 목록을 미리 접어 두고 스크롤 범위를 다시 잰다.
+	 *
+	 * <p>증강을 여럿 가지면 목록이 창을 넘쳐 아래쪽이 보이지 않던 자리다. 예전에는 넘치는
+	 * 만큼을 「…」 한 줄로 잘라 버려서 <b>나중에 고른 증강일수록 확인할 길이 없었다.</b>
+	 * 이제는 넘치면 자르지 않고 스크롤로 내려 본다.
+	 */
+	private void layoutPerkList() {
+		perkLines.clear();
+		int top = perkListTop();
+		perkViewHeight = Math.max(ROW_HEIGHT, perkListBottom() - top);
+
+		int height = 0;
+		List<PerkSyncPayload.Owned> owned = PerkClientState.owned();
+		for (PerkSyncPayload.Owned perk : owned) {
+			perkLines.add(new PerkLine(
+					Component.literal("· " + perk.name()).getVisualOrderText(),
+					0, rarityColor(perk.rarity()), ROW_HEIGHT));
+			height += ROW_HEIGHT;
+
+			// 설명은 폭에 맞춰 접는다. 이름만으로는 무엇을 들고 있는지 알 수 없다.
+			List<FormattedCharSequence> wrapped =
+					this.font.split(Component.literal(perk.description()), PANEL_WIDTH - 8);
+			for (int index = 0; index < wrapped.size(); index++) {
+				// 증강과 증강 사이는 마지막 설명 줄의 키를 늘려 벌린다. 빈 줄을 넣는 것보다
+				// 스크롤 계산이 단순하다.
+				int lineHeight = index == wrapped.size() - 1 ? ROW_HEIGHT + 2 : ROW_HEIGHT;
+				perkLines.add(new PerkLine(wrapped.get(index), 8, TEXT_DIM, lineHeight));
+				height += lineHeight;
+			}
+		}
+		perkContentHeight = height;
+		perkScroll = PanelScroll.clamp(perkScroll, perkContentHeight, perkViewHeight);
+	}
+
+	/** 증강 목록이 시작하는 y. 「보유 증강 N개」 머리글 바로 아래다. */
+	private int perkListTop() {
+		return PANEL_TOP + ROW_HEIGHT + 2;
+	}
+
+	/** 증강 목록이 끝나는 y. 아래 단추와 판 바닥을 침범하지 않는다. */
+	private int perkListBottom() {
+		boolean hasOpenButton = ClientTeamState.inTeam() && PerkClientState.hasPending();
+		return this.height
+				- (hasOpenButton ? PERK_LIST_BOTTOM_WITH_BUTTON : PERK_LIST_BOTTOM_PLAIN);
+	}
+
+	/** 증강 목록 한 줄. 접어 둔 글자와 들여쓰기, 색, 차지하는 세로 길이를 함께 든다. */
+	private record PerkLine(FormattedCharSequence text, int indent, int color, int height) {
 	}
 
 	// ------------------------------------------------------------------ 그리기
@@ -357,17 +461,15 @@ public class TeamScreen extends Screen {
 				left, y, TEXT_WARN);
 		y += ROW_HEIGHT + 2;
 
-		// 「장님 거인」처럼 체력 표시를 가리는 증강이 걸려 있으면 여기서도 감춘다.
-		// HUD 만 가리고 이 창에서 그대로 보여 주면 증강의 대가가 무의미해진다.
-		if (ClientPerkFeatures.isHidden(HideHudEffect.Element.HEALTH)) {
-			graphics.text(this.font, "공유 체력 ???  (증강으로 가려짐)", left, y, TEXT_DIM);
-		} else {
-			Player player = this.minecraft == null ? null : this.minecraft.player;
-			String health = player == null
-					? trimZero(ClientTeamState.maxHealth())
-					: trimZero(player.getHealth()) + " / " + trimZero(ClientTeamState.maxHealth());
-			graphics.text(this.font, "공유 체력 " + health, left, y, TEXT_MAIN);
-		}
+		// 현재 체력은 적지 않는다. 여기서는 팀의 상한만 확인하고, 지금 얼마나 남았는지는
+		// HUD 의 하트로 본다. 숫자와 하트가 한 화면에서 어긋나 보이는 일도 함께 없어진다.
+		//
+		// 「장님 거인」처럼 체력 표시를 가리는 증강이 있어도 이 줄은 그대로 둔다. 그 증강이
+		// 감추는 것은 <b>지금 체력</b>이고, 상한은 어차피 설정 탭에서도 그냥 보인다.
+		// 여기만 「???」로 가리면 두 탭이 서로 다른 말을 하게 된다.
+		graphics.text(this.font, "공유 최대 체력 " + trimZero(ClientTeamState.maxHealth())
+				+ "  (하트 " + trimZero(ClientTeamState.maxHealth() / 2) + "개)",
+				left, y, TEXT_MAIN);
 		y += ROW_HEIGHT;
 		graphics.text(this.font, "위치 교환 " + (ClientTeamState.swapEnabled()
 				? ClientTeamState.swapIntervalMinutes() + "분 주기" : "꺼짐"), left, y, TEXT_DIM);
@@ -387,13 +489,14 @@ public class TeamScreen extends Screen {
 	private void renderTeam(GuiGraphicsExtractor graphics, int left) {
 		int y = PANEL_TOP;
 		if (!ClientTeamState.inTeam()) {
-			graphics.text(this.font, "새 팀 이름을 적고 셋을 정한 뒤 만드세요.", left, y, TEXT_DIM);
-			// 「팀 만들기」 단추 바로 아래. 두 알림은 정말 되돌릴 수 없으므로 눈에 띄는 색으로
+			graphics.text(this.font, "새 팀 이름을 적고 일곱 가지를 정한 뒤 만드세요.",
+					left, y, TEXT_DIM);
+			// 「팀 만들기」 단추 바로 아래. 일곱 가지 전부 되돌릴 수 없으므로 눈에 띄는 색으로
 			// 적고, 줄 수를 둘로 줄여 창이 낮을 때 닫기 단추와 겹치지 않게 한다.
-			int noteY = PANEL_TOP + 40 + (BUTTON_HEIGHT + 2) * 3 + 8 + BUTTON_HEIGHT + 6;
-			graphics.text(this.font, "피격·사망 알림은 만들 때만 정합니다. 바꾸려면 팀을 해체하세요.",
+			int noteY = formRowY(4) + 4 + FORM_BUTTON_HEIGHT + 6;
+			graphics.text(this.font, "일곱 가지 모두 팀을 만들 때만 정합니다. 바꾸려면 팀을 해체하세요.",
 					left, noteY, TEXT_WARN);
-			graphics.text(this.font, "증강은 나중에 설정 탭에서 바꿀 수 있습니다.",
+			graphics.text(this.font, "숫자 단추는 누를 때마다 다음 값으로 바뀝니다.",
 					left, noteY + ROW_HEIGHT, TEXT_DIM);
 			return;
 		}
@@ -417,33 +520,44 @@ public class TeamScreen extends Screen {
 		}
 	}
 
+	/**
+	 * 설정 탭. <b>보여 주기만 한다.</b>
+	 *
+	 * <p>이제 아무도 값을 바꿀 수 없지만 <b>보는 것은 리더만</b>이다. 사람이 그렇게 정했다.
+	 * 그래서 안내 문구도 「리더만 바꿀 수 있습니다」가 아니라 못 바꾼다는 사실만 적는다.
+	 */
 	private void renderSettings(GuiGraphicsExtractor graphics, int left) {
 		int y = PANEL_TOP;
 		if (!ClientTeamState.inTeam()) {
-			graphics.text(this.font, "팀이 있어야 설정을 바꿀 수 있습니다.", left, y, TEXT_DIM);
+			graphics.text(this.font, "팀이 있어야 설정을 볼 수 있습니다.", left, y, TEXT_DIM);
 			return;
 		}
 		if (!ClientTeamState.isLeader()) {
-			graphics.text(this.font, "설정은 팀 리더만 바꿀 수 있습니다.", left, y, TEXT_DIM);
+			graphics.text(this.font, "설정은 리더만 볼 수 있습니다.", left, y, TEXT_DIM);
 			return;
 		}
 		graphics.text(this.font, "최대 체력 " + trimZero(ClientTeamState.maxHealth())
 				+ "  (하트 " + trimZero(ClientTeamState.maxHealth() / 2) + "개)", left, y, TEXT_MAIN);
+		y += ROW_HEIGHT;
 		graphics.text(this.font, "위치 교환 " + (ClientTeamState.swapEnabled()
 						? ClientTeamState.swapIntervalMinutes() + "분 주기" : "꺼짐"),
-				left, y + BUTTON_HEIGHT + 14, TEXT_MAIN);
+				left, y, TEXT_MAIN);
+		y += ROW_HEIGHT;
 		graphics.text(this.font, "증강 " + (ClientTeamState.perksEnabled() ? "사용 중" : "사용 안 함"),
-				left, y + (BUTTON_HEIGHT + 14) * 2, TEXT_MAIN);
-
-		// 단추 없이 글자만. 팀을 만들 때 정해졌고 바꾸는 길이 없으므로 확인만 할 수 있다.
-		// initSettings 의 마지막 단추(증강) 아래에서 시작한다. 두 자리가 어긋나면 겹친다.
-		int alertY = PANEL_TOP + 24 + (BUTTON_HEIGHT + 14) * 2 + BUTTON_HEIGHT + 6;
+				left, y, TEXT_MAIN);
+		y += ROW_HEIGHT;
 		graphics.text(this.font, "피격 알림 " + onOffText(ClientTeamState.damageAlertEnabled()),
-				left, alertY, TEXT_MAIN);
+				left, y, TEXT_MAIN);
+		y += ROW_HEIGHT;
 		graphics.text(this.font, "사망 알림 " + onOffText(ClientTeamState.deathAlertEnabled()),
-				left, alertY + ROW_HEIGHT, TEXT_MAIN);
-		graphics.text(this.font, "두 알림은 팀을 만들 때 정한 값이라 바꿀 수 없습니다.",
-				left, alertY + ROW_HEIGHT * 2 + 2, TEXT_DIM);
+				left, y, TEXT_MAIN);
+
+		y += ROW_HEIGHT + 6;
+		graphics.text(this.font, "이 설정들은 팀을 만들 때 정한 값이라 바꿀 수 없습니다.",
+				left, y, TEXT_DIM);
+		y += ROW_HEIGHT;
+		graphics.text(this.font, "바꾸려면 리더가 팀을 해체하고 다시 만들어야 합니다.",
+				left, y, TEXT_DIM);
 	}
 
 	private static String onOffText(boolean value) {
@@ -465,26 +579,55 @@ public class TeamScreen extends Screen {
 			graphics.text(this.font, "아직 고른 증강이 없습니다.", left, y, TEXT_DIM);
 			return;
 		}
-		graphics.text(this.font, "보유 증강 " + owned.size() + "개", left, y, TEXT_MAIN);
-		y += ROW_HEIGHT + 2;
-		for (PerkSyncPayload.Owned perk : owned) {
-			if (y > this.height - 60) {
-				graphics.text(this.font, "…", left, y, TEXT_DIM);
-				break;
+		boolean overflows = PanelScroll.overflows(perkContentHeight, perkViewHeight);
+		graphics.text(this.font, "보유 증강 " + owned.size() + "개"
+				+ (overflows ? "  (휠로 넘겨 보세요)" : ""), left, y, TEXT_MAIN);
+
+		// 창 밖으로 나가는 줄이 그려지지 않게 자른다. 자르지 않으면 스크롤한 목록이 머리글과
+		// 아래 단추를 덮어쓴다.
+		int top = perkListTop();
+		int bottom = top + perkViewHeight;
+		graphics.enableScissor(left - 4, top, left + PANEL_WIDTH + 4, bottom);
+		int lineY = top - perkScroll;
+		for (PerkLine line : perkLines) {
+			if (lineY + ROW_HEIGHT > top && lineY < bottom) {
+				graphics.text(this.font, line.text(), left + line.indent(), lineY, line.color());
 			}
-			graphics.text(this.font, "· " + perk.name(), left, y, rarityColor(perk.rarity()));
-			y += ROW_HEIGHT;
-			// 설명은 폭에 맞춰 접는다. 이름만으로는 무엇을 들고 있는지 알 수 없다.
-			for (net.minecraft.util.FormattedCharSequence line
-					: this.font.split(Component.literal(perk.description()), PANEL_WIDTH - 8)) {
-				if (y > this.height - 60) {
-					break;
-				}
-				graphics.text(this.font, line, left + 8, y, TEXT_DIM);
-				y += ROW_HEIGHT;
-			}
-			y += 2;
+			lineY += line.height();
 		}
+		graphics.disableScissor();
+
+		if (overflows) {
+			renderPerkScrollBar(graphics, left, top);
+		}
+	}
+
+	/** 목록 오른쪽의 스크롤 막대. 지금 어디쯤을 보고 있는지만 알려 준다. */
+	private void renderPerkScrollBar(GuiGraphicsExtractor graphics, int left, int top) {
+		int barLeft = left + PANEL_WIDTH + 1;
+		int barRight = barLeft + SCROLL_BAR_WIDTH;
+		graphics.fill(barLeft, top, barRight, top + perkViewHeight, SCROLL_TRACK);
+		int thumb = PanelScroll.thumbHeight(perkContentHeight, perkViewHeight, SCROLL_THUMB_MIN);
+		int thumbTop = PanelScroll.thumbTop(top, perkViewHeight, thumb, perkScroll,
+				perkContentHeight);
+		graphics.fill(barLeft, thumbTop, barRight, thumbTop + thumb, SCROLL_THUMB);
+	}
+
+	/**
+	 * 증강 탭에서 휠을 굴리면 목록을 위아래로 옮긴다.
+	 *
+	 * <p>넘칠 것이 없으면 아무것도 하지 않고 넘겨서, 위젯이 휠을 쓰는 다른 탭의 동작을
+	 * 가로채지 않는다.
+	 */
+	@Override
+	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+		if (tab == Tab.PERKS && scrollY != 0.0
+				&& PanelScroll.overflows(perkContentHeight, perkViewHeight)) {
+			int moved = perkScroll - (int) Math.round(scrollY) * SCROLL_STEP;
+			perkScroll = PanelScroll.clamp(moved, perkContentHeight, perkViewHeight);
+			return true;
+		}
+		return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
 	}
 
 	/** 등급별 글자색. 서버가 보낸 등급 이름을 그대로 받는다. */
@@ -543,7 +686,10 @@ public class TeamScreen extends Screen {
 				+ "|" + ClientTeamState.memberIds().size() + "|" + ClientTeamState.swapEnabled()
 				+ "|" + ClientTeamState.swapIntervalMinutes() + "|" + ClientTeamState.perksEnabled()
 				+ "|" + ClientTeamState.maxHealth() + "|" + PerkClientState.hasPending()
-				+ "|" + newTeamPerks + newTeamDamageAlert + newTeamDeathAlert
+				// 증강이 늘면 목록을 다시 접어야 한다. init() 이 그 일을 한다.
+				+ "|" + PerkClientState.owned().size()
+				+ "|" + newTeamPerks + newTeamDamageAlert + newTeamDeathAlert + newTeamDifficulty
+				+ "|" + newTeamMaxHealth + "," + newTeamSwapMinutes + "," + newTeamRerollCount
 				+ "|" + invitableNames();
 	}
 

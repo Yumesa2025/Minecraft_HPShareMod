@@ -17,9 +17,11 @@ import net.minecraft.world.entity.Entity;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -61,8 +63,17 @@ import java.util.UUID;
 public final class PerkChoiceSession {
 	/** 선택 제한시간. 60초. */
 	public static final int TIMEOUT_TICKS = 1200;
-	/** 선택자를 뽑는 연출 시간. 5초. */
-	public static final int DRAW_TICKS = 100;
+	/**
+	 * 선택자를 뽑는 연출 시간. 3.5초.
+	 *
+	 * <p>이 값은 <b>클라이언트 연출 길이인 동시에 시간이 멈춰 있는 길이</b>다. 서버는 이만큼
+	 * 기다렸다가 선택창으로 넘어가고, 클라이언트는 이 값을 {@code PerkDrawPayload} 로 받아
+	 * 그 안에서 이름을 굴린다. 그래서 연출을 줄이려면 여기 한 곳만 줄이면 된다.
+	 *
+	 * <p>5초(100틱)가 지루하다는 이야기가 있어 30% 줄였다. 굴림 간격은 클라이언트의
+	 * {@code PerkDrawScreen.LAST_STEP_TICKS} 가 같은 비율로 함께 줄어든다.
+	 */
+	public static final int DRAW_TICKS = 70;
 	/** 고른 증강을 보여 주는 시간. 3초. */
 	public static final int RESULT_TICKS = 60;
 
@@ -97,6 +108,13 @@ public final class PerkChoiceSession {
 		final boolean frozenByUs;
 		/** 무적을 걸어 둔 팀원. 세션이 끝나면 통째로 비운다. */
 		final Set<UUID> guarded = new LinkedHashSet<>();
+		/**
+		 * 이 사람이 무적 대상이 된 <b>그 순간</b>의 공기량. 세션이 사는 동안 매 틱 이 값으로
+		 * 되돌린다. {@link #blocksDamage} 로 익사 피해는 막아도 공기 게이지 자체는 줄어들기
+		 * 때문에, 이걸 안 하면 선택이 길어질수록 산소가 계속 깎이다가 창이 닫히는 순간 몰아서
+		 * 익사 피해를 받는다.
+		 */
+		final Map<UUID, Integer> savedAir = new HashMap<>();
 		int remainingTicks;
 		int nextWarnIndex;
 		Phase phase = Phase.DRAW;
@@ -108,10 +126,21 @@ public final class PerkChoiceSession {
 			this.milestone = milestone;
 			this.frozenBefore = frozenBefore;
 			this.frozenByUs = !frozenBefore;
-			this.remainingTicks = remainingTicks;
+			resetDeadline(remainingTicks);
+		}
+
+		/**
+		 * 제한시간을 처음부터 다시 센다. 세션을 열 때와 <b>다시 뽑았을 때</b> 같은 길을 지난다.
+		 *
+		 * <p>예고 지점도 함께 되돌린다. 되돌리지 않으면 다시 뽑은 뒤 60초가 새로 흐르는데도
+		 * "30초 남았습니다"가 영영 나오지 않는다.
+		 */
+		void resetDeadline(int ticks) {
+			this.remainingTicks = ticks;
+			this.nextWarnIndex = 0;
 			// 제한시간이 짧으면 "30초 남았습니다" 같은 예고가 시작하자마자 쏟아진다. 건너뛴다.
 			while (nextWarnIndex < WARN_SECONDS.length
-					&& remainingTicks <= WARN_SECONDS[nextWarnIndex] * 20) {
+					&& ticks <= WARN_SECONDS[nextWarnIndex] * 20) {
 				nextWarnIndex++;
 			}
 		}
@@ -139,6 +168,20 @@ public final class PerkChoiceSession {
 	}
 
 	/**
+	 * 지금 이 팀·이 구간의 후보를 다시 뽑아도 되는 상태인지.
+	 *
+	 * <p><b>선택창이 실제로 떠 있는 동안</b>({@link Phase#CHOOSE})만 참이다. 뽑기 연출 중에는
+	 * 아직 후보를 본 적이 없어 다시 뽑을 이유가 없고, 결과를 보여 주는 중에는 이미 증강이
+	 * 확정돼 대기열에서 빠진 뒤다. 그 두 단계에서 들어온 요청은 조작이거나 늦게 도착한
+	 * 패킷이므로 {@code PerkManager} 가 조용히 버린다.
+	 */
+	public static boolean acceptsReroll(@Nullable UUID teamId, int milestone) {
+		State current = state;
+		return current != null && current.phase == Phase.CHOOSE
+				&& current.teamId.equals(teamId) && current.milestone == milestone;
+	}
+
+	/**
 	 * 이 대상이 지금 강제 선택창 때문에 무적인지.
 	 *
 	 * <p>{@code LivingEntityPerkDamageMixin} 이 {@code hurtServer} 진입 시점에 부른다. 세션이 없으면
@@ -150,6 +193,49 @@ public final class PerkChoiceSession {
 			return false;
 		}
 		return current.guarded.contains(player.getUUID());
+	}
+
+	// ------------------------------------------------------------------ 공기량 고정
+
+	/**
+	 * 이 사람이 지금 처음 무적 대상이 됐다면 지금 공기량을 기억해 둔다. 이미 기억해 둔 사람은
+	 * 건드리지 않는다 — 세션 도중 여러 번 불려도(접속·재접속 등) 처음 값만 남아야 한다.
+	 */
+	private static void captureAir(State current, ServerPlayer player) {
+		current.savedAir.putIfAbsent(player.getUUID(), player.getAirSupply());
+	}
+
+	/**
+	 * 무적 대상 전원의 공기량을 기억해 둔 값으로 되돌린다.
+	 *
+	 * <p>물 밖에 있던 사람은 공기가 원래 가득 차 있어(기억해 둔 값도 가득) 이 호출이 사실상
+	 * 아무 일도 하지 않는다. 물속에서 세션이 시작된 사람은 그 값 그대로 묶여 있다가, 세션이
+	 * 끝나면 딱 그 자리(더도 덜도 아닌)에서 다시 줄어들기 시작한다 — 선택 시작 시점에 이미
+	 * 산소가 0이었다면 세션이 끝난 뒤에도 여전히 0이라는 뜻이고, 그건 이 증강이 만든 상황이
+	 * 아니라 원래 상태이므로 그대로 둔다.
+	 */
+	private static void restoreAir(State current, List<ServerPlayer> audience) {
+		for (ServerPlayer player : audience) {
+			Integer restore = airToRestore(current.savedAir.get(player.getUUID()), player.getAirSupply());
+			if (restore != null) {
+				player.setAirSupply(restore);
+			}
+		}
+	}
+
+	/**
+	 * 기억해 둔 값과 지금 값을 보고 되돌려야 할 값을 정한다. 손댈 필요가 없으면 null.
+	 *
+	 * <p>플레이어를 읽지 않는 순수 계산이라 살아 있는 서버 없이 시험할 수 있다.
+	 *
+	 * @param saved      세션이 시작될 때 기억해 둔 공기량. 아직 기억한 적이 없으면 null
+	 * @param currentAir 지금 공기량
+	 */
+	static @Nullable Integer airToRestore(@Nullable Integer saved, int currentAir) {
+		if (saved == null || saved == currentAir) {
+			return null;
+		}
+		return saved;
 	}
 
 	// ------------------------------------------------------------------ 세션 시작
@@ -198,6 +284,7 @@ public final class PerkChoiceSession {
 		State opened = new State(team.teamId(), offer.milestone(), frozenBefore, timeoutTicks);
 		for (ServerPlayer member : audience) {
 			opened.guarded.add(member.getUUID());
+			captureAir(opened, member);
 		}
 		state = opened;
 		if (!frozenBefore) {
@@ -261,7 +348,11 @@ public final class PerkChoiceSession {
 		// 도중에 들어온 팀원도 무적 대상에 넣는다. 세션이 끝나면 어차피 통째로 비운다.
 		for (ServerPlayer member : audience) {
 			current.guarded.add(member.getUUID());
+			captureAir(current, member);
 		}
+		// 익사 피해는 무적이 막아 주지만 공기량 자체는 얼어 있는 동안에도 계속 줄어든다.
+		// 그대로 두면 선택이 끝나는 순간 이미 산소가 0이라 곧바로 익사 피해를 받는다.
+		restoreAir(current, audience);
 
 		if (current.phase == Phase.DRAW) {
 			if (current.phaseTicks > 0) {
@@ -271,7 +362,7 @@ public final class PerkChoiceSession {
 			// 뽑기 연출이 끝났다. 이제 진짜 선택창을 띄운다.
 			current.phase = Phase.CHOOSE;
 			PendingOffer offer = teamState.pending.getFirst();
-			sendOffer(server, offer, audience);
+			sendOffer(server, offer, teamState, audience);
 			broadcast(server, team, Component.literal(
 					"[증강] " + PerkManager.offerGradeLabel(offer) + " 선택권은 "
 							+ chooserName(server, offer) + "님에게 있습니다. 제한시간 "
@@ -363,8 +454,41 @@ public final class PerkChoiceSession {
 		List<ServerPlayer> audience = onlineMembers(server, team);
 		for (ServerPlayer member : audience) {
 			current.guarded.add(member.getUUID());
+			captureAir(current, member);
 		}
-		sendOffer(server, offer, audience);
+		sendOffer(server, offer, teamState, audience);
+	}
+
+	/**
+	 * 후보를 다시 뽑았다. <b>제한시간을 60초로 되돌리고</b> 바뀐 후보를 팀 전원에게 다시 보낸다.
+	 *
+	 * <p>시간 정지와 무적은 손대지 않는다. 세션은 그대로 살아 있고 단계도 {@link Phase#CHOOSE}
+	 * 그대로다 — 다시 뽑기는 선택창 안에서 일어나는 일이지 세션을 다시 여는 일이 아니다.
+	 *
+	 * <p>제한시간을 되돌리는 이유는, 되돌리지 않으면 남은 5초에 다시 뽑았을 때 새 후보를
+	 * 읽을 시간조차 없이 무작위로 정해지기 때문이다. 대신 사람이 다시 뽑기를 계속 누르면
+	 * 시간도 계속 늘어나므로, <b>횟수 자체가 상한</b>이 된다(회차당 기본 3회).
+	 *
+	 * <p>{@code PerkManager.applyReroll} 이 대기열을 이미 갈아 끼운 뒤에 부른다.
+	 */
+	public static void onRerolled(MinecraftServer server, UUID teamId, int milestone) {
+		State current = state;
+		if (server == null || current == null || !current.teamId.equals(teamId)
+				|| current.milestone != milestone || current.phase != Phase.CHOOSE) {
+			return;
+		}
+		TeamManager manager = TeamManager.get(server);
+		ShareTeam team = manager.teamById(teamId);
+		TeamState teamState = manager.stateByTeamId(teamId);
+		if (team == null || teamState == null || teamState.pending.isEmpty()) {
+			return;
+		}
+		PendingOffer offer = teamState.pending.getFirst();
+		if (offer.milestone() != milestone) {
+			return;
+		}
+		current.resetDeadline(timeoutTicks);
+		sendOffer(server, offer, teamState, onlineMembers(server, team));
 	}
 
 	/** 서버가 켜질 때. 이전 실행의 찌꺼기가 남아 있으면 여기서 확실히 털어낸다. */
@@ -456,14 +580,16 @@ public final class PerkChoiceSession {
 		}
 	}
 
-	private static void sendOffer(MinecraftServer server, PendingOffer offer,
+	private static void sendOffer(MinecraftServer server, PendingOffer offer, TeamState teamState,
 			List<ServerPlayer> audience) {
 		List<PerkOfferPayload.PerkOption> options = PerkManager.describeOptions(offer);
 		State current = state;
 		int remaining = current == null ? timeoutTicks : current.remainingTicks;
+		int rerolls = teamState == null ? 0 : Math.max(0, teamState.rerollsRemaining);
 		for (ServerPlayer member : audience) {
 			ServerPlayNetworking.send(member, new PerkOfferPayload(
-					offer.milestone(), offer.isChooser(member.getUUID()), true, remaining, options));
+					offer.milestone(), offer.isChooser(member.getUUID()), true, remaining,
+					rerolls, options));
 		}
 	}
 

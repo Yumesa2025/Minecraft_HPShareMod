@@ -51,7 +51,7 @@ class PerkOfferPayloadTest {
 	@Test
 	void 강제_오픈은_마감_틱을_함께_싣는다() {
 		PerkOfferPayload payload =
-				new PerkOfferPayload(20, false, true, 1200, sampleOptions());
+				new PerkOfferPayload(20, false, true, 1200, 3, sampleOptions());
 
 		assertTrue(payload.forced());
 		assertTrue(payload.hasDeadline());
@@ -61,7 +61,7 @@ class PerkOfferPayloadTest {
 	@Test
 	void 강제_여부와_남은_틱이_직렬화를_그대로_통과한다() {
 		PerkOfferPayload decoded =
-				roundTrip(new PerkOfferPayload(25, true, true, 640, sampleOptions()));
+				roundTrip(new PerkOfferPayload(25, true, true, 640, 2, sampleOptions()));
 
 		assertEquals(25, decoded.milestone());
 		assertTrue(decoded.canChoose());
@@ -69,6 +69,30 @@ class PerkOfferPayloadTest {
 		assertEquals(640, decoded.remainingTicks());
 		assertEquals(2, decoded.options().size());
 		assertEquals("강골", decoded.options().getFirst().name());
+	}
+
+	// ------------------------------------------------------------------ 다시 뽑기 남은 횟수
+
+	@Test
+	void 남은_다시_뽑기_횟수도_직렬화를_그대로_통과한다() {
+		// 이 값이 어긋나면 단추에 엉뚱한 숫자가 뜨거나, 남아 있는데도 잠긴 채로 보인다.
+		assertEquals(3, roundTrip(new PerkOfferPayload(5, true, true, 1200, 3, sampleOptions()))
+				.rerollsRemaining());
+		assertEquals(0, roundTrip(new PerkOfferPayload(5, true, true, 1200, 0, sampleOptions()))
+				.rerollsRemaining());
+	}
+
+	@Test
+	void 직접_연_창은_다시_뽑기_횟수가_0이다() {
+		// 강제 선택 세션 밖에서는 서버가 요청을 버리므로 단추가 뜨면 안 된다.
+		assertEquals(0, PerkOfferPayload.manual(15, true, sampleOptions()).rerollsRemaining());
+	}
+
+	@Test
+	void 음수가_와도_패킷이_터지지_않는다() {
+		// VAR_INT 는 음수를 싣지 못한다. 서버 계산이 어긋나도 선택창 자체가 안 열리면 안 된다.
+		assertEquals(0, new PerkOfferPayload(5, true, true, 1200, -1, sampleOptions())
+				.rerollsRemaining());
 	}
 
 	@Test
@@ -84,7 +108,7 @@ class PerkOfferPayloadTest {
 	@Test
 	void 카드_아이콘도_직렬화를_그대로_통과한다() {
 		PerkOfferPayload decoded =
-				roundTrip(new PerkOfferPayload(15, true, true, 400, sampleOptions()));
+				roundTrip(new PerkOfferPayload(15, true, true, 400, 1, sampleOptions()));
 
 		assertEquals("minecraft:iron_ingot", decoded.options().getFirst().icon());
 		// 아이콘을 정하지 않은 후보는 빈 문자열로 오고, 화면이 등급별 기본 아이콘을 채운다.

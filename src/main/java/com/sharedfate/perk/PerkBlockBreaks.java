@@ -6,12 +6,9 @@ import com.sharedfate.perk.effect.EchoMiningEffect;
 import com.sharedfate.perk.effect.MiningSpeedEffect;
 import com.sharedfate.perk.effect.OnBreakEffect;
 import com.sharedfate.perk.effect.PairedMiningEffect;
-import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamLookup;
-import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
 import net.minecraft.core.BlockPos;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
@@ -24,8 +21,8 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * 블록 파괴에 걸리는 증강 효과({@code bonus_drop}, {@code on_break}, {@code mining_speed})의
@@ -117,7 +114,7 @@ public final class PerkBlockBreaks {
 				} else if (effect instanceof PairedMiningEffect) {
 					PerkResonantMining.onBreak(serverLevel.getServer(), breaker, state, serverLevel.getGameTime());
 				} else if (effect instanceof EchoMiningEffect) {
-					tryEchoMining(serverLevel, breaker);
+					tryEchoMining(serverLevel, breaker, pos);
 				}
 			}
 		}
@@ -125,58 +122,28 @@ public final class PerkBlockBreaks {
 
 	// ------------------------------------------------------------------ 메아리 채굴
 
+	/** 발밑이 아니라 방금 캔 자리 주변을 훑는 반경(블록). 3×3×3 이웃(가운데 제외) 26칸이다. */
+	private static final int ECHO_SEARCH_RADIUS = 1;
+
 	/**
-	 * 같은 차원의 가장 가까운 팀원 발밑 블록을 한 번 더 캔다.
+	 * 방금 캔 블록 근처의 블록 하나를 더 캔다. 팀원과는 무관하다.
+	 *
+	 * <p>캔 것과 같은 종류인지는 따지지 않는다 — "메아리"는 행동이 반복된다는 뜻이지 같은
+	 * 자원이 나온다는 약속이 아니다. 후보 중 하나를 무작위로 고른다.
 	 *
 	 * <p>{@code destroyBlock} 이 아니라 {@link ServerLevel#removeBlock} 을 쓴다. 이 메서드는
 	 * {@code PlayerBlockBreakEvents.AFTER} 를 다시 발화시키지 않으므로, 이 사건이 자기 자신을
 	 * 다시 부르는 고리가 애초에 생기지 않는다.
 	 *
-	 * <p>그 팀원의 자리가 로드되지 않은 청크면 아무 일도 하지 않는다. 청크를 억지로 불러오지
-	 * 않는다({@link ServerLevel#isLoaded} 는 조회만 하고 불러오지는 않는다).
+	 * <p>로드되지 않은 청크의 블록은 후보에서 빠진다. 청크를 억지로 불러오지 않는다
+	 * ({@link ServerLevel#isLoaded} 는 조회만 하고 불러오지는 않는다).
 	 */
-	private static void tryEchoMining(ServerLevel level, ServerPlayer breaker) {
-		MinecraftServer server = level.getServer();
-		if (server == null) {
-			return;
-		}
-		ShareTeam team = TeamManager.get(server).teamOf(breaker.getUUID());
-		if (team == null) {
-			return;
-		}
-
-		ServerPlayer nearest = null;
-		double nearestDistanceSquared = Double.MAX_VALUE;
-		for (UUID memberId : team.members()) {
-			if (memberId.equals(breaker.getUUID())) {
-				continue;
-			}
-			ServerPlayer candidate = server.getPlayerList().getPlayer(memberId);
-			if (candidate == null || candidate.isRemoved() || candidate.level() != level) {
-				continue;
-			}
-			double distanceSquared = breaker.distanceToSqr(candidate);
-			if (distanceSquared < nearestDistanceSquared) {
-				nearestDistanceSquared = distanceSquared;
-				nearest = candidate;
-			}
-		}
-		if (nearest == null) {
-			return;
-		}
-
-		BlockPos echoPos = nearest.blockPosition().below();
-		if (!level.isLoaded(echoPos)) {
+	private static void tryEchoMining(ServerLevel level, ServerPlayer breaker, BlockPos origin) {
+		BlockPos echoPos = pickEchoTarget(level, breaker, origin);
+		if (echoPos == null) {
 			return;
 		}
 		BlockState echoState = level.getBlockState(echoPos);
-		if (echoState.isAir() || echoState.getDestroySpeed(level, echoPos) < 0.0F) {
-			return;
-		}
-		if (!breaker.hasCorrectToolForDrops(echoState)) {
-			return;
-		}
-
 		BlockEntity echoBlockEntity = level.getBlockEntity(echoPos);
 		List<ItemStack> drops = Block.getDrops(
 				echoState, level, echoPos, echoBlockEntity, breaker, breaker.getMainHandItem());
@@ -189,6 +156,41 @@ public final class PerkBlockBreaks {
 		// 원래 소모는 바닐라가 이 사건 뒤에 처리한다. 여기서는 정확히 한 점만 더 먹여
 		// 합계가 2배가 되게 한다. 도구를 부러뜨리지 않는 가드는 그대로 재사용한다.
 		spendExtraDurability(breaker, 1);
+	}
+
+	/**
+	 * 방금 캔 자리를 둘러싼 26칸 중 다시 캘 수 있는 것을 모아 무작위로 하나 고른다.
+	 *
+	 * <p>공기, 로드되지 않은 자리, 캘 수 없는 블록({@code getDestroySpeed} 가 음수), 도구가
+	 * 맞지 않는 블록({@code hasCorrectToolForDrops})은 후보에서 뺀다. 후보가 하나도 없으면 null.
+	 */
+	static @Nullable BlockPos pickEchoTarget(ServerLevel level, ServerPlayer breaker, BlockPos origin) {
+		List<BlockPos> candidates = new ArrayList<>();
+		for (int dx = -ECHO_SEARCH_RADIUS; dx <= ECHO_SEARCH_RADIUS; dx++) {
+			for (int dy = -ECHO_SEARCH_RADIUS; dy <= ECHO_SEARCH_RADIUS; dy++) {
+				for (int dz = -ECHO_SEARCH_RADIUS; dz <= ECHO_SEARCH_RADIUS; dz++) {
+					if (dx == 0 && dy == 0 && dz == 0) {
+						continue;
+					}
+					BlockPos candidate = origin.offset(dx, dy, dz);
+					if (!level.isLoaded(candidate)) {
+						continue;
+					}
+					BlockState candidateState = level.getBlockState(candidate);
+					if (candidateState.isAir() || candidateState.getDestroySpeed(level, candidate) < 0.0F) {
+						continue;
+					}
+					if (!breaker.hasCorrectToolForDrops(candidateState)) {
+						continue;
+					}
+					candidates.add(candidate);
+				}
+			}
+		}
+		if (candidates.isEmpty()) {
+			return null;
+		}
+		return candidates.get(level.getRandom().nextInt(candidates.size()));
 	}
 
 	// ------------------------------------------------------------------ 추가 드롭
@@ -221,13 +223,21 @@ public final class PerkBlockBreaks {
 			return;
 		}
 
-		ItemStack bonus = rollBonusStack(level, breaker, pos, state, blockEntity);
-		if (bonus == null || bonus.isEmpty()) {
-			// 전리품표가 이번엔 아무것도 주지 않았다(자갈→부싯돌 같은 경우). 도구도 닳지 않는다.
-			return;
+		// extra 가 1이면(기본값) 예전과 완전히 같다: 한 번만 굴려 하나 준다. 그보다 크면
+		// 성공할 때마다 그 횟수만큼 다시 굴려 매번 하나씩 떨어뜨린다("비옥한 땅"의 3배 등).
+		int granted = 0;
+		for (int i = 0; i < effect.extra(); i++) {
+			ItemStack bonus = rollBonusStack(level, breaker, pos, state, blockEntity);
+			if (bonus == null || bonus.isEmpty()) {
+				// 전리품표가 이번엔 아무것도 주지 않았다(자갈→부싯돌 같은 경우).
+				continue;
+			}
+			Block.popResource(level, pos, bonus);
+			granted++;
 		}
-		Block.popResource(level, pos, bonus);
-		spendExtraDurability(breaker, effect.extraDurability());
+		if (granted > 0) {
+			spendExtraDurability(breaker, effect.extraDurability());
+		}
 	}
 
 	/**

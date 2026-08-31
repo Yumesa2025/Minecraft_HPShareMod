@@ -24,8 +24,13 @@ public final class PerkDraft {
 	/** 한 번에 제시하는 기본 후보 수. */
 	public static final int DEFAULT_OPTIONS = 3;
 
-	/** 프리즘 라운드로 고정된 구간. 한 회차에 단 한 번뿐이다. */
-	public static final int PRISM_MILESTONE = 15;
+	/**
+	 * 프리즘 라운드로 고정된 구간들. 2026-09-01부터 15·30 둘이다.
+	 *
+	 * <p>예전에는 {@code PRISM_MILESTONE}(단수, {@code int} 하나)이었다. 15만 고정이던 시절의
+	 * 이름이라, 구간이 둘 이상이 되면서 집합으로 바꾸고 이름도 복수형으로 바꿨다.
+	 */
+	public static final Set<Integer> PRISM_MILESTONES = Set.of(15, 30);
 
 	/**
 	 * 프리즘가 아닌 구간에서 실버가 나올 확률(퍼센트). 나머지는 골드다.
@@ -40,14 +45,14 @@ public final class PerkDraft {
 	/**
 	 * 이 구간에 배정할 등급을 정한다.
 	 *
-	 * <p>{@link #PRISM_MILESTONE}은 무작위가 아니라 <b>항상</b> 프리즘다. 나머지 구간은
-	 * {@link #SILVER_PERCENT} 확률로 실버, 아니면 골드다.
+	 * <p>{@link #PRISM_MILESTONES}에 속한 구간은 무작위가 아니라 <b>항상</b> 프리즘다.
+	 * 나머지 구간은 {@link #SILVER_PERCENT} 확률로 실버, 아니면 골드다.
 	 *
 	 * @param milestone 레벨 구간 (5, 10, …, 35)
 	 * @param random    난수원. 고정 시드를 주면 결과가 결정론적이다
 	 */
 	public static PerkRarity rarityFor(int milestone, RandomSource random) {
-		if (milestone == PRISM_MILESTONE) {
+		if (PRISM_MILESTONES.contains(milestone)) {
 			return PerkRarity.PRISM;
 		}
 		if (random == null) {
@@ -88,7 +93,7 @@ public final class PerkDraft {
 		if (pool == null || pool.isEmpty() || random == null || count <= 0) {
 			return List.of();
 		}
-		return draw(rarityFor(milestone, random), pool, owned, random, count);
+		return draw(rarityFor(milestone, random), milestone, pool, owned, random, count);
 	}
 
 	/** 기본 개수(3개)로 뽑는다. */
@@ -98,19 +103,39 @@ public final class PerkDraft {
 	}
 
 	/**
-	 * 등급을 직접 지정해 후보를 최대 {@code count}개 뽑는다.
+	 * 등급을 직접 지정해 후보를 최대 {@code count}개 뽑는다. 구간(레벨) 정보가 없으므로
+	 * {@link Perk#minLevel} 로 거르지 않는다 — {@code min_level} 이 설정된 증강도 그대로 뽑힐
+	 * 수 있다.
 	 *
-	 * <p>구간 배정을 거치지 않으므로 폴백 동작을 그 자체로 검증할 수 있다.
+	 * <p>구간 배정을 거치지 않으므로 폴백 동작을 그 자체로 검증할 수 있다. 도박꾼처럼 "이 구간은
+	 * 무조건 이 등급"인 경로가 여기로 들어온다. 구간을 안다면 {@link #draw(PerkRarity, int,
+	 * List, List, RandomSource, int)} 를 대신 써야 {@code min_level} 이 지켜진다.
 	 *
 	 * @param rarity 뽑을 등급
 	 */
 	public static List<String> draw(PerkRarity rarity, List<Perk> pool, List<String> owned,
 			RandomSource random, int count) {
+		return draw(rarity, PerkMilestones.MAX, pool, owned, random, count);
+	}
+
+	/**
+	 * 등급과 구간을 함께 지정해 후보를 최대 {@code count}개 뽑는다.
+	 *
+	 * <p>{@link Perk#minLevel} 이 이 {@code milestone} 보다 큰 증강은 후보에서 빠진다 —
+	 * "특정 구간부터만 나오는 증강"(예: 프리즘 「환골탈태」, 30렙부터)을 이 한 곳에서 거른다.
+	 * 일반 구간 추첨({@link #draw(int, List, List, RandomSource, int)})과, 구간을 아는 채로
+	 * 등급을 고정하는 경로(도박꾼의 20·25 실버 고정 등)가 여기를 함께 쓴다.
+	 *
+	 * @param rarity    뽑을 등급
+	 * @param milestone 이 추첨이 속한 레벨 구간
+	 */
+	public static List<String> draw(PerkRarity rarity, int milestone, List<Perk> pool,
+			List<String> owned, RandomSource random, int count) {
 		if (rarity == null || pool == null || pool.isEmpty() || random == null || count <= 0) {
 			return List.of();
 		}
 
-		Map<PerkRarity, List<Perk>> remaining = eligibleByRarity(pool, owned);
+		Map<PerkRarity, List<Perk>> remaining = eligibleByRarity(pool, owned, milestone);
 		List<String> drawn = new ArrayList<>(count);
 		for (PerkRarity bucketRarity : fallbackOrder(rarity)) {
 			List<Perk> bucket = remaining.get(bucketRarity);
@@ -125,12 +150,14 @@ public final class PerkDraft {
 	}
 
 	/**
-	 * 아직 고르지 않은 증강만 등급별로 모은다.
+	 * 아직 고르지 않은, 이 구간에 나올 수 있는 증강만 등급별로 모은다.
 	 *
 	 * <p>증강은 중첩되지 않는다. 한 번 보유하면 그 회차 동안 영원히 후보에서 빠진다.
-	 * 풀에 같은 id가 두 번 들어 있어도 한 번만 담는다.
+	 * 풀에 같은 id가 두 번 들어 있어도 한 번만 담는다. {@link Perk#minLevel} 이 {@code milestone}
+	 * 보다 큰 증강도 여기서 함께 걸러진다.
 	 */
-	private static Map<PerkRarity, List<Perk>> eligibleByRarity(List<Perk> pool, List<String> owned) {
+	private static Map<PerkRarity, List<Perk>> eligibleByRarity(List<Perk> pool, List<String> owned,
+			int milestone) {
 		Set<String> ownedIds = ownedIds(owned);
 		Map<PerkRarity, List<Perk>> byRarity = new EnumMap<>(PerkRarity.class);
 		for (PerkRarity rarity : PerkRarity.values()) {
@@ -145,6 +172,9 @@ public final class PerkDraft {
 				continue;
 			}
 			if (ownedIds.contains(perk.id())) {
+				continue;
+			}
+			if (perk.minLevel() > milestone) {
 				continue;
 			}
 			byRarity.get(perk.rarity()).add(perk);

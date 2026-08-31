@@ -124,8 +124,10 @@ public final class PerkManager {
 		for (int milestone : reached) {
 			// 도박꾼을 가진 팀은 프리즘(15렙) 바로 다음 두 구간(20·25렙)이 실버로 고정된다.
 			PerkRarity forcedRarity = PerkGambler.forcedRarity(state, milestone);
+			// 구간을 아는 채로 등급을 고정하는 경우도 milestone 을 함께 넘겨야
+			// min_level(예: 프리즘 「환골탈태」의 30) 이 지켜진다.
 			List<String> options = forcedRarity != null
-					? PerkDraft.draw(forcedRarity, PerkRegistry.all(), state.ownedPerks, random, OPTION_COUNT)
+					? PerkDraft.draw(forcedRarity, milestone, PerkRegistry.all(), state.ownedPerks, random, OPTION_COUNT)
 					: PerkDraft.draw(milestone, PerkRegistry.all(), state.ownedPerks, random, OPTION_COUNT);
 			state.lastPerkMilestone = milestone;
 			if (options.isEmpty()) {
@@ -273,7 +275,8 @@ public final class PerkManager {
 				&& PerkChoiceSession.activeMilestone() == offer.milestone()) {
 			// 강제 선택이 진행 중인데 창을 잃어버린 경우다. 마감이 살아 있는 창으로 되돌려 준다.
 			ServerPlayNetworking.send(player, new PerkOfferPayload(offer.milestone(), canChoose,
-					true, PerkChoiceSession.remainingTicks(), describeOptions(offer)));
+					true, PerkChoiceSession.remainingTicks(), state.rerollsRemaining,
+					describeOptions(offer)));
 		} else {
 			// 직접 여는 경로. 시간을 멈추지도, 무적을 걸지도 않는 단순 확인용이다.
 			ServerPlayNetworking.send(player,
@@ -344,6 +347,78 @@ public final class PerkManager {
 		// 선택이 끝났으니 시간을 다시 흐르게 하고 팀 전원의 창을 닫는다.
 		PerkChoiceSession.onChoiceApplied(server, team.teamId(), milestone,
 				perk.id(), player.getGameProfile().name());
+	}
+
+	/**
+	 * 클라이언트가 보낸 「다시 뽑기」 요청을 검증하고 후보를 갈아 끼운다.
+	 *
+	 * <p>클라이언트가 보내는 것은 「눌렀다」는 사실과 어느 창인지뿐이다. <b>남은 횟수를 세는
+	 * 것도 새 후보를 뽑는 것도 전부 여기서 한다.</b> 그래서 창을 조작해도 무한히 다시 뽑을 수
+	 * 없고, 등급을 올리거나 이미 가진 증강을 다시 받게 만들 수도 없다.
+	 *
+	 * <p>다음 중 하나라도 어긋나면 <b>아무 말 없이 돌아간다.</b> 지연·재전송된 패킷과 조작된
+	 * 패킷을 같은 길로 버리기 위해서다 — 실패 이유를 알려 주면 그 자체가 조작의 힌트가 된다.
+	 *
+	 * <ul>
+	 *   <li>팀·상태가 없거나 증강을 쓰지 않는 팀</li>
+	 *   <li>지금 진행 중인 강제 선택 세션이 아님 (선택창이 떠 있는 단계가 아닌 경우 포함)</li>
+	 *   <li>보낸 사람이 이 선택권의 선택자가 아님 — 관전자는 못 누른다</li>
+	 *   <li>이번 회차에 남은 횟수가 0</li>
+	 *   <li>같은 등급에서 새로 뽑을 후보가 하나도 없음 — 이때는 <b>횟수도 깎지 않는다</b></li>
+	 * </ul>
+	 */
+	public static void applyReroll(ServerPlayer player, int milestone) {
+		MinecraftServer server = player.level().getServer();
+		if (server == null) {
+			return;
+		}
+		TeamManager manager = TeamManager.get(server);
+		ShareTeam team = manager.teamOf(player.getUUID());
+		TeamState state = manager.stateOf(player.getUUID());
+		if (team == null || state == null || !state.perksEnabled || state.pending.isEmpty()) {
+			return;
+		}
+		if (!PerkChoiceSession.acceptsReroll(team.teamId(), milestone)) {
+			return;
+		}
+		PendingOffer offer = state.pending.getFirst();
+		if (offer.milestone() != milestone || !offer.isChooser(player.getUUID())) {
+			return;
+		}
+		if (state.rerollsRemaining <= 0) {
+			return;
+		}
+		// 다시 뽑아도 등급은 그대로다. 「골드 라운드에서 다시 뽑았더니 실버가 나왔다」가 되면
+		// 안 되고, 반대로 프리즘이 나와도 안 된다. 후보에서 등급을 읽지 못하면 아무것도 하지
+		// 않는다 — 등급을 모르는 채로 뽑으면 구간 규칙을 다시 굴리는 셈이 된다.
+		PerkRarity rarity = offerRarity(offer);
+		if (rarity == null) {
+			return;
+		}
+		RandomSource random = server.overworld().getRandom();
+		// 이미 가진 증강은 PerkDraft 가 등급을 가리지 않고 언제나 뺀다. 다시 뽑기도 같은 길을
+		// 지나므로 재추첨 결과에 보유 증강이 섞일 수 없다. 구간을 함께 넘겨야 min_level 이
+		// 걸린 증강(예: 30렙부터인 프리즘 「환골탈태」)이 이른 구간에 튀어나오지 않는다.
+		List<String> options = PerkDraft.draw(
+				rarity, milestone, PerkRegistry.all(), state.ownedPerks, random, OPTION_COUNT);
+		if (options.isEmpty()) {
+			// 뽑을 것이 없으면 창이 비어 버린다. 횟수를 깎지 않고 지금 후보를 그대로 둔다.
+			SharedFateMod.LOGGER.warn(
+					"{}렙 구간을 다시 뽑으려 했지만 {} 등급에 남은 후보가 없어 그대로 둡니다.",
+					milestone, rarity.displayName());
+			return;
+		}
+
+		state.pending.set(0, new PendingOffer(milestone, offer.chooser(), options));
+		state.rerollsRemaining--;
+		manager.setDirty();
+		// 제한시간을 60초로 되돌리고 바뀐 후보를 팀 전원에게 다시 보낸다. 시간 정지와 무적은
+		// 그대로다.
+		PerkChoiceSession.onRerolled(server, team.teamId(), milestone);
+		broadcastSync(server, team, state);
+		broadcast(server, team, Component.literal(
+				"[증강] " + player.getGameProfile().name() + "님이 후보를 다시 뽑았습니다. 남은 횟수 "
+						+ state.rerollsRemaining + "회."));
 	}
 
 	/**
@@ -420,6 +495,12 @@ public final class PerkManager {
 		PerkLegacyGear.sacrificeOnChoice(server, team, state, perk);
 		// 도박꾼은 등급 상관없이 2개를 더 넣는다. applyToTeam 보다 앞에 넣어야 바로 효과가 돈다.
 		PerkGambler.grantOnChoice(server, team, state, perk, random);
+		// rarity_grant(숨은 재능·하늘의 은총)도 같은 이유로 여기서 한 번만 더 넣는다.
+		PerkRarityGrant.grantOnChoice(server, team, state, perk, random);
+		// rarity_reroll(환골탈태)은 반대로 지금까지 가진 것을 지우고 다시 채운다. 걷어내고
+		// 다시 거는 것까지 자체적으로 하므로(PerkManager.setPerksEnabled 왕복) 아래
+		// applyToTeam 보다 먼저 끝나 있어야 한다.
+		PerkRarityReroll.rerollOnChoice(server, team, state, perk, random);
 
 		applyToTeam(server, team, state);
 		// 몹에게 걸리는 증강은 폴링으로도 따라잡지만, 고른 즉시 반영되는 편이 자연스럽다.

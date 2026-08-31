@@ -32,6 +32,7 @@ import com.sharedfate.perk.effect.MaxHealthLockEffect;
 import com.sharedfate.perk.effect.MiningSpeedEffect;
 import com.sharedfate.perk.effect.MobDamageEffect;
 import com.sharedfate.perk.effect.MobHealthEffect;
+import com.sharedfate.perk.effect.NoDamageBoostEffect;
 import com.sharedfate.perk.effect.NoFoodHungerEffect;
 import com.sharedfate.perk.effect.NoHungerDrainEffect;
 import com.sharedfate.perk.effect.NoNaturalRegenEffect;
@@ -42,9 +43,12 @@ import com.sharedfate.perk.effect.OnBreakEffect;
 import com.sharedfate.perk.effect.OnCriticalEffect;
 import com.sharedfate.perk.effect.OnKillEffect;
 import com.sharedfate.perk.effect.OnTeamHurtEffect;
+import com.sharedfate.perk.effect.OreExchangeEffect;
 import com.sharedfate.perk.effect.GatherEffect;
 import com.sharedfate.perk.effect.OnSwapEffect;
 import com.sharedfate.perk.effect.ProximityEffect;
+import com.sharedfate.perk.effect.RarityGrantEffect;
+import com.sharedfate.perk.effect.RarityRerollEffect;
 import com.sharedfate.perk.effect.SwapBlockEffect;
 import com.sharedfate.perk.effect.StaggeredSwapEffect;
 import com.sharedfate.perk.effect.SwapRallyEffect;
@@ -116,6 +120,10 @@ public enum PerkEffectType {
 	LOOT_BONUS("loot_bonus", LootBonusEffect::fromJson),
 	ECHO_MINING("echo_mining", EchoMiningEffect::fromJson),
 	PAIRED_MINING("paired_mining", PairedMiningEffect::fromJson),
+	RARITY_GRANT("rarity_grant", RarityGrantEffect::fromJson),
+	RARITY_REROLL("rarity_reroll", RarityRerollEffect::fromJson),
+	NO_DAMAGE_BOOST("no_damage_boost", NoDamageBoostEffect::fromJson),
+	ORE_EXCHANGE("ore_exchange", OreExchangeEffect::fromJson),
 	CUSTOM("custom", CustomEffect::fromJson);
 
 	/** 효과 하나를 만드는 팩토리. 정의가 잘못됐으면 {@code null}을 돌려준다. */

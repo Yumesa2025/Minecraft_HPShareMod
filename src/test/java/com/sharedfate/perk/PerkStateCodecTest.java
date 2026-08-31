@@ -139,7 +139,7 @@ class PerkStateCodecTest {
 
 		TeamState round = decode(encode(state));
 
-		assertEquals(PerkMilestones.MAX, round.lastPerkMilestone, "구간 상한을 넘으면 35로 잘린다");
+		assertEquals(PerkMilestones.MAX, round.lastPerkMilestone, "구간 상한을 넘으면 MAX(40)로 잘린다");
 		assertTrue(round.pending.isEmpty(), "후보가 하나도 없는 선택권은 버린다");
 		assertEquals(List.of("sharedfate:ok"), round.ownedPerks);
 	}

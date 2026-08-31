@@ -71,20 +71,21 @@ Java 25가 필요합니다. SharedFate JAR만 받았다면 Fabric API
 
 대부분은 `/shareteam` 창에서 할 수 있습니다. 명령으로도 그대로 됩니다.
 
+**`/shareteam` 은 `/st` 로 줄여 쓸 수 있습니다.** 하위 명령은 모두 같고, 인자 없는 `/st` 도
+팀 화면을 엽니다.
+
 ```text
 /shareteam                      팀 화면 열기 (모드가 있는 클라이언트)
 /shareteam help
 /shareteam create <팀 이름>
-/shareteam create perks <on|off> <팀 이름>
+/shareteam create [perks on|off] [damagealert on|off] [deathalert on|off]
+                  [difficulty on|off] [health <20~40>] [swap off|<1~120>] <팀 이름>
 /shareteam invite <플레이어>     상대를 곧바로 팀에 넣습니다 (리더)
-/shareteam perks <on|off>        증강 사용 여부 (리더)
-/shareteam health <20~40>        공유 최대 체력 (리더)
-/shareteam swap on <1~120분>
-/shareteam swap off
-/shareteam swap status
+/shareteam status               지금 정해져 있는 설정 전부
+/shareteam swap status          다음 위치 교환까지 남은 시간
+/shareteam difficulty status    난이도가 지금 몇 %까지 올랐는지
 /shareteam perk
 /shareteam perk list
-/shareteam status
 /shareteam list
 /shareteam leave
 /shareteam disband confirm
@@ -94,9 +95,18 @@ Java 25가 필요합니다. SharedFate JAR만 받았다면 Fabric API
 그때 상대의 개인 아이템은 있던 자리에 드랍되고 개인 경험치는 공유 풀에 합쳐지므로,
 부르기 전에 미리 알려 주는 편이 좋습니다.
 
-증강은 기본으로 꺼져 있습니다. `/shareteam create <팀 이름>` 으로 만들면 증강 없이
-시작하고, 켜려면 `/shareteam create perks on <팀 이름>` 으로 만들거나 나중에
-`/shareteam perks on` 으로 켭니다.
+### 팀 설정은 만들 때 한 번만 정합니다
+
+**증강 사용 여부 · 공유 최대 체력 · 위치 교환 · 난이도 상승 · 피격 알림 · 사망 알림**
+여섯 가지는 `/shareteam create` 에서만 정하고 **그 뒤로는 바꿀 수 없습니다.** 회차가
+굴러가는 중에 규칙이 바뀌면 같은 회차의 앞뒤가 달라지기 때문입니다. 바꾸려면 팀을
+해체하고 다시 만들어야 합니다.
+
+적지 않은 것은 기본값입니다 — **증강은 켬**, 두 알림과 난이도 상승은 끔, 최대 체력은
+서버 설정값, 위치 교환은 끔. 지금 값이 얼마인지는 `/shareteam status` 로 봅니다.
+
+`difficulty on` 으로 만든 팀은 **30분마다 적대적 몹의 최대 체력과 공격력이 4%p 씩**
+오릅니다(최대 +100%). 엔더 드래곤은 제외입니다. 시간은 팀원이 접속해 있는 동안만 흐릅니다.
 
 ## 팀 화면
 
@@ -118,6 +128,32 @@ Java 25가 필요합니다. SharedFate JAR만 받았다면 Fabric API
 한 구간에는 같은 등급 후보 3개만 나오고, **한 번 고른 증강은 그 회차 동안 다시 나오지
 않습니다.** 그래서 등급마다 최소 8개(프리즘은 3개)는 남겨 두어야 6개 구간을 모두 채울 수
 있습니다. 모자라면 실버→골드→프리즘 순으로 다른 등급이 채웁니다.
+
+### 증강 시험 명령 — 실제로 노는 서버에서는 켜지 마십시오
+
+증강을 하나하나 확인하려고 만든 **운영자 전용** 명령이 있습니다. 구간과 레벨을 건너뛰고
+증강을 직접 넣고 뺍니다.
+
+```text
+/shareteam perktest status
+/shareteam perktest give <증강id>      (증강 id 는 자동 완성됩니다)
+/shareteam perktest remove <증강id>
+/shareteam perktest clear confirm
+/shareteam perktest list all
+```
+
+**잠금이 둘입니다. 둘 다 있어야 동작합니다.**
+
+1. `config/sharedfate.json` 의 `perkTestCommands` 가 `true`
+2. 명령을 치는 사람이 **운영자(권한 4)**
+
+`perkTestCommands` 의 기본값은 `false` 이고, **실제로 노는 서버에는 이 값을 두지 마십시오.**
+켜져 있으면 서버가 뜰 때 경고 로그가 남고 접속하는 사람마다 채팅으로 경고를 받습니다.
+한 번이라도 쓴 팀은 `/shareteam status` 에 「정상 회차가 아닙니다」가 표시되며, 그 표식은
+회차가 끝날 때까지 지워지지 않습니다.
+
+즉시 지급이나 「유산」의 몰수처럼 **고르는 순간에만 일어나는 효과는 재현되지 않습니다.**
+덕분에 넣었다 뺐다를 반복해도 아이템이 불어나지 않습니다.
 
 ## 사전 배포판의 한계
 

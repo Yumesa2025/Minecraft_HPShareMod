@@ -54,8 +54,10 @@ class TeamSyncLevelTest {
 	void 마지막_구간까지_받았으면_다음_구간이_없다() {
 		TeamState state = TeamState.fresh(20.0F);
 		state.perksEnabled = true;
-		state.lastPerkMilestone = 35;
-		state.xpLevel = 40;
+		// 마지막 구간 값을 여기 적어 두면 구간이 늘어날 때마다 이 시험이 같이 깨진다.
+		// 규칙을 들고 있는 곳에서 그대로 가져온다.
+		state.lastPerkMilestone = com.sharedfate.perk.PerkMilestones.MAX;
+		state.xpLevel = com.sharedfate.perk.PerkMilestones.MAX + 5;
 
 		assertEquals(0, TeamBroadcaster.nextPerkLevel(state));
 	}

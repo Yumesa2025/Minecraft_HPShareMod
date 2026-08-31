@@ -17,6 +17,7 @@ import net.minecraft.world.entity.LivingEntity;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.random.RandomGenerator;
@@ -129,8 +130,9 @@ public final class StaggeredSwapManager {
 			PositionSwapManager.Position destination = sequence.origins.get(sequence.donors[index]);
 			if (destination.teleport(mover)) {
 				mover.sendSystemMessage(Component.literal("위치 교환! 순서가 되어 이동했습니다."));
+				// 이 걸음에서 자리가 바뀐 사람은 이 사람뿐이라, 면역도 이 사람 하나로 충분하다.
 				for (SwapExplosionEffect explosion : sequence.explosions) {
-					PositionSwapManager.triggerSwapExplosion(origin, moverId, explosion);
+					PositionSwapManager.scheduleSwapExplosion(origin, Set.of(moverId), explosion);
 				}
 			} else {
 				SharedFateMod.LOGGER.warn("시차 진행 중 {} 이동이 실패해 이번 걸음을 건너뜁니다.",

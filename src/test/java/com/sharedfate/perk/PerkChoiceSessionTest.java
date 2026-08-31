@@ -67,4 +67,37 @@ class PerkChoiceSessionTest {
 
 		assertEquals(PerkChoiceSession.TIMEOUT_TICKS, PerkChoiceSession.timeoutTicksForTesting());
 	}
+
+	// ------------------------------------------------------------------ 공기량 고정
+	//
+	// 선택 중엔 무적이라 익사 피해는 안 받지만, 공기 게이지 자체는 얼어 있는 동안에도 계속
+	// 줄어든다. 그대로 두면 선택이 끝나는 순간 이미 산소가 0이라 곧바로 익사 피해를 받는다.
+	// 세션이 시작될 때 공기량을 기억해 뒀다가 매 틱 그 값으로 되돌려야 한다. 실제로 되돌리는
+	// 자리(ServerPlayer.setAirSupply)는 살아 있는 서버가 있어야 확인할 수 있으므로, 여기서는
+	// "되돌려야 하는가·얼마로"를 정하는 순수 계산만 본다.
+
+	@Test
+	void 기억한_값이_없으면_손대지_않는다() {
+		assertNull(PerkChoiceSession.airToRestore(null, 0));
+		assertNull(PerkChoiceSession.airToRestore(null, 300));
+	}
+
+	@Test
+	void 이미_기억한_값과_같으면_손대지_않는다() {
+		assertNull(PerkChoiceSession.airToRestore(300, 300));
+		assertNull(PerkChoiceSession.airToRestore(0, 0));
+	}
+
+	@Test
+	void 물속에서_시작했으면_줄어든_만큼_되돌린다() {
+		// 선택이 시작될 때 산소가 가득(300)이었는데, 얼어 있는 동안 몇 틱 줄어들었다(280).
+		assertEquals(300, PerkChoiceSession.airToRestore(300, 280));
+	}
+
+	@Test
+	void 시작_시점에_이미_산소가_0이었으면_0으로_묶어_둔다() {
+		// 선택창을 열기 직전 이미 익사 직전이었던 경우다. 세션이 공짜로 산소를 채워 주면
+		// 안 되므로 원래 상태(0) 그대로 묶어 둔다.
+		assertEquals(0, PerkChoiceSession.airToRestore(0, -5));
+	}
 }

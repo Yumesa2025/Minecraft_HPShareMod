@@ -7,7 +7,9 @@ import java.util.List;
  * 증강 발동 구간 계산.
  *
  * <p>팀 공유 레벨이 5의 배수에 <b>처음</b> 도달할 때마다 증강 선택권이 하나 생긴다.
- * 구간은 5, 10, 15, 20, 25, 30, 35 일곱 개뿐이고 35를 넘으면 더 발동하지 않는다.
+ * 구간은 5, 10, 15, 20, 25, 30, 35, 40 여덟 개뿐이고 40을 넘으면 더 발동하지 않는다.
+ * 2026-09-01부터 35에서 40으로 하나 늘었다 — 프리즘 구간({@link PerkDraft#PRISM_MILESTONES})은
+ * 그대로 15·30이고, 새로 생긴 40은 실버·골드 무작위 구간이다.
  *
  * <p>재발동 여부는 현재 레벨이 아니라 {@code lastMilestone}으로 판단한다. 경험치를 써서
  * 레벨이 내려갔다가 다시 올라와도 이미 처리한 구간은 다시 나오지 않는다.
@@ -16,7 +18,7 @@ public final class PerkMilestones {
 	/** 구간 간격. */
 	public static final int STEP = 5;
 	/** 마지막 구간. 이 위로는 발동하지 않는다. */
-	public static final int MAX = 35;
+	public static final int MAX = 40;
 	/** 전체 구간 수. */
 	public static final int COUNT = MAX / STEP;
 

@@ -20,10 +20,14 @@ class PerkDraftTest {
 	private static final long SEED = 20260829L;
 
 	/** 프리즘가 아닌, 실버 또는 골드가 배정되는 구간들. */
-	private static final int[] RANDOM_MILESTONES = {5, 10, 20, 25, 30, 35};
+	private static final int[] RANDOM_MILESTONES = {5, 10, 20, 25, 35};
 
 	private static Perk once(String id, PerkRarity rarity) {
 		return new Perk(id, id, "설명 " + id, rarity, List.of());
+	}
+
+	private static Perk onceWithMinLevel(String id, PerkRarity rarity, int minLevel) {
+		return new Perk(id, id, "설명 " + id, rarity, null, minLevel, List.of());
 	}
 
 	/** 실버 3개 / 골드 3개 / 프리즘 3개짜리 표준 풀. */
@@ -57,7 +61,20 @@ class PerkDraftTest {
 		}
 		assertEquals(PerkRarity.PRISM, PerkDraft.rarityFor(15, null),
 				"난수원이 없어도 15렙은 프리즘다");
-		assertEquals(15, PerkDraft.PRISM_MILESTONE);
+		assertTrue(PerkDraft.PRISM_MILESTONES.contains(15));
+	}
+
+	@Test
+	void 삼십렙도_난수와_무관하게_항상_프리즘다() {
+		for (long seed = 0; seed < 500; seed++) {
+			assertEquals(PerkRarity.PRISM,
+					PerkDraft.rarityFor(30, RandomSource.create(seed)),
+					"시드 " + seed + "에서 30렙이 프리즘가 아니었다");
+		}
+		assertEquals(PerkRarity.PRISM, PerkDraft.rarityFor(30, null),
+				"난수원이 없어도 30렙은 프리즘다");
+		assertTrue(PerkDraft.PRISM_MILESTONES.contains(30));
+		assertEquals(2, PerkDraft.PRISM_MILESTONES.size(), "프리즘 구간은 15·30 둘뿐이다");
 	}
 
 	@Test
@@ -155,6 +172,44 @@ class PerkDraftTest {
 	}
 
 	@Test
+	void 삼십렙_라운드도_프리즘만_나온다() {
+		List<Perk> pool = ninePool();
+		Map<String, PerkRarity> index = rarityIndex(pool);
+		RandomSource random = RandomSource.create(SEED);
+
+		for (int i = 0; i < 200; i++) {
+			List<String> drawn = PerkDraft.draw(30, pool, List.of(), random, 3);
+
+			assertEquals(3, drawn.size());
+			drawn.forEach(id -> assertEquals(PerkRarity.PRISM, index.get(id),
+					"30렙 라운드에 프리즘가 아닌 후보가 섞였다: " + drawn));
+		}
+	}
+
+	@Test
+	void 십오렙에서_고른_프리즘은_삼십렙에_다시_나오지_않는다() {
+		// 도박꾼처럼 15렙에서 프리즘 하나를 이미 골랐다고 가정한다. 30렙도 프리즘 라운드이므로
+		// 같은 증강이 후보로 다시 뜨면 안 된다. 폴백(프리즘이 모자라면 골드로 채움)이 결과를
+		// 헷갈리게 하지 않도록 프리즘만 네 개 있는 풀로 확인한다.
+		List<Perk> pool = List.of(
+				once("p1", PerkRarity.PRISM),
+				once("p2", PerkRarity.PRISM),
+				once("p3", PerkRarity.PRISM),
+				once("p4", PerkRarity.PRISM));
+		RandomSource random = RandomSource.create(SEED);
+		String picked = "p1";
+
+		for (int i = 0; i < 200; i++) {
+			List<String> secondRound = PerkDraft.draw(30, pool, List.of(picked), random, 3);
+
+			assertFalse(secondRound.contains(picked),
+					"15렙에서 고른 " + picked + " 가 30렙에 다시 나왔다");
+			assertEquals(3, secondRound.size(), "남은 프리즘 셋(p2·p3·p4) 중에서 채워야 한다");
+			assertEquals(Set.of("p2", "p3", "p4"), new HashSet<>(secondRound));
+		}
+	}
+
+	@Test
 	void 등급별_등장_횟수가_기록된다() {
 		// 여러 구간을 많이 돌리면 실버 라운드와 골드 라운드가 모두 나와야 한다
 		List<Perk> pool = ninePool();
@@ -190,7 +245,9 @@ class PerkDraftTest {
 
 		Set<List<String>> results = new HashSet<>();
 		for (int i = 0; i < 200; i++) {
-			results.add(PerkDraft.draw(30, pool, List.of(), random, 3));
+			// 20렙은 프리즘 라운드가 아니라 실버/골드가 반반씩 섞여 나오므로 조합이 갈린다.
+			// 30렙은 이제 프리즘 라운드라 후보 3개짜리 풀에서는 언제나 같은 조합 하나뿐이다.
+			results.add(PerkDraft.draw(20, pool, List.of(), random, 3));
 		}
 
 		assertTrue(results.size() > 1, "난수를 계속 굴리면 서로 다른 조합이 나와야 한다");
@@ -382,6 +439,48 @@ class PerkDraftTest {
 		assertEquals(3, PerkDraft.draw(10, pool, null, random, 3).size());
 		assertEquals(3, PerkDraft.draw(10, pool, List.of(), random).size(), "기본 개수는 3개다");
 		assertEquals(3, PerkDraft.DEFAULT_OPTIONS);
+	}
+
+	// ------------------------------------------------------------------ min_level 필터
+
+	@Test
+	void min_level_이_구간보다_높으면_후보에서_빠진다() {
+		List<Perk> pool = List.of(onceWithMinLevel("p1", PerkRarity.PRISM, 30));
+		RandomSource random = RandomSource.create(SEED);
+
+		assertTrue(PerkDraft.draw(15, pool, List.of(), random, 3).isEmpty(),
+				"min_level 이 30인 증강은 15렙에 나오면 안 된다");
+		assertEquals(List.of("p1"), PerkDraft.draw(30, pool, List.of(), random, 3),
+				"30렙에는 나와야 한다");
+	}
+
+	@Test
+	void min_level_은_구간을_아는_등급_지정_뽑기에도_적용된다() {
+		// 도박꾼의 20·25 실버 고정처럼, 등급을 이미 정해 놓고 구간만 함께 넘기는 경로다.
+		List<Perk> pool = List.of(onceWithMinLevel("p1", PerkRarity.PRISM, 30));
+		RandomSource random = RandomSource.create(SEED);
+
+		assertTrue(PerkDraft.draw(PerkRarity.PRISM, 15, pool, List.of(), random, 3).isEmpty());
+		assertEquals(List.of("p1"), PerkDraft.draw(PerkRarity.PRISM, 30, pool, List.of(), random, 3));
+	}
+
+	@Test
+	void 구간을_모르는_옛_오버로드는_min_level_을_걸지_않는다() {
+		// 구간 정보가 없는 호출부(과거 코드·하위 호환)는 min_level 을 검증할 방법이 없으므로
+		// 걸지 않는다 — 필터링이 필요하면 milestone 을 함께 받는 오버로드를 써야 한다.
+		List<Perk> pool = List.of(onceWithMinLevel("p1", PerkRarity.PRISM, 30));
+		RandomSource random = RandomSource.create(SEED);
+
+		assertEquals(List.of("p1"), PerkDraft.draw(PerkRarity.PRISM, pool, List.of(), random, 3));
+	}
+
+	@Test
+	void min_level_기본값_0은_아무_구간에서나_나온다() {
+		List<Perk> pool = List.of(once("p1", PerkRarity.PRISM));
+		RandomSource random = RandomSource.create(SEED);
+
+		assertEquals(List.of("p1"), PerkDraft.draw(15, pool, List.of(), random, 3));
+		assertEquals(List.of("p1"), PerkDraft.draw(30, pool, List.of(), random, 3));
 	}
 
 	@Test

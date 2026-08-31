@@ -15,6 +15,7 @@ import net.minecraft.world.entity.LivingEntity;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.random.RandomGenerator;
@@ -106,8 +107,10 @@ public final class RallyPointManager {
 			}
 			moverIds.add(players.get(index).getUUID());
 			moverOrigins.add(origins.get(index));
+			// 이 자리에서 옮긴 사람은 이 사람 하나뿐이라, 면역도 이 사람 하나로 충분하다.
 			for (SwapExplosionEffect explosion : explosions) {
-				PositionSwapManager.triggerSwapExplosion(origins.get(index), players.get(index).getUUID(), explosion);
+				PositionSwapManager.scheduleSwapExplosion(
+						origins.get(index), Set.of(players.get(index).getUUID()), explosion);
 			}
 		}
 

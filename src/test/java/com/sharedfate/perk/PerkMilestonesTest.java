@@ -11,10 +11,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PerkMilestonesTest {
 
 	@Test
-	void 구간_상수는_5의_배수_일곱_개다() {
+	void 구간_상수는_5의_배수_여덟_개다() {
 		assertEquals(5, PerkMilestones.STEP);
-		assertEquals(35, PerkMilestones.MAX);
-		assertEquals(7, PerkMilestones.COUNT);
+		assertEquals(40, PerkMilestones.MAX);
+		assertEquals(8, PerkMilestones.COUNT);
 	}
 
 	@Test
@@ -62,28 +62,34 @@ class PerkMilestonesTest {
 	}
 
 	@Test
-	void 마지막_구간은_35이고_그_위로는_발동하지_않는다() {
+	void 마지막_구간은_40이고_그_위로는_발동하지_않는다() {
 		assertEquals(List.of(35), PerkMilestones.newlyReached(30, 35));
-		assertEquals(List.of(35), PerkMilestones.newlyReached(30, 36));
-		assertEquals(List.of(35), PerkMilestones.newlyReached(30, 200));
-		assertEquals(List.of(), PerkMilestones.newlyReached(35, 36));
-		assertEquals(List.of(), PerkMilestones.newlyReached(35, 999));
+		assertEquals(List.of(35), PerkMilestones.newlyReached(30, 36), "40 은 아직 안 닿았다");
+		assertEquals(List.of(35, 40), PerkMilestones.newlyReached(30, 200));
+		assertEquals(List.of(40), PerkMilestones.newlyReached(35, 40));
+		assertEquals(List.of(40), PerkMilestones.newlyReached(35, 41));
+		assertEquals(List.of(40), PerkMilestones.newlyReached(35, 999));
+		assertEquals(List.of(), PerkMilestones.newlyReached(40, 41));
+		assertEquals(List.of(), PerkMilestones.newlyReached(40, 999));
 	}
 
 	@Test
-	void 처음부터_한번에_최고레벨까지_가면_구간_일곱개가_모두_나온다() {
+	void 처음부터_한번에_최고레벨까지_가면_구간_여덟개가_모두_나온다() {
 		List<Integer> reached = PerkMilestones.newlyReached(0, 100);
 
 		assertEquals(PerkMilestones.COUNT, reached.size());
-		assertEquals(List.of(5, 10, 15, 20, 25, 30, 35), reached);
+		assertEquals(List.of(5, 10, 15, 20, 25, 30, 35, 40), reached);
 	}
 
 	@Test
-	void 프리즘_구간은_전체에서_한_번뿐이다() {
+	void 프리즘_구간_각각은_전체에서_한_번씩만_나온다() {
 		List<Integer> reached = PerkMilestones.newlyReached(0, 100);
 
-		assertEquals(1, reached.stream().filter(m -> m == PerkDraft.PRISM_MILESTONE).count());
-		assertTrue(reached.contains(PerkDraft.PRISM_MILESTONE), "15렙 구간이 실제로 발동해야 한다");
+		for (int prismMilestone : PerkDraft.PRISM_MILESTONES) {
+			assertEquals(1, reached.stream().filter(m -> m == prismMilestone).count(),
+					prismMilestone + "렙 구간이 정확히 한 번만 나와야 한다");
+			assertTrue(reached.contains(prismMilestone), prismMilestone + "렙 구간이 실제로 발동해야 한다");
+		}
 	}
 
 	@Test
@@ -111,12 +117,15 @@ class PerkMilestonesTest {
 		assertEquals(5, PerkMilestones.clampMilestone(9));
 		assertEquals(10, PerkMilestones.clampMilestone(12));
 		assertEquals(30, PerkMilestones.clampMilestone(33));
-		assertEquals(PerkMilestones.MAX, PerkMilestones.clampMilestone(36));
+		// 36 은 MAX(40) 보다 작으므로 더는 "최고 구간"으로 잘리지 않고 그 아래 5의 배수(35)로
+		// 내려간다. MAX 가 35 이던 시절에는 36 이 곧바로 35(=MAX)로 잘렸지만, 지금은 35까지
+		// 내려간 뒤에도 그 위에 40 구간이 남아 있다.
+		assertEquals(35, PerkMilestones.clampMilestone(36));
 
 		// 12까지 처리한 구 데이터가 20렙으로 넘어오면 15·20 두 개만 나온다
 		assertEquals(List.of(15, 20), PerkMilestones.newlyReached(12, 20));
-		// 구 최고구간 36까지 처리한 팀은 더 받지 않는다
-		assertEquals(List.of(), PerkMilestones.newlyReached(36, 999));
+		// 구 최고구간 36까지 처리한 팀도 35로 보정된 뒤, 새로 생긴 40렙 구간은 받는다.
+		assertEquals(List.of(40), PerkMilestones.newlyReached(36, 999));
 	}
 
 	@Test
@@ -124,11 +133,12 @@ class PerkMilestonesTest {
 		assertTrue(PerkMilestones.isMilestone(5));
 		assertTrue(PerkMilestones.isMilestone(15));
 		assertTrue(PerkMilestones.isMilestone(35));
+		assertTrue(PerkMilestones.isMilestone(40), "40 이 새 마지막 구간이다");
 		assertFalse(PerkMilestones.isMilestone(0));
 		assertFalse(PerkMilestones.isMilestone(3));
 		assertFalse(PerkMilestones.isMilestone(6));
 		assertFalse(PerkMilestones.isMilestone(36));
-		assertFalse(PerkMilestones.isMilestone(40));
+		assertFalse(PerkMilestones.isMilestone(45), "40 을 넘으면 더는 구간이 아니다");
 	}
 
 	@Test

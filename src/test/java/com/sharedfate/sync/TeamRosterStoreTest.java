@@ -22,6 +22,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TeamRosterStoreTest {
 	private static final UUID TEAM = UUID.fromString("10000000-0000-0000-0000-000000000001");
 	private static final UUID A = UUID.fromString("20000000-0000-0000-0000-000000000001");
+	/**
+	 * 지금 쓰는 명단 형식. {@code TeamRosterStore.FORMAT_VERSION} 을 올릴 때 여기도 올린다.
+	 *
+	 * <p>여러 시험에 숫자를 흩어 놓으면 형식을 올릴 때마다 애먼 곳이 함께 깨진다. 한 줄로 모아
+	 * 두면 "형식을 바꿨으면 번호도 올려야 한다"는 검사는 그대로 남기면서 고칠 자리는 하나다.
+	 */
+	private static final String CURRENT_FORMAT = "\"formatVersion\": 6";
 
 	@BeforeAll
 	static void bootstrap() {
@@ -39,7 +46,7 @@ class TeamRosterStoreTest {
 		assertEquals(List.of(team),
 				TeamRosterStore.load(file).stream()
 						.map(TeamRosterStore.RestoredTeam::team).toList());
-		assertTrue(Files.readString(file, StandardCharsets.UTF_8).contains("\"formatVersion\": 4"));
+		assertTrue(Files.readString(file, StandardCharsets.UTF_8).contains(CURRENT_FORMAT));
 	}
 
 	@Test
@@ -56,6 +63,39 @@ class TeamRosterStoreTest {
 		assertEquals(2400, loaded.swapIntervalTicks());
 		assertTrue(loaded.damageAlertEnabled());
 		assertTrue(loaded.deathAlertEnabled());
+	}
+
+	@Test
+	void 난이도_상승_켜고_끄기도_회차를_넘겨_이어진다(@TempDir Path server) throws Exception {
+		Path file = server.resolve(TeamRosterStore.FILE_NAME);
+		ShareTeam team = new ShareTeam(TEAM, "원정대", List.of(A));
+
+		TeamRosterStore.save(file, List.of(new TeamRosterStore.RestoredTeam(
+				team, true, 20.0F, 0, false, false, List.of(), true)));
+
+		assertTrue(TeamRosterStore.load(file).getFirst().difficultyEscalationEnabled());
+	}
+
+	@Test
+	void 난이도_항목이_없는_예전_형식은_꺼진_채로_읽힌다(@TempDir Path server) throws Exception {
+		Path file = server.resolve(TeamRosterStore.FILE_NAME);
+		Files.writeString(file, """
+				{
+				  "formatVersion": 4,
+				  "teams": [
+				    {
+				      "teamId": "%s",
+				      "name": "원정대",
+				      "members": ["%s"],
+				      "settings": { "perksEnabled": true, "maxHealth": 20.0, "swapIntervalTicks": 0 }
+				    }
+				  ]
+				}
+				""".formatted(TEAM, A), StandardCharsets.UTF_8);
+
+		TeamRosterStore.RestoredTeam loaded = TeamRosterStore.load(file).getFirst();
+		assertFalse(loaded.difficultyEscalationEnabled());
+		assertTrue(loaded.perksEnabled(), "난이도와 무관한 값은 그대로 읽혀야 한다");
 	}
 
 	@Test
@@ -134,7 +174,7 @@ class TeamRosterStoreTest {
 		assertEquals(2, loaded.size());
 		assertTrue(loaded.get(0).is(Items.DIAMOND_PICKAXE));
 		assertTrue(loaded.get(1).is(Items.DIAMOND_HELMET));
-		assertTrue(Files.readString(file, StandardCharsets.UTF_8).contains("\"formatVersion\": 4"));
+		assertTrue(Files.readString(file, StandardCharsets.UTF_8).contains(CURRENT_FORMAT));
 	}
 
 	@Test
