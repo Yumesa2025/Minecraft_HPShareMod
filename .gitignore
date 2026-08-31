@@ -26,3 +26,9 @@ replay_*.log
 .env.*
 !.env.example
 _template/
+
+# 내부 문서 — 로컬에만 둔다. 깃에는 증강 목록(docs/증강-목록.md)만 올린다.
+/PROGRESS.md
+/docs/증강-작성표.md
+/docs/superpowers/
+/.claude/
