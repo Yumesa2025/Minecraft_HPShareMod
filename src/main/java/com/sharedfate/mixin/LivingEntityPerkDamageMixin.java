@@ -2,6 +2,7 @@ package com.sharedfate.mixin;
 
 import com.sharedfate.perk.PerkChoiceSession;
 import com.sharedfate.perk.PerkDamage;
+import com.sharedfate.sync.DifficultyEscalation;
 import com.sharedfate.sync.SharedEffectDamage;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
@@ -75,9 +76,15 @@ public abstract class LivingEntityPerkDamageMixin {
 	/**
 	 * 인자 셋 중 {@code float amount}(로컬 3번)만 바꾼다. {@code argsOnly} 로 지역변수는 건드리지
 	 * 않고, 앞쪽 인자 둘은 캡처해 피해원을 넘겨받는다.
+	 *
+	 * <p>증강 배율을 먹인 값에 이어서 「난이도 상승」배율을 곱한다. 새 mixin 을 하나 더 두는
+	 * 대신 여기서 이어 부르는 이유는 둘이다 — 같은 자리에 두 mixin 이 붙으면 어느 쪽이 먼저
+	 * 도는지가 우선순위에 달려 눈에 안 보이고, 이미 동작이 확인된 진입점을 그대로 쓰는 편이
+	 * 안전하다. 둘 다 곱셈이라 순서는 어차피 결과를 바꾸지 않는다.
 	 */
 	@ModifyVariable(method = "hurtServer", at = @At("HEAD"), argsOnly = true, index = 3)
 	private float sharedfate$applyPerkDamageMultipliers(float amount, ServerLevel level, DamageSource source) {
-		return PerkDamage.scale((LivingEntity) (Object) this, source, amount);
+		float scaled = PerkDamage.scale((LivingEntity) (Object) this, source, amount);
+		return DifficultyEscalation.scaleDamage(source, scaled);
 	}
 }

@@ -72,10 +72,15 @@ public final class PerkGearManager {
 				// 제한이 없는 사람. 예전에 붙여 둔 수정자만 걷어내면 된다.
 				if (sweep) {
 					PerkWeaponDamage.clear(player);
+					PerkDamageBoostBan.clear(player);
 				}
 				continue;
 			}
 			PerkWeaponDamage.refresh(player, state);
+			// PerkWeaponDamage 뒤에 두면 이번 틱의 무기 배율이 이미 반영된 상태에서 스캔한다.
+			// (그 수정자 자체는 id로 예외 처리하므로 순서가 정답을 바꾸지는 않지만, 매 틱
+			// 최신 상태를 보는 편이 더 이해하기 쉽다.)
+			PerkDamageBoostBan.refresh(player, state);
 			if (sweep) {
 				enforce(player, state);
 			}

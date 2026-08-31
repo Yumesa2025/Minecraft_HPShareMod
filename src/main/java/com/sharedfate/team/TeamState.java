@@ -60,11 +60,50 @@ public class TeamState {
 	public int positionSwapIntervalTicks;
 	public int positionSwapRemainingTicks;
 
+	/** 증강 사용 여부. 팀을 만들 때 정하고 그 뒤로는 바꾸는 경로가 없다. */
 	public boolean perksEnabled;
 	/** 피격 알림 표시 여부. 팀을 만들 때 정하고 그 뒤로는 바꾸는 경로가 없다. */
 	public boolean damageAlertEnabled;
 	/** 사망 알림 표시 여부. 팀을 만들 때 정하고 그 뒤로는 바꾸는 경로가 없다. */
 	public boolean deathAlertEnabled;
+	/**
+	 * 시간이 흐를수록 적대적 몹이 강해지는가. 팀을 만들 때 정하고 그 뒤로는 바꾸는 경로가 없다.
+	 * 실제 계산은 {@code com.sharedfate.sync.DifficultyEscalation} 이 한다.
+	 */
+	public boolean difficultyEscalationEnabled;
+	/**
+	 * 이 회차에서 <b>팀원이 한 명이라도 접속해 있던</b> 시간(틱). 난이도 상승 단계를 이걸로 센다.
+	 *
+	 * <p>월드 저장에 들어가므로 서버를 껐다 켜도 이어지고, <b>서버가 꺼져 있던 시간은 세지
+	 * 않는다.</b> 아무도 접속하지 않은 시간도 마찬가지다. 회차가 넘어가면 팀 상태를 새로 만들어
+	 * 0 에서 다시 시작한다 — 「회차가 시작된 뒤 흐른 시간」이 이 값의 뜻이다.
+	 */
+	public int difficultyElapsedTicks;
+	/**
+	 * 이 회차에서 증강 시험 명령({@code /shareteam perktest ...})을 한 번이라도 썼는가.
+	 *
+	 * <p>한 번 켜지면 이 회차가 끝날 때까지 <b>다시 꺼지지 않는다.</b> 증강을 손으로 넣고 뺀
+	 * 회차는 정상 회차가 아니고, 그 사실이 나중에 「어떻게 이겼더라」를 따질 때 남아 있어야
+	 * 한다. 회차가 넘어가면 팀 상태를 새로 만들면서 저절로 지워진다.
+	 */
+	public boolean perkTestUsed;
+	/**
+	 * 이 팀이 <b>한 회차에</b> 쓸 수 있는 증강 다시 뽑기 횟수. 팀을 만들 때 정하고 그 뒤로는
+	 * 바꾸는 경로가 없다.
+	 *
+	 * <p>{@link #rerollsRemaining} 과 나눠 둔 이유는 {@link #baseMaxHealth} 와 {@link #maxHealth}
+	 * 를 나눈 것과 같다. "원래 몇 번이었는가"가 남아 있어야 회차가 넘어갈 때 그 값으로 다시
+	 * 채울 수 있다. 회차를 넘겨 이어 가는 일은 {@code TeamRosterStore} 와
+	 * {@link TeamManager#restoreFreshRoster} 가 맡는다.
+	 */
+	public int rerollAllowance;
+	/**
+	 * <b>이번 회차에</b> 아직 남은 다시 뽑기 횟수. 0 이면 더 못 쓴다.
+	 *
+	 * <p>회차마다 다시 차는 값이라 월드 저장에만 들어가고 팀 명단 파일에는 들어가지 않는다.
+	 * 전멸로 팀 상태를 새로 만들면 {@link #rerollAllowance} 로 가득 찬 채 시작한다.
+	 */
+	public int rerollsRemaining;
 	/** 마지막으로 처리한 레벨 구간 (0, 3, 6, …, 36). */
 	public int lastPerkMilestone;
 	/** 팀이 보유한 증강의 id. 중첩이 없으므로 같은 id 가 두 번 들어가지 않는다. */
@@ -106,6 +145,10 @@ public class TeamState {
 		effects.forEach(effect -> this.effects.add(new MobEffectInstance(effect)));
 		this.positionSwapIntervalTicks = positionSwapIntervalTicks;
 		this.positionSwapRemainingTicks = positionSwapRemainingTicks;
+		// 다시 뽑기는 팀을 만들 때 정하지만, 그 길을 거치지 않고 만들어진 상태(기존 월드·시험)도
+		// 기본값으로 굴러가야 한다. 저장에서 읽어 온 경우에만 CODEC 이 뒤에서 덮어쓴다.
+		this.rerollAllowance = TeamCreationSettings.DEFAULT_REROLL_COUNT;
+		this.rerollsRemaining = TeamCreationSettings.DEFAULT_REROLL_COUNT;
 	}
 
 	public static TeamState fresh(float maxHealth) {
@@ -169,6 +212,11 @@ public class TeamState {
 				? Math.max(0.0F, Math.min(1.0F, xpProgress)) : 0.0F;
 		overflowItems.removeIf(ItemStack::isEmpty);
 		legacyGear.removeIf(ItemStack::isEmpty);
+		// 상한은 DifficultyEscalation 이 자기 계산에서 다시 자른다. 여기서는 음수만 막는다.
+		difficultyElapsedTicks = Math.max(0, difficultyElapsedTicks);
+		// 이번 회차에 남은 횟수가 회차당 허용치보다 클 수는 없다. 손상된 저장을 여기서 접는다.
+		rerollAllowance = TeamCreationSettings.sanitizeRerollCount(rerollAllowance);
+		rerollsRemaining = Math.max(0, Math.min(rerollAllowance, rerollsRemaining));
 		if (positionSwapIntervalTicks < 0 || positionSwapIntervalTicks > PositionSwapLimits.MAX_INTERVAL_TICKS) {
 			positionSwapIntervalTicks = 0;
 		}
@@ -342,6 +390,76 @@ public class TeamState {
 		).apply(instance, AlertSection::new));
 	}
 
+	/**
+	 * 난이도 상승 저장 묶음.
+	 *
+	 * <p>{@link AlertSection} 과 같은 이유로 따로 묶는다 — {@code BASE_CODEC} 이 이미
+	 * {@code RecordCodecBuilder.group} 인자 상한(P16)을 다 써서 새 항목은 바깥쪽에만 붙는다.
+	 *
+	 * <p>두 항목 모두 {@code optionalFieldOf} 이고 묶음 자체도 선택 항목이라, 이 기능을 끈
+	 * 팀은 저장할 때 묶음이 통째로 빠져 예전과 형태가 같고, 이 항목이 없는 기존 월드는
+	 * {@link #OFF} 로 읽힌다.
+	 *
+	 * @param escalation   시간이 흐를수록 몹이 강해지는가
+	 * @param elapsedTicks 이 회차에서 팀원이 접속해 있던 시간(틱)
+	 */
+	public record DifficultySection(boolean escalation, int elapsedTicks) {
+		/** 꺼져 있고 아직 아무 시간도 세지 않은 상태. 기존 월드를 읽을 때의 값이다. */
+		public static final DifficultySection OFF = new DifficultySection(false, 0);
+
+		public static final Codec<DifficultySection> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+				Codec.BOOL.optionalFieldOf("escalation", false).forGetter(DifficultySection::escalation),
+				Codec.INT.optionalFieldOf("elapsedTicks", 0).forGetter(DifficultySection::elapsedTicks)
+		).apply(instance, DifficultySection::new));
+	}
+
+	/**
+	 * 증강 다시 뽑기 저장 묶음.
+	 *
+	 * <p>{@link DifficultySection} 과 같은 이유로 바깥쪽에 따로 붙인다. 다만 기본값이 「꺼짐」이
+	 * 아니라 {@linkplain TeamCreationSettings#DEFAULT_REROLL_COUNT 회차당 3회}라는 점이 다르다.
+	 * 기본값 그대로인 팀은 저장할 때 이 묶음이 통째로 빠지고, 이 항목이 없는 기존 월드도
+	 * {@link #DEFAULT} — 3회 전부 남아 있는 상태 — 로 읽힌다.
+	 *
+	 * @param allowance 이 팀이 회차당 쓸 수 있는 횟수
+	 * @param remaining 이번 회차에 아직 남은 횟수
+	 */
+	public record RerollSection(int allowance, int remaining) {
+		/** 팀이 아무것도 안 정했을 때의 값. 기존 월드를 읽을 때도 이 값이다. */
+		public static final RerollSection DEFAULT = new RerollSection(
+				TeamCreationSettings.DEFAULT_REROLL_COUNT,
+				TeamCreationSettings.DEFAULT_REROLL_COUNT);
+
+		public static final Codec<RerollSection> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+				Codec.INT.optionalFieldOf("allowance", TeamCreationSettings.DEFAULT_REROLL_COUNT)
+						.forGetter(RerollSection::allowance),
+				Codec.INT.optionalFieldOf("remaining", TeamCreationSettings.DEFAULT_REROLL_COUNT)
+						.forGetter(RerollSection::remaining)
+		).apply(instance, RerollSection::new));
+	}
+
+	/** 현재 다시 뽑기 상태를 저장용 묶음으로 뽑아낸다. */
+	public RerollSection rerollSection() {
+		return new RerollSection(rerollAllowance, rerollsRemaining);
+	}
+
+	/** 저장에서 읽은 다시 뽑기 묶음을 이 상태에 채운다. */
+	public void applyRerollSection(RerollSection section) {
+		rerollAllowance = TeamCreationSettings.sanitizeRerollCount(section.allowance());
+		rerollsRemaining = Math.max(0, Math.min(rerollAllowance, section.remaining()));
+	}
+
+	/** 현재 난이도 상승 상태를 저장용 묶음으로 뽑아낸다. */
+	public DifficultySection difficultySection() {
+		return new DifficultySection(difficultyEscalationEnabled, difficultyElapsedTicks);
+	}
+
+	/** 저장에서 읽은 난이도 묶음을 이 상태에 채운다. */
+	public void applyDifficultySection(DifficultySection section) {
+		difficultyEscalationEnabled = section.escalation();
+		difficultyElapsedTicks = Math.max(0, section.elapsedTicks());
+	}
+
 	/** 현재 알림 설정을 저장용 묶음으로 뽑아낸다. */
 	public AlertSection alertSection() {
 		return new AlertSection(damageAlertEnabled, deathAlertEnabled);
@@ -426,7 +544,13 @@ public class TeamState {
 			AlertSection.CODEC.optionalFieldOf("alerts", AlertSection.NONE)
 					.<TeamState>forGetter(TeamState::alertSection),
 			ItemStack.OPTIONAL_CODEC.listOf().optionalFieldOf("legacyGear", List.of())
-					.<TeamState>forGetter(state -> List.copyOf(state.legacyGear))
+					.<TeamState>forGetter(state -> List.copyOf(state.legacyGear)),
+			DifficultySection.CODEC.optionalFieldOf("difficulty", DifficultySection.OFF)
+					.<TeamState>forGetter(TeamState::difficultySection),
+			Codec.BOOL.optionalFieldOf("perkTestUsed", false)
+					.<TeamState>forGetter(state -> state.perkTestUsed),
+			RerollSection.CODEC.optionalFieldOf("reroll", RerollSection.DEFAULT)
+					.<TeamState>forGetter(TeamState::rerollSection)
 	).apply(instance, TeamState::withStoredSections));
 
 	/**
@@ -448,9 +572,13 @@ public class TeamState {
 	 * {@code maxHealth} 였으므로 이게 정확한 복원이다.
 	 */
 	private static TeamState withStoredSections(TeamState state, PerkSection perks,
-			Optional<Float> baseMaxHealth, AlertSection alerts, List<ItemStack> legacyGear) {
+			Optional<Float> baseMaxHealth, AlertSection alerts, List<ItemStack> legacyGear,
+			DifficultySection difficulty, boolean perkTestUsed, RerollSection reroll) {
 		state.applyPerkSection(perks);
 		state.applyAlertSection(alerts);
+		state.applyDifficultySection(difficulty);
+		state.applyRerollSection(reroll);
+		state.perkTestUsed = perkTestUsed;
 		baseMaxHealth.ifPresent(value -> state.baseMaxHealth = sanitizeMaximum(value, state.maxHealth));
 		state.legacyGear.clear();
 		legacyGear.stream().filter(stack -> !stack.isEmpty()).forEach(state.legacyGear::add);

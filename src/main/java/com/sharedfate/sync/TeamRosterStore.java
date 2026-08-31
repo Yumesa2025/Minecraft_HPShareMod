@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.team.ShareTeam;
+import com.sharedfate.team.TeamCreationSettings;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
 import net.minecraft.nbt.CompoundTag;
@@ -33,12 +34,21 @@ public final class TeamRosterStore {
 	 * 2: 팀 설정(증강 사용 여부·최대 체력·위치 교환 주기)을 함께 적기 시작했다.
 	 * 3: 피격 알림·사망 알림 표시 여부를 함께 적기 시작했다.
 	 * 4: 「유산」이 몰수한 도구·무기·방어구 목록({@code legacyGear})을 함께 적기 시작했다.
+	 * 5: 난이도 상승 켜고 끄기({@code difficultyEscalationEnabled})를 함께 적기 시작했다.
+	 * 6: 증강 다시 뽑기의 회차당 횟수({@code rerollCount})를 함께 적기 시작했다.
 	 *
-	 * <p>3·2·1로 적힌 예전 파일도 그대로 읽는다. 설정 항목이 없으면 기본값으로 시작하고,
-	 * 두 알림의 기본값은 꺼짐이며, {@code legacyGear} 가 없으면 빈 목록이다.
+	 * <p>5·4·3·2·1로 적힌 예전 파일도 그대로 읽는다. 설정 항목이 없으면 기본값으로 시작하고,
+	 * 두 알림과 난이도 상승의 기본값은 꺼짐이며, {@code legacyGear} 가 없으면 빈 목록이다.
+	 * <b>다시 뽑기 횟수만은 기본값이 0 이 아니다</b> — 형식 5 이하의 파일에는 이 항목이 없어
+	 * Gson 이 0 으로 두므로, 아래에서 {@linkplain
+	 * com.sharedfate.team.TeamCreationSettings#DEFAULT_REROLL_COUNT 기본 3회}로 바꿔 읽는다.
+	 *
+	 * <p><b>난이도가 오른 시간도, 이번 회차에 남은 다시 뽑기 횟수도 여기 담지 않는다.</b>
+	 * 둘 다 회차마다 다시 세는 값이고 월드 저장에 들어 있다. 회차를 넘겨 이어져야 하는 것은
+	 * 「이 팀은 켜기로 했다」·「이 팀은 회차당 몇 번으로 정했다」는 결정뿐이다.
 	 */
-	private static final int FORMAT_VERSION = 4;
-	private static final List<Integer> READABLE_FORMAT_VERSIONS = List.of(4, 3, 2, 1);
+	private static final int FORMAT_VERSION = 6;
+	private static final List<Integer> READABLE_FORMAT_VERSIONS = List.of(6, 5, 4, 3, 2, 1);
 	private static final int MAX_STORED_TEAMS = 1024;
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
@@ -61,9 +71,12 @@ public final class TeamRosterStore {
 	 * @param damageAlertEnabled  피격 알림을 켜기로 한 팀인가
 	 * @param deathAlertEnabled   사망 알림을 켜기로 한 팀인가
 	 * @param legacyGear          「유산」이 몰수해 다음 회차로 넘기는 아이템(SNBT 문자열 목록)
+	 * @param difficultyEscalationEnabled 난이도 상승을 켜기로 한 팀인가
+	 * @param rerollCount         증강 다시 뽑기의 회차당 횟수. 예전 형식에는 없어 {@code null} 일 수 있다
 	 */
 	private record StoredSettings(boolean perksEnabled, float maxHealth, int swapIntervalTicks,
-			boolean damageAlertEnabled, boolean deathAlertEnabled, List<String> legacyGear) {
+			boolean damageAlertEnabled, boolean deathAlertEnabled, List<String> legacyGear,
+			boolean difficultyEscalationEnabled, @Nullable Integer rerollCount) {
 	}
 
 	private record StoredTeam(String teamId, String name, List<String> members,
@@ -73,17 +86,35 @@ public final class TeamRosterStore {
 	/** 명단과 그 팀이 이어 갈 설정을 함께 들고 다니는 짝. */
 	public record RestoredTeam(ShareTeam team, boolean perksEnabled, float maxHealth,
 			int swapIntervalTicks, boolean damageAlertEnabled, boolean deathAlertEnabled,
-			List<ItemStack> legacyGear) {
+			List<ItemStack> legacyGear, boolean difficultyEscalationEnabled, int rerollCount) {
 
-		/** 「유산」을 안 쓰는 보통의 경우를 짧게 적기 위한 편의 생성자. */
+		/** 「유산」도 난이도 상승도 안 쓰는 보통의 경우를 짧게 적기 위한 편의 생성자. */
 		public RestoredTeam(ShareTeam team, boolean perksEnabled, float maxHealth,
 				int swapIntervalTicks, boolean damageAlertEnabled, boolean deathAlertEnabled) {
 			this(team, perksEnabled, maxHealth, swapIntervalTicks,
-					damageAlertEnabled, deathAlertEnabled, List.of());
+					damageAlertEnabled, deathAlertEnabled, List.of(), false);
+		}
+
+		/** 난이도 상승이 생기기 전 형태를 그대로 쓰던 자리를 위한 편의 생성자. */
+		public RestoredTeam(ShareTeam team, boolean perksEnabled, float maxHealth,
+				int swapIntervalTicks, boolean damageAlertEnabled, boolean deathAlertEnabled,
+				List<ItemStack> legacyGear) {
+			this(team, perksEnabled, maxHealth, swapIntervalTicks,
+					damageAlertEnabled, deathAlertEnabled, legacyGear, false);
+		}
+
+		/** 다시 뽑기가 생기기 전 형태를 그대로 쓰던 자리를 위한 편의 생성자. 기본 3회로 본다. */
+		public RestoredTeam(ShareTeam team, boolean perksEnabled, float maxHealth,
+				int swapIntervalTicks, boolean damageAlertEnabled, boolean deathAlertEnabled,
+				List<ItemStack> legacyGear, boolean difficultyEscalationEnabled) {
+			this(team, perksEnabled, maxHealth, swapIntervalTicks,
+					damageAlertEnabled, deathAlertEnabled, legacyGear, difficultyEscalationEnabled,
+					TeamCreationSettings.DEFAULT_REROLL_COUNT);
 		}
 
 		public RestoredTeam {
 			legacyGear = List.copyOf(legacyGear);
+			rerollCount = TeamCreationSettings.sanitizeRerollCount(rerollCount);
 		}
 	}
 
@@ -138,7 +169,8 @@ public final class TeamRosterStore {
 			result.add(new RestoredTeam(team, state.perksEnabled, state.baseMaxHealth,
 					state.positionSwapIntervalTicks,
 					state.damageAlertEnabled, state.deathAlertEnabled,
-					List.copyOf(state.legacyGear)));
+					List.copyOf(state.legacyGear), state.difficultyEscalationEnabled,
+					state.rerollAllowance));
 		}
 		return result;
 	}
@@ -151,7 +183,9 @@ public final class TeamRosterStore {
 						new StoredSettings(entry.perksEnabled(), entry.maxHealth(),
 								entry.swapIntervalTicks(),
 								entry.damageAlertEnabled(), entry.deathAlertEnabled(),
-								encodeItems(entry.legacyGear()))))
+								encodeItems(entry.legacyGear()),
+								entry.difficultyEscalationEnabled(),
+								entry.rerollCount())))
 				.toList();
 		StoredRoster roster = new StoredRoster(FORMAT_VERSION, storedTeams);
 		Path parent = file.getParent();
@@ -196,16 +230,20 @@ public final class TeamRosterStore {
 				List<UUID> members = team.members().stream().map(UUID::fromString).toList();
 				ShareTeam share = new ShareTeam(UUID.fromString(team.teamId()), team.name(), members);
 				// 형식 1 에는 설정이 없다. 그때는 기본값으로 시작한다. 형식 2 에는 알림
-				// 항목이, 형식 3 이하에는 legacyGear 가 없는데, Gson 이 없는 필드를 각각
-				// false·null 로 두므로 알림은 저절로 꺼짐이 되고 legacyGear 는 아래에서 빈
-				// 목록으로 바꾼다.
+				// 항목이, 형식 3 이하에는 legacyGear 가, 형식 4 이하에는 난이도 상승이,
+				// 형식 5 이하에는 다시 뽑기 횟수가 없는데, Gson 이 없는 필드를 각각
+				// false·null 로 두므로 알림과 난이도 상승은 저절로 꺼짐이 되고 legacyGear 는
+				// 아래에서 빈 목록으로, 다시 뽑기 횟수는 기본 3회로 바꾼다.
 				StoredSettings settings = team.settings();
 				teams.add(settings == null
-						? new RestoredTeam(share, false, defaultMaxHealth(), 0, false, false, List.of())
+						? new RestoredTeam(share, false, defaultMaxHealth(), 0, false, false,
+								List.of(), false)
 						: new RestoredTeam(share, settings.perksEnabled(),
 								settings.maxHealth(), settings.swapIntervalTicks(),
 								settings.damageAlertEnabled(), settings.deathAlertEnabled(),
-								decodeItems(settings.legacyGear())));
+								decodeItems(settings.legacyGear()),
+								settings.difficultyEscalationEnabled(),
+								rerollCount(settings.rerollCount())));
 			}
 		} catch (RuntimeException e) {
 			throw new IOException("팀 명단 값이 손상되었습니다: " + file, e);
@@ -219,6 +257,18 @@ public final class TeamRosterStore {
 	 * <p>{@code SharedFateMod.config} 는 서버가 뜨기 전이나 단위 시험에서는 null 이다.
 	 * 그때는 모드 기본값 20 으로 둔다.
 	 */
+	/**
+	 * 저장된 다시 뽑기 횟수. 항목 자체가 없는 형식 5 이하의 파일은 기본 3회로 본다.
+	 *
+	 * <p>{@code int} 가 아니라 {@code Integer} 로 받는 이유가 이것이다. 0 회로 정한 팀과
+	 * 「항목이 없는 예전 파일」을 구별할 길이 그것뿐이다.
+	 */
+	private static int rerollCount(@Nullable Integer stored) {
+		return stored == null
+				? TeamCreationSettings.DEFAULT_REROLL_COUNT
+				: TeamCreationSettings.sanitizeRerollCount(stored);
+	}
+
 	private static float defaultMaxHealth() {
 		return SharedFateMod.config == null
 				? 20.0F : (float) SharedFateMod.config.sharedMaxHealth;

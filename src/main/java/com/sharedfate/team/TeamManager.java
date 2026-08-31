@@ -108,9 +108,13 @@ public class TeamManager extends SavedData {
 	 * 새 회차의 빈 월드에 팀 명단과 그 팀이 정해 둔 설정을 되살린다.
 	 *
 	 * <p>공유 아이템·체력·경험치는 새로 시작하지만 <b>증강 사용 여부·최대 체력·위치 교환
-	 * 주기·두 알림 설정은 이어진다.</b> 이것들은 회차마다 달라지는 진행 상황이 아니라 팀이
-	 * 한 번 내린 결정이라, 회차가 넘어갈 때마다 다시 켜라고 하면 매번 같은 명령을 치게 된다.
-	 * 두 알림은 팀을 만들 때만 정할 수 있어 더더욱 이어져야 한다.
+	 * 주기·두 알림·난이도 상승·다시 뽑기 횟수 설정은 이어진다.</b> 이것들은 회차마다 달라지는 진행 상황이
+	 * 아니라 팀이 한 번 내린 결정이고, 모두 팀을 만들 때만 정할 수 있어 이어지지 않으면
+	 * 회차가 넘어가는 순간 되돌릴 길이 없다.
+	 *
+	 * <p>다만 난이도가 <b>실제로 오른 시간</b>과 <b>이번 회차에 남은 다시 뽑기 횟수</b>는
+	 * 이어지지 않는다. 둘 다 「회차가 시작된 뒤」를 뜻하는 값이라, 새 회차는 시간은 0 에서,
+	 * 다시 뽑기는 가득 찬 채로 시작한다.
 	 *
 	 * <p>보유 증강은 이어지지 않는다. 회차마다 새로 고르는 것이 규칙이다.
 	 */
@@ -150,6 +154,12 @@ public class TeamManager extends SavedData {
 			state.damageAlertEnabled = entry.damageAlertEnabled();
 			state.deathAlertEnabled = entry.deathAlertEnabled();
 			state.positionSwapIntervalTicks = Math.max(0, entry.swapIntervalTicks());
+			// 난이도 상승은 켜고 끄기만 이어진다. 오른 시간은 회차마다 0 에서 다시 센다.
+			state.difficultyEscalationEnabled = entry.difficultyEscalationEnabled();
+			// 다시 뽑기도 같은 결이다. 「회차당 몇 번」이라는 결정만 이어지고, 이번 회차에
+			// 남은 횟수는 여기서 가득 찬다 — 회차가 넘어가면 다시 차야 하기 때문이다.
+			state.rerollAllowance = TeamCreationSettings.sanitizeRerollCount(entry.rerollCount());
+			state.rerollsRemaining = state.rerollAllowance;
 			// 「유산」이 몰수했던 도구·무기·방어구를 새 회차 시작 인벤토리로 돌려준다.
 			// 자리가 없으면 overflowItems 에 남아 칸이 비는 대로 자동으로 들어온다
 			// (PerkItemGrants 가 즉시 지급을 넣을 때와 같은 경로).

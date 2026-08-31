@@ -3,6 +3,7 @@ package com.sharedfate.client;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.client.hud.DamageAlertHud;
 import com.sharedfate.client.hud.HotbarHighlight;
+import com.sharedfate.client.hud.PerkProgressHud;
 import com.sharedfate.client.hud.TeamLevelHud;
 import com.sharedfate.client.team.TeamScreen;
 import com.sharedfate.client.perk.ClientPerkFeatures;
@@ -141,6 +142,11 @@ public class SharedFateClient implements ClientModInitializer {
 				VanillaHudElements.EXPERIENCE_LEVEL,
 				SharedFateMod.id("team_level"),
 				new TeamLevelHud());
+		// 다음 증강까지의 게이지. 레벨 숫자 바로 위에 그린다.
+		HudElementRegistry.attachElementAfter(
+				VanillaHudElements.EXPERIENCE_LEVEL,
+				SharedFateMod.id("perk_progress"),
+				new PerkProgressHud());
 
 		// 「장님 거인」 처럼 HUD 를 가리는 증강. 바닐라 요소를 지우지 않고 "가려야 할 때만
 		// 건너뛰는" 껍데기로 감싼다. removeElement 는 되돌릴 수 없어 증강을 잃어도 영영

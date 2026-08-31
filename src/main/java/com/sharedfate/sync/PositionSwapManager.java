@@ -20,6 +20,7 @@ import net.minecraft.world.level.Explosion;
 import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -216,13 +217,19 @@ public final class PositionSwapManager {
 			}
 		}
 
-		// 방금 비운 자리(자기 원래 위치, origins.get(index))에서 터진다. 이미 전원
-		// 이동이 끝난 뒤라 이 자리는 항상 다른 누군가의 새 자리이기도 하다(완전한
-		// 순열이라 고정점이 없으므로). 그래서 "이 자리를 방금 떠난 사람"(players.get(index))
-		// 하나만 면역으로 둔다. 도착한 사람을 포함해 나머지는 그대로 맞는다.
-		for (int index = 0; index < players.size() && !explosions.isEmpty(); index++) {
-			for (SwapExplosionEffect explosion : explosions) {
-				triggerSwapExplosion(origins.get(index), players.get(index).getUUID(), explosion);
+		// 방금 비운 자리(자기 원래 위치, origins.get(index))에서 0.5초 뒤 터진다. 이미 전원
+		// 이동이 끝난 뒤라 이 자리는 항상 다른 누군가의 새 자리이기도 하다(완전한 순열이라
+		// 고정점이 없으므로). 그래서 "떠난 사람만" 면역이 아니라 이 교환에 참여한 전원(=players
+		// 전체)을 면역으로 둔다 — 도착한 사람도 이제 이 폭발들은 맞지 않는다.
+		if (!explosions.isEmpty()) {
+			Set<UUID> immune = new HashSet<>();
+			for (ServerPlayer player : players) {
+				immune.add(player.getUUID());
+			}
+			for (int index = 0; index < players.size(); index++) {
+				for (SwapExplosionEffect explosion : explosions) {
+					scheduleSwapExplosion(origins.get(index), immune, explosion);
+				}
 			}
 		}
 
@@ -241,18 +248,30 @@ public final class PositionSwapManager {
 	}
 
 	/**
-	 * 「폭발 교환」 한 발을 실제로 터뜨린다.
+	 * 「폭발 교환」 한 발을 {@value SwapExplosionScheduler#DELAY_TICKS}틱(0.5초) 뒤로 예약한다.
 	 *
-	 * <p>불은 붙지 않는다({@code fire=false}, 정의 파일로 바꿀 수 없는 고정 규칙). 블록을
-	 * 부수는지는 {@link SwapExplosionEffect#breakBlocks()}를 따라 {@code MOB}(크리퍼처럼
-	 * {@code mobGriefing} 규칙을 따름) 또는 {@code NONE}(연출·피해만)을 고른다. 누가 맞고
-	 * 안 맞는지, 피해가 얼마나 세지는지는 {@link SwapExplosionDamageCalculator}가 정한다.
+	 * <p>즉시 터뜨리지 않는 이유와 {@code immuneParticipants}에 누가 들어가야 하는지는
+	 * {@link SwapExplosionScheduler}의 클래스 문서에 있다.
 	 *
 	 * <p>이 클래스의 순열 교환뿐 아니라 {@link StaggeredSwapManager}(시차의 각 걸음)와
 	 * {@link RallyPointManager}(정거장이 모이는 순간, 복귀 순간은 제외)도 같은 자리에서 이
 	 * 메서드를 부른다. 그래서 {@code private}이 아니라 패키지 전체에 열어 뒀다.
 	 */
-	static void triggerSwapExplosion(Position origin, UUID exemptPlayer,
+	static void scheduleSwapExplosion(Position origin, Set<UUID> immuneParticipants,
+			SwapExplosionEffect definition) {
+		SwapExplosionScheduler.schedule(origin, immuneParticipants, definition);
+	}
+
+	/**
+	 * 「폭발 교환」 한 발을 실제로 터뜨린다. {@link SwapExplosionScheduler#tick}이 예약 시간이
+	 * 되면 부른다 — 이 클래스 밖에서 직접 부를 일은 없다.
+	 *
+	 * <p>불은 붙지 않는다({@code fire=false}, 정의 파일로 바꿀 수 없는 고정 규칙). 블록을
+	 * 부수는지는 {@link SwapExplosionEffect#breakBlocks()}를 따라 {@code MOB}(크리퍼처럼
+	 * {@code mobGriefing} 규칙을 따름) 또는 {@code NONE}(연출·피해만)을 고른다. 누가 맞고
+	 * 안 맞는지, 피해가 얼마나 세지는지는 {@link SwapExplosionDamageCalculator}가 정한다.
+	 */
+	static void detonateSwapExplosion(Position origin, Set<UUID> exemptPlayers,
 			SwapExplosionEffect definition) {
 		ServerLevel level = origin.level();
 		DamageSource source = Explosion.getDefaultDamageSource(level, null);
@@ -260,7 +279,7 @@ public final class PositionSwapManager {
 				? Level.ExplosionInteraction.MOB
 				: Level.ExplosionInteraction.NONE;
 		level.explode(null, source,
-				new SwapExplosionDamageCalculator(exemptPlayer, definition.damageMultiplier()),
+				new SwapExplosionDamageCalculator(exemptPlayers, definition.damageMultiplier()),
 				origin.x(), origin.y(), origin.z(), definition.radius(), false, interaction);
 	}
 

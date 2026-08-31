@@ -22,14 +22,18 @@ import java.util.List;
  *       {@code remainingTicks} 는 {@link #NO_DEADLINE} 이다.</li>
  * </ul>
  *
- * @param milestone      이 선택권을 만든 레벨 구간 (5, 10, …, 35)
- * @param canChoose      실제로 고를 수 있는지. false면 다른 팀원이 고르는 걸 지켜보는 관전 모드
- * @param forced         서버가 강제로 띄운 창인지. true면 ESC 로 닫을 수 없고 카운트다운이 보인다
- * @param remainingTicks 마감까지 남은 틱. 마감이 없으면 {@link #NO_DEADLINE}
- * @param options        제시된 후보. 최대 {@link #MAX_OPTIONS}개이며, 풀이 모자라면 더 적을 수 있다
+ * @param milestone         이 선택권을 만든 레벨 구간 (5, 10, …, 35)
+ * @param canChoose         실제로 고를 수 있는지. false면 다른 팀원이 고르는 걸 지켜보는 관전 모드
+ * @param forced            서버가 강제로 띄운 창인지. true면 ESC 로 닫을 수 없고 카운트다운이 보인다
+ * @param remainingTicks    마감까지 남은 틱. 마감이 없으면 {@link #NO_DEADLINE}
+ * @param rerollsRemaining  이번 회차에 남은 다시 뽑기 횟수. 0 이면 단추가 잠긴다.
+ *                          <b>화면에 적기 위한 값일 뿐</b>이고, 실제로 쓸 수 있는지는 서버가
+ *                          요청을 받을 때 다시 센다
+ * @param options           제시된 후보. 최대 {@link #MAX_OPTIONS}개이며, 풀이 모자라면 더 적을 수 있다
  */
 public record PerkOfferPayload(int milestone, boolean canChoose, boolean forced,
-		int remainingTicks, List<PerkOption> options) implements CustomPacketPayload {
+		int remainingTicks, int rerollsRemaining, List<PerkOption> options)
+		implements CustomPacketPayload {
 
 	/** 한 번에 제시할 수 있는 후보 수 상한. */
 	public static final int MAX_OPTIONS = 3;
@@ -74,16 +78,25 @@ public record PerkOfferPayload(int milestone, boolean canChoose, boolean forced,
 					ByteBufCodecs.BOOL, PerkOfferPayload::forced,
 					// 남은 틱은 마감이 없을 때 -1 이라 음수를 실을 수 있는 코덱이어야 한다.
 					ByteBufCodecs.INT, PerkOfferPayload::remainingTicks,
+					ByteBufCodecs.VAR_INT, PerkOfferPayload::rerollsRemaining,
 					PerkOption.CODEC.apply(ByteBufCodecs.list(MAX_OPTIONS)), PerkOfferPayload::options,
 					PerkOfferPayload::new);
 
 	public PerkOfferPayload {
 		options = List.copyOf(options);
+		// 음수는 실을 수 없는 코덱이라 여기서 막는다. 서버 계산이 어긋나도 패킷이 터지면 안 된다.
+		rerollsRemaining = Math.max(0, rerollsRemaining);
 	}
 
-	/** {@code /shareteam perk} 로 직접 연, 마감 없는 창. */
+	/**
+	 * {@code /shareteam perk} 로 직접 연, 마감 없는 창.
+	 *
+	 * <p>다시 뽑기는 <b>강제 선택 세션 안에서만</b> 뜻이 있다. 시간이 흐르는 채로 후보를 갈아
+	 * 끼우면 제한시간도 무적도 걸려 있지 않은 상태에서 회차의 규칙이 바뀐다. 그래서 이 경로로
+	 * 연 창은 남은 횟수를 0 으로 받아 단추가 아예 뜨지 않는다.
+	 */
 	public static PerkOfferPayload manual(int milestone, boolean canChoose, List<PerkOption> options) {
-		return new PerkOfferPayload(milestone, canChoose, false, NO_DEADLINE, options);
+		return new PerkOfferPayload(milestone, canChoose, false, NO_DEADLINE, 0, options);
 	}
 
 	/** 마감이 걸려 있는 강제 오픈인지. */

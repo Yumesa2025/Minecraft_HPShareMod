@@ -96,6 +96,31 @@ class BlockBreakPerkTest {
 				"{ \"type\": \"bonus_drop\", \"chance\": 0.5, \"extraDurability\": 9999 }"));
 	}
 
+	@Test
+	void extra_를_안_적으면_1_이다() {
+		BonusDropEffect effect = bonusDrop("{ \"type\": \"bonus_drop\", \"chance\": 0.5 }");
+
+		assertEquals(1, effect.extra(), "예전 정의는 '하나 더'와 같아야 한다");
+	}
+
+	@Test
+	void extra_로_여러_개를_확정으로_줄_수_있다() {
+		// 비옥한 땅: 확률 1.0(항상) + extra 2(추가 2개) = 원래 1개 + 2개 = 3배.
+		BonusDropEffect effect = bonusDrop(
+				"{ \"type\": \"bonus_drop\", \"chance\": 1.0, \"extra\": 2 }");
+
+		assertEquals(1.0, effect.chanceFor(), 1.0e-9);
+		assertEquals(2, effect.extra());
+	}
+
+	@Test
+	void extra_가_범위를_벗어나면_버린다() {
+		assertNull(create(PerkEffectType.BONUS_DROP,
+				"{ \"type\": \"bonus_drop\", \"chance\": 0.5, \"extra\": 0 }"));
+		assertNull(create(PerkEffectType.BONUS_DROP,
+				"{ \"type\": \"bonus_drop\", \"chance\": 0.5, \"extra\": 9 }"));
+	}
+
 	// ------------------------------------------------------------------ on_break
 
 	@Test
@@ -326,6 +351,11 @@ class BlockBreakPerkTest {
 		assertEquals(0.15, bonus.chanceFor(), 1.0e-9);
 		assertEquals(1, bonus.extraDurability());
 		assertTrue(bonus.appliesTo(state(Blocks.ANCIENT_DEBRIS)), "직접 적은 블록은 태그 없이도 걸린다");
+
+		Perk fertile = PerkRegistry.byId("sharedfate:fertile_ground").orElseThrow();
+		BonusDropEffect fertileBonus = assertInstanceOf(BonusDropEffect.class, fertile.effects().get(0));
+		assertEquals(1.0, fertileBonus.chanceFor(), 1.0e-9, "비옥한 땅은 확정으로 더 준다");
+		assertEquals(2, fertileBonus.extra(), "원래 1개 + 2개 = 3배");
 
 		Perk vein = PerkRegistry.byId("sharedfate:vein_sense").orElseThrow();
 		assertEquals("광맥 감각", vein.name());

@@ -2,11 +2,14 @@ package com.sharedfate.client.perk;
 
 import com.sharedfate.net.PerkChoiceC2SPayload;
 import com.sharedfate.net.PerkOfferPayload;
+import com.sharedfate.net.PerkRerollC2SPayload;
 import com.sharedfate.perk.PerkRarity;
+import com.sharedfate.ui.PerkRerollButton;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.Holder;
@@ -73,6 +76,19 @@ public class PerkOfferScreen extends Screen {
 	private static final int TIMER_BAR_BACKGROUND = 0x80202028;
 	private static final int TIMER_BAR_FILL = 0xFFFFC63A;
 	private static final int TIMER_BAR_FILL_URGENT = 0xFFFF5555;
+	/** 재개 카운트다운의 글자색과 막대색. 제한시간과 달라야 다른 뜻으로 읽힌다. */
+	private static final int RESUME_TEXT = 0xFF80FF20;
+	private static final int RESUME_BAR_FILL = 0xFF80FF20;
+
+	/** 결과를 보여 주는 동안 화면 전체에 씌우는 어둠. 고른 카드만 남기려는 것이다. */
+	private static final int RESULT_VEIL = 0x9C05050A;
+	/** 고른 카드 둘레에 두르는 빛의 겹 수. 바깥으로 갈수록 옅어진다. */
+	private static final int HIGHLIGHT_GLOW_LAYERS = 4;
+	/** 빛이 한 번 밝아졌다 어두워지는 데 걸리는 시간(ms). */
+	private static final long HIGHLIGHT_PULSE_MILLIS = 900L;
+	/** 빛이 가장 어두울 때와 가장 밝을 때의 세기. */
+	private static final float HIGHLIGHT_GLOW_MIN = 0.35F;
+	private static final float HIGHLIGHT_GLOW_MAX = 0.85F;
 
 	/** 카운트다운 글자를 몇 배로 키울지. */
 	private static final int TIMER_SCALE = 2;
@@ -88,6 +104,7 @@ public class PerkOfferScreen extends Screen {
 	private static final long ESCAPE_GRACE_MILLIS = 5000L;
 	private static final int TIMER_BAR_HEIGHT = 3;
 	private static final int MILLIS_PER_TICK = 50;
+	private static final int TICKS_PER_SECOND = 20;
 
 	private static final int PREFERRED_CARD_WIDTH = 116;
 	private static final int MIN_CARD_WIDTH = 56;
@@ -127,6 +144,11 @@ public class PerkOfferScreen extends Screen {
 	/** 카드마다 등장 시작을 조금씩 미뤄 왼쪽부터 차례로 올라오게 한다(ms). */
 	private static final long ENTRY_STAGGER_MILLIS = 45L;
 
+	/** 「다시 뽑기」 단추의 크기와 카드 아래 여백. */
+	private static final int REROLL_HEIGHT = 16;
+	private static final int REROLL_WIDTH = 140;
+	private static final int REROLL_GAP = 5;
+
 	private final int milestone;
 	private final boolean canChoose;
 	private final boolean forced;
@@ -155,6 +177,29 @@ public class PerkOfferScreen extends Screen {
 	private boolean choiceSent;
 
 	/**
+	 * 이번 회차에 남은 다시 뽑기 횟수. 서버가 이 창을 보낼 때 실어 준 값이다.
+	 *
+	 * <p>여기서 줄이지 않는다. 다시 뽑으면 서버가 <b>선택창을 통째로 다시 보내므로</b>
+	 * 새 화면이 줄어든 값을 들고 열린다. 클라이언트가 스스로 세면 서버와 어긋날 수 있다.
+	 */
+	private final int rerollsRemaining;
+	/** 다시 뽑기를 눌러 두고 서버의 새 후보를 기다리는 중. 두 번 눌리는 것을 막는다. */
+	private boolean rerollSent;
+	/**
+	 * 기다리기를 포기하기까지 남은 틱.
+	 *
+	 * <p>서버가 요청을 받아들이면 선택창이 통째로 다시 와서 이 화면 자체가 사라지므로 이
+	 * 카운트다운은 끝까지 가지 않는다. 끝까지 갔다는 것은 <b>서버가 조용히 버렸다</b>는
+	 * 뜻이다(뽑을 후보가 그 등급에 안 남은 경우). 그때 단추를 영영 잠근 채로 두면 남은
+	 * 횟수가 그대로인데도 못 쓰게 되므로 다시 풀어 준다.
+	 */
+	private int rerollWaitTicks;
+	/** 서버의 답을 기다리는 시간. 2초. */
+	private static final int REROLL_WAIT_TICKS = 40;
+	/** 카드 아래 가운데의 「다시 뽑기」 단추. 관전자와 직접 연 창에는 없어서 null 일 수 있다. */
+	private @Nullable Button rerollButton;
+
+	/**
 	 * 결정된 증강의 후보 번호. 아직 결정 전이면 -1.
 	 *
 	 * <p>서버가 {@code PerkResultPayload} 를 보내면 그 카드 하나만 남기고 나머지를 지운다.
@@ -163,6 +208,8 @@ public class PerkOfferScreen extends Screen {
 	private int resultIndex = -1;
 	/** 결과를 보여 주는 남은 시간(틱). 0 이면 결과 화면이 아니다. */
 	private int resultTicks;
+	/** 결과를 보여 주기로 한 전체 시간(틱). 카운트다운 막대의 분모다. */
+	private int resultTotalTicks;
 	/** 결과를 고른 사람 이름. 시간이 다 되어 자동으로 정해졌으면 빈 문자열. */
 	private String resultChooser = "";
 
@@ -189,6 +236,7 @@ public class PerkOfferScreen extends Screen {
 				? System.currentTimeMillis() + this.totalMillis : 0L;
 		this.options = payload.options() == null
 				? List.of() : List.copyOf(payload.options());
+		this.rerollsRemaining = Math.max(0, payload.rerollsRemaining());
 		this.roundRarity = firstRarity(this.options);
 	}
 
@@ -212,12 +260,17 @@ public class PerkOfferScreen extends Screen {
 	 *
 	 * <p>후보에 없는 식별자가 오면 아무것도 하지 않는다. 늦게 도착한 지시가 다음 구간의 창을
 	 * 건드리는 일을 막는다.
+	 *
+	 * <p>{@code holdTicks} 는 서버가 시간을 더 멈춰 둘 길이({@code RESULT_TICKS}, 3초)와 같다.
+	 * 그래서 이 시간을 그대로 <b>재개 카운트다운</b>으로 쓴다. 뒤에 3초를 더 붙이지 않는
+	 * 이유는 {@link #renderResumeCountdown} 에 적어 두었다.
 	 */
 	public void showResult(String perkId, String chooserName, int holdTicks) {
 		for (int index = 0; index < options.size(); index++) {
 			if (options.get(index).id().equals(perkId)) {
 				resultIndex = index;
 				resultTicks = Math.max(1, holdTicks);
+				resultTotalTicks = resultTicks;
 				resultChooser = chooserName == null ? "" : chooserName;
 				choiceSent = true;
 				playResultSound();
@@ -244,6 +297,14 @@ public class PerkOfferScreen extends Screen {
 		if (resultTicks > 0) {
 			resultTicks--;
 		}
+		if (rerollWaitTicks > 0 && --rerollWaitTicks == 0) {
+			// 서버가 받아들였다면 이 화면은 벌써 새 선택창으로 바뀌었다. 여기까지 왔다는 것은
+			// 조용히 버려졌다는 뜻이고, 그때는 횟수도 안 깎였으므로 다시 누를 수 있어야 한다.
+			rerollSent = false;
+		}
+		// 선택을 보냈거나 결과가 정해지면 단추도 함께 잠긴다. 상태가 바뀌는 자리가 여럿이라
+		// 매 틱 한 번 맞춰 두는 편이 빠뜨릴 걱정이 없다.
+		refreshRerollButton();
 	}
 
 	@Override
@@ -270,7 +331,11 @@ public class PerkOfferScreen extends Screen {
 		}
 
 		int footerTop = Math.max(headerBottom + 46, this.height - 22);
-		int room = footerTop - headerBottom - 6;
+		// 다시 뽑기 단추는 카드 아래 가운데에 선다. 그릴 자리를 먼저 떼어 두지 않으면
+		// 카드가 그 자리까지 늘어나 단추와 겹친다.
+		boolean showReroll = PerkRerollButton.visible(forced, canChoose);
+		int rerollBlock = showReroll ? REROLL_HEIGHT + REROLL_GAP : 0;
+		int room = footerTop - rerollBlock - headerBottom - 6;
 		// 아이콘을 큰 것부터 대 보고 세로·가로 자리가 모두 나오는 첫 크기를 고른다.
 		iconSize = 0;
 		int neededHeight = 40;
@@ -287,12 +352,64 @@ public class PerkOfferScreen extends Screen {
 		}
 
 		cardHeight = Math.max(40, Math.min(neededHeight, room));
-		cardTop = headerBottom + Math.max(0, (footerTop - headerBottom - cardHeight) / 2);
+		cardTop = headerBottom
+				+ Math.max(0, (footerTop - rerollBlock - headerBottom - cardHeight) / 2);
 		// 등장 애니메이션은 카드를 잠깐 아래로 밀어 둔다. 아래 문구까지 여유가 있을 때만 쓴다.
 		entryAnimated = cardTop + cardHeight + ENTRY_RISE <= this.height - 20;
 
 		int totalWidth = cardWidth * count + CARD_GAP * (count - 1);
 		firstCardLeft = Math.max(2, (this.width - totalWidth) / 2);
+
+		rerollButton = null;
+		if (showReroll) {
+			int rerollWidth = Math.min(REROLL_WIDTH, Math.max(80, this.width - SCREEN_MARGIN * 2));
+			// 화면이 아주 낮으면 카드가 방금 정한 자리를 넘어설 수 있다. 그래도 단추가 아래
+			// 안내 문구를 덮지 않도록 마지막에 한 번 더 위로 눌러 둔다.
+			int rerollY = Math.min(cardTop + cardHeight + REROLL_GAP,
+					this.height - 16 - REROLL_HEIGHT);
+			rerollButton = Button.builder(
+							Component.literal(PerkRerollButton.label(rerollsRemaining)),
+							button -> requestReroll())
+					.bounds((this.width - rerollWidth) / 2, rerollY, rerollWidth, REROLL_HEIGHT)
+					.build();
+			addRenderableWidget(rerollButton);
+			refreshRerollButton();
+		}
+	}
+
+	/**
+	 * 다시 뽑기 단추를 지금 누를 수 있는 상태로 맞춘다.
+	 *
+	 * <p>결과가 정해지면 단추 자체를 감춘다. 남은 카드 하나만 보여 주는 화면에 단추가 남아
+	 * 있으면 아직 무를 수 있는 것처럼 보인다.
+	 */
+	private void refreshRerollButton() {
+		if (rerollButton == null) {
+			return;
+		}
+		rerollButton.visible = !showingResult();
+		rerollButton.active = PerkRerollButton.enabled(forced, canChoose, choiceSent, rerollSent,
+				showingResult(), rerollsRemaining);
+	}
+
+	/**
+	 * 다시 뽑아 달라고 서버에 알린다. <b>보내는 것은 「눌렀다」는 사실뿐이다.</b>
+	 *
+	 * <p>여기서 창을 닫지도, 남은 횟수를 줄이지도 않는다. 서버가 요청을 받아들이면 새 후보와
+	 * 줄어든 횟수를 담은 선택창을 다시 보내 주고, 거절하면 아무 일도 일어나지 않는다.
+	 * 클라이언트가 미리 줄여 두면 거절당했을 때 화면만 거짓말을 하게 된다.
+	 */
+	private void requestReroll() {
+		if (!PerkRerollButton.enabled(forced, canChoose, choiceSent, rerollSent, showingResult(),
+				rerollsRemaining)) {
+			return;
+		}
+		if (ClientPlayNetworking.canSend(PerkRerollC2SPayload.TYPE)) {
+			ClientPlayNetworking.send(new PerkRerollC2SPayload(milestone));
+		}
+		rerollSent = true;
+		rerollWaitTicks = REROLL_WAIT_TICKS;
+		refreshRerollButton();
 	}
 
 	/** 주어진 아이콘 크기로 카드 내용을 다 담으려면 필요한 높이. */
@@ -308,7 +425,14 @@ public class PerkOfferScreen extends Screen {
 	public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY,
 			float partialTick) {
 		int centerX = this.width / 2;
-		if (hasDeadline()) {
+		if (showingResult()) {
+			// 정해진 카드 하나만 남기는 김에 나머지 화면도 가라앉힌다. 뒤에서 돌아가는 게임
+			// 화면이 그대로 밝으면 카드가 묻힌다.
+			graphics.fill(0, 0, this.width, this.height, RESULT_VEIL);
+			if (hasDeadline()) {
+				renderResumeCountdown(graphics, centerX);
+			}
+		} else if (hasDeadline()) {
 			renderCountdown(graphics, centerX);
 		}
 		graphics.centeredText(this.font, this.title, centerX, titleY, TEXT_MAIN);
@@ -347,15 +471,50 @@ public class PerkOfferScreen extends Screen {
 		graphics.centeredText(this.font, label, 0, 0, urgent ? TIMER_URGENT : TIMER_CALM);
 		pose.popMatrix();
 
+		renderTimerBar(graphics, centerX, remainingFraction(),
+				urgent ? TIMER_BAR_FILL_URGENT : TIMER_BAR_FILL);
+	}
+
+	/**
+	 * 게임이 다시 시작되기까지 남은 초를 크게 그린다.
+	 *
+	 * <h2>왜 3초를 더 붙이지 않았나</h2>
+	 * <p>고른 카드를 보여 주는 3초는 <b>이미 시간이 멈춰 있는 3초</b>다. 뒤에 카운트다운
+	 * 3초를 더 붙이면 서버가 시간을 6초 동안 멈춰야 하고({@code RESULT_TICKS} 를 두 배로),
+	 * 무적도 그만큼 길어진다. 회차마다 일곱 번 겪는 연출이라 그 6초는 길다.
+	 *
+	 * <p>그래서 <b>같은 3초를 카운트다운으로 바꿨다.</b> 원래도 3초 뒤에 게임이 돌아왔지만
+	 * 그 사실을 화면이 말해 주지 않아 갑자기 튕겨 나가는 느낌이었다. 숫자를 보여 주면
+	 * 같은 3초가 "기다리는 시간"이 아니라 "준비하는 시간"이 된다. 시간 정지와 무적이
+	 * 도는 길이는 하나도 바뀌지 않는다.
+	 */
+	private void renderResumeCountdown(GuiGraphicsExtractor graphics, int centerX) {
+		int seconds = resumeSeconds();
+		Component label = seconds > 0
+				? Component.literal(seconds + "초 뒤 다시 시작합니다")
+				: Component.literal("다시 시작합니다");
+
+		Matrix3x2fStack pose = graphics.pose();
+		pose.pushMatrix();
+		pose.translate(centerX, timerY);
+		pose.scale(TIMER_SCALE, TIMER_SCALE);
+		graphics.centeredText(this.font, label, 0, 0, RESUME_TEXT);
+		pose.popMatrix();
+
+		renderTimerBar(graphics, centerX, resumeFraction(), RESUME_BAR_FILL);
+	}
+
+	/** 카운트다운 글자 아래의 남은 시간 막대. 제한시간과 재개 카운트다운이 함께 쓴다. */
+	private void renderTimerBar(GuiGraphicsExtractor graphics, int centerX, float fraction,
+			int fill) {
 		int barTop = timerY + this.font.lineHeight * TIMER_SCALE + 3;
 		int barWidth = Math.max(60, Math.min(240, this.width - SCREEN_MARGIN * 2));
 		int barLeft = centerX - barWidth / 2;
 		graphics.fill(barLeft, barTop, barLeft + barWidth, barTop + TIMER_BAR_HEIGHT,
 				TIMER_BAR_BACKGROUND);
-		int filled = (int) (barWidth * remainingFraction());
+		int filled = (int) (barWidth * Math.clamp(fraction, 0.0F, 1.0F));
 		if (filled > 0) {
-			graphics.fill(barLeft, barTop, barLeft + filled, barTop + TIMER_BAR_HEIGHT,
-					urgent ? TIMER_BAR_FILL_URGENT : TIMER_BAR_FILL);
+			graphics.fill(barLeft, barTop, barLeft + filled, barTop + TIMER_BAR_HEIGHT, fill);
 		}
 	}
 
@@ -368,34 +527,42 @@ public class PerkOfferScreen extends Screen {
 	 */
 	private void renderCard(GuiGraphicsExtractor graphics, int index, int mouseX, int mouseY) {
 		Card card = cards.get(index);
-		int left = cardLeft(index);
+		// 정해진 카드는 혼자 남으므로 제자리에 두면 세 칸 중 한쪽에 치우쳐 보인다. 가운데로 옮긴다.
+		boolean highlighted = showingResult() && index == resultIndex;
+		int left = highlighted ? (this.width - cardWidth) / 2 : cardLeft(index);
 		int right = left + cardWidth;
 		boolean hovered = clickable() && isInside(mouseX, mouseY, left, right, cardTop + cardHeight);
+		// 강조한 카드는 호버와 같은 밝기를 쓰되, 아래의 빛과 두 겹 테두리로 한 단계 더 올린다.
+		boolean bright = hovered || highlighted;
 
 		int top = cardTop + entryOffset(index) - (hovered ? HOVER_LIFT : 0);
 		int bottom = top + cardHeight;
 		int rarity = card.rarityColor();
 
+		if (highlighted) {
+			renderHighlightGlow(graphics, left, top, rarity);
+		}
+
 		// 등급색을 살짝 섞은 세로 그라데이션. 위가 밝고 아래로 가라앉는다.
 		graphics.fillGradient(left, top, right, bottom,
-				mix(hovered ? CARD_TOP_HOVER : CARD_TOP, rarity,
-						hovered ? CARD_TINT_HOVER : CARD_TINT),
-				mix(hovered ? CARD_BOTTOM_HOVER : CARD_BOTTOM, rarity,
-						hovered ? CARD_TINT_HOVER / 2.0F : CARD_TINT / 2.0F));
+				mix(bright ? CARD_TOP_HOVER : CARD_TOP, rarity,
+						bright ? CARD_TINT_HOVER : CARD_TINT),
+				mix(bright ? CARD_BOTTOM_HOVER : CARD_BOTTOM, rarity,
+						bright ? CARD_TINT_HOVER / 2.0F : CARD_TINT / 2.0F));
 
 		// 등급 띠. 카드 맨 위를 등급색으로 가득 채운다.
 		// 프리즘만은 이름값을 하도록 무지개로 흘린다.
 		if (card.rarity() == PerkRarity.PRISM) {
-			renderPrismBand(graphics, left, top, right, hovered ? 0xFF : 0xDC);
+			renderPrismBand(graphics, left, top, right, bright ? 0xFF : 0xDC);
 		} else {
 			graphics.fill(left, top, right, top + BAND_HEIGHT,
-					hovered ? rarity : withAlpha(rarity, 0xDC));
+					bright ? rarity : withAlpha(rarity, 0xDC));
 		}
 
-		int border = hovered ? brighten(rarity, BORDER_BRIGHTEN_HOVER) : rarity;
+		int border = bright ? brighten(rarity, BORDER_BRIGHTEN_HOVER) : rarity;
 		graphics.outline(left, top, cardWidth, cardHeight, border);
-		if (hovered) {
-			// 마우스를 올린 카드는 테두리를 두 겹으로 그려 강조한다.
+		if (bright) {
+			// 마우스를 올린 카드와 정해진 카드는 테두리를 두 겹으로 그려 강조한다.
 			graphics.outline(left + 1, top + 1, cardWidth - 2, cardHeight - 2, border);
 		}
 
@@ -422,6 +589,28 @@ public class PerkOfferScreen extends Screen {
 			y += this.font.lineHeight;
 		}
 		graphics.disableScissor();
+	}
+
+	/**
+	 * 정해진 카드 둘레에 등급색 빛을 두른다.
+	 *
+	 * <p>테두리를 한 겹씩 바깥으로 넓혀 가며 투명도를 낮춰 그린다. 진짜 번짐 효과는 셰이더가
+	 * 있어야 하지만, 겹을 넷만 쌓아도 카드가 화면에서 떠오르는 것처럼 보인다.
+	 *
+	 * <p>세기를 천천히 오르내리게 해서 <b>지금 이 카드를 보라</b>는 신호로 만든다. 멈춰 있는
+	 * 테두리는 그냥 장식으로 읽힌다.
+	 */
+	private void renderHighlightGlow(GuiGraphicsExtractor graphics, int left, int top, int rarity) {
+		float phase = (System.currentTimeMillis() % HIGHLIGHT_PULSE_MILLIS)
+				/ (float) HIGHLIGHT_PULSE_MILLIS;
+		float pulse = 0.5F - 0.5F * (float) Math.cos(phase * 2.0 * Math.PI);
+		float strength = HIGHLIGHT_GLOW_MIN + (HIGHLIGHT_GLOW_MAX - HIGHLIGHT_GLOW_MIN) * pulse;
+		for (int layer = 1; layer <= HIGHLIGHT_GLOW_LAYERS; layer++) {
+			float fade = (float) (HIGHLIGHT_GLOW_LAYERS + 1 - layer) / (HIGHLIGHT_GLOW_LAYERS + 1);
+			int alpha = Math.round(0xFF * fade * strength);
+			graphics.outline(left - layer, top - layer,
+					cardWidth + layer * 2, cardHeight + layer * 2, withAlpha(rarity, alpha));
+		}
 	}
 
 	/**
@@ -539,6 +728,24 @@ public class PerkOfferScreen extends Screen {
 		return (int) ((left + 999L) / 1000L);
 	}
 
+	/**
+	 * 게임이 다시 시작되기까지 남은 초. 3 → 2 → 1 로 떨어진다.
+	 *
+	 * <p>올림이라 60틱에서 3이 뜨고 마지막 1틱까지 1이 남는다. 내림으로 하면 시작하자마자
+	 * 2가 뜨고 마지막 1초가 0으로 보인다.
+	 */
+	private int resumeSeconds() {
+		return (resultTicks + TICKS_PER_SECOND - 1) / TICKS_PER_SECOND;
+	}
+
+	/** 재개 카운트다운 막대의 채움 비율 0.0~1.0. */
+	private float resumeFraction() {
+		if (resultTotalTicks <= 0) {
+			return 0.0F;
+		}
+		return (float) resultTicks / (float) resultTotalTicks;
+	}
+
 	/** 남은 시간 막대의 채움 비율 0.0~1.0. */
 	private float remainingFraction() {
 		if (totalMillis <= 0L) {
@@ -593,7 +800,12 @@ public class PerkOfferScreen extends Screen {
 
 	private Component footerHint() {
 		if (showingResult()) {
-			return Component.literal("팀 전체에 적용됩니다");
+			// 위쪽 카운트다운은 강제 오픈일 때만 자리가 있다. 여기서 한 번 더 적어,
+			// 어떤 경로로 열린 창이든 언제 게임이 돌아오는지 알 수 있게 한다.
+			int seconds = resumeSeconds();
+			return Component.literal(seconds > 0
+					? "팀 전체에 적용됩니다 · " + seconds + "초 뒤 다시 시작합니다"
+					: "팀 전체에 적용됩니다 · 다시 시작합니다");
 		}
 		if (forced) {
 			if (escapable()) {

@@ -54,6 +54,18 @@ public class SharedFateConfig {
 	public int victoryFireworkDelayTicks = 100;
 	/** 위치 교환 몇 초 전부터 화면에 카운트다운을 띄울지. 0이면 카운트다운을 띄우지 않는다. */
 	public int positionSwapCountdownSeconds = 5;
+	/**
+	 * 증강 시험 명령({@code /shareteam perktest ...})을 쓸 수 있게 한다.
+	 *
+	 * <p><b>기본값은 꺼짐이고, 실제로 플레이하는 서버에서는 켜면 안 된다.</b> 켜면 운영자가
+	 * 구간·레벨과 상관없이 증강을 마음대로 주고 뺄 수 있으므로 회차가 뜻을 잃는다.
+	 *
+	 * <p>이 값만으로는 아무것도 열리지 않는다. 명령 자체가 <b>운영자 권한(level 4)</b>을
+	 * 따로 요구하므로 둘이 모두 있어야 동작한다. 켜져 있으면 서버가 뜰 때 경고 로그가 남고,
+	 * 접속하는 사람마다 채팅으로 경고를 받는다. 자세한 것은
+	 * {@link com.sharedfate.command.PerkTestCommand} 에 적어 뒀다.
+	 */
+	public boolean perkTestCommands = false;
 
 	public static SharedFateConfig loadOrCreate(Path file) {
 		if (Files.exists(file)) {

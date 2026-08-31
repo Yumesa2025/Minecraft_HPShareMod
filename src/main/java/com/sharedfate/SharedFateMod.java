@@ -70,6 +70,8 @@ public class SharedFateMod implements ModInitializer {
 			// 얼어 있는 채로 서버가 뜨는 일을 막는다. 강제 증강 선택이 남긴 시간 정지든
 			// 다른 이유든, 시작 시점에 멈춰 있으면 무조건 풀고 로그를 남긴다.
 			PerkManager.onServerStarted(server);
+			// 증강 시험 명령이 켜져 있으면 시끄럽게 알린다. 조용히 켜져 있는 것이 가장 위험하다.
+			com.sharedfate.command.PerkTestCommand.warnOnServerStarted(server);
 		});
 		ServerLifecycleEvents.SERVER_STOPPING.register(TeamRosterStore::onServerStopping);
 		// 종료 직전에 시간 정지를 되돌린다. reset 은 서버가 완전히 멈춘 뒤라 너무 늦다.
@@ -87,12 +89,14 @@ public class SharedFateMod implements ModInitializer {
 			TeamGathering.reset();
 			com.sharedfate.sync.StaggeredSwapManager.reset();
 			com.sharedfate.sync.RallyPointManager.reset();
+			com.sharedfate.sync.SwapExplosionScheduler.reset();
 			com.sharedfate.perk.PerkResonantMining.reset();
 			PerkWorldRules.reset();
 			PerkCompassTargets.reset();
 			com.sharedfate.perk.PerkGearManager.reset();
 			TimedPerkEffects.reset();
 			MobPerkModifiers.reset();
+			com.sharedfate.sync.DifficultyEscalation.reset();
 			PerkClientRules.reset();
 			EffectSync.reset();
 		});
@@ -115,6 +119,7 @@ public class SharedFateMod implements ModInitializer {
 			TeamBroadcaster.sendTo(player);
 			RunProgressManager.onPlayerJoin(player);
 			PerkManager.onPlayerJoin(player);
+			com.sharedfate.command.PerkTestCommand.warnOnJoin(player);
 		});
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
 			StatMirror.forget(oldPlayer.getUUID());
@@ -160,6 +165,9 @@ public class SharedFateMod implements ModInitializer {
 		PlayerBlockBreakEvents.AFTER.register(PerkBlockBreaks::onBlockBroken);
 		// 수면 차단 증강(no_sleep)의 집행 지점. null 을 돌려주면 평소대로 잔다.
 		EntitySleepEvents.ALLOW_SLEEPING.register(PerkWorldRules::onAllowSleep);
+		// 나무를 광물로 바꾸는 증강(ore_exchange)의 등록 지점. 허공 우클릭에서만 발화한다.
+		net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(
+				com.sharedfate.perk.PerkOreExchange::onUseItem);
 		EffectSync.register();
 		ServerTickEvents.END_SERVER_TICK.register(EffectSync::tick);
 		ServerTickEvents.END_SERVER_TICK.register(StatMirror::tick);
@@ -168,6 +176,8 @@ public class SharedFateMod implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(PositionSwapManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.StaggeredSwapManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.RallyPointManager::tick);
+		// 폭발 교환이 0.5초 미뤄 둔 폭발을 실제로 터뜨리는 지점.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.SwapExplosionScheduler::tick);
 		// 공명(paired_mining)의 "혼자면 채굴 속도 페널티" 판정. 1초마다 실제로 확인한다.
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.perk.PerkResonantMining::tick);
 		// 흩어진 팀을 한곳으로 모으는 증강(gather)의 판정 지점. 1초에 한 번만 실제로 잰다.
@@ -195,6 +205,10 @@ public class SharedFateMod implements ModInitializer {
 		// 몹에게 걸리는 증강(mob_health / mob_damage)의 등록 지점.
 		ServerTickEvents.END_SERVER_TICK.register(MobPerkModifiers::tick);
 		ServerEntityEvents.ENTITY_LOAD.register(MobPerkModifiers::onEntityLoad);
+		// 시간이 흐를수록 적대적 몹이 세지는 「난이도 상승」의 등록 지점. 증강의 몹 배율과는
+		// 다른 속성 수정자를 쓰므로 둘이 서로 덮어쓰지 않고 곱해진다.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.DifficultyEscalation::tick);
+		ServerEntityEvents.ENTITY_LOAD.register(com.sharedfate.sync.DifficultyEscalation::onEntityLoad);
 		CommandRegistrationCallback.EVENT.register((dispatcher, buildContext, selection) ->
 				ShareTeamCommand.register(dispatcher, config));
 		LOGGER.info("SharedFate 로드됨");
