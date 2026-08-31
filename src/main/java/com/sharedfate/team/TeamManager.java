@@ -3,6 +3,7 @@ package com.sharedfate.team;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.sharedfate.SharedFateMod;
+import com.sharedfate.inventory.ExpandedInventoryManager;
 import com.sharedfate.sync.TeamRosterStore;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.server.MinecraftServer;
@@ -149,6 +150,13 @@ public class TeamManager extends SavedData {
 			state.damageAlertEnabled = entry.damageAlertEnabled();
 			state.deathAlertEnabled = entry.deathAlertEnabled();
 			state.positionSwapIntervalTicks = Math.max(0, entry.swapIntervalTicks());
+			// 「유산」이 몰수했던 도구·무기·방어구를 새 회차 시작 인벤토리로 돌려준다.
+			// 자리가 없으면 overflowItems 에 남아 칸이 비는 대로 자동으로 들어온다
+			// (PerkItemGrants 가 즉시 지급을 넣을 때와 같은 경로).
+			if (!entry.legacyGear().isEmpty()) {
+				state.overflowItems.addAll(entry.legacyGear());
+				state.restoreOverflow(ExpandedInventoryManager.enabled());
+			}
 			teams.put(team.teamId(), team);
 			states.put(team.teamId(), state);
 			for (UUID member : team.members()) {

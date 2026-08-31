@@ -122,8 +122,11 @@ public final class PerkManager {
 		}
 		RandomSource random = server.overworld().getRandom();
 		for (int milestone : reached) {
-			List<String> options = PerkDraft.draw(
-					milestone, PerkRegistry.all(), state.ownedPerks, random, OPTION_COUNT);
+			// 도박꾼을 가진 팀은 프리즘(15렙) 바로 다음 두 구간(20·25렙)이 실버로 고정된다.
+			PerkRarity forcedRarity = PerkGambler.forcedRarity(state, milestone);
+			List<String> options = forcedRarity != null
+					? PerkDraft.draw(forcedRarity, PerkRegistry.all(), state.ownedPerks, random, OPTION_COUNT)
+					: PerkDraft.draw(milestone, PerkRegistry.all(), state.ownedPerks, random, OPTION_COUNT);
 			state.lastPerkMilestone = milestone;
 			if (options.isEmpty()) {
 				SharedFateMod.LOGGER.warn(
@@ -335,8 +338,9 @@ public final class PerkManager {
 			return;
 		}
 
+		RandomSource random = server.overworld().getRandom();
 		commit(server, manager, team, state, perk,
-				player.getGameProfile().name() + "님이 " + gradeAndName(perk) + " 을(를) 골랐습니다.");
+				player.getGameProfile().name() + "님이 " + gradeAndName(perk) + " 을(를) 골랐습니다.", random);
 		// 선택이 끝났으니 시간을 다시 흐르게 하고 팀 전원의 창을 닫는다.
 		PerkChoiceSession.onChoiceApplied(server, team.teamId(), milestone,
 				perk.id(), player.getGameProfile().name());
@@ -375,8 +379,9 @@ public final class PerkManager {
 					"[증강] 시간이 다 되었지만 고를 수 있는 후보가 없어 이번 선택권은 사라집니다."));
 			return;
 		}
+		RandomSource random = server.overworld().getRandom();
 		commit(server, manager, team, state, perk,
-				"시간이 다 되어 " + gradeAndName(perk) + " 이(가) 무작위로 선택되었습니다.");
+				"시간이 다 되어 " + gradeAndName(perk) + " 이(가) 무작위로 선택되었습니다.", random);
 		// 자동 선택도 직접 고른 것과 똑같이 결과를 보여 준다. 고른 사람 이름은 비운다.
 		PerkChoiceSession.onChoiceApplied(server, teamId, milestone, perk.id(), "");
 	}
@@ -400,7 +405,7 @@ public final class PerkManager {
 
 	/** 선택을 실제로 반영한다. 직접 고른 경우와 자동 선택이 같은 길을 지나게 하는 자리다. */
 	private static void commit(MinecraftServer server, TeamManager manager, ShareTeam team,
-			TeamState state, Perk perk, String announcement) {
+			TeamState state, Perk perk, String announcement, RandomSource random) {
 		if (!state.ownedPerks.contains(perk.id())) {
 			state.ownedPerks.add(perk.id());
 		}
@@ -411,6 +416,10 @@ public final class PerkManager {
 		// 거기에 두면 접속할 때마다 아이템이 불어난다. 한 증강은 한 회차에 한 번만 고를 수 있으므로
 		// 이 자리를 지나는 횟수도 증강마다 한 번뿐이다.
 		PerkItemGrants.grantOnChoice(server, team, state, perk);
+		// item_grant 와 정반대 방향(주는 대신 뺏는다)이지만 같은 이유로 여기서 딱 한 번만 부른다.
+		PerkLegacyGear.sacrificeOnChoice(server, team, state, perk);
+		// 도박꾼은 등급 상관없이 2개를 더 넣는다. applyToTeam 보다 앞에 넣어야 바로 효과가 돈다.
+		PerkGambler.grantOnChoice(server, team, state, perk, random);
 
 		applyToTeam(server, team, state);
 		// 몹에게 걸리는 증강은 폴링으로도 따라잡지만, 고른 즉시 반영되는 편이 자연스럽다.

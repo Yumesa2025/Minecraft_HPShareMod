@@ -3,6 +3,7 @@ package com.sharedfate.sync;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.PerkChoiceSession;
 import com.sharedfate.perk.PerkSwapRules;
+import com.sharedfate.perk.effect.SwapExplosionEffect;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
@@ -13,11 +14,15 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Relative;
+import net.minecraft.world.level.Explosion;
+import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.random.RandomGenerator;
 
@@ -48,13 +53,24 @@ public final class PositionSwapManager {
 			if (state == null || !state.positionSwapEnabled()) {
 				continue;
 			}
+			// 시차가 걸음을 진행하는 동안에는 다음 주기 자체를 세지 않는다. 정거장은 이
+			// 얼림을 쓰지 않는다 — 복귀 대기 중에 새 주기가 오면 그 대기를 버리고 새로
+			// 모이는 쪽을 골랐기 때문에, 여기서 막을 이유가 없다.
+			if (StaggeredSwapManager.hasActiveSequence(team.teamId())) {
+				continue;
+			}
 			List<ServerPlayer> online = onlineMembers(server, team);
 			boolean enoughMembers = online.size() >= MIN_SWAP_MEMBERS;
 			if (state.advancePositionSwapTick(enoughMembers)) {
-				swapMoment(online, state);
+				swapMoment(online, team, state);
 				continue;
 			}
 			if (!enoughMembers) {
+				continue;
+			}
+			// 폭발 교환의 대가다. 5초 예고와 효과음이 있으면 위험한 곳으로 옮겨지기
+			// 전에 대비할 시간을 주는데, 이 팀은 그 여유를 대가로 이미 지불했다.
+			if (!PerkSwapRules.swapExplosions(state).isEmpty()) {
 				continue;
 			}
 			int secondsLeft = countdownSecondsToShow(
@@ -66,21 +82,38 @@ public final class PositionSwapManager {
 	}
 
 	/**
-	 * 자리가 바뀔 시점이 왔다. 증강이 끼어드는 자리는 여기 세 곳뿐이다.
+	 * 자리가 바뀔 시점이 왔다. 증강이 끼어드는 자리는 여기 다섯 곳이다.
 	 *
 	 * <p>순서가 중요하다. {@code swap_block} 이 막는 것은 <b>순간이동 한 자리</b>뿐이고,
 	 * {@code on_swap} 은 막혔든 아니든 그대로 발동한다. 그래야 「뿌리내린 발」의 "원래 바뀔
 	 * 시점마다 실명과 구속"이 성립한다. 주기 배율도 마찬가지로 막힘과 무관하게 먹인다.
 	 *
+	 * <p>{@code swap_rally}(정거장)가 {@code staggered_swap}(시차)보다 먼저다. 골드가 실버를
+	 * 이긴다는 규칙이 아니라, 한 팀이 어쩌다 둘 다 가진 경우에도 판정 순서가 늘 같아야 하기
+	 * 때문이다({@link PerkSwapRules#rallyPoint} 문서 참고).
+	 *
 	 * <p>{@code TeamState.advancePositionSwapTick} 이 이미 남은 틱을 주기 그대로 채워 넣은
 	 * 뒤라, 마지막에 덮어쓰는 것으로 배율이 걸린다. 배율이 없으면 같은 값을 다시 쓰는 셈이라
 	 * 아무 일도 일어나지 않는다.
+	 *
+	 * <h2>시차는 여기서 끝나지 않는다</h2>
+	 * <p>{@code swap_rally}·순열 교환·막힘은 이 메서드 안에서 즉시 끝나 {@code on_swap}과
+	 * 다음 주기 계산까지 곧바로 이어진다. 반면 {@code staggered_swap}은 이동 자체가 여러 틱에
+	 * 걸쳐 일어나므로, {@link StaggeredSwapManager#beginSequence}를 부른 뒤 곧바로 돌아간다 —
+	 * {@code on_swap}과 다음 주기 계산은 마지막 걸음이 끝난 뒤 그쪽에서 한다.
 	 */
-	private static void swapMoment(List<ServerPlayer> online, TeamState state) {
+	private static void swapMoment(List<ServerPlayer> online, ShareTeam team, TeamState state) {
 		if (PerkSwapRules.blocksSwap(state)) {
 			announceBlockedSwap(online);
+		} else if (PerkSwapRules.rallyPoint(state) && online.size() >= MIN_SWAP_MEMBERS) {
+			RallyPointManager.beginGather(team, online, ThreadLocalRandom.current(),
+					PerkSwapRules.swapExplosions(state));
+		} else if (PerkSwapRules.staggered(state) && online.size() >= MIN_SWAP_MEMBERS) {
+			StaggeredSwapManager.beginSequence(team, state, online, ThreadLocalRandom.current(),
+					PerkSwapRules.swapExplosions(state));
+			return;
 		} else {
-			swapTeamPositions(online, ThreadLocalRandom.current());
+			swapTeamPositions(online, ThreadLocalRandom.current(), PerkSwapRules.swapExplosions(state));
 		}
 		PerkSwapRules.grantOnSwap(state, online);
 		state.positionSwapRemainingTicks = PerkSwapRules.nextRemainingTicks(state);
@@ -160,6 +193,11 @@ public final class PositionSwapManager {
 	}
 
 	static boolean swapTeamPositions(List<ServerPlayer> players, RandomGenerator random) {
+		return swapTeamPositions(players, random, List.of());
+	}
+
+	static boolean swapTeamPositions(List<ServerPlayer> players, RandomGenerator random,
+			List<SwapExplosionEffect> explosions) {
 		if (players.size() < 2) {
 			return false;
 		}
@@ -178,6 +216,16 @@ public final class PositionSwapManager {
 			}
 		}
 
+		// 방금 비운 자리(자기 원래 위치, origins.get(index))에서 터진다. 이미 전원
+		// 이동이 끝난 뒤라 이 자리는 항상 다른 누군가의 새 자리이기도 하다(완전한
+		// 순열이라 고정점이 없으므로). 그래서 "이 자리를 방금 떠난 사람"(players.get(index))
+		// 하나만 면역으로 둔다. 도착한 사람을 포함해 나머지는 그대로 맞는다.
+		for (int index = 0; index < players.size() && !explosions.isEmpty(); index++) {
+			for (SwapExplosionEffect explosion : explosions) {
+				triggerSwapExplosion(origins.get(index), players.get(index).getUUID(), explosion);
+			}
+		}
+
 		for (int index = 0; index < players.size(); index++) {
 			String donorName = players.get(donors[index]).getPlainTextName();
 			ServerPlayer moved = players.get(index);
@@ -190,6 +238,30 @@ public final class PositionSwapManager {
 					0, SWAP_TITLE_STAY_TICKS, SWAP_TITLE_FADE_OUT_TICKS);
 		}
 		return true;
+	}
+
+	/**
+	 * 「폭발 교환」 한 발을 실제로 터뜨린다.
+	 *
+	 * <p>불은 붙지 않는다({@code fire=false}, 정의 파일로 바꿀 수 없는 고정 규칙). 블록을
+	 * 부수는지는 {@link SwapExplosionEffect#breakBlocks()}를 따라 {@code MOB}(크리퍼처럼
+	 * {@code mobGriefing} 규칙을 따름) 또는 {@code NONE}(연출·피해만)을 고른다. 누가 맞고
+	 * 안 맞는지, 피해가 얼마나 세지는지는 {@link SwapExplosionDamageCalculator}가 정한다.
+	 *
+	 * <p>이 클래스의 순열 교환뿐 아니라 {@link StaggeredSwapManager}(시차의 각 걸음)와
+	 * {@link RallyPointManager}(정거장이 모이는 순간, 복귀 순간은 제외)도 같은 자리에서 이
+	 * 메서드를 부른다. 그래서 {@code private}이 아니라 패키지 전체에 열어 뒀다.
+	 */
+	static void triggerSwapExplosion(Position origin, UUID exemptPlayer,
+			SwapExplosionEffect definition) {
+		ServerLevel level = origin.level();
+		DamageSource source = Explosion.getDefaultDamageSource(level, null);
+		Level.ExplosionInteraction interaction = definition.breakBlocks()
+				? Level.ExplosionInteraction.MOB
+				: Level.ExplosionInteraction.NONE;
+		level.explode(null, source,
+				new SwapExplosionDamageCalculator(exemptPlayer, definition.damageMultiplier()),
+				origin.x(), origin.y(), origin.z(), definition.radius(), false, interaction);
 	}
 
 	/**

@@ -8,8 +8,11 @@ import com.sharedfate.perk.effect.GatherEffect;
 import com.sharedfate.perk.effect.OnKillEffect;
 import com.sharedfate.perk.effect.OnSwapEffect;
 import com.sharedfate.perk.effect.StatusEffectPerk;
+import com.sharedfate.perk.effect.StaggeredSwapEffect;
 import com.sharedfate.perk.effect.SwapBlockEffect;
+import com.sharedfate.perk.effect.SwapExplosionEffect;
 import com.sharedfate.perk.effect.SwapIntervalEffect;
+import com.sharedfate.perk.effect.SwapRallyEffect;
 import com.sharedfate.team.TeamState;
 import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.AfterEach;
@@ -76,6 +79,63 @@ class SwapPerkEffectTest {
 				"{ \"type\": \"swap_interval\", \"multiplier\": \"절반\" }"));
 	}
 
+	// ------------------------------------------------------------------ swap_explosion
+
+	@Test
+	void 세_값을_안_적으면_기본값이다() {
+		SwapExplosionEffect effect = swapExplosion("{ \"type\": \"swap_explosion\" }");
+
+		assertEquals(SwapExplosionEffect.DEFAULT_RADIUS, effect.radius(), 1.0e-6);
+		assertEquals(SwapExplosionEffect.DEFAULT_DAMAGE_MULTIPLIER, effect.damageMultiplier(), 1.0e-9);
+		assertEquals(SwapExplosionEffect.DEFAULT_BREAK_BLOCKS, effect.breakBlocks());
+	}
+
+	@Test
+	void 세_값을_JSON에서_그대로_읽는다() {
+		SwapExplosionEffect effect = swapExplosion("""
+				{ "type": "swap_explosion", "radius": 2.5,
+				  "damage_multiplier": 0.5, "break_blocks": false }
+				""");
+
+		assertEquals(2.5F, effect.radius(), 1.0e-6);
+		assertEquals(0.5, effect.damageMultiplier(), 1.0e-9);
+		assertFalse(effect.breakBlocks());
+	}
+
+	@Test
+	void camelCase_로_적어도_같다() {
+		SwapExplosionEffect effect = swapExplosion("""
+				{ "type": "swap_explosion", "damageMultiplier": 2.0, "breakBlocks": false }
+				""");
+
+		assertEquals(2.0, effect.damageMultiplier(), 1.0e-9);
+		assertFalse(effect.breakBlocks());
+	}
+
+	@Test
+	void 반경이_범위를_벗어나면_버린다() {
+		assertNull(create(PerkEffectType.SWAP_EXPLOSION,
+				"{ \"type\": \"swap_explosion\", \"radius\": 0.1 }"));
+		assertNull(create(PerkEffectType.SWAP_EXPLOSION,
+				"{ \"type\": \"swap_explosion\", \"radius\": 100 }"));
+		assertNull(create(PerkEffectType.SWAP_EXPLOSION,
+				"{ \"type\": \"swap_explosion\", \"radius\": \"크게\" }"));
+	}
+
+	@Test
+	void 피해_배율이_범위를_벗어나면_버린다() {
+		assertNull(create(PerkEffectType.SWAP_EXPLOSION,
+				"{ \"type\": \"swap_explosion\", \"damage_multiplier\": -1.0 }"));
+		assertNull(create(PerkEffectType.SWAP_EXPLOSION,
+				"{ \"type\": \"swap_explosion\", \"damage_multiplier\": 11.0 }"));
+	}
+
+	@Test
+	void 블록_파괴_값이_참_거짓이_아니면_버린다() {
+		assertNull(create(PerkEffectType.SWAP_EXPLOSION,
+				"{ \"type\": \"swap_explosion\", \"break_blocks\": \"응\" }"));
+	}
+
 	// ------------------------------------------------------------------ swap_block
 
 	@Test
@@ -84,6 +144,28 @@ class SwapPerkEffectTest {
 		PerkEffect second = create(PerkEffectType.SWAP_BLOCK, "{ \"type\": \"swap_block\" }");
 
 		assertSame(SwapBlockEffect.INSTANCE, first);
+		assertSame(first, second);
+	}
+
+	// ------------------------------------------------------------------ staggered_swap
+
+	@Test
+	void 시차는_필드가_없고_인스턴스를_돌려쓴다() {
+		PerkEffect first = create(PerkEffectType.STAGGERED_SWAP, "{ \"type\": \"staggered_swap\" }");
+		PerkEffect second = create(PerkEffectType.STAGGERED_SWAP, "{ \"type\": \"staggered_swap\" }");
+
+		assertSame(StaggeredSwapEffect.INSTANCE, first);
+		assertSame(first, second);
+	}
+
+	// ------------------------------------------------------------------ swap_rally
+
+	@Test
+	void 정거장은_필드가_없고_인스턴스를_돌려쓴다() {
+		PerkEffect first = create(PerkEffectType.SWAP_RALLY, "{ \"type\": \"swap_rally\" }");
+		PerkEffect second = create(PerkEffectType.SWAP_RALLY, "{ \"type\": \"swap_rally\" }");
+
+		assertSame(SwapRallyEffect.INSTANCE, first);
 		assertSame(first, second);
 	}
 
@@ -295,6 +377,39 @@ class SwapPerkEffectTest {
 		assertEquals(64.0, gathers.getFirst().distance(), 1.0e-9);
 	}
 
+	@Test
+	void 폭발_교환_정의를_모아_준다(@TempDir Path dir) throws IOException {
+		loadPool(dir);
+
+		assertTrue(PerkSwapRules.swapExplosions(TeamState.fresh(20.0F)).isEmpty(),
+				"증강이 없으면 폭발도 없다");
+		assertTrue(PerkSwapRules.swapExplosions(teamWith("sharedfate:homeswap")).isEmpty(),
+				"관련 없는 증강만 가지면 비어 있다");
+
+		List<SwapExplosionEffect> explosions =
+				PerkSwapRules.swapExplosions(teamWith("sharedfate:bomb"));
+		assertEquals(1, explosions.size());
+		assertEquals(3.0F, explosions.getFirst().radius(), 1.0e-6);
+	}
+
+	@Test
+	void 시차_보유_여부를_판정한다(@TempDir Path dir) throws IOException {
+		loadPool(dir);
+
+		assertFalse(PerkSwapRules.staggered(TeamState.fresh(20.0F)));
+		assertFalse(PerkSwapRules.staggered(teamWith("sharedfate:homeswap")), "관련 없는 증강만 가지면 거짓");
+		assertTrue(PerkSwapRules.staggered(teamWith("sharedfate:stagger")));
+	}
+
+	@Test
+	void 정거장_보유_여부를_판정한다(@TempDir Path dir) throws IOException {
+		loadPool(dir);
+
+		assertFalse(PerkSwapRules.rallyPoint(TeamState.fresh(20.0F)));
+		assertFalse(PerkSwapRules.rallyPoint(teamWith("sharedfate:homeswap")), "관련 없는 증강만 가지면 거짓");
+		assertTrue(PerkSwapRules.rallyPoint(teamWith("sharedfate:rally")));
+	}
+
 	// ------------------------------------------------------------------ 남은 틱 계산
 
 	@Test
@@ -351,6 +466,10 @@ class SwapPerkEffectTest {
 		return assertInstanceOf(GatherEffect.class, create(PerkEffectType.GATHER, json));
 	}
 
+	private static SwapExplosionEffect swapExplosion(String json) {
+		return assertInstanceOf(SwapExplosionEffect.class, create(PerkEffectType.SWAP_EXPLOSION, json));
+	}
+
 	private static PerkEffect create(PerkEffectType type, String json) {
 		return create(type, json, 0);
 	}
@@ -393,6 +512,21 @@ class SwapPerkEffectTest {
 				        { "type": "gather", "distance": 64, "cooldown_ticks": 200,
 				          "effects": [ { "type": "status_effect", "effect": "minecraft:slowness",
 				                         "duration": 5 } ] }
+				      ] },
+				    { "id": "sharedfate:bomb", "rarity": "gold", "name": "폭발 교환",
+				      "effects": [
+				        { "type": "swap_explosion", "radius": 3.0 }
+				      ] },
+				    { "id": "sharedfate:stagger", "rarity": "silver", "name": "시차",
+				      "effects": [
+				        { "type": "staggered_swap" }
+				      ] },
+				    { "id": "sharedfate:rally", "rarity": "gold", "name": "정거장",
+				      "effects": [
+				        { "type": "swap_rally" },
+				        { "type": "on_swap",
+				          "effects": [ { "type": "status_effect", "effect": "minecraft:weakness",
+				                         "amplifier": 0, "duration": 15 } ] }
 				      ] }
 				  ]
 				}

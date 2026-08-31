@@ -1,6 +1,10 @@
 package com.sharedfate.sync;
 
+import com.sharedfate.TestBootstrap;
 import com.sharedfate.team.ShareTeam;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -18,6 +22,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TeamRosterStoreTest {
 	private static final UUID TEAM = UUID.fromString("10000000-0000-0000-0000-000000000001");
 	private static final UUID A = UUID.fromString("20000000-0000-0000-0000-000000000001");
+
+	@BeforeAll
+	static void bootstrap() {
+		TestBootstrap.ensureInitialized();
+	}
 	private static final UUID B = UUID.fromString("20000000-0000-0000-0000-000000000002");
 
 	@Test
@@ -30,7 +39,7 @@ class TeamRosterStoreTest {
 		assertEquals(List.of(team),
 				TeamRosterStore.load(file).stream()
 						.map(TeamRosterStore.RestoredTeam::team).toList());
-		assertTrue(Files.readString(file, StandardCharsets.UTF_8).contains("\"formatVersion\": 3"));
+		assertTrue(Files.readString(file, StandardCharsets.UTF_8).contains("\"formatVersion\": 4"));
 	}
 
 	@Test
@@ -107,5 +116,54 @@ class TeamRosterStoreTest {
 		Files.writeString(file, "{\"formatVersion\":99,\"teams\":[]}", StandardCharsets.UTF_8);
 
 		assertThrows(java.io.IOException.class, () -> TeamRosterStore.load(file));
+	}
+
+	// ------------------------------------------------------------------ 유산(legacyGear)
+
+	@Test
+	void 유산으로_몰수한_아이템도_회차를_넘겨_왕복한다(@TempDir Path server) throws Exception {
+		Path file = server.resolve(TeamRosterStore.FILE_NAME);
+		ShareTeam team = new ShareTeam(TEAM, "원정대", List.of(A, B));
+		ItemStack pickaxe = new ItemStack(Items.DIAMOND_PICKAXE);
+		ItemStack helmet = new ItemStack(Items.DIAMOND_HELMET);
+
+		TeamRosterStore.save(file, List.of(new TeamRosterStore.RestoredTeam(
+				team, true, 20.0F, 0, false, false, List.of(pickaxe, helmet))));
+
+		List<ItemStack> loaded = TeamRosterStore.load(file).getFirst().legacyGear();
+		assertEquals(2, loaded.size());
+		assertTrue(loaded.get(0).is(Items.DIAMOND_PICKAXE));
+		assertTrue(loaded.get(1).is(Items.DIAMOND_HELMET));
+		assertTrue(Files.readString(file, StandardCharsets.UTF_8).contains("\"formatVersion\": 4"));
+	}
+
+	@Test
+	void 유산을_쓰지_않는_팀은_기존_생성자로도_저장할_수_있다(@TempDir Path server) throws Exception {
+		Path file = server.resolve(TeamRosterStore.FILE_NAME);
+		ShareTeam team = new ShareTeam(TEAM, "원정대", List.of(A));
+
+		TeamRosterStore.save(file, List.of(new TeamRosterStore.RestoredTeam(team, false, 20.0F, 0, false, false)));
+
+		assertTrue(TeamRosterStore.load(file).getFirst().legacyGear().isEmpty());
+	}
+
+	@Test
+	void legacyGear_가_없는_예전_형식도_빈_목록으로_읽힌다(@TempDir Path server) throws Exception {
+		Path file = server.resolve(TeamRosterStore.FILE_NAME);
+		Files.writeString(file, """
+				{
+				  "formatVersion": 3,
+				  "teams": [
+				    {
+				      "teamId": "%s",
+				      "name": "원정대",
+				      "members": ["%s"],
+				      "settings": { "perksEnabled": true, "maxHealth": 34.0, "swapIntervalTicks": 0 }
+				    }
+				  ]
+				}
+				""".formatted(TEAM, A), StandardCharsets.UTF_8);
+
+		assertTrue(TeamRosterStore.load(file).getFirst().legacyGear().isEmpty());
 	}
 }

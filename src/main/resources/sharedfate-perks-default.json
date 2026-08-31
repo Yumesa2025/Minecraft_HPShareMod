@@ -1637,6 +1637,130 @@
           "amount": -0.35
         }
       ]
+    },
+    {
+      "id": "sharedfate:swap_bomb",
+      "icon": "minecraft:tnt",
+      "name": "폭발 교환",
+      "description": "팀원 위치가 바뀔 때 방금 비운 자리에서 폭발이 일어나 주변을 휩씁니다(자신은 안 맞습니다). 대신 위치 교환 예고(카운트다운·효과음)가 사라집니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "swap_explosion",
+          "radius": 4.0,
+          "damage_multiplier": 1.0,
+          "break_blocks": true
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:shared_pickaxe",
+      "icon": "minecraft:stone_pickaxe",
+      "name": "돌아가는 곡괭이",
+      "description": "1분마다 무작위 팀원 한 명이 채굴 속도가 20% 증가합니다. 대신 나머지 팀원은 채굴 속도가 10% 감소합니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "holder",
+          "rotate_ticks": 1200,
+          "min_hold_ticks": 200,
+          "pass_on_hurt": false,
+          "on_holder": [
+            {
+              "type": "attribute",
+              "attribute": "minecraft:block_break_speed",
+              "operation": "add_multiplied_total",
+              "amount": 0.2
+            }
+          ],
+          "on_others": [
+            {
+              "type": "attribute",
+              "attribute": "minecraft:block_break_speed",
+              "operation": "add_multiplied_total",
+              "amount": -0.1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:village_finder",
+      "icon": "minecraft:compass",
+      "name": "길잡이 나침반",
+      "description": "나침반이 가장 가까운 마을을 가리킵니다. 대신 몹에게 받는 피해가 ×1.3 이 됩니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "compass_target",
+          "structure": "#minecraft:village",
+          "dimension": "minecraft:overworld",
+          "search_radius": 100
+        },
+        {
+          "type": "mob_damage",
+          "multiplier": 1.3
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:legacy",
+      "icon": "minecraft:knowledge_book",
+      "name": "유산",
+      "description": "전멸하면 지금 가진 도구·무기·방어구가 통째로 다음 회차 시작 인벤토리로 넘어옵니다. 대신 고르는 즉시 지금 가진 도구·무기·방어구를 전부 잃습니다.",
+      "rarity": "prism",
+      "effects": [
+        {
+          "type": "legacy_gear"
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:gambler",
+      "icon": "minecraft:emerald",
+      "name": "도박꾼",
+      "description": "등급에 상관없이 무작위 증강 2개를 더 얻습니다. 대신 그 대가로 15렙 바로 다음 두 구간(20·25렙)은 실버로 고정됩니다.",
+      "rarity": "prism",
+      "effects": [
+        {
+          "type": "gambler"
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:staggered_swap",
+      "icon": "minecraft:comparator",
+      "name": "시차",
+      "description": "위치 교환이 한꺼번에가 아니라 팀원 한 명씩 5~10초 간격으로 순서대로 일어납니다. 그동안 팀은 옛 자리와 새 자리에 나뉘어 있습니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "staggered_swap"
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:rally_point",
+      "icon": "minecraft:campfire",
+      "name": "정거장",
+      "description": "위치가 바뀔 때 전원이 무작위로 뽑힌 한 명의 자리로 모입니다. 15초 뒤 모였던 사람들은 각자 원래 자리로 돌아갑니다(위험해졌어도 그대로 돌아갑니다). 대신 모여 있는 15초 동안 나약함 I 을 얻습니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "swap_rally"
+        },
+        {
+          "type": "on_swap",
+          "effects": [
+            {
+              "type": "status_effect",
+              "effect": "minecraft:weakness",
+              "amplifier": 0,
+              "duration": 15
+            }
+          ]
+        }
+      ]
     }
   ]
 }

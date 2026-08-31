@@ -220,4 +220,28 @@ class PerkStateCodecTest {
 		assertEquals(3, round.ownedPerks.size());
 		assertEquals(1, round.pending.size());
 	}
+
+	// ------------------------------------------------------------------ 유산(legacyGear)
+
+	@Test
+	void 유산으로_몰수한_아이템도_왕복_직렬화된다() {
+		TeamState state = TeamState.fresh(20.0F);
+		state.legacyGear.add(new ItemStack(Items.DIAMOND_PICKAXE));
+		state.legacyGear.add(new ItemStack(Items.DIAMOND_CHESTPLATE));
+
+		TeamState round = decode(encode(state));
+
+		assertEquals(2, round.legacyGear.size());
+		assertTrue(round.legacyGear.get(0).is(Items.DIAMOND_PICKAXE));
+		assertTrue(round.legacyGear.get(1).is(Items.DIAMOND_CHESTPLATE));
+	}
+
+	@Test
+	void legacyGear_가_없는_저장은_빈_목록으로_열린다() {
+		CompoundTag encoded = encode(TeamState.fresh(20.0F));
+
+		assertFalse(encoded.contains("legacyGear"),
+				"몰수한 것이 없으면 저장 형태가 기존과 같아야 한다");
+		assertTrue(decode(encoded).legacyGear.isEmpty());
+	}
 }

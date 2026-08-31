@@ -71,6 +71,13 @@ public class TeamState {
 	public final List<String> ownedPerks = new ArrayList<>();
 	/** 아직 고르지 않은 선택권. 구간 순서대로 쌓이며 여러 개일 수 있다. */
 	public final List<PendingOffer> pending = new ArrayList<>();
+	/**
+	 * 「유산」처럼 증강을 고른 순간 몰수했다가, 팀이 전멸하면 다음 회차 시작 인벤토리로
+	 * 돌려주기로 예약된 아이템들. {@link #resetAfterDeath}에서도 일부러 비우지 않는다 —
+	 * 전멸을 넘겨야 뜻이 있는 값이고, 실제로 넘기는 일은 {@code TeamRosterStore}와
+	 * {@code TeamManager#restoreFreshRoster}가 맡는다.
+	 */
+	public final List<ItemStack> legacyGear = new ArrayList<>();
 
 	public TeamState(SharedItemList mainItems, SharedItemList extraItems,
 			PlayerEnderChestContainer enderContainer,
@@ -161,6 +168,7 @@ public class TeamState {
 		xpProgress = Float.isFinite(xpProgress)
 				? Math.max(0.0F, Math.min(1.0F, xpProgress)) : 0.0F;
 		overflowItems.removeIf(ItemStack::isEmpty);
+		legacyGear.removeIf(ItemStack::isEmpty);
 		if (positionSwapIntervalTicks < 0 || positionSwapIntervalTicks > PositionSwapLimits.MAX_INTERVAL_TICKS) {
 			positionSwapIntervalTicks = 0;
 		}
@@ -416,7 +424,9 @@ public class TeamState {
 			Codec.FLOAT.optionalFieldOf("baseMaxHealth")
 					.<TeamState>forGetter(TeamState::storedBaseMaxHealth),
 			AlertSection.CODEC.optionalFieldOf("alerts", AlertSection.NONE)
-					.<TeamState>forGetter(TeamState::alertSection)
+					.<TeamState>forGetter(TeamState::alertSection),
+			ItemStack.OPTIONAL_CODEC.listOf().optionalFieldOf("legacyGear", List.of())
+					.<TeamState>forGetter(state -> List.copyOf(state.legacyGear))
 	).apply(instance, TeamState::withStoredSections));
 
 	/**
@@ -438,10 +448,12 @@ public class TeamState {
 	 * {@code maxHealth} 였으므로 이게 정확한 복원이다.
 	 */
 	private static TeamState withStoredSections(TeamState state, PerkSection perks,
-			Optional<Float> baseMaxHealth, AlertSection alerts) {
+			Optional<Float> baseMaxHealth, AlertSection alerts, List<ItemStack> legacyGear) {
 		state.applyPerkSection(perks);
 		state.applyAlertSection(alerts);
 		baseMaxHealth.ifPresent(value -> state.baseMaxHealth = sanitizeMaximum(value, state.maxHealth));
+		state.legacyGear.clear();
+		legacyGear.stream().filter(stack -> !stack.isEmpty()).forEach(state.legacyGear::add);
 		return state;
 	}
 
