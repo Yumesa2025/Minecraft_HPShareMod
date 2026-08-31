@@ -4,7 +4,10 @@ import com.sharedfate.perk.effect.GatherEffect;
 import com.sharedfate.perk.effect.OnSwapEffect;
 import com.sharedfate.perk.effect.ProximityEffect;
 import com.sharedfate.perk.effect.SwapBlockEffect;
+import com.sharedfate.perk.effect.StaggeredSwapEffect;
+import com.sharedfate.perk.effect.SwapExplosionEffect;
 import com.sharedfate.perk.effect.SwapIntervalEffect;
+import com.sharedfate.perk.effect.SwapRallyEffect;
 import com.sharedfate.team.TeamState;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
@@ -180,6 +183,71 @@ public final class PerkSwapRules {
 				onSwap.grantTo(member);
 			}
 		}
+	}
+
+	// ------------------------------------------------------------------ 교환 시점 폭발
+
+	/**
+	 * 이 팀이 가진 {@code swap_explosion} 정의들. 없으면 빈 목록.
+	 *
+	 * <p>이 목록이 비어 있지 않다는 것은 두 가지 뜻이다. 자리를 바꿀 때 방금 비운 자리에서
+	 * 폭발을 일으켜야 하고({@code PositionSwapManager.swapTeamPositions}), 5초 카운트다운과
+	 * 효과음도 이 팀에게는 보내지 말아야 한다({@code PositionSwapManager.tick}). 두 곳 모두
+	 * 여기 하나만 물어본다.
+	 */
+	public static List<SwapExplosionEffect> swapExplosions(@Nullable TeamState state) {
+		if (!usesPerks(state)) {
+			return List.of();
+		}
+		List<SwapExplosionEffect> found = new ArrayList<>();
+		for (PerkEffect effect : effectsOf(state)) {
+			if (effect instanceof SwapExplosionEffect explosion) {
+				found.add(explosion);
+			}
+		}
+		return found;
+	}
+
+	// ------------------------------------------------------------------ 집합형 교환
+
+	/**
+	 * 이 팀이 {@code swap_rally}(골드 「정거장」)를 가졌는가.
+	 *
+	 * <p>참이면 {@code PositionSwapManager.swapMoment}가 순열 교환 대신
+	 * {@code RallyPointManager}에게 집합·복귀를 넘긴다. {@link #staggered}보다 먼저 확인한다 —
+	 * 골드가 실버보다 우선한다는 규칙이 아니라, 한 팀이 어쩌다 둘 다 가진 극단적인 경우에도
+	 * 판정 순서가 매번 같아야 하기 때문이다.
+	 */
+	public static boolean rallyPoint(@Nullable TeamState state) {
+		if (!usesPerks(state)) {
+			return false;
+		}
+		for (PerkEffect effect : effectsOf(state)) {
+			if (effect instanceof SwapRallyEffect) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// ------------------------------------------------------------------ 순차 이동
+
+	/**
+	 * 이 팀이 {@code staggered_swap}(실버 「시차」)을 가졌는가.
+	 *
+	 * <p>참이면 {@code PositionSwapManager.swapMoment}가 한 틱 안에서 전부 옮기는 대신
+	 * {@code StaggeredSwapManager}에게 진행을 넘긴다.
+	 */
+	public static boolean staggered(@Nullable TeamState state) {
+		if (!usesPerks(state)) {
+			return false;
+		}
+		for (PerkEffect effect : effectsOf(state)) {
+			if (effect instanceof StaggeredSwapEffect) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	// ------------------------------------------------------------------ 집합

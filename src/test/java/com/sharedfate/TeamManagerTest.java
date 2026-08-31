@@ -132,6 +132,21 @@ class TeamManagerTest {
 	}
 
 	@Test
+	void 유산으로_몰수했던_아이템은_새_회차_공유_인벤토리로_돌아온다() {
+		ShareTeam team = manager.createTeam("원정대", A, 40.0F);
+		ItemStack pickaxe = new ItemStack(Items.DIAMOND_PICKAXE);
+
+		TeamManager fresh = new TeamManager();
+		fresh.restoreFreshRoster(java.util.List.of(new TeamRosterStore.RestoredTeam(
+				team, false, 40.0F, 0, false, false, java.util.List.of(pickaxe))));
+
+		TeamState restored = fresh.stateOf(A);
+		assertTrue(restored.mainItems.stream().anyMatch(stack -> stack.is(Items.DIAMOND_PICKAXE)),
+				"「유산」이 몰수했던 도구가 다음 회차 시작 인벤토리에 있어야 한다");
+		assertTrue(restored.overflowItems.isEmpty(), "자리가 있으면 넘침 목록에 남으면 안 된다");
+	}
+
+	@Test
 	void 중복_멤버가_있는_명단은_부분_복원하지_않는다() {
 		ShareTeam first = new ShareTeam(UUID.randomUUID(), "첫팀", java.util.List.of(A));
 		ShareTeam second = new ShareTeam(UUID.randomUUID(), "둘째팀", java.util.List.of(A, B));

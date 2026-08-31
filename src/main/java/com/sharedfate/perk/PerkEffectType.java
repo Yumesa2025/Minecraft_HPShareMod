@@ -20,6 +20,8 @@ import com.sharedfate.perk.effect.FoodNutritionEffect;
 import com.sharedfate.perk.effect.HungerDrainEffect;
 import com.sharedfate.perk.effect.ItemBanEffect;
 import com.sharedfate.perk.effect.ItemGrantEffect;
+import com.sharedfate.perk.effect.GamblerEffect;
+import com.sharedfate.perk.effect.LegacyGearEffect;
 import com.sharedfate.perk.effect.LifestealEffect;
 import com.sharedfate.perk.effect.LootBonusEffect;
 import com.sharedfate.perk.effect.HolderEffect;
@@ -42,7 +44,10 @@ import com.sharedfate.perk.effect.GatherEffect;
 import com.sharedfate.perk.effect.OnSwapEffect;
 import com.sharedfate.perk.effect.ProximityEffect;
 import com.sharedfate.perk.effect.SwapBlockEffect;
+import com.sharedfate.perk.effect.StaggeredSwapEffect;
+import com.sharedfate.perk.effect.SwapRallyEffect;
 import com.sharedfate.perk.effect.SwapIntervalEffect;
+import com.sharedfate.perk.effect.SwapExplosionEffect;
 import com.sharedfate.perk.effect.PeriodicEffect;
 import com.sharedfate.perk.effect.StatusEffectPerk;
 import com.sharedfate.perk.effect.WeaponDamageEffect;
@@ -73,6 +78,8 @@ public enum PerkEffectType {
 	ON_KILL("on_kill", OnKillEffect::fromJson),
 	NO_FOOD_HUNGER("no_food_hunger", NoFoodHungerEffect::fromJson),
 	ITEM_GRANT("item_grant", ItemGrantEffect::fromJson),
+	LEGACY_GEAR("legacy_gear", LegacyGearEffect::fromJson),
+	GAMBLER("gambler", GamblerEffect::fromJson),
 	FOOD_NUTRITION("food_nutrition", FoodNutritionEffect::fromJson),
 	HUNGER_DRAIN("hunger_drain", HungerDrainEffect::fromJson),
 	NO_HUNGER_DRAIN("no_hunger_drain", NoHungerDrainEffect::fromJson),
@@ -83,6 +90,9 @@ public enum PerkEffectType {
 	MINING_SPEED("mining_speed", MiningSpeedEffect::fromJson),
 	ON_TEAM_HURT("on_team_hurt", OnTeamHurtEffect::fromJson),
 	SWAP_INTERVAL("swap_interval", SwapIntervalEffect::fromJson),
+	STAGGERED_SWAP("staggered_swap", StaggeredSwapEffect::fromJson),
+	SWAP_RALLY("swap_rally", SwapRallyEffect::fromJson),
+	SWAP_EXPLOSION("swap_explosion", SwapExplosionEffect::fromJson),
 	SWAP_BLOCK("swap_block", SwapBlockEffect::fromJson),
 	ON_SWAP("on_swap", OnSwapEffect::fromJson),
 	GATHER("gather", GatherEffect::fromJson),

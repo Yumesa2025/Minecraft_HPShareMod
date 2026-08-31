@@ -85,6 +85,8 @@ public class SharedFateMod implements ModInitializer {
 			PeriodicPerkManager.reset();
 			PerkHolderManager.reset();
 			TeamGathering.reset();
+			com.sharedfate.sync.StaggeredSwapManager.reset();
+			com.sharedfate.sync.RallyPointManager.reset();
 			PerkWorldRules.reset();
 			PerkCompassTargets.reset();
 			com.sharedfate.perk.PerkGearManager.reset();
@@ -143,6 +145,9 @@ public class SharedFateMod implements ModInitializer {
 		ServerLivingEntityEvents.AFTER_DEATH.register(PerkKillRewards::onDeath);
 		// 보유자형 증강(holder)의 보유자가 죽으면 즉시 다른 팀원에게 넘기는 지점.
 		ServerLivingEntityEvents.AFTER_DEATH.register(PerkHolderManager::onDeath);
+		// 시차·정거장이 진행·대기 중이던 상태를 팀 전멸 때 지우는 지점.
+		ServerLivingEntityEvents.AFTER_DEATH.register(com.sharedfate.sync.StaggeredSwapManager::onDeath);
+		ServerLivingEntityEvents.AFTER_DEATH.register(com.sharedfate.sync.RallyPointManager::onDeath);
 		ServerLivingEntityEvents.AFTER_DAMAGE.register(SharedHurtFeedback::onDamage);
 		// 팀원이 맞았을 때 잠깐 걸리는 증강(on_team_hurt)의 등록 지점.
 		ServerLivingEntityEvents.AFTER_DAMAGE.register(PerkTriggers::onDamage);
@@ -160,6 +165,8 @@ public class SharedFateMod implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(WorldResetCoordinator::tick);
 		ServerTickEvents.END_SERVER_TICK.register(RunProgressManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PositionSwapManager::tick);
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.StaggeredSwapManager::tick);
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.RallyPointManager::tick);
 		// 흩어진 팀을 한곳으로 모으는 증강(gather)의 판정 지점. 1초에 한 번만 실제로 잰다.
 		ServerTickEvents.END_SERVER_TICK.register(TeamGathering::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PerkManager::tick);
