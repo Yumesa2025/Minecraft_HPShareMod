@@ -87,6 +87,7 @@ public class SharedFateMod implements ModInitializer {
 			TeamGathering.reset();
 			com.sharedfate.sync.StaggeredSwapManager.reset();
 			com.sharedfate.sync.RallyPointManager.reset();
+			com.sharedfate.perk.PerkResonantMining.reset();
 			PerkWorldRules.reset();
 			PerkCompassTargets.reset();
 			com.sharedfate.perk.PerkGearManager.reset();
@@ -167,6 +168,8 @@ public class SharedFateMod implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(PositionSwapManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.StaggeredSwapManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.RallyPointManager::tick);
+		// 공명(paired_mining)의 "혼자면 채굴 속도 페널티" 판정. 1초마다 실제로 확인한다.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.perk.PerkResonantMining::tick);
 		// 흩어진 팀을 한곳으로 모으는 증강(gather)의 판정 지점. 1초에 한 번만 실제로 잰다.
 		ServerTickEvents.END_SERVER_TICK.register(TeamGathering::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PerkManager::tick);

@@ -15,6 +15,7 @@ import com.sharedfate.perk.effect.DamageTakenFromEffect;
 import com.sharedfate.perk.effect.CompassTargetEffect;
 import com.sharedfate.perk.effect.NoSleepEffect;
 import com.sharedfate.perk.effect.TimeLockEffect;
+import com.sharedfate.perk.effect.EchoMiningEffect;
 import com.sharedfate.perk.effect.EquipBanEffect;
 import com.sharedfate.perk.effect.FoodNutritionEffect;
 import com.sharedfate.perk.effect.HungerDrainEffect;
@@ -24,6 +25,7 @@ import com.sharedfate.perk.effect.GamblerEffect;
 import com.sharedfate.perk.effect.LegacyGearEffect;
 import com.sharedfate.perk.effect.LifestealEffect;
 import com.sharedfate.perk.effect.LootBonusEffect;
+import com.sharedfate.perk.effect.PairedMiningEffect;
 import com.sharedfate.perk.effect.HolderEffect;
 import com.sharedfate.perk.effect.MaxHealthBonusEffect;
 import com.sharedfate.perk.effect.MaxHealthLockEffect;
@@ -112,6 +114,8 @@ public enum PerkEffectType {
 	HIDE_HUD("hide_hud", HideHudEffect::fromJson),
 	WEAPON_DAMAGE("weapon_damage", WeaponDamageEffect::fromJson),
 	LOOT_BONUS("loot_bonus", LootBonusEffect::fromJson),
+	ECHO_MINING("echo_mining", EchoMiningEffect::fromJson),
+	PAIRED_MINING("paired_mining", PairedMiningEffect::fromJson),
 	CUSTOM("custom", CustomEffect::fromJson);
 
 	/** 효과 하나를 만드는 팩토리. 정의가 잘못됐으면 {@code null}을 돌려준다. */

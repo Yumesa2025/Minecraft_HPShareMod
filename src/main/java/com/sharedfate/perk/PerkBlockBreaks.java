@@ -2,11 +2,16 @@ package com.sharedfate.perk;
 
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.effect.BonusDropEffect;
+import com.sharedfate.perk.effect.EchoMiningEffect;
 import com.sharedfate.perk.effect.MiningSpeedEffect;
 import com.sharedfate.perk.effect.OnBreakEffect;
+import com.sharedfate.perk.effect.PairedMiningEffect;
+import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamLookup;
+import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
@@ -20,6 +25,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * 블록 파괴에 걸리는 증강 효과({@code bonus_drop}, {@code on_break}, {@code mining_speed})의
@@ -108,9 +114,81 @@ public final class PerkBlockBreaks {
 					onBreak.grantTemporaryEffects(breaker);
 				} else if (effect instanceof BonusDropEffect bonus && bonus.appliesTo(state)) {
 					tryBonusDrop(serverLevel, breaker, pos, state, blockEntity, bonus);
+				} else if (effect instanceof PairedMiningEffect) {
+					PerkResonantMining.onBreak(serverLevel.getServer(), breaker, state, serverLevel.getGameTime());
+				} else if (effect instanceof EchoMiningEffect) {
+					tryEchoMining(serverLevel, breaker);
 				}
 			}
 		}
+	}
+
+	// ------------------------------------------------------------------ 메아리 채굴
+
+	/**
+	 * 같은 차원의 가장 가까운 팀원 발밑 블록을 한 번 더 캔다.
+	 *
+	 * <p>{@code destroyBlock} 이 아니라 {@link ServerLevel#removeBlock} 을 쓴다. 이 메서드는
+	 * {@code PlayerBlockBreakEvents.AFTER} 를 다시 발화시키지 않으므로, 이 사건이 자기 자신을
+	 * 다시 부르는 고리가 애초에 생기지 않는다.
+	 *
+	 * <p>그 팀원의 자리가 로드되지 않은 청크면 아무 일도 하지 않는다. 청크를 억지로 불러오지
+	 * 않는다({@link ServerLevel#isLoaded} 는 조회만 하고 불러오지는 않는다).
+	 */
+	private static void tryEchoMining(ServerLevel level, ServerPlayer breaker) {
+		MinecraftServer server = level.getServer();
+		if (server == null) {
+			return;
+		}
+		ShareTeam team = TeamManager.get(server).teamOf(breaker.getUUID());
+		if (team == null) {
+			return;
+		}
+
+		ServerPlayer nearest = null;
+		double nearestDistanceSquared = Double.MAX_VALUE;
+		for (UUID memberId : team.members()) {
+			if (memberId.equals(breaker.getUUID())) {
+				continue;
+			}
+			ServerPlayer candidate = server.getPlayerList().getPlayer(memberId);
+			if (candidate == null || candidate.isRemoved() || candidate.level() != level) {
+				continue;
+			}
+			double distanceSquared = breaker.distanceToSqr(candidate);
+			if (distanceSquared < nearestDistanceSquared) {
+				nearestDistanceSquared = distanceSquared;
+				nearest = candidate;
+			}
+		}
+		if (nearest == null) {
+			return;
+		}
+
+		BlockPos echoPos = nearest.blockPosition().below();
+		if (!level.isLoaded(echoPos)) {
+			return;
+		}
+		BlockState echoState = level.getBlockState(echoPos);
+		if (echoState.isAir() || echoState.getDestroySpeed(level, echoPos) < 0.0F) {
+			return;
+		}
+		if (!breaker.hasCorrectToolForDrops(echoState)) {
+			return;
+		}
+
+		BlockEntity echoBlockEntity = level.getBlockEntity(echoPos);
+		List<ItemStack> drops = Block.getDrops(
+				echoState, level, echoPos, echoBlockEntity, breaker, breaker.getMainHandItem());
+		level.removeBlock(echoPos, false);
+		for (ItemStack drop : drops) {
+			if (drop != null && !drop.isEmpty()) {
+				Block.popResource(level, echoPos, drop);
+			}
+		}
+		// 원래 소모는 바닐라가 이 사건 뒤에 처리한다. 여기서는 정확히 한 점만 더 먹여
+		// 합계가 2배가 되게 한다. 도구를 부러뜨리지 않는 가드는 그대로 재사용한다.
+		spendExtraDurability(breaker, 1);
 	}
 
 	// ------------------------------------------------------------------ 추가 드롭
