@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PerkCardDismissTest {
 
 	private static final float EPSILON = 0.0001F;
-	/** 결과 연출 3초를 ms 로. 서버 값이 바뀌면 이 시험이 먼저 걸린다. */
+	/** 결과 연출 길이를 ms 로. 서버 값이 바뀌면 이 시험이 먼저 걸린다. */
 	private static final long HOLD_MILLIS = PerkChoiceSession.RESULT_TICKS * 50L;
 	/** 카드가 늘 세 장 서는 창이라 시차 계산의 기준으로 쓴다. */
 	private static final int CARDS = 3;
@@ -107,10 +107,28 @@ class PerkCardDismissTest {
 	void 결과_연출_앞머리에서_끝난다() {
 		long total = PerkCardDismiss.totalMillis(CARDS);
 		assertTrue(total < HOLD_MILLIS / 3,
-				"움직임이 3초의 3분의 1을 넘게 쓴다: " + total + "ms / " + HOLD_MILLIS + "ms");
-		// 다 내려간 뒤 고른 카드만 남은 화면을 볼 시간이 2초 넘게 남아야 한다.
-		assertTrue(HOLD_MILLIS - total > 2000L,
+				"움직임이 결과 연출의 3분의 1을 넘게 쓴다: " + total + "ms / " + HOLD_MILLIS + "ms");
+		// 다 내려간 뒤 고른 카드만 남은 화면을 볼 시간이 4초 넘게 남아야 한다. 고르지 않은
+		// 팀원에게는 그 순간이 이름과 설명을 처음 읽는 순간이다.
+		assertTrue(HOLD_MILLIS - total > 4000L,
 				"고른 카드를 보는 시간이 " + (HOLD_MILLIS - total) + "ms 밖에 안 남는다");
+	}
+
+	@Test
+	void 한_덩어리로_사라지지_않는다() {
+		// 시차가 없거나 미끄러지는 시간에 견줘 너무 짧으면 세 장이 한꺼번에 사라진 것으로
+		// 읽힌다. 무엇이 떨어져 나갔는지 눈이 따라가려면 출발이 갈려야 한다.
+		assertTrue(PerkCardDismiss.STAGGER_MILLIS >= 100L,
+				"시차가 " + PerkCardDismiss.STAGGER_MILLIS + "ms 뿐이다");
+		// 마지막 카드가 출발할 때 첫 카드는 아직 내려가는 중이어야 이어진 움직임으로 보인다.
+		assertTrue(PerkCardDismiss.startMillis(CARDS - 1) < PerkCardDismiss.SLIDE_MILLIS);
+	}
+
+	@Test
+	void 한_장이_눈에_보일_만큼_오래_내려간다() {
+		// 0.38초로는 뒤에 붙는 가속까지 겹쳐 알아보기 전에 없어졌다. 0.5초는 넘겨야 한다.
+		assertTrue(PerkCardDismiss.SLIDE_MILLIS >= 500L,
+				"한 장이 " + PerkCardDismiss.SLIDE_MILLIS + "ms 만에 사라진다");
 	}
 
 	@Test

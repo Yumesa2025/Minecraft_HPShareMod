@@ -44,6 +44,19 @@ public record TeamCreationSettings(boolean perksEnabled, boolean damageAlertEnab
 	/** 위치 교환 「끔」. 주기 0분은 없으므로 0 을 끔으로 쓴다. */
 	public static final int SWAP_DISABLED = 0;
 
+	/**
+	 * 위치 교환은 <b>켠 채로</b> 시작하고, 주기는 5분이다.
+	 *
+	 * <p>이 모드의 이름이 「운명 공유」인 이유가 이것이다 — 체력과 경험치를 나누는 것만으로는
+	 * 팀원이 각자 제 갈 길을 가도 아무 일이 없다. 자리가 주기적으로 섞여야 서로가 어디서
+	 * 무엇을 하는지 신경 쓰게 된다. 끄고 시작하는 쪽이 예외다.
+	 *
+	 * <p>5분인 까닭은 <b>한 가지 일을 끝낼 만한 시간</b>이기 때문이다. 1분이면 광질 한 번,
+	 * 이동 한 번을 못 끝내고 끌려다니기만 하고, 10분이 넘으면 교환이 있다는 사실을 잊는다.
+	 * {@code /shareteam create} 에 {@code swap} 을 적지 않으면 이 값이 쓰인다.
+	 */
+	public static final int DEFAULT_SWAP_MINUTES = 5;
+
 	/** {@code /shareteam create ... health <값>} 이 받는 범위. */
 	public static final int MIN_MAX_HEALTH = 20;
 	public static final int MAX_MAX_HEALTH = 40;
@@ -89,7 +102,8 @@ public record TeamCreationSettings(boolean perksEnabled, boolean damageAlertEnab
 	/** 아무것도 적지 않고 만든 팀의 설정. 최대 체력만 서버 설정에서 온다. */
 	public static TeamCreationSettings defaults(float maxHealth) {
 		return new TeamCreationSettings(DEFAULT_PERKS_ENABLED, false, false,
-				DEFAULT_DIFFICULTY_ESCALATION, maxHealth, SWAP_DISABLED, DEFAULT_REROLL_COUNT);
+				DEFAULT_DIFFICULTY_ESCALATION, maxHealth, DEFAULT_SWAP_MINUTES,
+				DEFAULT_REROLL_COUNT);
 	}
 
 	public TeamCreationSettings withPerks(boolean enabled) {

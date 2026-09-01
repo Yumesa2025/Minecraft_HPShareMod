@@ -1,15 +1,14 @@
 package com.sharedfate.client.team;
 
-import com.sharedfate.client.ClientAttackDamage;
+import com.sharedfate.client.ClientStatRows;
 import com.sharedfate.client.ClientTeamState;
-import com.sharedfate.client.perk.ClientPerkFeatures;
 import com.sharedfate.client.perk.PerkClientState;
 import com.sharedfate.net.PerkSyncPayload;
-import com.sharedfate.perk.effect.HideHudEffect;
 import com.sharedfate.team.TeamCreationSettings;
 import com.sharedfate.ui.GameStartButton;
 import com.sharedfate.ui.PanelScroll;
-import com.sharedfate.ui.StatSummary;
+import com.sharedfate.ui.StatRow;
+import com.sharedfate.ui.TeamNameInput;
 import com.sharedfate.ui.TeamCreationCycle;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -19,12 +18,8 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
-import net.minecraft.world.entity.ai.attributes.Attribute;
-import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -59,12 +54,11 @@ public class TeamScreen extends Screen {
 	private static final int TAB_HEIGHT = 18;
 	private static final int PANEL_WIDTH = 300;
 
-	private static final int TEXT_MAIN = 0xFFE8E8F0;
-	private static final int TEXT_DIM = 0xFF9AA0AA;
-	private static final int TEXT_GOOD = 0xFF80FF20;
+	// 능력치 줄과 같은 색을 써야 하므로 StatRow 에서 가져온다. 두 곳에 적으면 갈라진다.
+	private static final int TEXT_MAIN = StatRow.COLOR_NEUTRAL;
+	private static final int TEXT_DIM = StatRow.COLOR_MASKED;
+	private static final int TEXT_GOOD = StatRow.COLOR_GOOD;
 	private static final int TEXT_WARN = 0xFFFFD24A;
-	/** 기본값보다 내려간 능력치. 대가로 무언가를 깎는 증강이 있어 반드시 눈에 띄어야 한다. */
-	private static final int TEXT_BAD = 0xFFFF6B6B;
 	private static final int PANEL_BG = 0xC0101018;
 	private static final int SCROLL_TRACK = 0x40FFFFFF;
 	private static final int SCROLL_THUMB = 0xC0C0C6CC;
@@ -144,7 +138,8 @@ public class TeamScreen extends Screen {
 	 *
 	 * <p><b>기본값은 서버의 {@link TeamCreationSettings} 와 같아야 한다.</b> 화면에 보이는
 	 * 값과 아무것도 안 적었을 때 서버가 쓰는 값이 다르면, 사람이 화면을 보고 짐작한 것과
-	 * 실제 팀이 어긋난다. 증강만 켬이고 나머지는 끔·서버 설정값이다.
+	 * 실제 팀이 어긋난다. 그래서 <b>서버 상수를 그대로 참조</b>한다 — 숫자를 여기에 옮겨
+	 * 적으면 언젠가 한쪽만 고쳐진다. 증강과 위치 교환이 켬이고 나머지는 끔·서버 설정값이다.
 	 *
 	 * <p>두 알림과 난이도 상승은 <b>만든 뒤에 바꿀 수 없으므로</b> 켜는 것을 일부러 손으로
 	 * 고르게 한다.
@@ -158,7 +153,7 @@ public class TeamScreen extends Screen {
 	 * 않는다. 명령이 받는 아래 끝(20)에서 시작한다.
 	 */
 	private int newTeamMaxHealth = MIN_HEALTH;
-	private int newTeamSwapMinutes = TeamCreationCycle.SWAP_OFF;
+	private int newTeamSwapMinutes = TeamCreationSettings.DEFAULT_SWAP_MINUTES;
 	private int newTeamRerollCount = TeamCreationSettings.DEFAULT_REROLL_COUNT;
 	/**
 	 * 적다 만 팀 이름.
@@ -167,6 +162,13 @@ public class TeamScreen extends Screen {
 	 * 옮겨 두지 않으면 <b>켜고 끄기를 누를 때마다 적던 이름이 지워진다.</b>
 	 */
 	private String newTeamName = "";
+	/**
+	 * 「팀 만들기」 단추.
+	 *
+	 * <p>이름 칸에 글자가 들어오는 <b>즉시</b> 켜고 꺼야 해서 들고 있는다. 위젯을 통째로 다시
+	 * 만드는 {@link #rebuild()} 를 기다리면 한 틱 늦고, 글자 입력 칸의 커서도 튄다.
+	 */
+	private Button createButton;
 
 	/**
 	 * 「게임 시작」 단추가 확인 단계인가.
@@ -245,7 +247,12 @@ public class TeamScreen extends Screen {
 					Component.literal("팀 이름"));
 			nameBox.setMaxLength(MAX_TEAM_NAME_LENGTH);
 			nameBox.setValue(newTeamName);
-			nameBox.setResponder(value -> newTeamName = value);
+			nameBox.setResponder(value -> {
+				newTeamName = value;
+				if (createButton != null) {
+					createButton.active = TeamNameInput.valid(value);
+				}
+			});
 			addRenderableWidget(nameBox);
 
 			int half = PANEL_WIDTH / 2 - 2;
@@ -277,12 +284,15 @@ public class TeamScreen extends Screen {
 							TeamCreationSettings.MIN_REROLL_COUNT,
 							TeamCreationSettings.MAX_REROLL_COUNT)));
 
-			addRenderableWidget(Button.builder(Component.literal("팀 만들기"),
-					button -> createTeam())
-					.bounds(left, formRowY(4) + 4, PANEL_WIDTH, FORM_BUTTON_HEIGHT).build());
+			createButton = Button.builder(Component.literal("팀 만들기"), button -> createTeam())
+					.bounds(left, formRowY(4) + 4, PANEL_WIDTH, FORM_BUTTON_HEIGHT).build();
+			// 이름이 비어 있으면 눌러도 아무 일이 없다. 눌리지 않는 편이 정직하다.
+			createButton.active = TeamNameInput.valid(newTeamName);
+			addRenderableWidget(createButton);
 			return;
 		}
 
+		createButton = null;
 		nameBox = null;
 		int y = PANEL_TOP + 14 + ROW_HEIGHT * (ClientTeamState.memberIds().size() + 1);
 
@@ -386,8 +396,8 @@ public class TeamScreen extends Screen {
 		if (nameBox == null) {
 			return;
 		}
-		String name = nameBox.getValue().trim();
-		if (name.isEmpty()) {
+		String name = TeamNameInput.normalize(nameBox.getValue());
+		if (!TeamNameInput.valid(name)) {
 			return;
 		}
 		run(TeamCreationCycle.createCommand(newTeamPerks, newTeamDamageAlert, newTeamDeathAlert,
@@ -573,8 +583,12 @@ public class TeamScreen extends Screen {
 			int noteY = formRowY(4) + 4 + FORM_BUTTON_HEIGHT + 6;
 			graphics.text(this.font, "일곱 가지 모두 팀을 만들 때만 정합니다. 바꾸려면 팀을 해체하세요.",
 					left, noteY, TEXT_WARN);
-			graphics.text(this.font, "숫자 단추는 누를 때마다 다음 값으로 바뀝니다.",
-					left, noteY + ROW_HEIGHT, TEXT_DIM);
+			// 단추가 꺼져 있으면 왜 꺼져 있는지가 먼저다. 툴팁이 아니라 늘 보이는 한 줄로
+			// 적는 이유는, 마우스를 올려 보기 전에는 툴팁이 있는지조차 알 수 없기 때문이다.
+			boolean nameReady = TeamNameInput.valid(newTeamName);
+			graphics.text(this.font,
+					nameReady ? "숫자 단추는 누를 때마다 다음 값으로 바뀝니다." : TeamNameInput.EMPTY_HINT,
+					left, noteY + ROW_HEIGHT, nameReady ? TEXT_DIM : TEXT_WARN);
 			return;
 		}
 
@@ -657,24 +671,19 @@ public class TeamScreen extends Screen {
 	/**
 	 * 능력치 탭. <b>증강이 무엇을 얼마나 바꿨는지</b>를 바닐라 기본값과 나란히 보여 준다.
 	 *
-	 * <h2>값은 클라이언트가 이미 갖고 있다 — 통신 규약을 올리지 않았다</h2>
-	 * <p>여기 적는 것은 전부 바닐라 속성이고, 서버는 {@code ServerEntity} 에서 그것을
-	 * <b>본인에게도</b> 보낸다({@code sendToTrackingPlayersAndSelf}). 증강이 거는 수정자도
-	 * 임시(transient) 수정자일 뿐이라 그 묶음에 함께 실린다. 그래서 {@code getBaseValue()} 가
-	 * 바닐라 기본값, {@code getValue()} 가 증강·장비까지 얹힌 지금 값이 된다.
+	 * <h2>인벤토리 화면에도 같은 줄이 뜨는데 왜 탭을 남겼나</h2>
+	 * <p>인벤토리 화면(E) 왼쪽에 늘 보이게 되었지만, 그쪽은 <b>창 왼쪽에 남는 자리만큼만</b>
+	 * 그린다. GUI 배율이 크거나 조합법 책을 펼치면 이름이 줄고, 더 좁으면 아예 감춘다
+	 * ({@link com.sharedfate.ui.InventoryStatPanel}). 어떤 배율에서도 <b>온전한 이름과 증감,
+	 * 그리고 아래의 설명 줄까지</b> 볼 수 있는 자리가 하나는 있어야 한다.
 	 *
-	 * <h2>공격력만은 서버가 보내 준다</h2>
-	 * <p>{@code minecraft:attack_damage} 만은 바닐라가 <b>클라이언트에 동기화하지 않는다</b> —
-	 * {@code Attributes} 에서 이 속성만 {@code setSyncable(true)} 없이 등록되고, 장비의 속성
-	 * 수정자를 실제로 붙이는 {@code LivingEntity.detectEquipmentUpdates} 도 서버에서만 돈다.
-	 * 그래서 클라이언트가 스스로 읽는 공격력은 <b>맨손 기본값</b>일 뿐이고 무기도 증강도 들어
-	 * 있지 않다. 그 한 줄을 위해 {@code AttackDamagePayload} 를 따로 두었고, 그것이 채우는
-	 * {@link ClientAttackDamage} 에서 읽는다. 서버가 아직 알려 주지 않았으면 줄을 건너뛴다.
+	 * <p>대신 <b>두 곳이 같은 코드로 줄을 만든다</b> — {@link ClientStatRows} 가 유일한
+	 * 출처이고, 글자 모양은 {@link StatRow} 가 정한다. 형식이 두 곳에서 갈라질 자리가 없다.
 	 *
-	 * <h2>줄의 차례</h2>
-	 * <p>최대 체력 · 공격력 · 방어력 · 이동 속도 순이다. 앞의 셋이 전투의 세 축이라 붙여 두고
-	 * ({@code 얼마나 버티는가 → 얼마나 때리는가 → 얼마나 덜 맞는가}), 성격이 다른 이동 속도를
-	 * 맨 뒤에 둔다.
+	 * <h2>값을 어디서 읽는지</h2>
+	 * <p>{@link ClientStatRows} 에 적었다. 요약하면 최대 체력·공격 속도·방어력·이동 속도는
+	 * 바닐라가 클라이언트에 보내 주는 속성이고, 공격력·받는 피해 배율·몹 배율은 서버가
+	 * {@code StatSnapshotPayload} 로 따로 보내 준다.
 	 *
 	 * <h2>「장님 거인」과의 관계</h2>
 	 * <p>그 증강이 감추는 것은 <b>지금 체력</b>과 허기이고, 여기 적는 것은 <b>상한</b>이다.
@@ -693,93 +702,34 @@ public class TeamScreen extends Screen {
 		graphics.text(this.font, "바닐라 기본값 → 지금 값  (증감)", left, y, TEXT_DIM);
 		y += ROW_HEIGHT + 4;
 
-		y = statRow(graphics, player, left, y, "최대 체력", Attributes.MAX_HEALTH,
-				StatSummary.Unit.RAW, heartSuffix(player), false);
-		y = attackDamageRow(graphics, left, y);
-		y = statRow(graphics, player, left, y, "방어력", Attributes.ARMOR,
-				StatSummary.Unit.RAW, "",
-				ClientPerkFeatures.isHidden(HideHudEffect.Element.ARMOR));
-		y = statRow(graphics, player, left, y, "이동 속도", Attributes.MOVEMENT_SPEED,
-				StatSummary.Unit.PERCENT, "", false);
+		y = statRows(graphics, left, y, ClientStatRows.playerRows(player));
+		// 「내 능력치」와 「이 판의 몹」 사이의 틈. 몹 체력이 내 체력처럼 읽히면 안 된다.
+		y += 6;
+		y = statRows(graphics, left, y, ClientStatRows.mobRows());
 
 		y += 6;
 		if (!ClientTeamState.inTeam()) {
 			graphics.text(this.font, "팀에 들어가면 증강이 이 값들을 바꿉니다.", left, y, TEXT_DIM);
 			y += ROW_HEIGHT;
-			graphics.text(this.font, "공격력에는 마법부여와 치명타가 빠져 있습니다.",
-					left, y, TEXT_DIM);
-			return;
 		}
-		graphics.text(this.font, "최대 체력은 팀이 정한 값과 증강이 함께 반영된 값입니다.",
+		graphics.text(this.font, "공격 속도는 초당 공격 횟수입니다. 무기를 들면 내려갑니다.",
 				left, y, TEXT_DIM);
 		y += ROW_HEIGHT;
-		graphics.text(this.font, "공격력·방어력·이동 속도에는 지금 든 장비도 들어 있습니다.",
+		// 색이 반대인 줄이 있다는 것은 반드시 적어야 한다. 「몹 체력 200%」가 빨간 것을 보고
+		// 무언가 고장 났다고 읽는 사람이 나오면 안 된다.
+		graphics.text(this.font, "받는 피해·몹 줄은 오를수록 불리해 색이 반대입니다.",
 				left, y, TEXT_DIM);
 		y += ROW_HEIGHT;
-		graphics.text(this.font, "공격력에는 마법부여와 치명타가 빠져 있습니다.",
-				left, y, TEXT_DIM);
+		graphics.text(this.font, "공격력에는 마법부여와 치명타가 빠져 있습니다.", left, y, TEXT_DIM);
 	}
 
-	/**
-	 * 공격력 한 줄. 값은 속성이 아니라 서버가 보낸 것에서 읽는다.
-	 *
-	 * <p>아직 받지 못했으면 <b>줄 자체를 건너뛴다.</b> 다른 줄이 속성을 찾지 못했을 때와 같은
-	 * 처리다 — 여기서 맨손 기본값 1.0 을 그리면 무기도 증강도 빠진 숫자를 진짜인 양 적게 되고,
-	 * 그것이 바로 이 값을 따로 받아 오게 만든 문제다.
-	 */
-	private int attackDamageRow(GuiGraphicsExtractor graphics, int left, int y) {
-		if (!ClientAttackDamage.known()) {
-			return y;
+	/** 줄 묶음 하나를 그리고 다음 줄의 y 를 돌려준다. */
+	private int statRows(GuiGraphicsExtractor graphics, int left, int y, List<StatRow> rows) {
+		for (StatRow row : rows) {
+			graphics.text(this.font, row.fullLine(), left, y, row.color());
+			y += ROW_HEIGHT;
 		}
-		return statRow(graphics, left, y, "공격력",
-				ClientAttackDamage.base(), ClientAttackDamage.current(), StatSummary.Unit.RAW, "");
-	}
-
-	/**
-	 * 능력치 한 줄을 그리고 다음 줄의 y 를 돌려준다.
-	 *
-	 * <p>속성을 찾지 못하면 <b>줄 자체를 건너뛴다.</b> 다른 모드가 속성을 지웠거나 하는 드문
-	 * 경우인데, 거기서 0 을 적으면 없는 사실을 만들어 낸다.
-	 */
-	private int statRow(GuiGraphicsExtractor graphics, LocalPlayer player, int left, int y,
-			String label, Holder<Attribute> attribute, StatSummary.Unit unit, String suffix,
-			boolean masked) {
-		AttributeInstance instance = player.getAttribute(attribute);
-		if (instance == null) {
-			return y;
-		}
-		if (masked) {
-			graphics.text(this.font, label + "  ???", left, y, TEXT_DIM);
-			return y + ROW_HEIGHT;
-		}
-		return statRow(graphics, left, y, label,
-				instance.getBaseValue(), instance.getValue(), unit, suffix);
-	}
-
-	/**
-	 * 값을 이미 손에 쥐고 있을 때의 한 줄.
-	 *
-	 * <p>공격력은 속성에서 읽지 못하고 패킷으로 받으므로 이 갈래로 들어온다. 그리는 방법은
-	 * 나머지 셋과 <b>한 곳에서</b> 정해 둔다 — 색과 표기가 줄마다 달라지면 안 된다.
-	 */
-	private int statRow(GuiGraphicsExtractor graphics, int left, int y, String label,
-			double base, double current, StatSummary.Unit unit, String suffix) {
-		graphics.text(this.font, StatSummary.line(label, base, current, unit) + suffix,
-				left, y, statColor(StatSummary.direction(base, current)));
-		return y + ROW_HEIGHT;
-	}
-
-	/** 하트 개수. 숫자만으로는 몇 칸인지 세어 봐야 알기 때문에 함께 적는다. */
-	private static String heartSuffix(LocalPlayer player) {
-		return "  (하트 " + StatSummary.number(player.getMaxHealth() / 2.0) + "개)";
-	}
-
-	/** 올랐으면 초록, 내렸으면 빨강, 그대로면 보통 글자색. */
-	private static int statColor(int direction) {
-		if (direction > 0) {
-			return TEXT_GOOD;
-		}
-		return direction < 0 ? TEXT_BAD : TEXT_MAIN;
+		return y;
 	}
 
 	private void renderPerks(GuiGraphicsExtractor graphics, int left) {

@@ -139,7 +139,8 @@ public final class ShareTeamCommand {
 	 * <p>각 단계에서 곧바로 이름으로 빠져나갈 수 있으므로 {@code /shareteam create 우리팀} 도
 	 * {@code /shareteam create perks on 우리팀} 도 그대로 동작한다. 적지 않은 것은 기본값이다 —
 	 * 증강은 {@linkplain TeamCreationSettings#DEFAULT_PERKS_ENABLED 켬}, 두 알림과 난이도
-	 * 상승은 끔, 최대 체력은 서버 설정값, 위치 교환은 끔, 다시 뽑기는
+	 * 상승은 끔, 최대 체력은 서버 설정값, 위치 교환은
+	 * {@linkplain TeamCreationSettings#DEFAULT_SWAP_MINUTES 5분 주기}, 다시 뽑기는
 	 * {@linkplain TeamCreationSettings#DEFAULT_REROLL_COUNT 회차당 3회}.
 	 * 팀 화면은 늘 완전한 형태를 보낸다.
 	 *

@@ -1,7 +1,9 @@
 package com.sharedfate.ui;
 
 import com.sharedfate.TestBootstrap;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -43,10 +45,39 @@ class ScreenStatSourceTest {
 	@Test
 	void 인벤토리_화면에_믹스인_대상_메서드가_그대로_있다() {
 		assertDoesNotThrow(() -> InventoryScreen.class.getDeclaredMethod("init"),
-				"init 이 사라지면 「팀」 단추가 아예 붙지 않는다");
+				"init 이 사라지면 SharedFate 단추가 아예 붙지 않는다");
 		assertDoesNotThrow(() -> InventoryScreen.class.getDeclaredMethod("extractRenderState",
 						GuiGraphicsExtractor.class, int.class, int.class, float.class),
-				"이 서술자가 바뀌면 단추가 조합법 책을 따라 옮겨 가지 못한다");
+				"이 서술자가 바뀌면 단추가 조합법 책을 따라 옮겨 가지 못하고 능력치도 안 그려진다");
+	}
+
+	/**
+	 * {@code extractRenderState} 는 <b>이름이 겹친다.</b>
+	 *
+	 * <p>화면을 그리는 것과, 인벤토리 속 플레이어 인형을 만드는 {@code private static} 짜리
+	 * 둘이다. 그래서 믹스인이 이름만으로 고르면 서명이 맞지 않는 쪽에서 화면을 여는 순간
+	 * 터진다. 서술자까지 적어 두었고, 겹침이 사라지거나 서술자가 바뀌면 여기서 먼저 터진다.
+	 */
+	@Test
+	void 이름이_겹치는_extractRenderState_가_둘_다_있다() {
+		long sameName = java.util.Arrays.stream(InventoryScreen.class.getDeclaredMethods())
+				.filter(method -> method.getName().equals("extractRenderState"))
+				.count();
+
+		assertEquals(2, sameName,
+				"겹침이 사라졌으면 믹스인의 서술자를 다시 확인해야 한다");
+		assertDoesNotThrow(() -> InventoryScreen.class.getDeclaredMethod("extractRenderState",
+						net.minecraft.world.entity.LivingEntity.class),
+				"이쪽에 잘못 붙으면 인벤토리를 여는 순간 게임이 터진다");
+	}
+
+	/** 단추 글자를 재고 능력치를 그리는 데 쓰는 자리. */
+	@Test
+	void 폰트로_글자_폭을_잴_수_있다() {
+		assertDoesNotThrow(() -> Font.class.getDeclaredMethod("width", String.class),
+				"이것이 없으면 단추 폭도 능력치 줄 폭도 잴 수 없다");
+		assertDoesNotThrow(() -> AbstractWidget.class.getDeclaredMethod("setWidth", int.class),
+				"단추를 남은 자리에 맞춰 줄이지 못하면 창을 덮는다");
 	}
 
 	/** 접근자 세 가지가 읽는 밭. 이름이 바뀌면 자리 계산이 통째로 멈춘다. */
@@ -81,18 +112,21 @@ class ScreenStatSourceTest {
 	 * {@code ServerEntity} 가 그 묶음을 <b>본인에게도</b> 보낸다.
 	 */
 	@Test
-	void 최대_체력과_방어력과_이동_속도는_클라이언트로_온다() {
+	void 최대_체력과_방어력과_이동_속도와_공격_속도는_클라이언트로_온다() {
 		assertSyncable(Attributes.MAX_HEALTH, true);
 		assertSyncable(Attributes.ARMOR, true);
 		assertSyncable(Attributes.MOVEMENT_SPEED, true);
+		// 공격 속도는 공격력과 달리 setSyncable(true) 로 등록된다. 그래서 무기가 거는
+		// 수정자까지 그대로 클라이언트에 오고, 이 한 줄을 위해 패킷을 늘릴 필요가 없다.
+		assertSyncable(Attributes.ATTACK_SPEED, true);
 	}
 
 	/**
-	 * 공격력만은 오지 않는다. 우리가 {@code AttackDamagePayload} 를 따로 두는 <b>유일한
+	 * 공격력만은 오지 않는다. 우리가 {@code StatSnapshotPayload} 에 이 값을 싣는 <b>유일한
 	 * 이유</b>다.
 	 *
-	 * <p><b>이 시험을 지우지 말 것.</b> 지금은 서버가 그 값을 직접 보내 주므로 능력치 탭에
-	 * 공격력이 적히지만, 그 패킷과 통신 규약 한 칸은 여기가 거짓인 동안에만 값어치가 있다.
+	 * <p><b>이 시험을 지우지 말 것.</b> 지금은 서버가 그 값을 직접 보내 주므로 능력치에
+	 * 공격력이 적히지만, 그 자리는 여기가 거짓인 동안에만 값어치가 있다.
 	 * 바닐라가 언젠가 이 속성에도 {@code setSyncable(true)} 를 붙이는 날이 오면 여기가 먼저
 	 * 터져서 「이제 패킷을 걷어내도 된다」고 알려 준다.
 	 */
@@ -115,6 +149,9 @@ class ScreenStatSourceTest {
 		assertEquals(20.0, player.getBaseValue(Attributes.MAX_HEALTH));
 		assertEquals(0.0, player.getBaseValue(Attributes.ARMOR));
 		assertEquals(0.1, player.getBaseValue(Attributes.MOVEMENT_SPEED), 1.0E-7);
+		// 공격 속도는 「초당 공격 횟수」라 4.0 이 그대로 초당 4회다. 이동 속도의 0.1 과 달리
+		// 숫자 자체가 말이 되므로 백분율로 바꾸지 않는다.
+		assertEquals(4.0, player.getBaseValue(Attributes.ATTACK_SPEED), 1.0E-7);
 		// 공격력은 서버가 보내 주지만 「→」 왼쪽에 적는 기준은 나머지 셋과 똑같다 —
 		// 플레이어의 바닐라 기본값, 곧 맨손으로 때렸을 때의 1.0 이다.
 		assertEquals(1.0, player.getBaseValue(Attributes.ATTACK_DAMAGE), 1.0E-7);

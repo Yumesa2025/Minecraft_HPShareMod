@@ -188,9 +188,34 @@ public final class MobPerkModifiers {
 		if (server == null) {
 			return 1.0;
 		}
-		EntityType<?> type = mob.getType();
-		boolean hostile = mob instanceof Enemy;
+		return computeFor(server, mob.getType(), mob instanceof Enemy, health);
+	}
 
+	/**
+	 * 화면에 적을 <b>대표 배율</b>. 능력치 표시가 「지금 판이 얼마나 험한가」로 쓴다.
+	 *
+	 * <p>기준으로 삼는 몹은 좀비다. 대상을 따로 적지 않은 증강은 <b>적대적 몹 전체</b>에
+	 * 걸리므로 그 경우 이 값이 곧 모든 몹의 배율이다. {@code targets} 로 몹을 골라 잡은
+	 * 증강만은 그 몹에게만 걸려 이 줄과 다를 수 있는데, 화면에 몹 종류별 표를 그릴 수는
+	 * 없으므로 <b>가장 흔한 경우를 대표로</b> 적는다.
+	 *
+	 * <p>「난이도 상승」의 배율은 여기 들어 있지 않다. 그쪽은 속성 수정자를 따로 붙여 곱하므로
+	 * ({@code DifficultyEscalation}) 부르는 쪽에서 곱한다.
+	 */
+	public static double representativeMultiplier(@Nullable MinecraftServer server, boolean health) {
+		if (server == null) {
+			return 1.0;
+		}
+		try {
+			return computeFor(server, EntityTypes.ZOMBIE, true, health);
+		} catch (RuntimeException error) {
+			warnOnce(error);
+			return 1.0;
+		}
+	}
+
+	private static double computeFor(MinecraftServer server, EntityType<?> type, boolean hostile,
+			boolean health) {
 		TeamManager manager = TeamManager.get(server);
 		double chosen = 1.0;
 		for (ShareTeam team : manager.allTeams()) {

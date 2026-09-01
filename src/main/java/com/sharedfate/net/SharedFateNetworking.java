@@ -45,7 +45,14 @@ public final class SharedFateNetworking {
 	//     기존 페이로드의 형식은 한 바이트도 바뀌지 않았지만, 이 패킷을 모르는 클라이언트는
 	//     능력치 탭에서 공격력 줄만 조용히 빠진 화면을 보게 된다. 「값이 안 보인다」는
 	//     「모드가 안 맞는다」보다 알아채기 어려우므로 악수 단계에서 걸러지게 한다.
-	public static final int PROTOCOL_VERSION = 17;
+	// 18: 능력치가 여덟 줄이 되었다 — AttackDamagePayload 가 StatSnapshotPayload 로 바뀌면서
+	//     받는 피해 배율과 몹 최대 체력·공격력 배율 셋이 더 실린다(4바이트 → 20바이트).
+	//     셋 다 서버만 아는 값이다. 증강이 만드는 배율은 바닐라 속성이 아니고, 몹 배율은
+	//     사람이 아니라 몹에게 붙어 클라이언트에 흔적이 없다. 형식 자체가 바뀌었으므로
+	//     예전 클라이언트는 이 묶음을 읽지 못한다.
+	//     공격 속도(minecraft:attack_speed)는 여기 없다 — 그 속성만은 공격력과 달리
+	//     setSyncable(true) 로 등록되어 수정자까지 클라이언트에 그대로 온다.
+	public static final int PROTOCOL_VERSION = 18;
 
 	private SharedFateNetworking() {
 	}
@@ -65,7 +72,7 @@ public final class SharedFateNetworking {
 		PayloadTypeRegistry.clientboundPlay().register(
 				OpenTeamScreenPayload.TYPE, OpenTeamScreenPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(
-				AttackDamagePayload.TYPE, AttackDamagePayload.CODEC);
+				StatSnapshotPayload.TYPE, StatSnapshotPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(PerkDrawPayload.TYPE, PerkDrawPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(
 				PerkResultPayload.TYPE, PerkResultPayload.CODEC);
@@ -92,9 +99,9 @@ public final class SharedFateNetworking {
 				(payload, context) -> PerkClientRules.onDoubleJumpRequest(context.player()));
 		ServerTickEvents.END_SERVER_TICK.register(TeamBroadcaster::flushSelectedSlots);
 		ServerTickEvents.END_SERVER_TICK.register(TeamBroadcaster::flushTeamLevels);
-		// 공격력. 바닐라가 이 속성만 클라이언트에 보내지 않으므로 우리가 대신 보낸다.
-		// 팀에 속하지 않은 사람도 능력치 탭에서 이 줄을 보므로 팀 경로가 아니라 여기에 있다.
-		ServerTickEvents.END_SERVER_TICK.register(AttackDamageBroadcaster::flush);
+		// 서버만 아는 능력치(공격력·받는 피해 배율·몹 배율). 팀에 속하지 않은 사람도
+		// 능력치 표시에서 이 줄들을 보므로 팀 경로가 아니라 여기에 있다.
+		ServerTickEvents.END_SERVER_TICK.register(StatSnapshotBroadcaster::flush);
 		// 클라이언트가 있어야 하는 증강(double_jump / hide_hud)의 동기화·접지 판정 지점.
 		// SharedFateMod 가 아니라 여기서 거는 이유는 이 기능이 네트워크 경로 하나로만
 		// 성립하기 때문이다. 패킷 등록과 같은 자리에 두면 한쪽만 빠뜨릴 수 없다.
@@ -104,7 +111,7 @@ public final class SharedFateNetworking {
 		// 상태가 그대로인 사람은 다시 들어와도 값을 영영 받지 못한다.
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			PerkClientRules.forget(handler.player.getUUID());
-			AttackDamageBroadcaster.forget(handler.player.getUUID());
+			StatSnapshotBroadcaster.forget(handler.player.getUUID());
 		});
 		ClientModGate.register();
 	}

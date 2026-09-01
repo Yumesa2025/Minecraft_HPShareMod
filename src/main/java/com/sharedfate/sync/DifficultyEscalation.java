@@ -146,6 +146,17 @@ public final class DifficultyEscalation {
 		return "켬 (지금 적대적 몹 +" + percent + "%, " + next + ")";
 	}
 
+	/**
+	 * 지금 적대적 몹에게 걸려 있는 난이도 배율.
+	 *
+	 * <p>최대 체력과 공격력에 <b>똑같이</b> 걸린다. 능력치 표시가 증강 배율에 이 값을 곱해
+	 * 「몹 체력 100% → 115%」 같은 한 줄을 만든다. 30분마다 저절로 올라가므로, 화면은 값을
+	 * 다시 읽기만 하면 그 변화를 따라간다.
+	 */
+	public static double multiplier() {
+		return currentMultiplier;
+	}
+
 	/** 이 몹에게 난이도 배율이 걸리는가. 엔더 드래곤만 예외로 뺀다. */
 	public static boolean appliesTo(@Nullable Entity entity) {
 		if (!(entity instanceof Mob mob) || !(mob instanceof Enemy)) {

@@ -12,7 +12,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>JSON 형식:
  * <pre>
  * { "type": "double_jump" }
- * { "type": "double_jump", "power": 0.62 }
+ * { "type": "double_jump", "power": 0.714 }
  * </pre>
  *
  * <p>{@code power} 는 공중 점프가 실을 위쪽 속도다. 적지 않으면 {@link #DEFAULT_POWER}를 쓴다.
@@ -22,7 +22,8 @@ import org.jetbrains.annotations.Nullable;
  * <h2>왜 서버 혼자서는 못 하는가</h2>
  * <p>서버는 "공중에서 점프 키를 눌렀다"는 사실을 알 수 없다. 바닐라는 땅에서 뛴 결과만
  * 위치로 올려보내고, 공중에서 누른 키는 아무 데도 실리지 않는다. 그래서 이 효과만은
- * 클라이언트가 눌린 것을 알아채 서버에 요청하고, 서버가 그 요청을 검증해 실제로 밀어 준다.
+ * 클라이언트가 눌린 것을 알아채 스스로 몸을 띄우고 서버에 알린다. 세기와 미는 방향은
+ * 클라이언트가 정하지 않으며, 서버가 이 정의에서 읽어 검증한다.
  *
  * <p>{@link #apply}/{@link #remove} 는 아무 일도 하지 않는다. 이 효과는 플레이어에게
  * 붙였다 떼는 것이 아니라 "지금 이 팀이 그 증강을 갖고 있는가"를 그때그때 물어보는 규칙이다.
@@ -30,19 +31,18 @@ import org.jetbrains.annotations.Nullable;
  * 물어볼 대상이 사라져 공중 점프도 저절로 막힌다.
  *
  * <h2>낙하 피해는 여기서 다루지 않는다</h2>
- * <p>「허공답보」의 대가인 낙하 피해 2배는 기존 {@code attribute} 타입에
- * {@code minecraft:fall_damage_multiplier} 를 걸어 처리한다. 이 효과는 위로 미는 일만 한다.
+ * <p>「허공답보」의 대가인 낙하 피해 1.5배는 기존 {@code attribute} 타입에
+ * {@code minecraft:fall_damage_multiplier} 를 걸어 처리한다. 이 효과는 미는 일만 한다.
  */
 public final class DoubleJumpEffect implements PerkEffect {
 	/**
 	 * {@code power} 를 적지 않았을 때 쓰는 값.
 	 *
-	 * <p>지금 이 타입을 쓰는 유일한 증강인 「허공답보」(2026-09-01 7차부터 {@code power: 0.62})와
-	 * 맞춰 뒀다. 바닐라 점프(0.42)를 그대로 따르면 「점프력 +50%」가 붙은 첫 점프(0.63)보다
-	 * 두 번째 점프가 오히려 약해지는 값이라, 생략했을 때의 기본값이 실제로 쓰이는 값과 어긋나면
-	 * 다음에 새 증강을 적을 때 헷갈리기 쉽다.
+	 * <p>바닐라 점프 힘 {@code LivingEntity.BASE_JUMP_POWER} 0.42 의 1.7배다. 지금 이 타입을
+	 * 쓰는 유일한 증강인 「허공답보」의 값과 맞춰 뒀다 — 생략했을 때의 기본값이 실제로 쓰이는
+	 * 값과 어긋나면 다음에 새 증강을 적을 때 헷갈리기 쉽다.
 	 */
-	public static final double DEFAULT_POWER = 0.62;
+	public static final double DEFAULT_POWER = 0.714;
 	/** 이보다 약하면 뛴 티가 나지 않아 버그로 오해받는다. */
 	public static final double MIN_POWER = 0.1;
 	/** 이보다 세면 낙하 피해로 죽거나 청크 밖으로 튀어 나간다. */
@@ -58,7 +58,7 @@ public final class DoubleJumpEffect implements PerkEffect {
 	public static @Nullable PerkEffect fromJson(String perkId, int index, JsonObject json) {
 		Double raw = PerkEffectType.readDouble(json, "power");
 		if (raw == null) {
-			// 적지 않은 것은 잘못이 아니다. 바닐라 점프와 같은 세기로 본다.
+			// 적지 않은 것은 잘못이 아니다.
 			return new DoubleJumpEffect(DEFAULT_POWER);
 		}
 		if (raw < MIN_POWER || raw > MAX_POWER) {
