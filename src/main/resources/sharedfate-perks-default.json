@@ -1267,30 +1267,20 @@
       "id": "sharedfate:excavator",
       "icon": "minecraft:netherite_pickaxe",
       "name": "굴착기",
-      "description": "모든 블록의 채굴 속도가 ×3 이 됩니다. 대신 광석은 채굴 속도가 절반으로 느려집니다.",
+      "description": "모든 블록의 채굴 속도가 ×3 이 됩니다. 대신 공격력이 15% 감소합니다.",
       "rarity": "gold",
       "effects": [
         {
-          "type": "mining_speed",
-          "multiplier": 3.0
+          "type": "attribute",
+          "attribute": "minecraft:block_break_speed",
+          "operation": "add_multiplied_total",
+          "amount": 2.0
         },
         {
-          "type": "mining_speed",
-          "multiplier": 0.16666667,
-          "blocks": [
-            "#c:ores",
-            "#minecraft:coal_ores",
-            "#minecraft:copper_ores",
-            "#minecraft:diamond_ores",
-            "#minecraft:emerald_ores",
-            "#minecraft:gold_ores",
-            "#minecraft:iron_ores",
-            "#minecraft:lapis_ores",
-            "#minecraft:redstone_ores",
-            "minecraft:nether_quartz_ore",
-            "minecraft:nether_gold_ore",
-            "minecraft:ancient_debris"
-          ]
+          "type": "attribute",
+          "attribute": "minecraft:attack_damage",
+          "operation": "add_multiplied_total",
+          "amount": -0.15
         }
       ]
     },

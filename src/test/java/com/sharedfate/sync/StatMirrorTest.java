@@ -180,6 +180,83 @@ class StatMirrorTest {
 	}
 
 	@Test
+	void 최대_체력이_줄어_잘린_몫은_피해가_아니다() {
+		// 상한 20 → 10. 체력 18 이던 사람이 10 으로 잘린다. 맞은 것이 아니므로 0.
+		assertEquals(0.0F, StatMirror.healthDelta(18.0F, 10.0F, 10.0F));
+		// 상한이 그대로면 평소처럼 관측한다.
+		assertEquals(-5.0F, StatMirror.healthDelta(20.0F, 15.0F, 20.0F));
+		// 이미 새 상한보다 낮았으면 잘릴 것이 없다.
+		assertEquals(0.0F, StatMirror.healthDelta(6.0F, 6.0F, 10.0F));
+		// 상한이 오르는 것만으로 체력이 차오르지는 않는다.
+		assertEquals(0.0F, StatMirror.healthDelta(10.0F, 10.0F, 30.0F));
+		// 회복은 그대로 회복이다.
+		assertEquals(4.0F, StatMirror.healthDelta(10.0F, 14.0F, 20.0F));
+	}
+
+	@Test
+	void 상한이_줄어든_틱에_받은_진짜_피해는_그대로_센다() {
+		// 상한 20 → 10 인 틱에 3 을 맞아 체력이 7 이 됐다. 잘린 8 은 빼고 −3 만 남아야 한다.
+		assertEquals(-3.0F, StatMirror.healthDelta(18.0F, 7.0F, 10.0F));
+	}
+
+	@Test
+	void 고행자로_상한이_반토막_나도_3인_팀이_즉사하지_않는다() {
+		// 「고행자」가 최대 체력을 10 으로 고정하면 팀원 셋이 각자 18 → 10 으로 잘린다.
+		// 그 자름을 피해로 세면 8 이 세 번 빠져 18 − 24 = 0, 즉 전멸이었다.
+		StatMirror.StatDelta folded = StatMirror.fold(java.util.List.of(
+				new StatMirror.PlayerDelta(
+						StatMirror.healthDelta(18.0F, 10.0F, 10.0F), 0.0F, 0.0F, 0, 0.0F, 0L),
+				new StatMirror.PlayerDelta(
+						StatMirror.healthDelta(18.0F, 10.0F, 10.0F), 0.0F, 0.0F, 0, 0.0F, 0L),
+				new StatMirror.PlayerDelta(
+						StatMirror.healthDelta(18.0F, 10.0F, 10.0F), 0.0F, 0.0F, 0, 0.0F, 0L)));
+		assertEquals(0.0F, folded.healthLoss());
+
+		TeamState state = TeamState.fresh(20.0F);
+		state.health = 18.0F;
+		// 상한이 이미 10 으로 내려간 뒤의 첫 점검이다.
+		StatMirror.applyDeltas(state, 10.0F, 0.0F, folded, true);
+
+		// 죽지 않고 "가득 찬 10" 이 되어야 한다.
+		assertEquals(10.0F, state.health);
+	}
+
+	@Test
+	void 상한이_반토막_난_뒤에도_실제_피해는_공유_풀에서_빠진다() {
+		// 위와 같은 상황에서 한 명만 좀비에게 3 을 더 맞았다.
+		StatMirror.StatDelta folded = StatMirror.fold(java.util.List.of(
+				new StatMirror.PlayerDelta(
+						StatMirror.healthDelta(18.0F, 7.0F, 10.0F), 0.0F, 0.0F, 0, 0.0F, 0L),
+				new StatMirror.PlayerDelta(
+						StatMirror.healthDelta(18.0F, 10.0F, 10.0F), 0.0F, 0.0F, 0, 0.0F, 0L),
+				new StatMirror.PlayerDelta(
+						StatMirror.healthDelta(18.0F, 10.0F, 10.0F), 0.0F, 0.0F, 0, 0.0F, 0L)));
+		assertEquals(-3.0F, folded.healthLoss());
+
+		TeamState state = TeamState.fresh(20.0F);
+		state.health = 18.0F;
+		StatMirror.applyDeltas(state, 10.0F, 0.0F, folded, true);
+
+		assertEquals(10.0F, state.health);
+	}
+
+	@Test
+	void 상한이_줄었을_때_2인_팀도_만피에서_죽지_않는다() {
+		// 2인 팀은 만피(20)에서 20 − 2×10 = 0 이 되어 죽었다.
+		StatMirror.StatDelta folded = StatMirror.fold(java.util.List.of(
+				new StatMirror.PlayerDelta(
+						StatMirror.healthDelta(20.0F, 10.0F, 10.0F), 0.0F, 0.0F, 0, 0.0F, 0L),
+				new StatMirror.PlayerDelta(
+						StatMirror.healthDelta(20.0F, 10.0F, 10.0F), 0.0F, 0.0F, 0, 0.0F, 0L)));
+
+		TeamState state = TeamState.fresh(20.0F);
+		state.health = 20.0F;
+		StatMirror.applyDeltas(state, 10.0F, 0.0F, folded, true);
+
+		assertEquals(10.0F, state.health);
+	}
+
+	@Test
 	void 서로_다른_원인의_동시_피해는_그대로_합산한다() {
 		// 아라는 좀비에게 3, 보라는 스켈레톤에게 4. 팀이 진짜로 두 번 맞았으니 둘 다 센다.
 		StatMirror.StatDelta folded = StatMirror.fold(java.util.List.of(

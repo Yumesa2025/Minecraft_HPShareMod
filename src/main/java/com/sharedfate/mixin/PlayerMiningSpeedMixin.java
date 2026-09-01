@@ -32,6 +32,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * 클라이언트까지 내려보내야 하는데, 지금 내려가는 {@code PerkSyncPayload} 는 표시용 문자열만
  * 담고 있어 증강 id 를 알 수 없다. 배율을 크게 잡을수록 눈에 띄므로 정의 파일에서 0.5 아래로는
  * 내리지 않는 편이 좋다.
+ *
+ * <h2>그래서 이 길로는 빠르게 할 수 없다</h2>
+ * <p>위 문단은 <b>느려지는 쪽</b>에서만 성립한다. 26.2 의 {@code ServerPlayerGameMode.tick} 은
+ * {@code isDestroyingBlock} 분기에서 {@code incrementDestroyProgress} 의 결과를 <b>버린다</b>
+ * (바이트코드에서 {@code pop}). 서버가 스스로 블록을 부수는 자리는 {@code START} 시점의 즉시
+ * 파괴, 클라이언트의 {@code STOP} 을 받았을 때, 그리고 {@code hasDelayedDestroy} 셋뿐이다.
+ * <b>파괴 시점은 전적으로 클라이언트의 {@code STOP_DESTROY_BLOCK} 에 달려 있다.</b> 서버가
+ * 아무리 빨라져도 클라이언트가 바닐라 속도로 다 캘 때까지 아무 일도 일어나지 않는다.
+ *
+ * <p>빠르게 하려면 {@code mining_speed} 가 아니라 <b>{@code minecraft:block_break_speed}
+ * 속성</b>을 써야 한다. 그 속성은 {@code setSyncable(true)} 라 클라이언트까지 자동으로
+ * 내려가고, {@code Player.getDestroySpeed} 안에서 바닐라가 직접 곱한다. 자세한 것은
+ * {@link com.sharedfate.perk.effect.MiningSpeedEffect} 의 클래스 주석에 있다.
  */
 @Mixin(Player.class)
 public abstract class PlayerMiningSpeedMixin {
