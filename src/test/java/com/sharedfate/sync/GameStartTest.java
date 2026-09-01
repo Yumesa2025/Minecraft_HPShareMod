@@ -376,10 +376,17 @@ class GameStartTest {
 
 	// ------------------------------------------------------------------ 보스바 문구
 
+	/**
+	 * 시작 전 보스바는 <b>무엇을 누르면 되는지</b>를 적는다.
+	 *
+	 * <p>「N회차 시작 대기」처럼 상태만 적으면 읽는 사람이 할 일을 알 수 없었다. 회차 번호는
+	 * 남는다 — 지금 몇 회차인지는 상태가 아니라 정보다.
+	 */
 	@Test
-	void 아무도_시작하지_않았으면_보스바가_시작_대기라고_적는다() {
-		assertEquals("SharedFate · 3회차 · 시작 대기",
-				RunProgressManager.label(3, false, "", false));
+	void 아무도_시작하지_않았으면_보스바가_눌러야_할_것을_적는다() {
+		String label = RunProgressManager.label(3, false, "", false);
+		assertEquals("SharedFate · 3회차 — 「게임 시작」을 눌러 주세요", label);
+		assertTrue(label.contains("3회차"), "회차 번호는 시작 전에도 보여야 한다");
 	}
 
 	@Test

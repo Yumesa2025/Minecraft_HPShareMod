@@ -1,11 +1,15 @@
 package com.sharedfate.client.team;
 
+import com.sharedfate.client.ClientAttackDamage;
 import com.sharedfate.client.ClientTeamState;
+import com.sharedfate.client.perk.ClientPerkFeatures;
 import com.sharedfate.client.perk.PerkClientState;
 import com.sharedfate.net.PerkSyncPayload;
+import com.sharedfate.perk.effect.HideHudEffect;
 import com.sharedfate.team.TeamCreationSettings;
 import com.sharedfate.ui.GameStartButton;
 import com.sharedfate.ui.PanelScroll;
+import com.sharedfate.ui.StatSummary;
 import com.sharedfate.ui.TeamCreationCycle;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -14,8 +18,13 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -54,6 +63,8 @@ public class TeamScreen extends Screen {
 	private static final int TEXT_DIM = 0xFF9AA0AA;
 	private static final int TEXT_GOOD = 0xFF80FF20;
 	private static final int TEXT_WARN = 0xFFFFD24A;
+	/** 기본값보다 내려간 능력치. 대가로 무언가를 깎는 증강이 있어 반드시 눈에 띄어야 한다. */
+	private static final int TEXT_BAD = 0xFFFF6B6B;
 	private static final int PANEL_BG = 0xC0101018;
 	private static final int SCROLL_TRACK = 0x40FFFFFF;
 	private static final int SCROLL_THUMB = 0xC0C0C6CC;
@@ -91,7 +102,15 @@ public class TeamScreen extends Screen {
 		STATUS("현황"),
 		TEAM("팀"),
 		SETTINGS("설정"),
-		PERKS("증강");
+		PERKS("증강"),
+		/**
+		 * 증강이 능력치를 얼마나 바꿨는지.
+		 *
+		 * <p>「증강」 탭 바로 뒤다. 저쪽이 <b>무엇을 가졌는지</b>라면 이쪽은 <b>그래서 얼마나
+		 * 세졌는지</b>라 이어 읽힌다. 「현황」에 넣지 않은 것은 그 탭이 이미 아홉 줄이고, 창이
+		 * 낮으면 아래 단추와 겹치기 때문이다.
+		 */
+		STATS("능력치");
 
 		private final String label;
 
@@ -183,6 +202,9 @@ public class TeamScreen extends Screen {
 			case TEAM -> initTeam(left);
 			case SETTINGS -> initSettings(left);
 			case PERKS -> initPerks(left);
+			// 능력치 탭에는 위젯이 없다. 값 표시는 renderStats 가 맡는다.
+			case STATS -> {
+			}
 		}
 
 		addRenderableWidget(Button.builder(Component.literal("닫기"), button -> onClose())
@@ -480,6 +502,7 @@ public class TeamScreen extends Screen {
 			case TEAM -> renderTeam(graphics, left);
 			case SETTINGS -> renderSettings(graphics, left);
 			case PERKS -> renderPerks(graphics, left);
+			case STATS -> renderStats(graphics, left);
 		}
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
 	}
@@ -579,7 +602,8 @@ public class TeamScreen extends Screen {
 			int noteY = this.height - 78 - ROW_HEIGHT - 4;
 			graphics.text(this.font, ClientTeamState.isLeader()
 					? "시작하면 모든 아이템이 사라지고 팀원이 스폰으로 모입니다. 되돌릴 수 없습니다."
-					: "리더가 게임을 시작할 때까지 회차는 진행되지 않습니다.",
+					// 리더가 아닌 사람에게는 여기서도 그 사람이 할 수 있는 것만 적는다.
+					: GameStartButton.waitingNotice(false),
 					left, noteY, TEXT_WARN);
 		}
 	}
@@ -626,6 +650,136 @@ public class TeamScreen extends Screen {
 
 	private static String onOffText(boolean value) {
 		return value ? "켜짐" : "꺼짐";
+	}
+
+	// ------------------------------------------------------------------ 능력치
+
+	/**
+	 * 능력치 탭. <b>증강이 무엇을 얼마나 바꿨는지</b>를 바닐라 기본값과 나란히 보여 준다.
+	 *
+	 * <h2>값은 클라이언트가 이미 갖고 있다 — 통신 규약을 올리지 않았다</h2>
+	 * <p>여기 적는 것은 전부 바닐라 속성이고, 서버는 {@code ServerEntity} 에서 그것을
+	 * <b>본인에게도</b> 보낸다({@code sendToTrackingPlayersAndSelf}). 증강이 거는 수정자도
+	 * 임시(transient) 수정자일 뿐이라 그 묶음에 함께 실린다. 그래서 {@code getBaseValue()} 가
+	 * 바닐라 기본값, {@code getValue()} 가 증강·장비까지 얹힌 지금 값이 된다.
+	 *
+	 * <h2>공격력만은 서버가 보내 준다</h2>
+	 * <p>{@code minecraft:attack_damage} 만은 바닐라가 <b>클라이언트에 동기화하지 않는다</b> —
+	 * {@code Attributes} 에서 이 속성만 {@code setSyncable(true)} 없이 등록되고, 장비의 속성
+	 * 수정자를 실제로 붙이는 {@code LivingEntity.detectEquipmentUpdates} 도 서버에서만 돈다.
+	 * 그래서 클라이언트가 스스로 읽는 공격력은 <b>맨손 기본값</b>일 뿐이고 무기도 증강도 들어
+	 * 있지 않다. 그 한 줄을 위해 {@code AttackDamagePayload} 를 따로 두었고, 그것이 채우는
+	 * {@link ClientAttackDamage} 에서 읽는다. 서버가 아직 알려 주지 않았으면 줄을 건너뛴다.
+	 *
+	 * <h2>줄의 차례</h2>
+	 * <p>최대 체력 · 공격력 · 방어력 · 이동 속도 순이다. 앞의 셋이 전투의 세 축이라 붙여 두고
+	 * ({@code 얼마나 버티는가 → 얼마나 때리는가 → 얼마나 덜 맞는가}), 성격이 다른 이동 속도를
+	 * 맨 뒤에 둔다.
+	 *
+	 * <h2>「장님 거인」과의 관계</h2>
+	 * <p>그 증강이 감추는 것은 <b>지금 체력</b>과 허기이고, 여기 적는 것은 <b>상한</b>이다.
+	 * 상한은 「현황」·「설정」 탭에서도 그냥 보이므로 여기서만 가리면 세 탭이 서로 다른 말을 한다.
+	 * 다만 방어력은 사정이 다르다 — HUD 의 방어구 칸이 곧 이 숫자라, 그것을 가리는 증강이
+	 * 붙으면 여기서도 가린다.
+	 */
+	private void renderStats(GuiGraphicsExtractor graphics, int left) {
+		int y = PANEL_TOP;
+		LocalPlayer player = this.minecraft == null ? null : this.minecraft.player;
+		if (player == null) {
+			graphics.text(this.font, "능력치를 읽을 수 없습니다.", left, y, TEXT_DIM);
+			return;
+		}
+
+		graphics.text(this.font, "바닐라 기본값 → 지금 값  (증감)", left, y, TEXT_DIM);
+		y += ROW_HEIGHT + 4;
+
+		y = statRow(graphics, player, left, y, "최대 체력", Attributes.MAX_HEALTH,
+				StatSummary.Unit.RAW, heartSuffix(player), false);
+		y = attackDamageRow(graphics, left, y);
+		y = statRow(graphics, player, left, y, "방어력", Attributes.ARMOR,
+				StatSummary.Unit.RAW, "",
+				ClientPerkFeatures.isHidden(HideHudEffect.Element.ARMOR));
+		y = statRow(graphics, player, left, y, "이동 속도", Attributes.MOVEMENT_SPEED,
+				StatSummary.Unit.PERCENT, "", false);
+
+		y += 6;
+		if (!ClientTeamState.inTeam()) {
+			graphics.text(this.font, "팀에 들어가면 증강이 이 값들을 바꿉니다.", left, y, TEXT_DIM);
+			y += ROW_HEIGHT;
+			graphics.text(this.font, "공격력에는 마법부여와 치명타가 빠져 있습니다.",
+					left, y, TEXT_DIM);
+			return;
+		}
+		graphics.text(this.font, "최대 체력은 팀이 정한 값과 증강이 함께 반영된 값입니다.",
+				left, y, TEXT_DIM);
+		y += ROW_HEIGHT;
+		graphics.text(this.font, "공격력·방어력·이동 속도에는 지금 든 장비도 들어 있습니다.",
+				left, y, TEXT_DIM);
+		y += ROW_HEIGHT;
+		graphics.text(this.font, "공격력에는 마법부여와 치명타가 빠져 있습니다.",
+				left, y, TEXT_DIM);
+	}
+
+	/**
+	 * 공격력 한 줄. 값은 속성이 아니라 서버가 보낸 것에서 읽는다.
+	 *
+	 * <p>아직 받지 못했으면 <b>줄 자체를 건너뛴다.</b> 다른 줄이 속성을 찾지 못했을 때와 같은
+	 * 처리다 — 여기서 맨손 기본값 1.0 을 그리면 무기도 증강도 빠진 숫자를 진짜인 양 적게 되고,
+	 * 그것이 바로 이 값을 따로 받아 오게 만든 문제다.
+	 */
+	private int attackDamageRow(GuiGraphicsExtractor graphics, int left, int y) {
+		if (!ClientAttackDamage.known()) {
+			return y;
+		}
+		return statRow(graphics, left, y, "공격력",
+				ClientAttackDamage.base(), ClientAttackDamage.current(), StatSummary.Unit.RAW, "");
+	}
+
+	/**
+	 * 능력치 한 줄을 그리고 다음 줄의 y 를 돌려준다.
+	 *
+	 * <p>속성을 찾지 못하면 <b>줄 자체를 건너뛴다.</b> 다른 모드가 속성을 지웠거나 하는 드문
+	 * 경우인데, 거기서 0 을 적으면 없는 사실을 만들어 낸다.
+	 */
+	private int statRow(GuiGraphicsExtractor graphics, LocalPlayer player, int left, int y,
+			String label, Holder<Attribute> attribute, StatSummary.Unit unit, String suffix,
+			boolean masked) {
+		AttributeInstance instance = player.getAttribute(attribute);
+		if (instance == null) {
+			return y;
+		}
+		if (masked) {
+			graphics.text(this.font, label + "  ???", left, y, TEXT_DIM);
+			return y + ROW_HEIGHT;
+		}
+		return statRow(graphics, left, y, label,
+				instance.getBaseValue(), instance.getValue(), unit, suffix);
+	}
+
+	/**
+	 * 값을 이미 손에 쥐고 있을 때의 한 줄.
+	 *
+	 * <p>공격력은 속성에서 읽지 못하고 패킷으로 받으므로 이 갈래로 들어온다. 그리는 방법은
+	 * 나머지 셋과 <b>한 곳에서</b> 정해 둔다 — 색과 표기가 줄마다 달라지면 안 된다.
+	 */
+	private int statRow(GuiGraphicsExtractor graphics, int left, int y, String label,
+			double base, double current, StatSummary.Unit unit, String suffix) {
+		graphics.text(this.font, StatSummary.line(label, base, current, unit) + suffix,
+				left, y, statColor(StatSummary.direction(base, current)));
+		return y + ROW_HEIGHT;
+	}
+
+	/** 하트 개수. 숫자만으로는 몇 칸인지 세어 봐야 알기 때문에 함께 적는다. */
+	private static String heartSuffix(LocalPlayer player) {
+		return "  (하트 " + StatSummary.number(player.getMaxHealth() / 2.0) + "개)";
+	}
+
+	/** 올랐으면 초록, 내렸으면 빨강, 그대로면 보통 글자색. */
+	private static int statColor(int direction) {
+		if (direction > 0) {
+			return TEXT_GOOD;
+		}
+		return direction < 0 ? TEXT_BAD : TEXT_MAIN;
 	}
 
 	private void renderPerks(GuiGraphicsExtractor graphics, int left) {

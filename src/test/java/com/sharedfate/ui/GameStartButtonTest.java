@@ -54,9 +54,47 @@ class GameStartButtonTest {
 
 	@Test
 	void 대기_안내는_리더인지에_따라_다르다() {
-		assertTrue(GameStartButton.waitingNotice(true).contains("팀"),
+		assertTrue(GameStartButton.waitingNotice(true).contains("「팀」 탭"),
 				"리더에게는 어디서 시작하는지 알려 줘야 한다");
 		assertTrue(GameStartButton.waitingNotice(false).contains("리더"),
 				"리더가 아니면 무엇을 기다리는지 알려 줘야 한다");
+	}
+
+	/**
+	 * 대기 안내는 <b>상태가 아니라 할 일</b>을 적는다.
+	 *
+	 * <p>「N회차 시작 대기」로는 무엇을 해야 하는지 알 수 없어 아무도 시작하지 않은 채 돌아다녔다.
+	 * 회차 번호는 그대로 남는다 — 지금 몇 회차인지는 상태가 아니라 정보다.
+	 */
+	@Test
+	void 대기_안내는_회차_번호와_할_일을_함께_적는다() {
+		for (boolean leader : new boolean[] {true, false}) {
+			for (String line : new String[] {
+					GameStartButton.waitingNotice(leader), GameStartButton.waitingChatLine(leader)}) {
+				assertTrue(line.startsWith(GameStartButton.WAITING_RUN_NUMBER + "회차"), line);
+				assertFalse(line.contains("시작 대기"), "상태만 나열하면 안 된다: " + line);
+				assertTrue(line.contains("주세요"), "무엇을 하면 되는지 적어야 한다: " + line);
+			}
+		}
+	}
+
+	/** 리더가 아닌 사람에게는 그 사람이 <b>할 수 있는 것</b>만 적는다. */
+	@Test
+	void 리더가_아니면_기다리라고만_적는다() {
+		String notice = GameStartButton.waitingNotice(false);
+		String chat = GameStartButton.waitingChatLine(false);
+		assertTrue(notice.contains("기다려 주세요"), notice);
+		assertTrue(chat.contains("기다려 주세요"), chat);
+		assertFalse(chat.contains("/shareteam start"),
+				"누를 수 없는 사람에게 명령을 알려 주면 눌러도 거부만 당한다");
+	}
+
+	/** 채팅은 자리가 넉넉하므로 두 가지 길을 모두 적고, 화면 한 줄은 하나만 적는다. */
+	@Test
+	void 채팅_안내가_화면_한_줄보다_길다() {
+		assertTrue(GameStartButton.waitingChatLine(true).contains("/shareteam start confirm"));
+		assertTrue(GameStartButton.waitingChatLine(true).length()
+						> GameStartButton.waitingNotice(true).length(),
+				"보스바 · 화면 · 채팅은 자리에 맞게 길이가 달라야 한다");
 	}
 }

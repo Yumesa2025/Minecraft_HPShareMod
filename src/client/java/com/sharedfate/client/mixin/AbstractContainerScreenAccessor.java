@@ -14,6 +14,9 @@ public interface AbstractContainerScreenAccessor {
 	@Mutable
 	void sharedfate$setImageHeight(int imageHeight);
 
+	@Accessor("imageWidth")
+	int sharedfate$getImageWidth();
+
 	@Accessor("leftPos")
 	int sharedfate$getLeftPos();
 

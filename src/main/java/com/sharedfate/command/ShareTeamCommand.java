@@ -23,6 +23,7 @@ import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamCreationSettings;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
+import com.sharedfate.ui.GameStartButton;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -675,7 +676,7 @@ public final class ShareTeamCommand {
 		String text = "팀 '" + team.name() + "' — " + online + "/" + team.size() + "명 온라인"
 				// 회차 줄이 맨 위에 있어야 한다. 「시작 대기」인데 아래의 진행 상황부터 읽으면
 				// 이미 회차가 굴러가는 줄 안다.
-				+ "\n회차 — " + runLine(state)
+				+ "\n회차 — " + runLine(state, self.getUUID().equals(team.leader()))
 				+ "\n체력 " + String.format(java.util.Locale.ROOT, "%.1f/%.1f", state.health, state.maxHealth)
 				+ ", 허기 " + state.foodLevel + "/20, 경험치 " + state.totalExperience
 				+ "\n공유: 6줄 인벤토리=" + (config.mainInventoryRows == 6)
@@ -707,16 +708,19 @@ public final class ShareTeamCommand {
 	/**
 	 * {@code /shareteam status} 의 회차 한 줄.
 	 *
-	 * <p>시작 전에는 무엇을 눌러야 하는지까지 적는다. 「시작 대기」라고만 적으면 무엇을 기다리는
-	 * 것인지 알 수 없다. 이 줄이 보이는 것은 <b>첫 회차 전뿐</b>이다 — 그 뒤로는 새 월드가
+	 * <p>시작 전에는 <b>읽는 사람이 무엇을 하면 되는지</b>를 적는다. 「시작 대기」라고만 적으면
+	 * 무엇을 기다리는 것인지 알 수 없고, 리더가 아닌 사람에게 시작 방법을 적어 줘도 그 사람은
+	 * 할 수 없는 일이다. 이 줄이 보이는 것은 <b>첫 회차 전뿐</b>이다 — 그 뒤로는 새 월드가
 	 * 열릴 때 회차가 저절로 시작된다.
+	 *
+	 * <p>문구가 {@link GameStartButton} 에 있는 것은 팀 화면과 같은 말을 하기 위해서다. 채팅은
+	 * 자리가 넉넉하므로 화면보다 긴 쪽({@code waitingChatLine})을 쓴다.
 	 */
-	private static String runLine(TeamState state) {
-		int runNumber = RunProgressManager.runNumber();
+	private static String runLine(TeamState state, boolean leader) {
 		if (state.runStarted) {
-			return runNumber + "회차 진행 중";
+			return RunProgressManager.runNumber() + "회차 진행 중";
 		}
-		return runNumber + "회차 시작 대기 (리더가 /shareteam start 로 시작합니다)";
+		return GameStartButton.waitingChatLine(leader);
 	}
 
 	/** 난이도 상승이 지금 몇 %까지 올라와 있는지만 보여 준다. 바꾸지는 못한다. */

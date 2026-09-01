@@ -39,7 +39,13 @@ public final class SharedFateNetworking {
 	//     오른쪽 바깥에서 플레이어 인벤토리 아래로 옮겨졌다. 묶음 형식은 그대로지만
 	//     서버와 클라이언트의 슬롯 수가 다르면 클라이언트가
 	//     IndexOutOfBoundsException 으로 죽는다. 막을 수단이 악수뿐이라 번호를 올린다.
-	public static final int PROTOCOL_VERSION = 16;
+	// 17: 팀 화면 「능력치」 탭의 공격력 — AttackDamagePayload(S2C) 를 신설했다.
+	//     바닐라가 minecraft:attack_damage 만은 클라이언트에 동기화하지 않아
+	//     (Attributes 에서 이 속성만 setSyncable(true) 없이 등록된다) 서버가 따로 보낸다.
+	//     기존 페이로드의 형식은 한 바이트도 바뀌지 않았지만, 이 패킷을 모르는 클라이언트는
+	//     능력치 탭에서 공격력 줄만 조용히 빠진 화면을 보게 된다. 「값이 안 보인다」는
+	//     「모드가 안 맞는다」보다 알아채기 어려우므로 악수 단계에서 걸러지게 한다.
+	public static final int PROTOCOL_VERSION = 17;
 
 	private SharedFateNetworking() {
 	}
@@ -58,6 +64,8 @@ public final class SharedFateNetworking {
 				PerkClientFeaturesPayload.TYPE, PerkClientFeaturesPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(
 				OpenTeamScreenPayload.TYPE, OpenTeamScreenPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(
+				AttackDamagePayload.TYPE, AttackDamagePayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(PerkDrawPayload.TYPE, PerkDrawPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(
 				PerkResultPayload.TYPE, PerkResultPayload.CODEC);
@@ -84,13 +92,20 @@ public final class SharedFateNetworking {
 				(payload, context) -> PerkClientRules.onDoubleJumpRequest(context.player()));
 		ServerTickEvents.END_SERVER_TICK.register(TeamBroadcaster::flushSelectedSlots);
 		ServerTickEvents.END_SERVER_TICK.register(TeamBroadcaster::flushTeamLevels);
+		// 공격력. 바닐라가 이 속성만 클라이언트에 보내지 않으므로 우리가 대신 보낸다.
+		// 팀에 속하지 않은 사람도 능력치 탭에서 이 줄을 보므로 팀 경로가 아니라 여기에 있다.
+		ServerTickEvents.END_SERVER_TICK.register(AttackDamageBroadcaster::flush);
 		// 클라이언트가 있어야 하는 증강(double_jump / hide_hud)의 동기화·접지 판정 지점.
 		// SharedFateMod 가 아니라 여기서 거는 이유는 이 기능이 네트워크 경로 하나로만
 		// 성립하기 때문이다. 패킷 등록과 같은 자리에 두면 한쪽만 빠뜨릴 수 없다.
 		ServerTickEvents.END_SERVER_TICK.register(PerkClientRules::tick);
 		// 다시 접속했을 때 "이미 보냈다"고 착각하지 않도록 나갈 때 기록을 버린다.
-		ServerPlayConnectionEvents.DISCONNECT.register(
-				(handler, server) -> PerkClientRules.forget(handler.player.getUUID()));
+		// 클라이언트는 월드에서 나가며 받은 값을 모두 버리므로, 서버가 기억을 들고 있으면
+		// 상태가 그대로인 사람은 다시 들어와도 값을 영영 받지 못한다.
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			PerkClientRules.forget(handler.player.getUUID());
+			AttackDamageBroadcaster.forget(handler.player.getUUID());
+		});
 		ClientModGate.register();
 	}
 }

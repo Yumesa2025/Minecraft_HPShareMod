@@ -48,15 +48,46 @@ public final class GameStartButton {
 	}
 
 	/**
+	 * 시작을 기다리는 동안 보여 줄 회차 번호. <b>언제나 1이다.</b>
+	 *
+	 * <p>{@code GameStartManager.autoStarts} 가 2회차부터는 단추 없이 회차를 켜므로,
+	 * 「아직 시작하지 않았다」는 상태는 1회차에서만 존재한다. 클라이언트는 회차 번호를 받지
+	 * 않는데(어느 동기화 묶음에도 들어 있지 않다) 그래도 번호를 적을 수 있는 것이 이 때문이다.
+	 */
+	public static final int WAITING_RUN_NUMBER = 1;
+
+	/**
 	 * 팀 화면 「현황」 탭에 적을 한 줄.
 	 *
 	 * <p>시작하기 전에는 회차가 「진행 중」이 아니라는 사실이 기본 탭에서도 보여야 한다. 다만
 	 * 단추는 이 탭에 두지 않는다 — 창을 열면 바로 보이는 자리에 되돌릴 수 없는 단추를 두면
 	 * 잘못 누른다. 그래서 어디로 가야 하는지만 알려 준다.
+	 *
+	 * <p>「N회차 시작 대기」처럼 <b>상태만</b> 적으면 읽는 사람이 할 일을 알 수 없다. 회차 번호는
+	 * 그대로 두되 뒤에는 <b>지금 무엇을 하면 되는지</b>를 적는다. 리더가 아닌 사람에게 시작 방법을
+	 * 알려 줘도 눌릴 단추가 없으므로, 그 사람이 실제로 할 수 있는 것(기다리기)을 적는다.
+	 *
+	 * <p>판 폭이 300px 이라 한 줄에 들어갈 만큼만 적는다. 채팅용 긴 문장은
+	 * {@link #waitingChatLine}, 보스바용 짧은 문장은 {@code RunProgressManager.label} 이다.
 	 */
 	public static String waitingNotice(boolean leader) {
 		return leader
-				? "회차 시작 대기 중 — 「팀」 탭에서 게임을 시작하세요."
-				: "회차 시작 대기 중 — 리더가 게임을 시작할 때까지 기다립니다.";
+				? WAITING_RUN_NUMBER + "회차 — 「팀」 탭에서 「게임 시작」을 눌러 주세요."
+				: WAITING_RUN_NUMBER + "회차 — 리더가 게임을 시작할 때까지 기다려 주세요.";
+	}
+
+	/**
+	 * {@code /shareteam status} 의 회차 한 줄. 시작 전일 때만 쓴다.
+	 *
+	 * <p>채팅은 자리가 넉넉하므로 <b>두 가지 길을 모두</b> 적는다 — 명령과 팀 화면. 화면 쪽은
+	 * 한 줄에 들어가야 해서 하나만 적는다({@link #waitingNotice}).
+	 */
+	public static String waitingChatLine(boolean leader) {
+		return leader
+				? WAITING_RUN_NUMBER + "회차 — 아직 시작하지 않았습니다."
+						+ " /shareteam start confirm 을 입력하거나 팀 화면(/st)의"
+						+ " 「게임 시작」을 눌러 주세요."
+				: WAITING_RUN_NUMBER + "회차 — 아직 시작하지 않았습니다."
+						+ " 리더가 게임을 시작할 때까지 기다려 주세요.";
 	}
 }

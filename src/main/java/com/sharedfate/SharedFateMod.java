@@ -106,6 +106,7 @@ public class SharedFateMod implements ModInitializer {
 			MobPerkModifiers.reset();
 			com.sharedfate.sync.DifficultyEscalation.reset();
 			PerkClientRules.reset();
+			com.sharedfate.net.AttackDamageBroadcaster.reset();
 			EffectSync.reset();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(server -> TeamManager.get(server).markDirtyIfActive());
