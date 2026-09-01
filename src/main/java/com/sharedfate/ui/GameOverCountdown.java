@@ -15,7 +15,7 @@ package com.sharedfate.ui;
 public final class GameOverCountdown {
 	public static final int TICKS_PER_SECOND = 20;
 
-	/** 카운트다운 기본 길이(초). 사람이 정한 값이다. */
+	/** 카운트다운 기본 길이(초). */
 	public static final int DEFAULT_SECONDS = 5;
 
 	/** 화면 한가운데 큰 글씨로 뜨는 한 줄. */

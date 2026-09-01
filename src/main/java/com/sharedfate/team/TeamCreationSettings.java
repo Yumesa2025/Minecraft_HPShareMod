@@ -36,8 +36,8 @@ public record TeamCreationSettings(boolean perksEnabled, boolean damageAlertEnab
 	/**
 	 * 난이도 상승은 <b>끈 채로</b> 시작한다.
 	 *
-	 * <p>사람이 기본값을 말하지 않았다. 회차를 통째로 어렵게 만드는 설정이라 안 적었을 때
-	 * 조용히 켜지는 쪽이 더 나쁘므로, 손으로 켜게 둔다.
+	 * <p>회차를 통째로 어렵게 만드는 설정이라, {@code /shareteam create} 에 안 적었을 때
+	 * 조용히 켜지는 쪽이 더 나쁘다. 손으로 켜게 둔다.
 	 */
 	public static final boolean DEFAULT_DIFFICULTY_ESCALATION = false;
 

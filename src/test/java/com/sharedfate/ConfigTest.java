@@ -30,7 +30,7 @@ class ConfigTest {
 		assertEquals(30, config.damageAlertDurationTicks);
 		assertTrue(config.requireClientMod);
 		assertTrue(config.resetWorldOnTeamDeath);
-		// 게임 오버 카운트다운 5초. 사람이 정한 값이다.
+		// 게임 오버 카운트다운 5초.
 		assertEquals(100, config.worldResetDelayTicks);
 		assertTrue(config.silenceAdvancementMessages,
 				"발전과제 달성 알림은 기본으로 꺼져 있어야 한다");
