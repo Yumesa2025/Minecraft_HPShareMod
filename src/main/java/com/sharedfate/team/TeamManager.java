@@ -118,11 +118,11 @@ public class TeamManager extends SavedData {
 	 * <p>보유 증강은 이어지지 않는다. 회차마다 새로 고르는 것이 규칙이다.
 	 *
 	 * <p>여기서 되살린 팀은 {@link TeamState#fresh} 때문에 일단 <b>「시작 대기」</b> 로 나오지만,
-	 * 바로 뒤에서 {@code GameStartManager.beginNextRun} 이 회차를 켠다
+	 * 바로 뒤에서 {@code GameStartManager.syncRunStart} 가 회차 번호를 보고 회차를 켠다
 	 * ({@code TeamRosterStore.onServerStarted}). <b>사람이 「게임 시작」을 누르는 것은 1회차
-	 * 전 한 번뿐이고</b>, 전멸해서 새 월드로 넘어간 회차는 저절로 진행 중이 된다. 이 메서드가
-	 * 스스로 켜지 않는 이유는 「유산」장비를 인벤토리에 넣는 일과 위치 교환의 남은 시간을 채우는
-	 * 일이 함께 일어나야 하는데, 그 둘이 모두 {@code sync} 쪽 규칙이기 때문이다.
+	 * 전 한 번뿐이고</b>, 2회차부터는 저절로 진행 중이 된다. 이 메서드가 스스로 켜지 않는 이유는
+	 * 회차 번호를 여기서 알 수 없고, 「유산」장비를 인벤토리에 넣는 일과 위치 교환의 남은 시간을
+	 * 채우는 일이 함께 일어나야 하는데 그 둘이 모두 {@code sync} 쪽 규칙이기 때문이다.
 	 */
 	public int restoreFreshRoster(Collection<TeamRosterStore.RestoredTeam> roster) {
 		Objects.requireNonNull(roster, "roster");
@@ -168,7 +168,7 @@ public class TeamManager extends SavedData {
 			state.rerollsRemaining = state.rerollAllowance;
 			// 「유산」이 몰수했던 도구·무기·방어구는 여기서 인벤토리에 꽂지 않고 그대로 들고만
 			// 있는다. 실제로 돌려주는 것은 회차가 시작되는 자리다 — 1회차 전이라면 리더가
-			// 「게임 시작」을 누르는 순간, 2회차부터라면 GameStartManager.beginNextRun.
+			// 「게임 시작」을 누르는 순간, 2회차부터라면 GameStartManager.syncRunStart.
 			// 「게임 시작」이 아이템을 전부 지우는 동작이라, 여기서 미리 넣어 두면 그 청소에
 			// 함께 쓸려 나가 「유산」이 아무 뜻도 없는 증강이 된다.
 			state.legacyGear.addAll(entry.legacyGear());

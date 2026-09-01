@@ -124,24 +124,43 @@ public final class TeamRosterStore {
 	private TeamRosterStore() {
 	}
 
+	/**
+	 * 서버가 뜰 때 명단을 맞추고, <b>회차 번호에 맞춰 「시작했는가」도 함께 맞춘다.</b>
+	 *
+	 * <p>여기서 갈리는 두 길이 곧 {@link GameStartManager.WorldOrigin} 의 두 값이다.
+	 * <ul>
+	 *   <li><b>이미 굴러가던 월드</b> — 월드에 팀이 그대로 있다. 명단 파일을 지금 모습으로 다시
+	 *       뜨고, 회차가 2 이상이면 상태만 「진행 중」으로 맞춘다. <b>아이템은 손대지 않는다.</b>
+	 *       예전에는 이 갈래에서 아무것도 맞추지 않아, 5회차를 굴리던 팀이 서버를 다시 켤 때마다
+	 *       「시작 대기」로 남았다.</li>
+	 *   <li><b>새 월드</b> — 월드에 팀이 하나도 없는데 명단 파일만 남아 있다. 전멸로 월드가
+	 *       지워지고 새로 열렸다는 뜻이므로 명단을 되살리고 회차를 이어 간다.</li>
+	 * </ul>
+	 *
+	 * <p><b>상태를 맞춘 뒤에 명단을 저장한다.</b> 「유산」 장비는 자동 시작이 인벤토리에 넣으면서
+	 * {@code legacyGear} 에서 빠지는데, 먼저 저장하면 이미 돌려준 장비가 명단 파일에 그대로 남아
+	 * 다음 회차에 한 번 더 지급된다.
+	 */
 	public static void onServerStarted(MinecraftServer server) {
 		Path file = rosterFile(server);
 		TeamManager manager = TeamManager.get(server);
+		int runNumber = RunProgressManager.runNumber();
 		try {
 			if (!manager.allTeams().isEmpty()) {
+				int resumed = GameStartManager.syncRunStart(manager, runNumber,
+						GameStartManager.WorldOrigin.ONGOING_WORLD);
 				save(file, snapshot(manager));
 				SharedFateMod.LOGGER.info(
-						"[TEAM-ROSTER] 현재 월드 팀 명단 저장: teams={}", manager.allTeams().size());
+						"[TEAM-ROSTER] 현재 월드 팀 명단 저장: teams={}, 회차 이어받기={}",
+						manager.allTeams().size(), resumed);
 				return;
 			}
 			if (!Files.exists(file)) {
 				return;
 			}
 			int restored = manager.restoreFreshRoster(load(file));
-			// 여기까지 왔다는 것은 월드에 팀이 하나도 없는데 명단 파일만 남아 있다는 뜻이다.
-			// 곧 전멸로 월드가 지워지고 새로 열렸다는 뜻이므로 회차를 저절로 시작한다.
-			// 「게임 시작」을 눌러야 하는 것은 1회차 전 한 번뿐이다.
-			int autoStarted = GameStartManager.beginNextRun(manager);
+			int autoStarted = GameStartManager.syncRunStart(manager, runNumber,
+					GameStartManager.WorldOrigin.FRESH_WORLD);
 			SharedFateMod.LOGGER.info(
 					"[TEAM-ROSTER] 새 월드 팀 명단 복원·공유 자원 초기화: teams={}, 자동 시작={}",
 					restored, autoStarted);

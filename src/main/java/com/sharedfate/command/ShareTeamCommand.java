@@ -358,6 +358,12 @@ public final class ShareTeamCommand {
 		}
 		InventorySwapper.finishJoin(self, manager.stateOf(self.getUUID()));
 		MaxHealthAttribute.apply(self, manager.stateOf(self.getUUID()).maxHealth);
+		// 「게임 시작」을 누르는 것은 1회차 전 한 번뿐이다. 2회차 이상에서 팀을 새로 만들면
+		// 회차는 이미 굴러가는 중이므로 바로 진행 중이어야 한다 — 방금 만든 팀이라 지울 것도
+		// 옮길 것도 없고, syncRunStart 는 어차피 아이템을 건드리지 않는다.
+		int runNumber = RunProgressManager.runNumber();
+		boolean autoStarted = GameStartManager.syncRunStart(manager, runNumber,
+				GameStartManager.WorldOrigin.ONGOING_WORLD) > 0;
 		StatMirror.syncPlayerNow(team.teamId(), manager.stateOf(self.getUUID()), self);
 		EffectSync.refreshPlayer(self);
 		TeamBroadcaster.broadcast(context.getSource().getServer(), manager.teamOf(self.getUUID()));
@@ -366,10 +372,12 @@ public final class ShareTeamCommand {
 				"팀 '" + name + "'을 만들었습니다."
 						+ "\n" + settings.summary()
 						+ "\n위의 설정은 모두 팀을 만들 때만 정합니다. 나중에 바꿀 수 없습니다."
-						// 팀을 만들었다고 회차가 시작되지는 않는다. 다음에 무엇을 해야 하는지
-						// 여기서 알려 주지 않으면 아무도 시작되지 않은 채로 돌아다닌다.
-						+ "\n아직 회차는 시작되지 않았습니다. 팀원을 모두 부른 뒤"
-						+ " /shareteam start 로 게임을 시작하세요."), false);
+						// 팀을 만들었다고 회차가 시작되지는 않는다 — 1회차라면. 다음에 무엇을
+						// 해야 하는지 여기서 알려 주지 않으면 아무도 시작되지 않은 채로 돌아다닌다.
+						+ (autoStarted
+								? "\n이미 " + runNumber + "회차가 진행 중이라 회차도 바로 시작했습니다."
+								: "\n아직 회차는 시작되지 않았습니다. 팀원을 모두 부른 뒤"
+										+ " /shareteam start 로 게임을 시작하세요.")), false);
 		return 1;
 	}
 

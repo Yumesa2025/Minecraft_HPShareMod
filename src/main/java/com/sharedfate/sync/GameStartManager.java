@@ -39,14 +39,14 @@ import java.util.UUID;
  * <h2>누르는 것은 <b>1회차 전 한 번뿐</b>이다</h2>
  * <p>기다림이 필요한 자리는 <b>팀을 만들고 팀원을 모으는 동안</b>뿐이다. 전멸해서 회차가
  * 넘어갈 때는 이미 다 모여 있고 새 월드도 비어 있으므로, 거기서 또 단추를 요구하면 회차마다
- * 아무 뜻 없는 확인을 한 번씩 더 하는 것이 된다. 그래서 <b>2회차부터는 새 월드가 열릴 때
- * 저절로 「진행 중」</b>이 된다({@link #beginNextRun}).
+ * 아무 뜻 없는 확인을 한 번씩 더 하는 것이 된다. 그래서 <b>2회차부터는 언제나
+ * 「진행 중」</b>이다({@link #syncRunStart}).
  *
  * <p>자동 시작이 「게임 시작」과 같은 일을 다시 하지는 않는다. 새 월드는 시각이 이미 0 이고
  * 팀 상태도 {@code TeamState.fresh} 로 새로 만들어져 아이템·경험치·증강 구간이 전부 비어
  * 있으며, 접속하는 사람은 어차피 월드 스폰에 떨어진다. <b>남는 일은 둘</b>이다 —
  * 「유산」이 넘긴 장비를 인벤토리에 넣는 것과, 위치 교환의 남은 시간을 주기 그대로 채우는 것.
- * 둘 다 {@link #beginNextRun} 이 한다.
+ * 둘 다 {@link #syncRunStart} 가 한다.
  *
  * <h2>누르면 무엇이 일어나는가</h2>
  * <ol>
@@ -175,33 +175,78 @@ public final class GameStartManager {
 
 	// ------------------------------------------------------------------ 자동 시작
 
+	/** 단추 없이 저절로 진행 중이 되는 첫 회차. 1회차만이 「게임 시작」을 기다린다. */
+	private static final int FIRST_AUTO_START_RUN = 2;
+
 	/**
-	 * 전멸 뒤 새로 열린 월드에서 <b>2회차부터의 회차를 저절로 시작한다.</b>
+	 * 이 회차는 <b>단추 없이 저절로 진행 중</b>인가.
 	 *
-	 * <p>부르는 곳은 {@code TeamRosterStore.onServerStarted} 하나뿐이다. 그 자리는
-	 * <b>월드에 팀이 하나도 없고 명단 파일만 남아 있을 때</b>, 즉 전멸로 월드가 지워지고 새로
-	 * 열렸을 때만 지난다. 팀을 만들고 아직 시작하지 않은 채 서버를 껐다 켠 경우에는 월드에 팀이
-	 * 그대로 있으므로 이 길로 오지 않는다 — 그 팀은 「시작 대기」로 남는다.
+	 * <p>판단 기준은 오직 <b>회차 번호</b>다. 서버가 어떤 길로 떴는지도, 저장에 무엇이 적혀
+	 * 있는지도 보지 않는다.
 	 *
-	 * <h2>「게임 시작」이 하던 일 중 여기서 다시 하는 것</h2>
-	 * <p>{@link #start} 가 하는 일곱 가지 가운데 <b>다섯은 이미 되어 있다.</b> 월드가 방금
-	 * 만들어졌으므로 시각은 0 이고, 팀 상태는 {@code TeamState.fresh} 라 아이템·경험치·체력·
-	 * 상태이상·증강 구간·다시 뽑기가 전부 회차 처음 값이며, 접속하는 사람은 새 월드의 스폰에
-	 * 떨어진다. 그래서 여기서 실제로 하는 일은 셋뿐이다.
+	 * <h2>왜 「복원하는 순간」이 아니라 「회차 번호」인가</h2>
+	 * <p>예전에는 {@code TeamRosterStore} 가 <b>명단을 복원하는 순간</b>에만 회차를 켰다. 그
+	 * 자리는 월드에 팀이 하나도 없을 때만 지나므로, <b>이미 팀이 살아 있는 월드에서 서버만 다시
+	 * 켜면 그 길을 타지 않는다.</b> 그러면 5회차를 굴리던 팀이 「시작 대기」에 영영 갇힌다 —
+	 * 실제로 그렇게 갇혔고, 그 상태에서 「게임 시작」을 누르면 5회차 동안 모은 것이 전부
+	 * 사라진다. 회차가 시작되었는지는 <b>서버가 뜬 길과 아무 상관이 없는 사실</b>이므로, 그
+	 * 사실을 그대로 들고 있는 값 하나 — 회차 번호 — 로만 판단한다.
+	 */
+	public static boolean autoStarts(int runNumber) {
+		return runNumber >= FIRST_AUTO_START_RUN;
+	}
+
+	/**
+	 * 서버가 어떤 월드를 열었는가. 자동 시작이 <b>무엇까지 해도 되는지</b>가 여기서 갈린다.
 	 *
+	 * <p>둘 중 어느 쪽도 <b>아이템을 지우거나 사람을 옮기거나 시각을 되돌리지 않는다.</b> 그것은
+	 * 사람이 「게임 시작」을 누를 때만 하는 일이고({@link #start}), 자동 시작이 그 일까지 하면
+	 * 서버를 다시 켤 때마다 진행 중이던 팀의 물건이 사라진다.
+	 */
+	public enum WorldOrigin {
+		/**
+		 * 전멸로 월드가 지워지고 <b>새로 열린</b> 월드. 명단만 복원했고 팀 상태는
+		 * {@code TeamState.fresh} 라 아이템·경험치·증강 구간이 전부 비어 있다.
+		 */
+		FRESH_WORLD,
+		/**
+		 * <b>이미 굴러가던</b> 월드가 그대로 다시 열렸다. 아이템도 경험치도 살아 있고, 위치
+		 * 교환의 남은 시간도 세다 만 값이다. 여기서는 상태를 「진행 중」으로 맞추는 것 말고는
+		 * 진행 상황을 <b>하나도 건드리지 않는다.</b>
+		 */
+		ONGOING_WORLD
+	}
+
+	/**
+	 * 회차 번호에 맞춰 팀의 「시작했는가」를 맞춘다. <b>2회차 이상이면 언제나 진행 중이다.</b>
+	 *
+	 * <p>부르는 곳은 셋이다 — 서버가 뜰 때의 두 갈래({@code TeamRosterStore.onServerStarted} 의
+	 * 새 월드 갈래와 기존 월드 갈래)와 팀을 새로 만들 때({@code ShareTeamCommand}). 어느 길로
+	 * 들어와도 답이 같아야 하므로 판단은 {@link #autoStarts} 한 곳에만 있다.
+	 *
+	 * <h2>여기서 하는 일 — 그리고 <b>하지 않는 일</b></h2>
+	 * <p>「시작 대기」인 팀에만 손대고, 이미 진행 중인 팀은 통째로 건너뛴다. 손대는 팀에 하는
+	 * 일은 셋뿐이다.
 	 * <ol>
 	 *   <li>{@link TeamState#runStarted} 를 올린다.</li>
-	 *   <li><b>「유산」이 넘긴 장비를 인벤토리에 넣는다.</b> 회차 경계를 넘겨 지키기로 한
-	 *       유일한 물건이라 새 월드의 빈 인벤토리에 반드시 들어가야 한다.</li>
-	 *   <li><b>위치 교환의 남은 시간을 주기 그대로 채운다.</b> {@code restoreFreshRoster} 는
-	 *       주기만 이어받고 남은 시간은 0 으로 둔다. 그대로 시작하면 새 월드에 들어서자마자
-	 *       첫 교환이 터진다.</li>
+	 *   <li><b>「유산」이 넘긴 장비를 인벤토리에 넣는다.</b> 회차 경계를 넘겨 지키기로 한 유일한
+	 *       물건이라 회차가 시작되는 자리에서 반드시 들어가야 한다. 시작하지 않은 팀은 증강을
+	 *       고를 수 없으므로({@code PerkManager.tick} 가 건너뛴다) 이 목록에 들어 있는 것은
+	 *       언제나 <b>지난 회차에서 넘어온 것</b>뿐이고, 이번 회차에 몰수된 것이 섞일 길이 없다.</li>
+	 *   <li>위치 교환의 <b>남은 시간</b>을 채운다. 새 월드에서는 주기 그대로 — 첫 교환은 한 주기
+	 *       뒤여야 한다. 이미 굴러가던 월드에서는 <b>세다 만 값이 있으면 그대로 둔다.</b>
+	 *       0 일 때만 채우는데, 그 0 은 「곧 교환할 때가 됐다」가 아니라 「대기 중이라 한 번도
+	 *       세지 않았다」는 뜻이라({@code PositionSwapManager.tick} 가 대기 중인 팀을 건너뛴다)
+	 *       그대로 두면 시작하는 순간 첫 교환이 터진다.</li>
 	 * </ol>
+	 * <p><b>아이템을 지우지 않고, 사람을 스폰으로 옮기지 않고, 시각을 되돌리지 않고, 경험치와
+	 * 증강 구간도 건드리지 않는다.</b> 그 다섯은 {@link #start} 만 한다.
 	 *
+	 * @param runNumber {@code RunProgressManager.runNumber()} 가 들고 있는 지금 회차
 	 * @return 실제로 시작시킨 팀의 수
 	 */
-	public static int beginNextRun(@Nullable TeamManager manager) {
-		if (manager == null) {
+	public static int syncRunStart(@Nullable TeamManager manager, int runNumber, WorldOrigin origin) {
+		if (manager == null || !autoStarts(runNumber)) {
 			return 0;
 		}
 		int started = 0;
@@ -211,14 +256,18 @@ public final class GameStartManager {
 				continue;
 			}
 			state.runStarted = true;
-			// 첫 교환은 새 회차가 열린 뒤 한 주기가 지나야 온다.
-			state.positionSwapRemainingTicks = state.positionSwapIntervalTicks;
+			if (origin == WorldOrigin.FRESH_WORLD || state.positionSwapRemainingTicks <= 0) {
+				state.positionSwapRemainingTicks = state.positionSwapIntervalTicks;
+			}
 			restoreLegacyGear(state);
 			started++;
 		}
 		if (started > 0) {
 			manager.setDirty();
-			SharedFateMod.LOGGER.info("[RUN] 새 월드에서 회차를 자동으로 시작했습니다: teams={}", started);
+			SharedFateMod.LOGGER.info(
+					"[RUN] {}회차라 회차를 자동으로 시작했습니다: teams={}, 월드={}",
+					runNumber, started,
+					origin == WorldOrigin.FRESH_WORLD ? "새 월드" : "이미 굴러가던 월드");
 		}
 		return started;
 	}
@@ -322,9 +371,9 @@ public final class GameStartManager {
 	 * <p>{@code TeamManager.restoreFreshRoster} 는 회차 경계를 넘어온 목록을
 	 * {@link TeamState#legacyGear} 에 담아만 두고 인벤토리에 꽂지 않는다. 회차가 시작되는
 	 * 자리에서 처음으로 인벤토리에 들어가야 하기 때문이다 — 1회차 전이라면 「게임 시작」이
-	 * 인벤토리를 통째로 비운 <b>뒤에</b>({@link #start}), 2회차부터라면 새 월드가 열릴 때
-	 * ({@link #beginNextRun}). 앞의 경우에 미리 꽂아 두면 그 청소에 함께 쓸려 나가 「유산」이
-	 * 아무 뜻도 없는 증강이 된다.
+	 * 인벤토리를 통째로 비운 <b>뒤에</b>({@link #start}), 2회차부터라면 회차 번호를 보고 저절로
+	 * 시작할 때({@link #syncRunStart}). 앞의 경우에 미리 꽂아 두면 그 청소에 함께 쓸려 나가
+	 * 「유산」이 아무 뜻도 없는 증강이 된다.
 	 *
 	 * <p>자리가 모자라면 {@code overflowItems} 에 남아 칸이 비는 대로 자동으로 들어온다
 	 * ({@code PerkItemGrants} 가 즉시 지급을 넣을 때와 같은 경로).
