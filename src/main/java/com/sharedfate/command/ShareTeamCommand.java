@@ -12,7 +12,9 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.sharedfate.config.SharedFateConfig;
 import com.sharedfate.net.OpenTeamScreenPayload;
 import com.sharedfate.sync.DifficultyEscalation;
+import com.sharedfate.sync.GameStartManager;
 import com.sharedfate.sync.InventorySwapper;
+import com.sharedfate.sync.RunProgressManager;
 import com.sharedfate.sync.EffectSync;
 import com.sharedfate.sync.MaxHealthAttribute;
 import com.sharedfate.sync.StatMirror;
@@ -53,6 +55,11 @@ public final class ShareTeamCommand {
 				.then(Commands.literal("invite")
 						.then(Commands.argument("target", EntityArgument.player())
 								.executes(context -> invite(context, config))))
+				// 회차를 실제로 시작하는 자리. 아이템이 전부 사라지는 동작이라 disband 와 같이
+				// confirm 을 요구한다. 확인 낱말이 없으면 안내만 하고 아무것도 하지 않는다.
+				.then(Commands.literal("start")
+						.executes(ShareTeamCommand::startPrompt)
+						.then(Commands.literal("confirm").executes(ShareTeamCommand::startRun)))
 				.then(Commands.literal("leave").executes(ShareTeamCommand::leave))
 				.then(Commands.literal("disband")
 						.executes(ShareTeamCommand::disbandPrompt)
@@ -358,7 +365,11 @@ public final class ShareTeamCommand {
 		context.getSource().sendSuccess(() -> Component.literal(
 				"팀 '" + name + "'을 만들었습니다."
 						+ "\n" + settings.summary()
-						+ "\n위의 설정은 모두 팀을 만들 때만 정합니다. 나중에 바꿀 수 없습니다."), false);
+						+ "\n위의 설정은 모두 팀을 만들 때만 정합니다. 나중에 바꿀 수 없습니다."
+						// 팀을 만들었다고 회차가 시작되지는 않는다. 다음에 무엇을 해야 하는지
+						// 여기서 알려 주지 않으면 아무도 시작되지 않은 채로 돌아다닌다.
+						+ "\n아직 회차는 시작되지 않았습니다. 팀원을 모두 부른 뒤"
+						+ " /shareteam start 로 게임을 시작하세요."), false);
 		return 1;
 	}
 
@@ -491,6 +502,72 @@ public final class ShareTeamCommand {
 		return 1;
 	}
 
+	/**
+	 * {@code /shareteam start} — 무엇이 사라지는지 알리기만 한다.
+	 *
+	 * <p>이 명령 자체로는 <b>아무것도 바뀌지 않는다.</b> 실제로 시작하는 것은
+	 * {@link #startRun} 이고, 거기 닿으려면 {@code confirm} 을 직접 쳐야 한다.
+	 * 되돌릴 수 없는 동작이라 {@code disband} 와 같은 방식을 그대로 쓴다.
+	 */
+	private static int startPrompt(CommandContext<CommandSourceStack> context)
+			throws CommandSyntaxException {
+		ServerPlayer self = context.getSource().getPlayerOrException();
+		TeamManager manager = manager(context);
+		ShareTeam team = manager.teamOf(self.getUUID());
+		TeamState state = manager.stateOf(self.getUUID());
+		if (team == null || state == null) {
+			context.getSource().sendFailure(Component.literal(
+					"팀이 없습니다. 먼저 /shareteam create 로 팀을 만드세요."));
+			return 0;
+		}
+		if (!self.getUUID().equals(team.leader())) {
+			context.getSource().sendFailure(Component.literal("리더만 게임을 시작할 수 있습니다."));
+			return 0;
+		}
+		if (state.runStarted) {
+			context.getSource().sendFailure(Component.literal(
+					"이미 " + RunProgressManager.runNumber() + "회차가 진행 중입니다."
+							+ " 다시 시작하려면 팀이 전멸해 회차가 넘어가야 합니다."));
+			return 0;
+		}
+
+		long online = team.members().stream().filter(uuid ->
+				context.getSource().getServer().getPlayerList().getPlayer(uuid) != null).count();
+		context.getSource().sendSuccess(() -> Component.literal(
+				"게임을 시작하면 되돌릴 수 없습니다."
+						+ "\n· 공유 인벤토리·방어구·엔더상자의 모든 아이템이 사라집니다 (드랍되지 않습니다)"
+						+ "\n· 공유 경험치가 0이 되고 증강 구간을 처음부터 다시 셉니다"
+						+ "\n· 월드 시각이 1일차 아침으로 돌아갑니다"
+						+ "\n· 접속 중인 팀원 " + online + "/" + team.size() + "명을 스폰으로 옮깁니다"
+						+ (online < team.size()
+								? "\n  접속하지 않은 팀원은 옮길 수 없습니다. 다 모인 뒤에 시작하십시오."
+								: "")
+						+ "\n시작하려면 /shareteam start confirm 을 입력하세요."), false);
+		return 1;
+	}
+
+	/** {@code /shareteam start confirm} — 실제로 회차를 시작한다. 되돌릴 수 없다. */
+	private static int startRun(CommandContext<CommandSourceStack> context)
+			throws CommandSyntaxException {
+		ServerPlayer self = context.getSource().getPlayerOrException();
+		GameStartManager.StartResult result =
+				GameStartManager.start(context.getSource().getServer(), self);
+		switch (result) {
+			case STARTED -> {
+				// 안내는 GameStartManager 가 팀 전원에게 이미 보냈다. 여기서 또 적으면 리더에게만
+				// 두 번 보인다.
+				return 1;
+			}
+			case NO_TEAM -> context.getSource().sendFailure(Component.literal(
+					"팀이 없습니다. 먼저 /shareteam create 로 팀을 만드세요."));
+			case NOT_LEADER -> context.getSource().sendFailure(Component.literal(
+					"리더만 게임을 시작할 수 있습니다."));
+			case ALREADY_STARTED -> context.getSource().sendFailure(Component.literal(
+					"이미 " + RunProgressManager.runNumber() + "회차가 진행 중입니다."));
+		}
+		return 0;
+	}
+
 	private static int disbandPrompt(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		ServerPlayer self = context.getSource().getPlayerOrException();
 		ShareTeam team = manager(context).teamOf(self.getUUID());
@@ -553,6 +630,10 @@ public final class ShareTeamCommand {
 				  — 이 일곱은 팀을 만들 때만 정합니다. 만든 뒤에는 바꿀 수 없습니다.
 				  difficulty 를 켜면 30분마다 적대적 몹이 4%p 씩 세집니다 (엔더 드래곤 제외).
 				  reroll 은 증강 선택창에서 후보 3장을 다시 뽑을 수 있는 회차당 횟수입니다.
+				/shareteam start — 회차를 시작합니다 (리더). 무엇이 사라지는지 먼저 보여 줍니다
+				/shareteam start confirm — 실제로 시작합니다. 되돌릴 수 없습니다
+				  모든 아이템이 사라지고, 시각이 1일차 아침이 되고, 팀원이 스폰으로 모입니다.
+				  누르기 전에는 증강 구간·위치 교환·난이도 상승이 돌지 않고 팀원은 죽지 않습니다.
 				/shareteam — 팀 화면을 엽니다 (모드가 있는 클라이언트)
 				/shareteam invite <플레이어> — 상대를 곧바로 팀에 넣습니다 (리더)
 				/shareteam status — 지금 정해져 있는 설정을 봅니다
@@ -580,6 +661,9 @@ public final class ShareTeamCommand {
 		long online = team.members().stream().filter(uuid ->
 				context.getSource().getServer().getPlayerList().getPlayer(uuid) != null).count();
 		String text = "팀 '" + team.name() + "' — " + online + "/" + team.size() + "명 온라인"
+				// 회차 줄이 맨 위에 있어야 한다. 「시작 대기」인데 아래의 진행 상황부터 읽으면
+				// 이미 회차가 굴러가는 줄 안다.
+				+ "\n회차 — " + runLine(state)
 				+ "\n체력 " + String.format(java.util.Locale.ROOT, "%.1f/%.1f", state.health, state.maxHealth)
 				+ ", 허기 " + state.foodLevel + "/20, 경험치 " + state.totalExperience
 				+ "\n공유: 6줄 인벤토리=" + (config.mainInventoryRows == 6)
@@ -606,6 +690,20 @@ public final class ShareTeamCommand {
 				+ PerkTestCommand.statusLine(state);
 		context.getSource().sendSuccess(() -> Component.literal(text), false);
 		return 1;
+	}
+
+	/**
+	 * {@code /shareteam status} 의 회차 한 줄.
+	 *
+	 * <p>시작 전에는 무엇을 눌러야 하는지까지 적는다. 「시작 대기」라고만 적으면 무엇을 기다리는
+	 * 것인지 알 수 없다.
+	 */
+	private static String runLine(TeamState state) {
+		int runNumber = RunProgressManager.runNumber();
+		if (state.runStarted) {
+			return runNumber + "회차 진행 중";
+		}
+		return runNumber + "회차 시작 대기 (리더가 /shareteam start 로 시작합니다)";
 	}
 
 	/** 난이도 상승이 지금 몇 %까지 올라와 있는지만 보여 준다. 바꾸지는 못한다. */

@@ -15,7 +15,7 @@ class TeamSyncLevelTest {
 	private static final java.util.UUID LEADER = new java.util.UUID(1L, 2L);
 	/** 이 시험이 보는 것은 레벨 계산이라 켜고 끄기는 증강만 켠 채로 고정해 둔다. */
 	private static final TeamSyncPayload.Options PERKS_ONLY =
-			new TeamSyncPayload.Options(true, false, false);
+			new TeamSyncPayload.Options(true, false, false, true);
 	@BeforeAll
 	static void bootstrap() {
 		TestBootstrap.ensureInitialized();

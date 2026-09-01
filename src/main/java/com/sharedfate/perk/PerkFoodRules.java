@@ -21,7 +21,7 @@ import org.jetbrains.annotations.Nullable;
  * 답에 따라 값을 바꾸거나 건너뛴다. 판정을 mixin 밖에 떼어 둔 이유는 두 가지다. mixin 에는
  * 판단이 아니라 "어디서 끼어드는가"만 남는 편이 읽기 쉽고, 판정을 월드 없이 시험할 수 있다.
  *
- * <p>여기서 답하는 물음은 넷이다.
+ * <p>여기서 답하는 물음은 다섯이다.
  *
  * <ul>
  *   <li>{@link #blocksFoodHunger} — 음식으로 허기를 얻지 못하는가 ({@code no_food_hunger})</li>
@@ -29,6 +29,8 @@ import org.jetbrains.annotations.Nullable;
  *   <li>{@link #exhaustionMultiplier} — 허기 소모도에 곱할 배율
  *       ({@code hunger_drain} / {@code no_hunger_drain})</li>
  *   <li>{@link #grantEatingEffects} — 먹는 순간에 얹을 효과가 있는가 ({@code food_nutrition})</li>
+ *   <li>{@link #blocksNaturalRegenExhaustion} — 자연 회복의 대가까지 면제하는가
+ *       ({@code no_hunger_drain} 의 {@code includeNaturalRegen})</li>
  * </ul>
  *
  * <p>보유 증강이 하나도 없으면 어느 물음도 팀 상태 두 번만 보고 곧바로 "해당 없음"이다. 증강을
@@ -215,15 +217,48 @@ public final class PerkFoodRules {
 	private static boolean payingNaturalRegen;
 
 	/**
-	 * {@code FoodData.tick} 의 자연 회복 갈래가 치르는 소모도를 <b>증강 배율 없이</b> 쌓는다.
+	 * 이 팀이 자연 회복의 대가까지 면제하는가.
 	 *
-	 * <p>{@link com.sharedfate.mixin.FoodDataRegenExhaustionMixin} 이 부른다.
+	 * <p>{@code no_hunger_drain} 을 가졌다고 무조건 참은 아니다. 대부분의 팀은 달리기·채굴·
+	 * 점프 같은 <b>행동</b>의 소모도만 면제받고, 체력을 돌려주는 대가인 자연 회복의 소모도는
+	 * 그대로 치른다 — 안 그러면 체력이 공짜로 무한히 차오른다. 고행자만 예외다. 최대 체력이
+	 * 10 으로 영영 고정된다는 대가가 이미 있어 자연 회복까지 공짜로 만들어도 되므로,
+	 * {@code no_hunger_drain} 에 {@code includeNaturalRegen: true} 를 얹어 이 물음에 참으로
+	 * 답하게 했다. 자세한 사정은 {@link NoHungerDrainEffect} 에 적어 뒀다.
+	 */
+	public static boolean blocksNaturalRegenExhaustion(@Nullable TeamState state) {
+		if (state == null || state.ownedPerks.isEmpty()) {
+			return false;
+		}
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
+			if (perk == null) {
+				continue;
+			}
+			for (PerkEffect effect : perk.effects()) {
+				if (effect instanceof NoHungerDrainEffect noHungerDrain
+						&& noHungerDrain.includeNaturalRegen()) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * {@code FoodData.tick} 의 자연 회복 갈래가 치르는 소모도를 쌓는다.
+	 *
+	 * <p>{@link com.sharedfate.mixin.FoodDataRegenExhaustionMixin} 이 부른다. {@code entity} 는
+	 * 이 {@code foodData} 의 주인이다 — {@link #blocksNaturalRegenExhaustion} 으로 그 팀이
+	 * 자연 회복까지 공짜로 만드는지 먼저 묻고, 참이면 소모도를 아예 쌓지 않고 끝낸다.
 	 *
 	 * <h2>왜 구분해야 하는가</h2>
-	 * <p>고행자의 "허기가 떨어지지 않습니다"는 <b>달리기·채굴·점프 같은 행동</b>의 대가를 면제해
-	 * 준다는 뜻이다. 자연 회복은 다르다. 마인크래프트는 체력을 회복해 주는 대가로 그 자리에서
-	 * 소모도를 치르게 하는데, 그 대가까지 0 이 되면 체력이 공짜로 무한히 차오른다. 회복은 대가를
-	 * 치러야 하므로 이 경로의 소모도는 배율을 타지 않고 그대로 지나간다.
+	 * <p>고행자의 "허기가 떨어지지 않습니다"는 기본적으로 <b>달리기·채굴·점프 같은 행동</b>의
+	 * 대가를 면제해 준다는 뜻이다. 자연 회복은 다르다. 마인크래프트는 체력을 회복해 주는 대가로
+	 * 그 자리에서 소모도를 치르게 하는데, 그 대가까지 0 이 되면 체력이 공짜로 무한히 차오른다.
+	 * 그래서 {@code includeNaturalRegen} 이 거짓인 팀에서는 이 경로의 소모도가 배율을 타지 않고
+	 * 그대로 지나간다. 고행자처럼 참인 팀에서만 이 경로도 함께 면제된다 — 최대 체력 10 고정이
+	 * 그 대가를 대신 치르고 있기 때문이다.
 	 *
 	 * <h2>26.2 에서 실제로 어떻게 갈리는가</h2>
 	 * <p>javap 로 {@code FoodData.tick} 을 확인해 보면 자연 회복 두 갈래 모두
@@ -233,12 +268,16 @@ public final class PerkFoodRules {
 	 * {@code causeFoodExhaustion} 을 지난다. 그래서 이 갈림은 지금 이미 성립해 있다.
 	 *
 	 * <p>다만 그건 <b>우연히</b> 성립한 것이고, 마인크래프트가 이 두 줄을
-	 * {@code causeFoodExhaustion} 으로 바꾸는 순간 조용히 무너진다. 이 표시가 그 경우를 막는다.
-	 * 자연 회복이 어느 통로로 값을 치르든 배율은 걸리지 않는다. 지금은 아무 일도 하지 않고,
-	 * 통로가 바뀌어도 뜻이 그대로 남는다.
+	 * {@code causeFoodExhaustion} 으로 바꾸는 순간 조용히 무너진다. {@code payingNaturalRegen}
+	 * 표시가 그 경우를 막는다. 자연 회복이 어느 통로로 값을 치르든(면제 대상이 아닌 한) 배율은
+	 * 걸리지 않는다. 지금은 아무 일도 하지 않고, 통로가 바뀌어도 뜻이 그대로 남는다.
 	 */
-	public static void addNaturalRegenExhaustion(FoodData foodData, float exhaustion) {
+	public static void addNaturalRegenExhaustion(FoodData foodData, float exhaustion,
+			@Nullable LivingEntity entity) {
 		if (foodData == null) {
+			return;
+		}
+		if (blocksNaturalRegenExhaustion(teamStateOf(entity))) {
 			return;
 		}
 		boolean previous = payingNaturalRegen;

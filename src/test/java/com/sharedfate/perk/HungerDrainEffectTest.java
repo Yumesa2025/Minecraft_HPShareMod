@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * {@code hunger_drain} 과 {@code no_hunger_drain} 의 정의 읽기와 배율 계산을 본다.
@@ -76,7 +77,37 @@ class HungerDrainEffectTest {
 				JsonParser.parseString("{ \"type\": \"no_hunger_drain\" }").getAsJsonObject());
 
 		assertInstanceOf(NoHungerDrainEffect.class, effect);
-		assertSame(NoHungerDrainEffect.INSTANCE, effect, "상태가 없으므로 하나를 돌려쓴다");
+		assertSame(NoHungerDrainEffect.INSTANCE, effect, "흔한 경우(기본값 거짓)는 하나를 돌려쓴다");
+		assertEquals(false, ((NoHungerDrainEffect) effect).includeNaturalRegen());
+	}
+
+	@Test
+	void 소모없음은_includeNaturalRegen_거짓이면_그대로_돌려쓴다() {
+		PerkEffect effect = PerkEffectType.NO_HUNGER_DRAIN.create("sharedfate:테스트", 0,
+				JsonParser.parseString(
+						"{ \"type\": \"no_hunger_drain\", \"includeNaturalRegen\": false }")
+						.getAsJsonObject());
+
+		assertSame(NoHungerDrainEffect.INSTANCE, effect);
+	}
+
+	@Test
+	void 소모없음은_includeNaturalRegen_참이면_새_인스턴스로_자연_회복까지_면제한다() {
+		PerkEffect effect = PerkEffectType.NO_HUNGER_DRAIN.create("sharedfate:테스트", 0,
+				JsonParser.parseString(
+						"{ \"type\": \"no_hunger_drain\", \"includeNaturalRegen\": true }")
+						.getAsJsonObject());
+
+		assertInstanceOf(NoHungerDrainEffect.class, effect);
+		assertTrue(((NoHungerDrainEffect) effect).includeNaturalRegen());
+	}
+
+	@Test
+	void 소모없음은_includeNaturalRegen_이_참_거짓이_아니면_버린다() {
+		assertNull(PerkEffectType.NO_HUNGER_DRAIN.create("sharedfate:테스트", 0,
+				JsonParser.parseString(
+						"{ \"type\": \"no_hunger_drain\", \"includeNaturalRegen\": \"응\" }")
+						.getAsJsonObject()));
 	}
 
 	@Test

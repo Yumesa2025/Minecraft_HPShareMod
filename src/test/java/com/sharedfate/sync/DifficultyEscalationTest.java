@@ -4,6 +4,7 @@ import com.sharedfate.team.TeamState;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -84,6 +85,7 @@ class DifficultyEscalationTest {
 	void 켜_둔_팀은_지금_몇_퍼센트인지_보여_준다() {
 		TeamState state = TeamState.fresh(20.0F);
 		state.difficultyEscalationEnabled = true;
+		state.runStarted = true;
 		state.difficultyElapsedTicks = DifficultyEscalation.STEP_TICKS * 3;
 
 		String text = DifficultyEscalation.describe(state);
@@ -97,11 +99,25 @@ class DifficultyEscalationTest {
 	void 상한에_닿으면_상한이라고_보여_준다() {
 		TeamState state = TeamState.fresh(20.0F);
 		state.difficultyEscalationEnabled = true;
+		state.runStarted = true;
 		state.difficultyElapsedTicks = DifficultyEscalation.MAX_ELAPSED_TICKS;
 
 		String text = DifficultyEscalation.describe(state);
 
 		assertTrue(text.contains("+100%"), text);
 		assertTrue(text.contains("상한"), text);
+	}
+
+	/** 시작 전에는 「+0%, 다음 상승까지 30분」처럼 이미 시간이 흐르는 것처럼 적으면 안 된다. */
+	@Test
+	void 시작하지_않은_팀은_아직_세지_않는다고_보여_준다() {
+		TeamState state = TeamState.fresh(20.0F);
+		state.difficultyEscalationEnabled = true;
+
+		String text = DifficultyEscalation.describe(state);
+
+		assertTrue(text.startsWith("켬"), text);
+		assertTrue(text.contains("시작"), text);
+		assertFalse(text.contains("%"), text);
 	}
 }

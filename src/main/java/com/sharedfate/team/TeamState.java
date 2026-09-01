@@ -80,6 +80,21 @@ public class TeamState {
 	 */
 	public int difficultyElapsedTicks;
 	/**
+	 * 이 팀의 회차가 <b>실제로 시작되었는가.</b> 리더가 「게임 시작」을 누르면 참이 된다.
+	 *
+	 * <p>회차의 시작점은 팀을 만든 순간이 아니라 <b>이것이 참이 되는 순간</b>이다. 팀을 만들고
+	 * 팀원을 부르고 설정을 확인하는 동안에도 게임은 돌아가는데, 그 시간까지 회차에 넣으면
+	 * 난이도 상승도 위치 교환도 증강 구간도 아무도 시작하지 않은 회차에서 굴러간다.
+	 * 시작 전에 멈춰 있는 것들은 {@code com.sharedfate.sync.GameStartManager} 에 모아 뒀다.
+	 *
+	 * <p><b>저장에 이 항목이 없으면 「이미 시작했다」로 읽는다.</b> 이 기능이 생기기 전의 월드에는
+	 * 항목이 없는데, 그 월드의 팀은 실제로 회차를 진행하던 중이다. 거짓으로 읽으면 이미 몇 시간을
+	 * 플레이한 팀이 갑자기 「시작 대기」가 되고, 그 상태에서 「게임 시작」을 누르면 아이템이 전부
+	 * 사라진다. 반대로 새로 만든 팀은 {@link #fresh} 가 거짓으로 두고 저장에도 그대로 적히므로
+	 * 이 기본값에 걸리지 않는다.
+	 */
+	public boolean runStarted;
+	/**
 	 * 이 회차에서 증강 시험 명령({@code /shareteam perktest ...})을 한 번이라도 썼는가.
 	 *
 	 * <p>한 번 켜지면 이 회차가 끝날 때까지 <b>다시 꺼지지 않는다.</b> 증강을 손으로 넣고 뺀
@@ -149,6 +164,10 @@ public class TeamState {
 		// 기본값으로 굴러가야 한다. 저장에서 읽어 온 경우에만 CODEC 이 뒤에서 덮어쓴다.
 		this.rerollAllowance = TeamCreationSettings.DEFAULT_REROLL_COUNT;
 		this.rerollsRemaining = TeamCreationSettings.DEFAULT_REROLL_COUNT;
+		// 새로 만들어지는 팀 상태는 언제나 「시작 대기」다. 팀을 만드는 것도, 전멸 뒤 새 월드에
+		// 명단을 되살리는 것도 이 생성자를 지나므로 매 회차 「게임 시작」을 눌러야 한다.
+		// 저장에서 읽어 온 경우에만 CODEC 이 뒤에서 덮어쓴다.
+		this.runStarted = false;
 	}
 
 	public static TeamState fresh(float maxHealth) {
@@ -181,8 +200,14 @@ public class TeamState {
 	 * <p>{@link #baseMaxHealth} 는 일부러 손대지 않는다. 여기서는 보유 증강이 그대로 남아 있어
 	 * 상한도 그대로여야 하고, 회차 자체가 끝나 증강을 잃는 경로는 {@link #fresh} 로 팀 상태를
 	 * 통째로 새로 만들기 때문에 이 자리를 지나지 않는다.
+	 *
+	 * <p>{@link #runStarted} 는 <b>반드시 내린다.</b> 전멸은 회차의 끝이므로 다음 회차는 다시
+	 * 「게임 시작」에서 시작해야 한다. 월드를 초기화하는 서버에서는 어차피 팀 상태가 통째로 새로
+	 * 만들어지지만, 월드 초기화를 끈 서버({@code resetWorldOnTeamDeath=false})에서는 이 자리가
+	 * 회차를 대기 상태로 되돌리는 유일한 길이다.
 	 */
 	public void resetAfterDeath(float maxHealth, boolean keepExperience) {
+		runStarted = false;
 		this.maxHealth = sanitizeMaximum(maxHealth, 20.0F);
 		health = this.maxHealth;
 		absorption = 0.0F;
@@ -550,7 +575,11 @@ public class TeamState {
 			Codec.BOOL.optionalFieldOf("perkTestUsed", false)
 					.<TeamState>forGetter(state -> state.perkTestUsed),
 			RerollSection.CODEC.optionalFieldOf("reroll", RerollSection.DEFAULT)
-					.<TeamState>forGetter(TeamState::rerollSection)
+					.<TeamState>forGetter(TeamState::rerollSection),
+			// 기본값이 참인 유일한 항목이다. 까닭은 runStarted 필드 문서에 적어 뒀다 —
+			// 이 항목이 없는 예전 월드의 팀은 실제로 진행 중이던 팀이다.
+			Codec.BOOL.optionalFieldOf("runStarted", true)
+					.<TeamState>forGetter(state -> state.runStarted)
 	).apply(instance, TeamState::withStoredSections));
 
 	/**
@@ -573,7 +602,9 @@ public class TeamState {
 	 */
 	private static TeamState withStoredSections(TeamState state, PerkSection perks,
 			Optional<Float> baseMaxHealth, AlertSection alerts, List<ItemStack> legacyGear,
-			DifficultySection difficulty, boolean perkTestUsed, RerollSection reroll) {
+			DifficultySection difficulty, boolean perkTestUsed, RerollSection reroll,
+			boolean runStarted) {
+		state.runStarted = runStarted;
 		state.applyPerkSection(perks);
 		state.applyAlertSection(alerts);
 		state.applyDifficultySection(difficulty);

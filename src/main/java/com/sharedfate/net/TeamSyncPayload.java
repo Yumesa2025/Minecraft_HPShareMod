@@ -43,25 +43,33 @@ public record TeamSyncPayload(List<Member> members, String teamName, int xpLevel
 	}
 
 	/**
-	 * 켜고 끄기 셋을 한 칸에 담는 묶음.
+	 * 켜고 끄기를 한 칸에 담는 묶음.
 	 *
 	 * <p>따로 묶은 이유는 자리가 없어서다. 바깥 {@link #CODEC} 의
 	 * {@code StreamCodec.composite} 는 항목 <b>8개가 상한</b>이고 이미 다 찼다. 앞으로 켜고
 	 * 끄기가 더 늘어도 이 안에 넣으면 바깥은 그대로다.
 	 *
+	 * <p>{@code runStarted} 만은 성격이 다르다. 앞의 셋은 팀을 만들 때 정해 그 뒤로 바뀌지 않는
+	 * 값이지만 이것은 <b>회차마다 바뀌는 진행 상황</b>이다. 그래도 여기 넣은 이유는 이 묶음이
+	 * 곧 「팀에 대해 클라이언트가 알아야 하는 불리언들」이고, 바깥에는 넣을 자리가 없기 때문이다.
+	 *
 	 * @param perks       이 팀이 증강을 쓰는가
 	 * @param damageAlert 피격 알림을 보여 주는가
 	 * @param deathAlert  사망 알림을 보여 주는가
+	 * @param runStarted  회차가 시작되었는가. 거짓이면 「시작 대기」이고, 팀 화면이 리더에게
+	 *                    「게임 시작」 단추를 그린다
 	 */
-	public record Options(boolean perks, boolean damageAlert, boolean deathAlert) {
-		/** 셋 다 꺼진 상태. 팀에 속하지 않았을 때의 값이다. */
-		public static final Options NONE = new Options(false, false, false);
+	public record Options(boolean perks, boolean damageAlert, boolean deathAlert,
+			boolean runStarted) {
+		/** 넷 다 꺼진 상태. 팀에 속하지 않았을 때의 값이다. */
+		public static final Options NONE = new Options(false, false, false, false);
 
 		public static final StreamCodec<RegistryFriendlyByteBuf, Options> CODEC =
 				StreamCodec.composite(
 						ByteBufCodecs.BOOL, Options::perks,
 						ByteBufCodecs.BOOL, Options::damageAlert,
 						ByteBufCodecs.BOOL, Options::deathAlert,
+						ByteBufCodecs.BOOL, Options::runStarted,
 						Options::new);
 	}
 
@@ -103,6 +111,11 @@ public record TeamSyncPayload(List<Member> members, String teamName, int xpLevel
 	/** 사망 알림을 보여 주는 팀인가. */
 	public boolean deathAlertEnabled() {
 		return options.deathAlert();
+	}
+
+	/** 이 팀의 회차가 시작되었는가. 거짓이면 「시작 대기」다. */
+	public boolean runStarted() {
+		return options.runStarted();
 	}
 
 	/** 이 사람이 팀 리더인가. */

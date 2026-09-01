@@ -171,11 +171,12 @@
       "id": "sharedfate:ascetic",
       "icon": "minecraft:bread",
       "name": "고행자",
-      "description": "움직여도 허기가 떨어지지 않습니다(체력 자연 회복의 대가는 그대로 치릅니다). 대신 최대 체력이 10 으로 고정되며 다른 증강으로도 오르지 않습니다.",
+      "description": "허기가 어떤 상황에서도 줄지 않습니다. 대신 최대 체력이 10 으로 고정되며 다른 증강으로도 오르지 않습니다.",
       "rarity": "prism",
       "effects": [
         {
-          "type": "no_hunger_drain"
+          "type": "no_hunger_drain",
+          "includeNaturalRegen": true
         },
         {
           "type": "max_health_lock",
@@ -1595,7 +1596,7 @@
           "type": "attribute",
           "attribute": "minecraft:friction_modifier",
           "operation": "add_multiplied_total",
-          "amount": -0.5
+          "amount": -1.0
         }
       ]
     },

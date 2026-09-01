@@ -188,7 +188,7 @@ public final class TeamBroadcaster {
 		TeamSyncPayload.Options options = state == null
 				? TeamSyncPayload.Options.NONE
 				: new TeamSyncPayload.Options(state.perksEnabled,
-						state.damageAlertEnabled, state.deathAlertEnabled);
+						state.damageAlertEnabled, state.deathAlertEnabled, state.runStarted);
 		return new TeamSyncPayload(members, team.name(), xpLevel, nextPerkLevel,
 				maxHealth, swapMinutes, options, team.leader());
 	}

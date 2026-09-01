@@ -137,8 +137,15 @@ class TeamManagerTest {
 				"난이도가 오른 시간은 회차마다 0 에서 다시 센다");
 	}
 
+	/**
+	 * 회차 경계를 넘어온 「유산」은 <b>인벤토리에 꽂히지 않고 그대로 들려 있어야</b> 한다.
+	 *
+	 * <p>예전에는 여기서 바로 {@code mainItems} 에 넣었다. 그 뒤에 「게임 시작」이 생겼고 그
+	 * 시작이 인벤토리를 통째로 비우므로, 여기서 미리 넣으면 유산이 시작과 동시에 사라진다.
+	 * 실제로 돌려주는 것은 {@code GameStartManager} 다.
+	 */
 	@Test
-	void 유산으로_몰수했던_아이템은_새_회차_공유_인벤토리로_돌아온다() {
+	void 유산으로_몰수했던_아이템은_시작할_때까지_들려_있는다() {
 		ShareTeam team = manager.createTeam("원정대", A, 40.0F);
 		ItemStack pickaxe = new ItemStack(Items.DIAMOND_PICKAXE);
 
@@ -147,9 +154,24 @@ class TeamManagerTest {
 				team, false, 40.0F, 0, false, false, java.util.List.of(pickaxe))));
 
 		TeamState restored = fresh.stateOf(A);
-		assertTrue(restored.mainItems.stream().anyMatch(stack -> stack.is(Items.DIAMOND_PICKAXE)),
-				"「유산」이 몰수했던 도구가 다음 회차 시작 인벤토리에 있어야 한다");
-		assertTrue(restored.overflowItems.isEmpty(), "자리가 있으면 넘침 목록에 남으면 안 된다");
+		assertEquals(1, restored.legacyGear.size(),
+				"「게임 시작」이 아이템을 전부 지우므로 그때까지 legacyGear 에 남아 있어야 한다");
+		assertTrue(restored.legacyGear.getFirst().is(Items.DIAMOND_PICKAXE));
+		assertTrue(restored.mainItems.stream().allMatch(ItemStack::isEmpty),
+				"시작 전에는 공유 인벤토리가 비어 있어야 한다");
+		assertTrue(restored.overflowItems.isEmpty());
+	}
+
+	/** 되살린 팀은 언제나 「시작 대기」다. 매 회차 리더가 「게임 시작」을 눌러야 한다. */
+	@Test
+	void 새_회차로_되살린_팀은_시작_대기_상태다() {
+		ShareTeam team = manager.createTeam("원정대", A, 40.0F);
+
+		TeamManager fresh = new TeamManager();
+		fresh.restoreFreshRoster(roster(java.util.List.of(team), 40.0F));
+
+		assertFalse(fresh.stateOf(A).runStarted,
+				"새 월드에 떨어졌다고 회차가 저절로 굴러가면 안 된다");
 	}
 
 	@Test

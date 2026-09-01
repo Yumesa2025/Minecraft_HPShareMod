@@ -1,6 +1,7 @@
 package com.sharedfate.mixin;
 
 import com.sharedfate.perk.PerkFoodRules;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.food.FoodData;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -9,11 +10,12 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 /**
  * 자연 회복이 스스로 치르는 허기 소모도에 표시를 달아 준다.
  *
- * <p>{@code no_hunger_drain}(고행자)과 {@code hunger_drain} 의 배율은
- * <b>플레이어가 행동해서 생긴 소모도</b>에만 걸려야 한다. 자연 회복은 체력을 돌려주는 대가로
+ * <p>{@code no_hunger_drain}(고행자)과 {@code hunger_drain} 의 배율은 기본적으로
+ * <b>플레이어가 행동해서 생긴 소모도</b>에만 걸린다. 자연 회복은 체력을 돌려주는 대가로
  * 그 자리에서 소모도를 치르므로, 그 대가까지 0 이 되면 체력이 공짜로 무한히 차오른다.
- * 그래서 이 경로의 소모도는 배율을 타지 않는다는 표시를 달고 지나간다. 판정과 그 까닭은
- * {@link PerkFoodRules#addNaturalRegenExhaustion} 에 적어 뒀다.
+ * 그래서 이 경로의 소모도는 기본적으로 배율을 타지 않는다는 표시를 달고 지나간다.
+ * 고행자처럼 {@code includeNaturalRegen: true} 를 든 팀만 예외로 이 경로도 함께 면제된다.
+ * 판정과 그 까닭은 {@link PerkFoodRules#addNaturalRegenExhaustion} 에 적어 뒀다.
  *
  * <h2>26.2 의 실제 갈래</h2>
  * <p>javap 로 확인한 {@code FoodData.tick} 의 자연 회복 두 갈래는 이렇다.
@@ -43,9 +45,15 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  */
 @Mixin(FoodData.class)
 public abstract class FoodDataRegenExhaustionMixin {
+	/**
+	 * {@code player} 는 이 호출을 감싼 {@code tick(ServerPlayer)} 자신의 인자를 그대로
+	 * 붙잡아 온 것이다 — {@code addExhaustion} 자체에는 주인이 없어서, 이 팀이 자연 회복까지
+	 * 면제하는지 물어보려면 바깥 메서드의 인자가 필요하다.
+	 */
 	@Redirect(method = "tick", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/world/food/FoodData;addExhaustion(F)V"))
-	private void sharedfate$payNaturalRegenExhaustion(FoodData foodData, float exhaustion) {
-		PerkFoodRules.addNaturalRegenExhaustion(foodData, exhaustion);
+	private void sharedfate$payNaturalRegenExhaustion(FoodData foodData, float exhaustion,
+			ServerPlayer player) {
+		PerkFoodRules.addNaturalRegenExhaustion(foodData, exhaustion, player);
 	}
 }

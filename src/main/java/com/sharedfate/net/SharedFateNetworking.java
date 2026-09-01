@@ -30,7 +30,12 @@ public final class SharedFateNetworking {
 	// 14: 증강 후보 다시 뽑기 — PerkRerollC2SPayload(C2S) 를 신설하고 PerkOfferPayload 에
 	//     이번 회차에 남은 다시 뽑기 횟수를 실었다. PerkOfferPayload 의 형식 자체가 바뀌었으므로
 	//     예전 클라이언트는 선택창을 아예 읽지 못한다. 이 판은 클라이언트를 함께 배포한다.
-	public static final int PROTOCOL_VERSION = 14;
+	// 15: 「게임 시작」 — 회차가 팀에 붙었다. TeamSyncPayload 의 Options 묶음에
+	//     runStarted 를 더해 클라이언트가 「시작 대기」인지 알 수 있게 했다. 팀 화면의
+	//     「게임 시작」 단추를 그릴지 정하는 값이라 이것 없이는 화면을 만들 수 없다.
+	//     TeamSyncPayload 의 형식 자체가 바뀌었으므로 예전 클라이언트는 팀 동기화를
+	//     아예 읽지 못한다. 이 판도 클라이언트를 함께 배포한다.
+	public static final int PROTOCOL_VERSION = 15;
 
 	private SharedFateNetworking() {
 	}
