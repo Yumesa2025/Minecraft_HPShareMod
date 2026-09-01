@@ -44,7 +44,9 @@ public final class PositionSwapManager {
 		// 강제 증강 선택 중에는 시간이 멈춰 있고 팀원은 창에 갇혀 아무것도 할 수 없다. 그
 		// 사이에 카운트다운이 흐르거나 자리가 뒤바뀌면 창을 닫자마자 낯선 곳에 서 있게 된다.
 		// 세션이 사는 동안에는 주기 자체를 세우고 지나간다.
-		if (PerkChoiceSession.isActive()) {
+		// 게임 오버 카운트다운 5초 동안도 마찬가지다. 회차는 이미 끝났고 곧 서버가 멈추는데,
+		// 그 사이에 자리가 뒤바뀌면 월드를 지우지 않는 서버에서는 벽 속에 박힌 채 저장된다.
+		if (PerkChoiceSession.isActive() || WorldResetCoordinator.countingDown()) {
 			return;
 		}
 		TeamManager manager = TeamManager.get(server);

@@ -17,7 +17,13 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ExpandedInventoryMenuTest {
@@ -220,12 +226,6 @@ class ExpandedInventoryMenuTest {
 		assertEquals(90, menu.slots.size(), "상자 27 + 기존 인벤 36 + 추가 인벤 27");
 		assertEquals(0, menu.getSlot(63).getContainerSlot());
 		assertTrue(menu.getSlot(63).isActive());
-		assertEquals(184, menu.getSlot(63).x);
-		assertEquals(31, menu.getSlot(63).y);
-		assertEquals(220, menu.getSlot(65).x);
-		assertEquals(31, menu.getSlot(65).y);
-		assertEquals(220, menu.getSlot(89).x);
-		assertEquals(175, menu.getSlot(89).y);
 		for (int index = 27; index < 63; index++) {
 			menu.getSlot(index).set(new ItemStack(Items.COBBLESTONE, 64));
 		}
@@ -237,6 +237,151 @@ class ExpandedInventoryMenuTest {
 		assertTrue(menu.getSlot(0).getItem().isEmpty());
 		assertEquals(3, menu.slots.subList(63, 90).stream()
 				.map(Slot::getItem).mapToInt(ItemStack::getCount).sum(),
-				"reverse 이동이어도 추가 27칸 중 정확히 한 곳에 전부 들어가야 한다");
+				"바닐라 36칸이 가득 차면 추가 27칸 중 한 곳에 전부 들어가야 한다");
+	}
+
+	@Test
+	void 공통_메뉴에_확장_Mixin_이_실제로_붙는다() {
+		// refmap 이 없으므로 대상이 틀려도 빌드는 통과한다. 병합된 메서드 이름으로 본다.
+		Set<String> merged = Arrays.stream(
+						net.minecraft.world.inventory.AbstractContainerMenu.class
+								.getDeclaredMethods())
+				.map(Method::getName)
+				.filter(name -> name.contains("sharedfate"))
+				.collect(Collectors.toSet());
+
+		assertTrue(merged.stream().anyMatch(name -> name.contains("appendExtraInventory")),
+				"추가 27칸 붙이기가 병합되어야 한다: " + merged);
+		assertTrue(merged.stream().anyMatch(name -> name.contains("moveAcrossExpandedInventory")),
+				"쉬프트 클릭 이어붙이기가 병합되어야 한다: " + merged);
+		assertTrue(ChestMenu.threeRows(1, new Inventory(null, new EntityEquipment()))
+						instanceof ExpandedMenuLayout,
+				"메뉴가 배치 통로를 구현해야 한다");
+	}
+
+	// ------------------------------------------------------------------- 자리
+
+	@Test
+	void 상자의_추가_27칸은_인벤토리_바로_아래_창_안쪽에_있다() {
+		// 예전에는 창 오른쪽 바깥(x 184~237)에 붙어 있었다. 창 밖이라 바닐라가
+		// 「창 밖을 눌렀다」로 읽고 들고 있던 아이템을 바닥에 버렸다.
+		ExpandedInventoryManager.extraFor(null).setClientActive(true);
+		Inventory inventory = new Inventory(null, new EntityEquipment());
+		ChestMenu menu = ChestMenu.threeRows(1, inventory);
+
+		int inventoryTop = menu.getSlot(27).y;
+		for (int extraIndex = 0; extraIndex < ExpandedInventoryManager.EXTRA_SIZE; extraIndex++) {
+			Slot slot = menu.getSlot(63 + extraIndex);
+			assertEquals(8 + (extraIndex % 9) * 18, slot.x);
+			assertEquals(inventoryTop + 54 + (extraIndex / 9) * 18, slot.y);
+			assertTrue(slot.x + 16 <= 176, "추가 칸이 창 넓이 176 안에 들어와야 한다");
+		}
+		assertEquals(inventoryTop + 112, menu.getSlot(54).y, "핫바가 추가 세 줄 아래로 내려가야 한다");
+		assertEquals(inventoryTop + 36, menu.getSlot(53).y, "바닐라 세 줄은 제자리여야 한다");
+	}
+
+	@Test
+	void 팀이_없으면_추가_칸을_치우고_핫바를_되돌린다() {
+		ExpandedInventoryManager.extraFor(null).setClientActive(false);
+		Inventory inventory = new Inventory(null, new EntityEquipment());
+		ChestMenu menu = ChestMenu.threeRows(1, inventory);
+
+		int inventoryTop = menu.getSlot(27).y;
+		assertEquals(inventoryTop + 58, menu.getSlot(54).y, "핫바가 바닐라 자리여야 한다");
+		for (int extraIndex = 0; extraIndex < ExpandedInventoryManager.EXTRA_SIZE; extraIndex++) {
+			Slot slot = menu.getSlot(63 + extraIndex);
+			assertFalse(slot.isActive(), "팀이 없으면 추가 칸은 꺼져 있어야 한다");
+			assertEquals(ExpandedInventoryManager.HIDDEN_Y, slot.y);
+		}
+	}
+
+	// --------------------------------------------------------- 쉬프트 클릭 연속성
+
+	@Test
+	void 상자_쉬프트클릭은_바닐라처럼_핫바_끝부터_채운다() {
+		// 추가 27칸이 메뉴 번호로는 맨 뒤에 있어서, 손대지 않으면 역방향 이동이
+		// 핫바보다 추가 칸을 먼저 채웠다.
+		ExpandedInventoryManager.extraFor(null).setClientActive(true);
+		Inventory inventory = new Inventory(null, new EntityEquipment());
+		ChestMenu menu = ChestMenu.threeRows(1, inventory);
+		menu.getSlot(0).set(new ItemStack(Items.DIAMOND, 3));
+
+		menu.quickMoveStack(null, 0);
+
+		assertEquals(3, menu.getSlot(62).getItem().getCount(), "핫바 맨 오른쪽이어야 한다");
+	}
+
+	@Test
+	void 바닐라_27칸과_추가_27칸은_합칠_때_하나의_공간이다() {
+		// 구간을 나눠 바닐라를 두 번 부르면 앞 구간의 빈칸이 뒤 구간의 합칠 자리보다
+		// 먼저 쓰인다. 그러면 같은 아이템이 한 칸에 모이지 않고 흩어진다.
+		ExpandedInventoryManager.extraFor(null).setClientActive(true);
+		Inventory inventory = new Inventory(null, new EntityEquipment());
+		ChestMenu menu = ChestMenu.threeRows(1, inventory);
+		menu.getSlot(27).set(new ItemStack(Items.DIAMOND, 60));
+		menu.getSlot(63).set(new ItemStack(Items.DIAMOND, 60));
+		menu.getSlot(0).set(new ItemStack(Items.DIAMOND, 8));
+
+		menu.quickMoveStack(null, 0);
+
+		assertEquals(64, menu.getSlot(27).getItem().getCount(), "바닐라 칸이 가득 차야 한다");
+		assertEquals(64, menu.getSlot(63).getItem().getCount(), "추가 칸도 함께 가득 차야 한다");
+		assertTrue(menu.getSlot(62).getItem().isEmpty(), "빈칸을 먼저 쓰면 안 된다");
+	}
+
+	@Test
+	void 핫바에서_쉬프트클릭하면_바닐라_세_줄_다음_추가_칸으로_이어진다() {
+		// 제작대는 핫바에서 올릴 때 「윗줄만」 범위(10~37)로 부른다. 그 범위에도
+		// 추가 27칸이 이어져야 위아래가 하나로 움직인다.
+		ExpandedInventoryManager.extraFor(null).setClientActive(true);
+		Inventory inventory = new Inventory(null, new EntityEquipment());
+		CraftingMenu menu = new CraftingMenu(1, inventory);
+		// 제작 격자를 먼저 채워 둡니다. 비어 있으면 바닐라가 그리로 먼저 보냅니다.
+		for (int index = 1; index < 37; index++) {
+			menu.getSlot(index).set(new ItemStack(Items.COBBLESTONE, 64));
+		}
+		menu.getSlot(37).set(new ItemStack(Items.DIAMOND, 4));
+
+		ItemStack moved = menu.quickMoveStack(null, 37);
+
+		assertEquals(4, moved.getCount());
+		assertEquals(4, menu.getSlot(46).getItem().getCount(),
+				"바닐라 세 줄이 가득 차면 추가 첫 칸으로 이어져야 한다");
+	}
+
+	@Test
+	void 팀이_없으면_쉬프트클릭이_추가_칸을_쓰지_않는다() {
+		ExpandedInventoryManager.extraFor(null).setClientActive(false);
+		Inventory inventory = new Inventory(null, new EntityEquipment());
+		ChestMenu menu = ChestMenu.threeRows(1, inventory);
+		for (int index = 27; index < 63; index++) {
+			menu.getSlot(index).set(new ItemStack(Items.COBBLESTONE, 64));
+		}
+		menu.getSlot(0).set(new ItemStack(Items.DIAMOND, 3));
+
+		menu.quickMoveStack(null, 0);
+
+		assertEquals(3, menu.getSlot(0).getItem().getCount(), "갈 곳이 없으므로 그대로여야 한다");
+		assertEquals(0, menu.slots.subList(63, 90).stream()
+				.map(Slot::getItem).mapToInt(ItemStack::getCount).sum(),
+				"꺼진 추가 칸에 들어가면 안 된다");
+	}
+
+	@Test
+	void 확장을_끄면_추가_칸_없이_바닐라_쉬프트클릭_그대로다() {
+		SharedFateMod.config.mainInventoryRows = 3;
+		try {
+			Inventory inventory = new Inventory(null, new EntityEquipment());
+			ChestMenu menu = ChestMenu.threeRows(1, inventory);
+
+			assertEquals(63, menu.slots.size(), "상자 27 + 기존 인벤 36");
+			menu.getSlot(0).set(new ItemStack(Items.DIAMOND, 3));
+
+			menu.quickMoveStack(null, 0);
+
+			assertEquals(3, menu.getSlot(62).getItem().getCount());
+		} finally {
+			SharedFateMod.config.mainInventoryRows = 6;
+		}
 	}
 }

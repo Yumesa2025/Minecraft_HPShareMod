@@ -371,7 +371,7 @@
       "id": "sharedfate:forbidden_ore",
       "icon": "minecraft:netherite_ingot",
       "name": "금기의 광석",
-      "description": "네더라이트 주괴를 3개 얻습니다. 대신 다이아몬드 도구와 방어구를 사용할 수 없습니다.",
+      "description": "네더라이트 주괴를 3개 얻습니다. 대신 다이아몬드 도구나 방어구를 핫바에 두거나 장착하면 계속 자동으로 버려집니다.",
       "rarity": "prism",
       "effects": [
         {
@@ -387,7 +387,8 @@
           "type": "item_ban",
           "tags": [
             "sharedfate:diamond_gear"
-          ]
+          ],
+          "discard": true
         }
       ]
     },
@@ -853,18 +854,18 @@
       "id": "sharedfate:void_step",
       "icon": "minecraft:wind_charge",
       "name": "허공답보",
-      "description": "공중에서 한 번 더 점프할 수 있고 점프력이 30% 증가합니다. 대신 낙하 피해가 2배가 됩니다.",
+      "description": "공중에서 한 번 더 점프할 수 있고 점프력이 50% 증가합니다. 대신 낙하 피해가 2배가 됩니다.",
       "rarity": "prism",
       "effects": [
         {
           "type": "double_jump",
-          "power": 0.42
+          "power": 0.62
         },
         {
           "type": "attribute",
           "attribute": "minecraft:jump_strength",
           "operation": "add_multiplied_total",
-          "amount": 0.3
+          "amount": 0.5
         },
         {
           "type": "attribute",
@@ -1266,20 +1267,16 @@
       "id": "sharedfate:excavator",
       "icon": "minecraft:netherite_pickaxe",
       "name": "굴착기",
-      "description": "돌의 채굴 속도가 ×3 이 됩니다. 대신 광석의 채굴 속도가 절반이 됩니다.",
+      "description": "모든 블록의 채굴 속도가 ×3 이 됩니다. 대신 광석은 채굴 속도가 절반으로 느려집니다.",
       "rarity": "gold",
       "effects": [
         {
           "type": "mining_speed",
-          "multiplier": 3.0,
-          "blocks": [
-            "#minecraft:base_stone_overworld",
-            "#minecraft:base_stone_nether"
-          ]
+          "multiplier": 3.0
         },
         {
           "type": "mining_speed",
-          "multiplier": 0.5,
+          "multiplier": 0.16666667,
           "blocks": [
             "#c:ores",
             "#minecraft:coal_ores",
@@ -1672,9 +1669,18 @@
       "id": "sharedfate:village_finder",
       "icon": "minecraft:compass",
       "name": "길잡이 나침반",
-      "description": "나침반이 가장 가까운 마을을 가리킵니다. 대신 몹에게 받는 피해가 ×1.3 이 됩니다.",
+      "description": "나침반을 1개 얻고, 그 나침반이 가장 가까운 마을을 가리킵니다. 대신 몹에게 받는 피해가 ×1.3 이 됩니다.",
       "rarity": "silver",
       "effects": [
+        {
+          "type": "item_grant",
+          "items": [
+            {
+              "id": "minecraft:compass",
+              "count": 1
+            }
+          ]
+        },
         {
           "type": "compass_target",
           "structure": "#minecraft:village",
@@ -1691,7 +1697,7 @@
       "id": "sharedfate:legacy",
       "icon": "minecraft:knowledge_book",
       "name": "유산",
-      "description": "전멸하면 지금 가진 도구·무기·방어구가 통째로 다음 회차 시작 인벤토리로 넘어옵니다. 대신 고르는 즉시 지금 가진 도구·무기·방어구를 전부 잃습니다.",
+      "description": "전멸하는 시점에 팀이 가진 도구·무기·방어구가 통째로 다음 회차 시작 인벤토리로 넘어옵니다. 대신 고르는 즉시 지금 가진 도구·무기·방어구를 전부 잃습니다.",
       "rarity": "prism",
       "effects": [
         {
@@ -1703,7 +1709,7 @@
       "id": "sharedfate:gambler",
       "icon": "minecraft:emerald",
       "name": "도박꾼",
-      "description": "등급에 상관없이 무작위 증강 2개를 더 얻습니다. 대신 그 대가로 15렙 바로 다음 두 구간(20·25렙)은 실버로 고정됩니다.",
+      "description": "등급에 상관없이 무작위 증강 2개를 더 얻습니다.",
       "rarity": "prism",
       "effects": [
         {

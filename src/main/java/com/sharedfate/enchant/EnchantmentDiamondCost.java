@@ -1,11 +1,9 @@
 package com.sharedfate.enchant;
 
-import com.sharedfate.inventory.ExpandedInventoryManager;
+import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-
-import java.util.List;
 
 /**
  * 인챈트 탁자의 대가를 경험치 레벨 대신 <b>다이아몬드</b>로 받습니다.
@@ -13,6 +11,14 @@ import java.util.List;
  * <p>바닐라는 칸마다 요구 레벨이 있었지만 이 모드는 <b>레벨을 아예 보지 않습니다.</b>
  * 레벨 0으로도 세 칸 모두 인챈트할 수 있고, 대신 다이아몬드를 냅니다. 청금석 요구량은
  * 바닐라 그대로 1·2·3 입니다.
+ *
+ * <h2>다이아몬드는 「칸」에서 받습니다</h2>
+ *
+ * <p>예전에는 인벤토리를 뒤져 걷었습니다. 사람이 실제로 해 보고 <b>「다이아 넣는 칸이
+ * 안 보인다」</b>고 했습니다 — 어디에 얼마를 넣어야 하는지 화면에 아무 단서가 없고, 인챈트
+ * 를 누르는 순간 인벤토리 어딘가에서 다이아몬드가 조용히 사라졌기 때문입니다. 지금은
+ * 청금석 칸 아래에 <b>진짜 칸</b>({@link EnchantmentDiamondSlot})이 있고 거기 있는 것만
+ * 셉니다.
  *
  * <h2>값을 바꾸려면</h2>
  *
@@ -60,50 +66,21 @@ public final class EnchantmentDiamondCost {
 		return shown;
 	}
 
-	/** 공유 인벤토리 36칸과 확장 패널 27칸에 있는 다이아몬드를 모두 셉니다. */
-	public static int count(Player player) {
-		if (player == null) {
+	/** 메뉴에 달린 다이아몬드 칸. 없으면 {@code null}. */
+	public static Container containerOf(Object menu) {
+		return menu instanceof EnchantmentDiamondAccess access
+				? access.sharedfate$diamondContainer()
+				: null;
+	}
+
+	/** 다이아몬드 칸에 들어 있는 개수. */
+	public static int count(Container diamonds) {
+		if (diamonds == null) {
 			return 0;
 		}
-		return count(mainItems(player)) + count(extraItems(player));
-	}
-
-	/** 한 칸을 쓸 수 있는지. 크리에이티브는 다이아몬드 없이도 됩니다. */
-	public static boolean canAfford(Player player, int slot) {
-		if (player == null) {
-			return false;
-		}
-		if (player.hasInfiniteMaterials()) {
-			return true;
-		}
-		return count(player) >= forSlot(slot);
-	}
-
-	/**
-	 * 다이아몬드를 실제로 걷습니다. 공유 인벤토리를 먼저 비우고 모자라면 확장 패널에서
-	 * 채웁니다.
-	 *
-	 * <p>반드시 {@code ContainerLevelAccess.execute(...)} 람다 안에서만 불러야 합니다.
-	 * 클라이언트의 접근자는 {@code NULL} 이라 람다가 돌지 않는데, 람다 밖에서 깎으면
-	 * 클라이언트에서도 아이템이 사라져 서버와 즉시 어긋납니다.
-	 *
-	 * @return 실제로 걷은 개수
-	 */
-	public static int consume(Player player, int slot) {
-		if (player == null || player.hasInfiniteMaterials()) {
-			return 0;
-		}
-		int wanted = forSlot(slot);
-		int taken = remove(mainItems(player), wanted);
-		if (taken < wanted) {
-			taken += remove(extraItems(player), wanted - taken);
-		}
-		return taken;
-	}
-
-	static int count(List<ItemStack> items) {
 		int found = 0;
-		for (ItemStack stack : items) {
+		for (int slot = 0; slot < diamonds.getContainerSize(); slot++) {
+			ItemStack stack = diamonds.getItem(slot);
 			if (stack.is(Items.DIAMOND)) {
 				found += stack.getCount();
 			}
@@ -111,10 +88,42 @@ public final class EnchantmentDiamondCost {
 		return found;
 	}
 
-	static int remove(List<ItemStack> items, int wanted) {
+	/** 메뉴에 든 다이아몬드 개수. 화면이 단추 숫자를 정할 때 씁니다. */
+	public static int countIn(Object menu) {
+		return count(containerOf(menu));
+	}
+
+	/** 한 칸을 쓸 수 있는지. 크리에이티브는 다이아몬드 없이도 됩니다. */
+	public static boolean canAfford(Player player, Container diamonds, int slot) {
+		if (player == null) {
+			return false;
+		}
+		if (player.hasInfiniteMaterials()) {
+			return true;
+		}
+		return count(diamonds) >= forSlot(slot);
+	}
+
+	/**
+	 * 다이아몬드 칸에서 실제로 걷습니다.
+	 *
+	 * <p>반드시 {@code ContainerLevelAccess.execute(...)} 람다 안에서만 불러야 합니다.
+	 * 클라이언트의 접근자는 {@code NULL} 이라 람다가 돌지 않는데, 람다 밖에서 깎으면
+	 * 클라이언트에서도 아이템이 사라져 서버와 즉시 어긋납니다.
+	 *
+	 * @return 실제로 걷은 개수
+	 */
+	public static int consume(Player player, Container diamonds, int slot) {
+		if (player != null && player.hasInfiniteMaterials()) {
+			return 0;
+		}
+		if (diamonds == null) {
+			return 0;
+		}
+		int wanted = forSlot(slot);
 		int taken = 0;
-		for (int index = 0; index < items.size() && taken < wanted; index++) {
-			ItemStack stack = items.get(index);
+		for (int index = 0; index < diamonds.getContainerSize() && taken < wanted; index++) {
+			ItemStack stack = diamonds.getItem(index);
 			if (!stack.is(Items.DIAMOND)) {
 				continue;
 			}
@@ -122,20 +131,12 @@ public final class EnchantmentDiamondCost {
 			stack.shrink(fromHere);
 			taken += fromHere;
 			if (stack.isEmpty()) {
-				items.set(index, ItemStack.EMPTY);
+				diamonds.setItem(index, ItemStack.EMPTY);
 			}
 		}
-		return taken;
-	}
-
-	private static List<ItemStack> mainItems(Player player) {
-		return player.getInventory().getNonEquipmentItems();
-	}
-
-	private static List<ItemStack> extraItems(Player player) {
-		if (!ExpandedInventoryManager.enabled()) {
-			return List.of();
+		if (taken > 0) {
+			diamonds.setChanged();
 		}
-		return ExpandedInventoryManager.extraFor(player).getItems();
+		return taken;
 	}
 }

@@ -121,6 +121,31 @@ class GearPerkEffectTest {
 	}
 
 	@Test
+	void item_ban_의_discard_는_안_적으면_거짓이다() {
+		ItemBanEffect effect = (ItemBanEffect) create("item_ban", """
+				{ "type": "item_ban", "tags": ["#sharedfate:diamond_gear"] }
+				""");
+
+		assertFalse(effect.discard(), "예전처럼 무력화만 하는 것이 기본값이어야 한다");
+	}
+
+	@Test
+	void item_ban_은_discard_를_읽는다() {
+		ItemBanEffect effect = (ItemBanEffect) create("item_ban", """
+				{ "type": "item_ban", "tags": ["#sharedfate:diamond_gear"], "discard": true }
+				""");
+
+		assertTrue(effect.discard());
+	}
+
+	@Test
+	void item_ban_의_discard_가_참_거짓이_아니면_버려진다() {
+		assertNull(PerkEffectType.ITEM_BAN.create("sharedfate:테스트", 0, json("""
+				{ "type": "item_ban", "tags": ["#sharedfate:diamond_gear"], "discard": "yes" }
+				""")));
+	}
+
+	@Test
 	void offhand_lock_은_아이템_이름이_있어야_한다() {
 		OffhandLockEffect effect = (OffhandLockEffect) create("offhand_lock",
 				"{ \"type\": \"offhand_lock\", \"item\": \"minecraft:totem_of_undying\" }");
@@ -202,6 +227,29 @@ class GearPerkEffectTest {
 		assertFalse(PerkGearRules.itemBanned(state, new ItemStack(Items.IRON_HELMET)));
 		// 칸 자체는 막히지 않는다. 철 투구는 그대로 쓸 수 있어야 한다.
 		assertFalse(PerkGearRules.slotBanned(state, EquipmentSlot.HEAD));
+	}
+
+	@Test
+	void discard_가_없는_item_ban_은_자동_폐기_대상이_아니다(@TempDir Path dir) throws IOException {
+		TeamState state = teamWith(dir, "sharedfate:forbidden");
+
+		assertTrue(PerkGearRules.itemBanned(state, new ItemStack(Items.DIAMOND_SWORD)),
+				"무력화는 여전히 걸려야 한다");
+		assertFalse(PerkGearRules.itemBanDiscards(state, new ItemStack(Items.DIAMOND_SWORD)),
+				"discard 를 안 적었으면 예전처럼 무력화만 하고 버리지는 않는다");
+	}
+
+	@Test
+	void discard_가_있는_item_ban_은_핫바_장착_아이템을_자동_폐기_대상으로_삼는다(@TempDir Path dir)
+			throws IOException {
+		TeamState state = teamWith(dir, "sharedfate:forbidden_discard");
+
+		assertTrue(PerkGearRules.itemBanDiscards(state, new ItemStack(Items.DIAMOND_SWORD)));
+		assertTrue(PerkGearRules.itemBanDiscards(state, new ItemStack(Items.DIAMOND_HELMET)));
+		assertFalse(PerkGearRules.itemBanDiscards(state, new ItemStack(Items.NETHERITE_SWORD)),
+				"막힌 무리가 아닌 아이템은 폐기 대상도 아니다");
+		assertFalse(PerkGearRules.itemBanDiscards(state, ItemStack.EMPTY));
+		assertFalse(PerkGearRules.itemBanDiscards((TeamState) null, new ItemStack(Items.DIAMOND_SWORD)));
 	}
 
 	@Test
@@ -412,6 +460,10 @@ class GearPerkEffectTest {
 				    { "id": "sharedfate:forbidden", "rarity": "prism", "name": "금기의 광석",
 				      "effects": [ { "type": "item_ban",
 				        "items": ["minecraft:diamond_sword", "minecraft:diamond_helmet"] } ] },
+				    { "id": "sharedfate:forbidden_discard", "rarity": "prism", "name": "금기의 광석(폐기)",
+				      "effects": [ { "type": "item_ban",
+				        "items": ["minecraft:diamond_sword", "minecraft:diamond_helmet"],
+				        "discard": true } ] },
 				    { "id": "sharedfate:totem", "rarity": "prism", "name": "손에 쥔 목숨",
 				      "effects": [ { "type": "offhand_lock",
 				        "item": "minecraft:totem_of_undying" } ] },

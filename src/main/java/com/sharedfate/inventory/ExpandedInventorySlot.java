@@ -4,7 +4,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
-public final class ExpandedInventorySlot extends Slot {
+public final class ExpandedInventorySlot extends Slot implements SelfPaintedSlot {
 	private final ExpandedInventoryContainer extra;
 
 	public ExpandedInventorySlot(ExpandedInventoryContainer extra, int slot, int x, int y) {

@@ -1,6 +1,8 @@
 package com.sharedfate.perk.effect;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.PerkEffect;
 import com.sharedfate.perk.PerkItemMatcher;
 import net.minecraft.world.item.ItemStack;
@@ -13,6 +15,7 @@ import org.jetbrains.annotations.Nullable;
  * <pre>
  * { "type": "item_ban", "tags": ["sharedfate:diamond_gear"] }
  * { "type": "item_ban", "items": ["minecraft:diamond_sword"], "tags": ["..."] }
+ * { "type": "item_ban", "tags": ["sharedfate:diamond_gear"], "discard": true }
  * </pre>
  *
  * <h2>"사용 불가"를 어떻게 정했는가</h2>
@@ -31,20 +34,37 @@ import org.jetbrains.annotations.Nullable;
  * {@link com.sharedfate.perk.PerkWeaponDamage}(공격력)에 흩어져 있고, 이미 입고 있던 장비를
  * 벗기는 일은 {@link com.sharedfate.perk.PerkGearManager} 가 맡는다.
  *
+ * <h2>{@code discard}: 무력화가 아니라 자동 폐기</h2>
+ * <p>{@code discard: true} 를 적으면 위의 "쓸모없이 만든다" 대신 <b>핫바에 있거나 장착된
+ * 상태 자체를 허용하지 않는다</b> — {@link com.sharedfate.perk.PerkGearManager} 의 주기 점검이
+ * 이 아이템이 핫바(9칸)에 있거나 방어구 칸에 걸쳐 있으면 그때마다 즉시 떨어뜨린다. 프리즘
+ * 「금기의 광석」이 쓴다. 인벤토리 깊숙이(핫바를 벗어난 칸) 보관하는 것은 막지 않는다 — 어차피
+ * 무력한 아이템을 쥐고만 있는 것과, 핫바·장착에서 계속 튕겨나가는 것은 다른 느낌이라 서버
+ * 주인이 대상 태그만 바꿔 둘 수 있게 별도 플래그로 뒀다. 적지 않으면 예전처럼 무력화만 한다.
+ *
  * <p>{@link #apply}/{@link #remove} 는 아무 일도 하지 않는다. 증강을 잃으면 물어볼 규칙이
  * 사라져 제한도 함께 풀린다.
  */
 public final class ItemBanEffect implements PerkEffect {
 	private final PerkItemMatcher matcher;
+	private final boolean discard;
 
-	public ItemBanEffect(PerkItemMatcher matcher) {
+	public ItemBanEffect(PerkItemMatcher matcher, boolean discard) {
 		this.matcher = matcher;
+		this.discard = discard;
 	}
 
 	/** JSON에서 만든다. 가리키는 아이템이 없으면 경고를 남기고 null. */
 	public static @Nullable PerkEffect fromJson(String perkId, int index, JsonObject json) {
 		PerkItemMatcher matcher = PerkItemMatcher.fromJson(perkId, "item_ban", json);
-		return matcher == null ? null : new ItemBanEffect(matcher);
+		if (matcher == null) {
+			return null;
+		}
+		Boolean discard = readBoolean(perkId, json, "discard", false);
+		if (discard == null) {
+			return null;
+		}
+		return new ItemBanEffect(matcher, discard);
 	}
 
 	/** 이 아이템이 막힌 무리에 들어가는가. */
@@ -54,5 +74,30 @@ public final class ItemBanEffect implements PerkEffect {
 
 	public PerkItemMatcher matcher() {
 		return matcher;
+	}
+
+	/**
+	 * 무력화 대신 핫바·장착에서 자동으로 떨어뜨리는가.
+	 *
+	 * <p>참이면 {@link com.sharedfate.perk.PerkGearManager} 가 핫바와 방어구 칸을 훑어 계속
+	 * 버린다. 거짓(기본값)이면 예전처럼 들고만 있을 수 있고 쓸모만 없어진다.
+	 */
+	public boolean discard() {
+		return discard;
+	}
+
+	/** 참·거짓 필드. 없으면 {@code fallback}, 적었는데 참·거짓이 아니면 null. */
+	private static @Nullable Boolean readBoolean(String perkId, JsonObject json, String key,
+			boolean fallback) {
+		JsonElement element = json.get(key);
+		if (element == null || element.isJsonNull()) {
+			return fallback;
+		}
+		if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isBoolean()) {
+			SharedFateMod.LOGGER.warn(
+					"증강 {}: item_ban 의 {} 가 참·거짓이 아닙니다 ({})", perkId, key, element);
+			return null;
+		}
+		return element.getAsBoolean();
 	}
 }

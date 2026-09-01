@@ -121,7 +121,10 @@ public final class RallyPointManager {
 
 	/** 대기 중인 복귀들을 한 틱씩 줄이고, 다 된 것은 돌려보낸다. */
 	public static void tick(MinecraftServer server) {
-		if (server == null || PENDING.isEmpty() || PerkChoiceSession.isActive()) {
+		// 게임 오버 카운트다운 5초 동안은 복귀시키지 않는다. 「정거장」의 복귀 지점은 검사를
+		// 거치지 않으므로, 종료 직전에 옮기면 막힌 자리에 박힌 채 저장될 수 있다.
+		if (server == null || PENDING.isEmpty() || PerkChoiceSession.isActive()
+				|| WorldResetCoordinator.countingDown()) {
 			return;
 		}
 		for (UUID teamId : List.copyOf(PENDING.keySet())) {

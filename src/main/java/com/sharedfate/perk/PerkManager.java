@@ -126,13 +126,10 @@ public final class PerkManager {
 		}
 		RandomSource random = server.overworld().getRandom();
 		for (int milestone : reached) {
-			// 도박꾼을 가진 팀은 프리즘(15렙) 바로 다음 두 구간(20·25렙)이 실버로 고정된다.
-			PerkRarity forcedRarity = PerkGambler.forcedRarity(state, milestone);
-			// 구간을 아는 채로 등급을 고정하는 경우도 milestone 을 함께 넘겨야
-			// min_level(예: 프리즘 「환골탈태」의 30) 이 지켜진다.
-			List<String> options = forcedRarity != null
-					? PerkDraft.draw(forcedRarity, milestone, PerkRegistry.all(), state.ownedPerks, random, OPTION_COUNT)
-					: PerkDraft.draw(milestone, PerkRegistry.all(), state.ownedPerks, random, OPTION_COUNT);
+			// 예전에는 도박꾼을 가진 팀이 15렙 바로 다음 두 구간(20·25렙)에서 실버로 고정됐지만
+			// (2026-09-01 7차에서) 그 대가를 없앴으므로 이제 이 구간도 평소대로 구간 규칙을 따른다.
+			List<String> options =
+					PerkDraft.draw(milestone, PerkRegistry.all(), state.ownedPerks, random, OPTION_COUNT);
 			state.lastPerkMilestone = milestone;
 			if (options.isEmpty()) {
 				SharedFateMod.LOGGER.warn(
@@ -494,17 +491,13 @@ public final class PerkManager {
 		// 즉시 지급은 여기서만 일어난다. refreshPlayer 는 접속·부활 때마다 다시 도는 길이라
 		// 거기에 두면 접속할 때마다 아이템이 불어난다. 한 증강은 한 회차에 한 번만 고를 수 있으므로
 		// 이 자리를 지나는 횟수도 증강마다 한 번뿐이다.
-		PerkItemGrants.grantOnChoice(server, team, state, perk);
-		// item_grant 와 정반대 방향(주는 대신 뺏는다)이지만 같은 이유로 여기서 딱 한 번만 부른다.
-		PerkLegacyGear.sacrificeOnChoice(server, team, state, perk);
-		// 도박꾼은 등급 상관없이 2개를 더 넣는다. applyToTeam 보다 앞에 넣어야 바로 효과가 돈다.
-		PerkGambler.grantOnChoice(server, team, state, perk, random);
-		// rarity_grant(숨은 재능·하늘의 은총)도 같은 이유로 여기서 한 번만 더 넣는다.
-		PerkRarityGrant.grantOnChoice(server, team, state, perk, random);
-		// rarity_reroll(환골탈태)은 반대로 지금까지 가진 것을 지우고 다시 채운다. 걷어내고
-		// 다시 거는 것까지 자체적으로 하므로(PerkManager.setPerksEnabled 왕복) 아래
-		// applyToTeam 보다 먼저 끝나 있어야 한다.
-		PerkRarityReroll.rerollOnChoice(server, team, state, perk, random);
+		//
+		// item_grant·legacy_gear·gambler·rarity_grant·rarity_reroll 다섯 즉시 지급 효과는
+		// PerkGrantChain 이 한 곳에서 처리한다. 무작위로 받은 증강이 또 즉시 지급 효과를
+		// 가지고 있으면(예: 「숨은 재능」이 뽑은 골드가 하필 「하늘의 은총」인 경우) 그것도
+		// 마저 처리해야 실제로 손에 들어온 증강이 전부 발동하기 때문이다. 자세한 내용과
+		// 무한 재귀를 막는 방법은 그 클래스에 적어 뒀다.
+		PerkGrantChain.run(server, team, state, perk, random);
 
 		applyToTeam(server, team, state);
 		// 몹에게 걸리는 증강은 폴링으로도 따라잡지만, 고른 즉시 반영되는 편이 자연스럽다.

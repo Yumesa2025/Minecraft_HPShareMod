@@ -79,7 +79,10 @@ class LegacyGearEffectTest {
 	// ------------------------------------------------------------------ 몰수 — 방어구
 
 	@Test
-	void 방어구_네_칸을_전부_비우고_보관한다(@TempDir Path dir) throws IOException {
+	void 방어구_네_칸을_전부_비우지만_승계_목록은_건드리지_않는다(@TempDir Path dir) throws IOException {
+		// 2026-09-01 7차부터: 다음 회차로 넘어가는 기준은 고르는 시점이 아니라 전멸하는
+		// 시점이다(PerkLegacyGear.captureAtDeath). 그래서 몰수는 없애기만 하고
+		// state.legacyGear 는 손대지 않는다.
 		Perk perk = loadSingle(dir, """
 				{ "id": "sharedfate:유산", "rarity": "prism", "name": "유산",
 				  "effects": [ { "type": "legacy_gear" } ] }
@@ -94,9 +97,8 @@ class LegacyGearEffectTest {
 
 		assertEquals(4, seized);
 		assertTrue(state.equipment.isEmpty(), "지금 입고 있던 방어구는 모두 벗겨져야 한다");
-		assertEquals(4, state.legacyGear.size());
-		assertTrue(state.legacyGear.stream().anyMatch(stack -> stack.is(Items.DIAMOND_HELMET)));
-		assertTrue(state.legacyGear.stream().anyMatch(stack -> stack.is(Items.DIAMOND_BOOTS)));
+		assertTrue(state.legacyGear.isEmpty(),
+				"몰수는 승계 목록을 채우지 않는다 — 그건 전멸하는 시점의 몫이다");
 	}
 
 	@Test
@@ -162,6 +164,74 @@ class LegacyGearEffectTest {
 		assertEquals(1, state.legacyGear.size(),
 				"전멸을 넘겨야 뜻이 있는 값이라 resetAfterDeath 가 비우면 안 된다");
 		assertTrue(state.legacyGear.getFirst().is(Items.DIAMOND_PICKAXE));
+	}
+
+	// ------------------------------------------------------------------ 전멸 시점 승계 (captureAtDeath)
+
+	@Test
+	void 전멸_시점에_가진_장비를_스냅샷으로_남긴다(@TempDir Path dir) throws IOException {
+		loadSingle(dir, """
+				{ "id": "sharedfate:유산", "rarity": "prism", "name": "유산",
+				  "effects": [ { "type": "legacy_gear" } ] }
+				""");
+		TeamState state = TeamState.fresh(20.0F);
+		state.ownedPerks.add("sharedfate:유산");
+		state.equipment.set(EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET));
+
+		int captured = PerkLegacyGear.captureAtDeath(state);
+
+		assertEquals(1, captured);
+		assertEquals(1, state.legacyGear.size());
+		assertTrue(state.legacyGear.getFirst().is(Items.DIAMOND_HELMET));
+	}
+
+	@Test
+	void 고를_때_없던_장비도_전멸_시점에_새로_갖췄으면_넘어간다(@TempDir Path dir) throws IOException {
+		// 고른 순간 몰수한 스냅샷이 아니라, 전멸하는 순간 실제로 가진 것이 기준이어야 한다.
+		Perk perk = loadSingle(dir, """
+				{ "id": "sharedfate:유산", "rarity": "prism", "name": "유산",
+				  "effects": [ { "type": "legacy_gear" } ] }
+				""");
+		TeamState state = TeamState.fresh(20.0F);
+		state.ownedPerks.add(perk.id());
+		// 고르는 순간: 아무것도 없어 몰수할 것도 없다.
+		assertEquals(0, PerkLegacyGear.sacrificeOnChoice(null, null, state, perk));
+
+		// 이후 회차를 진행하며 새로 투구를 갖췄다. 방어구 네 칸은 태그 판정 없이 직접 잡으므로
+		// (LegacyGearEffect 문서 참고) 데이터팩 없는 단위 시험에서도 실제로 잡히는지 볼 수 있다.
+		state.equipment.set(EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET));
+
+		int captured = PerkLegacyGear.captureAtDeath(state);
+
+		assertEquals(1, captured, "몰수 시점에 없던 장비도 전멸 시점엔 승계 대상이어야 한다");
+		assertTrue(state.legacyGear.getFirst().is(Items.DIAMOND_HELMET));
+	}
+
+	@Test
+	void 이전_전멸의_스냅샷을_새로_덮어쓴다(@TempDir Path dir) throws IOException {
+		loadSingle(dir, """
+				{ "id": "sharedfate:유산", "rarity": "prism", "name": "유산",
+				  "effects": [ { "type": "legacy_gear" } ] }
+				""");
+		TeamState state = TeamState.fresh(20.0F);
+		state.ownedPerks.add("sharedfate:유산");
+		state.legacyGear.add(new ItemStack(Items.DIAMOND_SHOVEL));
+		state.equipment.set(EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET));
+
+		int captured = PerkLegacyGear.captureAtDeath(state);
+
+		assertEquals(1, captured);
+		assertEquals(1, state.legacyGear.size(), "예전 스냅샷이 남아 새 것과 섞이면 안 된다");
+		assertTrue(state.legacyGear.getFirst().is(Items.DIAMOND_HELMET));
+	}
+
+	@Test
+	void 유산이_없으면_스냅샷을_뜨지_않는다(@TempDir Path dir) throws IOException {
+		TeamState state = TeamState.fresh(20.0F);
+		state.mainItems.set(0, new ItemStack(Items.DIAMOND_PICKAXE));
+
+		assertEquals(0, PerkLegacyGear.captureAtDeath(state));
+		assertTrue(state.legacyGear.isEmpty());
 	}
 
 	// ------------------------------------------------------------------ 도우미

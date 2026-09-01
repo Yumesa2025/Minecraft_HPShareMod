@@ -22,4 +22,10 @@ public interface AbstractContainerScreenAccessor {
 
 	@Accessor("topPos")
 	int sharedfate$getTopPos();
+
+	@Accessor("inventoryLabelX")
+	void sharedfate$setInventoryLabelX(int inventoryLabelX);
+
+	@Accessor("inventoryLabelY")
+	void sharedfate$setInventoryLabelY(int inventoryLabelY);
 }

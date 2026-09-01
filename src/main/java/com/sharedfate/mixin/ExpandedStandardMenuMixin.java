@@ -1,12 +1,13 @@
 package com.sharedfate.mixin;
 
 import com.sharedfate.inventory.ExpandedInventoryContainer;
-import com.sharedfate.inventory.ExpandedInventorySlot;
 import com.sharedfate.inventory.ExpandedInventoryManager;
+import com.sharedfate.inventory.ExpandedInventoryMoves;
+import com.sharedfate.inventory.ExpandedInventorySlot;
+import com.sharedfate.inventory.ExpandedMenuLayout;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -19,8 +20,28 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/**
+ * 상자·화로·제작대·인챈트 등 <b>바닐라 인벤토리를 끼워 넣는 모든 메뉴</b>에 추가 27칸을
+ * 붙입니다.
+ *
+ * <h2>어디에 붙이는가</h2>
+ *
+ * <p>메뉴 번호로는 <b>맨 뒤</b>에 붙습니다 — 앞에 끼우면 바닐라가 하드코딩해 둔 슬롯
+ * 번호가 전부 어긋납니다. 하지만 <b>화면에서는 인벤토리 세 줄 바로 아래</b>에 놓고 핫바를
+ * 그만큼 내립니다. 그래서 사람 눈에는 바닐라 인벤토리가 여섯 줄로 늘어난 것으로 보입니다.
+ *
+ * <p>예전에는 창 <b>오른쪽 바깥</b>에 세로로 붙였는데, 창 밖이라 바닐라가
+ * {@code hasClickedOutside} 로 「창 밖을 눌렀다」고 판정해 <b>들고 있던 아이템을 바닥에
+ * 버렸습니다.</b>
+ *
+ * <h2>{@code InventoryMenu} 만 빼는 이유</h2>
+ *
+ * <p>플레이어 인벤토리 화면은 {@code addStandardInventorySlots} 뒤에 <b>오프핸드 칸을 하나
+ * 더</b> 붙입니다. 여기서 끼워 넣으면 오프핸드가 45번이 아니게 되어 바닐라와 어긋납니다.
+ * 그래서 {@link ExpandedInventoryMenuMixin} 이 생성자 끝에서 따로 붙입니다.
+ */
 @Mixin(AbstractContainerMenu.class)
-public abstract class ExpandedStandardMenuMixin {
+public abstract class ExpandedStandardMenuMixin implements ExpandedMenuLayout {
 	@Shadow
 	@Final
 	public net.minecraft.core.NonNullList<Slot> slots;
@@ -28,23 +49,44 @@ public abstract class ExpandedStandardMenuMixin {
 	@Shadow
 	protected abstract Slot addSlot(Slot slot);
 
-	@Shadow
-	protected abstract boolean moveItemStackTo(ItemStack stack, int start, int end, boolean reverse);
+	@Unique
+	private int sharedfate$playerStart = ExpandedMenuLayout.NONE;
+	@Unique
+	private int sharedfate$extraStart = ExpandedMenuLayout.NONE;
+	@Unique
+	private int sharedfate$inventoryTop = ExpandedMenuLayout.NONE;
 
-	@Unique
-	private int sharedfate$standardInventoryStart = -1;
-	@Unique
-	private int sharedfate$extraStart = -1;
-	@Unique
-	private boolean sharedfate$movingToExtra;
+	@Override
+	public int sharedfate$playerSlotStart() {
+		return sharedfate$playerStart;
+	}
+
+	@Override
+	public int sharedfate$extraSlotStart() {
+		return sharedfate$extraStart;
+	}
+
+	@Override
+	public int sharedfate$inventoryTopY() {
+		return sharedfate$inventoryTop;
+	}
+
+	@Override
+	public void sharedfate$setExpandedLayout(
+			int playerSlotStart, int extraSlotStart, int inventoryTopY) {
+		sharedfate$playerStart = playerSlotStart;
+		sharedfate$extraStart = extraSlotStart;
+		sharedfate$inventoryTop = inventoryTopY;
+	}
 
 	@Inject(method = "addStandardInventorySlots", at = @At("HEAD"))
 	private void sharedfate$rememberStandardInventoryStart(
 			Container container, int x, int y, CallbackInfo ci) {
 		if (ExpandedInventoryManager.enabled()
 				&& container instanceof Inventory
-				&& !sharedfate$isSpecialPlayerMenu()) {
-			sharedfate$standardInventoryStart = slots.size();
+				&& !((Object) this instanceof InventoryMenu)) {
+			sharedfate$playerStart = slots.size();
+			sharedfate$inventoryTop = y;
 		}
 	}
 
@@ -53,48 +95,64 @@ public abstract class ExpandedStandardMenuMixin {
 			Container container, int x, int y, CallbackInfo ci) {
 		if (!ExpandedInventoryManager.enabled()
 				|| !(container instanceof Inventory inventory)
-				|| sharedfate$isSpecialPlayerMenu()
+				|| (Object) this instanceof InventoryMenu
 				|| sharedfate$extraStart >= 0) {
 			return;
 		}
 		ExpandedInventoryContainer extra = ExpandedInventoryManager.extraFor(inventory.player);
 		sharedfate$extraStart = slots.size();
-		int panelY = Math.max(0, y - 54);
-		for (int row = 0; row < 9; row++) {
-			for (int column = 0; column < 3; column++) {
-				int slot = column + row * 3;
-				addSlot(new ExpandedInventorySlot(extra, slot,
-						x + 176 + column * 18, panelY + row * 18));
-			}
+		for (int extraIndex = 0; extraIndex < ExpandedInventoryManager.EXTRA_SIZE; extraIndex++) {
+			int column = extraIndex % ExpandedInventoryManager.EXTRA_COLUMNS;
+			int row = extraIndex / ExpandedInventoryManager.EXTRA_COLUMNS;
+			addSlot(new ExpandedInventorySlot(extra, extraIndex,
+					x + column * ExpandedInventoryManager.SLOT_PITCH,
+					y + ExpandedInventoryManager.EXTRA_TOP_OFFSET
+							+ row * ExpandedInventoryManager.SLOT_PITCH));
 		}
+		ExpandedInventoryManager.updateMenuLayout(
+				(AbstractContainerMenu) (Object) this, extra.active());
 	}
 
-	@Inject(method = "moveItemStackTo", at = @At("RETURN"), cancellable = true)
-	private void sharedfate$fallBackToExtraInventory(
+	/**
+	 * 쉬프트 클릭이 <b>바닐라 27칸과 추가 27칸을 하나로</b> 보게 합니다.
+	 *
+	 * <p>바닐라 메뉴들은 「플레이어 인벤토리 전체」를 {@code (시작, 시작+36)} 으로,
+	 * 「윗줄만」을 {@code (시작, 시작+27)} 으로 부릅니다. 그 두 모양을 가로채 추가 27칸을
+	 * 끼운 목록으로 바꿔 넣습니다. 핫바만 지정한 {@code (시작+27, 시작+36)} 은 건드리지
+	 * 않습니다 — 핫바는 여전히 핫바입니다.
+	 *
+	 * <p>상자처럼 {@code (시작, slots.size())} 로 부르는 메뉴도 있습니다. 그 끝값은
+	 * 추가 27칸까지 포함하므로 함께 알아봅니다. 이 경우 바닐라 그대로 두면 역방향 이동이
+	 * <b>추가 칸부터</b> 채워, 상자에서 쉬프트 클릭한 물건이 핫바가 아니라 아래 칸으로
+	 * 날아갔습니다.
+	 */
+	@Inject(method = "moveItemStackTo", at = @At("HEAD"), cancellable = true)
+	private void sharedfate$moveAcrossExpandedInventory(
 			ItemStack stack, int start, int end, boolean reverse,
 			CallbackInfoReturnable<Boolean> cir) {
-		if (sharedfate$movingToExtra || stack.isEmpty()
-				|| sharedfate$standardInventoryStart < 0 || sharedfate$extraStart < 0) {
+		if (sharedfate$playerStart < 0 || sharedfate$extraStart < 0 || stack.isEmpty()
+				|| start != sharedfate$playerStart) {
 			return;
 		}
-		int standardEnd = sharedfate$standardInventoryStart + Inventory.INVENTORY_SIZE;
-		if (start > sharedfate$standardInventoryStart || end < standardEnd
-				|| end > sharedfate$extraStart) {
-			return;
-		}
-		sharedfate$movingToExtra = true;
-		try {
-			boolean moved = moveItemStackTo(
-					stack, sharedfate$extraStart,
-					sharedfate$extraStart + ExpandedInventoryManager.EXTRA_SIZE, reverse);
-			cir.setReturnValue(cir.getReturnValue() || moved);
-		} finally {
-			sharedfate$movingToExtra = false;
-		}
-	}
+		int extraSize = ExpandedInventoryManager.EXTRA_SIZE;
+		int mainEnd = sharedfate$playerStart + extraSize;
+		int hotbarEnd = mainEnd + ExpandedInventoryManager.EXTRA_COLUMNS;
 
-	@Unique
-	private boolean sharedfate$isSpecialPlayerMenu() {
-		return (Object) this instanceof InventoryMenu || (Object) this instanceof CraftingMenu;
+		int[] order;
+		if (end == hotbarEnd || end == sharedfate$extraStart
+				|| end == sharedfate$extraStart + extraSize) {
+			order = ExpandedInventoryMoves.order(
+					sharedfate$playerStart, extraSize,
+					sharedfate$extraStart, extraSize,
+					mainEnd, ExpandedInventoryManager.EXTRA_COLUMNS);
+		} else if (end == mainEnd) {
+			order = ExpandedInventoryMoves.order(
+					sharedfate$playerStart, extraSize,
+					sharedfate$extraStart, extraSize);
+		} else {
+			return;
+		}
+		cir.setReturnValue(ExpandedInventoryMoves.move(
+				(AbstractContainerMenu) (Object) this, stack, order, reverse));
 	}
 }

@@ -87,6 +87,25 @@ public final class PerkGearRules {
 	}
 
 	/**
+	 * 이 아이템이 무력화가 아니라 <b>자동 폐기</b> 대상인가.
+	 *
+	 * <p>{@code item_ban} 에 {@code discard: true} 가 적혀 있고 이 아이템이 그 무리에
+	 * 들어갈 때만 참이다. {@link com.sharedfate.perk.PerkGearManager} 가 핫바와 방어구 칸을
+	 * 훑을 때 이 답으로 "치워서 인벤토리로 보낼지"와 "그냥 떨어뜨릴지"를 가른다.
+	 */
+	public static boolean itemBanDiscards(@Nullable TeamState state, @Nullable ItemStack stack) {
+		if (stack == null || stack.isEmpty()) {
+			return false;
+		}
+		return find(state, ItemBanEffect.class, effect -> effect.discard() && effect.matches(stack)) != null;
+	}
+
+	/** 이 플레이어에게 그 아이템이 자동 폐기 대상인가. */
+	public static boolean itemBanDiscards(@Nullable ServerPlayer player, @Nullable ItemStack stack) {
+		return itemBanDiscards(activeState(player), stack);
+	}
+
+	/**
 	 * 지금 이 칸에 이 장비가 붙어 있으면 안 되는가.
 	 *
 	 * <p>칸이 막혔거나 아이템이 막혔으면 참이다. 이미 입고 있던 장비를 벗기는 판정에 쓴다.

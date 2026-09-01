@@ -11,6 +11,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -96,6 +97,7 @@ public final class PerkGearManager {
 		try {
 			int stowed = stripBlockedArmor(player, active);
 			stowed += enforceOffhandLock(player, active);
+			stowed += discardBannedHotbarItems(player, active);
 			if (stowed > 0 && player.containerMenu != null) {
 				player.containerMenu.broadcastChanges();
 			}
@@ -106,7 +108,14 @@ public final class PerkGearManager {
 
 	// ------------------------------------------------------------------ 방어구 벗기기
 
-	/** 막힌 칸이나 막힌 아이템을 벗겨 공유 인벤토리로 보낸다. */
+	/**
+	 * 막힌 칸이나 막힌 아이템을 벗긴다.
+	 *
+	 * <p>보통은 공유 인벤토리로 돌려보내지만, {@code item_ban} 에 {@code discard: true} 가
+	 * 걸린 이유로 벗겨진 것(예: 「금기의 광석」의 다이아몬드 방어구)은 돌려보내지 않고
+	 * 그 자리에서 떨어뜨린다. "장착할 때 계속 버려지게" 라는 대가가 실제로 버려지는 것이어야
+	 * 하기 때문이다 — 공유 인벤토리로 도로 넣으면 다시 입을 수 있을 뿐 잃는 것이 없다.
+	 */
 	private static int stripBlockedArmor(ServerPlayer player, TeamState state) {
 		int stowed = 0;
 		for (EquipmentSlot slot : EquipBanEffect.ARMOR_SLOTS) {
@@ -117,10 +126,51 @@ public final class PerkGearManager {
 			// 칸을 비우기 전에 사본을 뜬다. 칸을 비우면 원래 묶음을 누가 쥐고 있을지 보장이 없다.
 			ItemStack taken = worn.copy();
 			player.setItemSlot(slot, ItemStack.EMPTY);
-			stow(player, state, taken, "착용할 수 없는 장비를 벗었습니다");
+			if (PerkGearRules.itemBanDiscards(state, worn)) {
+				discard(player, taken, "금지된 방어구를 장착할 수 없어 버렸습니다");
+			} else {
+				stow(player, state, taken, "착용할 수 없는 장비를 벗었습니다");
+			}
 			stowed++;
 		}
 		return stowed;
+	}
+
+	// ------------------------------------------------------------------ 핫바 자동 폐기
+
+	/**
+	 * {@code item_ban} 에 {@code discard: true} 가 걸린 아이템이 핫바(9칸)에 있으면 떨어뜨린다.
+	 *
+	 * <p>핫바만 본다. 인벤토리 나머지 27칸은 건드리지 않는다 — 깊숙이 보관해 두는 것까지
+	 * 막으면 "가지고만 있어도 안 되는" 소지 금지가 되어 버리는데, 이 증강이 요구하는 것은
+	 * "손에 쥐고(핫바) 쓸 수 없게" 다. {@link net.minecraft.world.entity.player.Inventory}의
+	 * 핫바 판정을 그대로 쓴다({@code isHotbarSlot}) — 이 모드에서 핫바 칸이 바뀔 일은 없지만
+	 * 바닐라가 바뀌면 이 판정도 자동으로 따라온다.
+	 */
+	private static int discardBannedHotbarItems(ServerPlayer player, TeamState state) {
+		int discarded = 0;
+		Inventory inventory = player.getInventory();
+		int size = Inventory.getSelectionSize();
+		for (int slot = 0; slot < size; slot++) {
+			ItemStack stack = inventory.getItem(slot);
+			if (stack.isEmpty() || !PerkGearRules.itemBanDiscards(state, stack)) {
+				continue;
+			}
+			ItemStack taken = stack.copy();
+			inventory.setItem(slot, ItemStack.EMPTY);
+			discard(player, taken, "핫바에 금지된 아이템을 둘 수 없어 버렸습니다");
+			discarded++;
+		}
+		return discarded;
+	}
+
+	/** 아이템을 발밑에 떨어뜨리고 알린다. 공유 인벤토리로 돌아가지 않으므로 실제로 잃는다. */
+	private static void discard(ServerPlayer player, ItemStack stack, String reason) {
+		if (stack.isEmpty()) {
+			return;
+		}
+		player.drop(stack, true, false);
+		player.sendSystemMessage(Component.literal("[증강] " + reason + "."));
 	}
 
 	// ------------------------------------------------------------------ 왼손 고정

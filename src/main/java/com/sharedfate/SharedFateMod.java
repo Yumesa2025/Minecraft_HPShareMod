@@ -12,6 +12,7 @@ import com.sharedfate.perk.PerkCompassTargets;
 import com.sharedfate.perk.PerkHealthRules;
 import com.sharedfate.perk.PerkHolderManager;
 import com.sharedfate.perk.PerkKillRewards;
+import com.sharedfate.perk.PerkLegacyGear;
 import com.sharedfate.perk.PerkLifesteal;
 import com.sharedfate.perk.PerkManager;
 import com.sharedfate.perk.PerkRegistry;
@@ -25,6 +26,7 @@ import com.sharedfate.sync.EffectSync;
 import com.sharedfate.sync.DeathHandler;
 import com.sharedfate.sync.StatMirror;
 import com.sharedfate.sync.SharedHurtFeedback;
+import com.sharedfate.sync.WorldGameRules;
 import com.sharedfate.sync.WorldResetCoordinator;
 import com.sharedfate.sync.RunProgressManager;
 import com.sharedfate.sync.PositionSwapManager;
@@ -67,6 +69,9 @@ public class SharedFateMod implements ModInitializer {
 			TeamRosterStore.onServerStarted(server);
 			RunProgressManager.onServerStarted(server);
 			WorldResetCoordinator.onServerStarted(server);
+			// 발전과제 달성 알림 끄기. 회차마다 월드가 새로 만들어지므로 월드에 한 번 적어
+			// 두는 방식으로는 유지되지 않는다. 까닭은 WorldGameRules 에 적어 뒀다.
+			WorldGameRules.onServerStarted(server);
 			// 얼어 있는 채로 서버가 뜨는 일을 막는다. 강제 증강 선택이 남긴 시간 정지든
 			// 다른 이유든, 시작 시점에 멈춰 있으면 무조건 풀고 로그를 남긴다.
 			PerkManager.onServerStarted(server);
@@ -94,6 +99,7 @@ public class SharedFateMod implements ModInitializer {
 			PerkWorldRules.reset();
 			PerkCompassTargets.reset();
 			com.sharedfate.perk.PerkGearManager.reset();
+			PerkLegacyGear.reset();
 			TimedPerkEffects.reset();
 			MobPerkModifiers.reset();
 			com.sharedfate.sync.DifficultyEscalation.reset();
@@ -145,6 +151,9 @@ public class SharedFateMod implements ModInitializer {
 			PerkManager.onPlayerLeave(player);
 			PerkHolderManager.onPlayerLeave(player);
 		});
+		// 「유산」의 전멸 시점 승계 스냅샷. DeathHandler 가 공유 인벤토리를 비우기 전에 떠야
+		// 하므로 DeathHandler::onDeath 보다 반드시 먼저 등록한다(PerkLegacyGear 문서 참고).
+		ServerLivingEntityEvents.AFTER_DEATH.register(PerkLegacyGear::onDeath);
 		ServerLivingEntityEvents.AFTER_DEATH.register(DeathHandler::onDeath);
 		ServerLivingEntityEvents.AFTER_DEATH.register(RunProgressManager::onDeath);
 		// 처치 보상 증강(on_kill)의 등록 지점. 죽은 쪽이 몹이 아니면 곧바로 빠져나간다.

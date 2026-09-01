@@ -4,12 +4,11 @@
   "compatibilityLevel": "JAVA_25",
   "client": [
     "AbstractContainerScreenAccessor",
+    "AbstractRecipeBookScreenMixin",
     "ContainerScreenMixin",
-    "CraftingScreenMixin",
     "CreativeModeInventoryScreenMixin",
     "DeathScreenAccessor",
     "EnchantmentScreenMixin",
-    "InventoryScreenMixin",
     "MultiPlayerGameModeMixin",
     "ScreenAccessor"
   ],

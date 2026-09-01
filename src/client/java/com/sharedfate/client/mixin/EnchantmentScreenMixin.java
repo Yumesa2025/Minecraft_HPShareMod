@@ -5,16 +5,16 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.sharedfate.enchant.EnchantmentDiamondCost;
 import com.sharedfate.enchant.EnchantmentDiamondTooltip;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.EnchantmentScreen;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
 
@@ -41,6 +41,11 @@ import java.util.List;
  */
 @Mixin(EnchantmentScreen.class)
 public abstract class EnchantmentScreenMixin {
+	/** 「인벤토리」 글자를 옮길 자리. 조합법 단추 세 개(y 14~71) 바로 아래입니다. */
+	@Unique
+	private static final int INVENTORY_LABEL_X = 60;
+	@Unique
+	private static final int INVENTORY_LABEL_Y = 72;
 
 	/** 단추에 찍히는 숫자와 회색 판정의 기준값을 다이아몬드 개수로 바꿉니다. */
 	@ModifyExpressionValue(
@@ -121,9 +126,23 @@ public abstract class EnchantmentScreenMixin {
 		original.call(graphics, font, EnchantmentDiamondTooltip.rewrite(lines), mouseX, mouseY);
 	}
 
+	/**
+	 * 「인벤토리」 글자를 다이아몬드 칸 옆으로 옮깁니다.
+	 *
+	 * <p>바닐라는 그 글자를 (8, 72)에 찍는데, 다이아몬드 칸이 (15, 65)~(15, 82)를 쓰므로
+	 * 그대로 두면 글자가 칸 위에 겹쳐 찍힙니다. 인챈트 탁자에서 그 줄만 조합법 단추 아래
+	 * 빈자리로 밀어 둡니다.
+	 */
+	@Inject(method = "init", at = @At("RETURN"))
+	private void sharedfate$moveInventoryLabel(CallbackInfo ci) {
+		AbstractContainerScreenAccessor screen = (AbstractContainerScreenAccessor) this;
+		screen.sharedfate$setInventoryLabelX(INVENTORY_LABEL_X);
+		screen.sharedfate$setInventoryLabelY(INVENTORY_LABEL_Y);
+	}
+
 	@Unique
 	private int sharedfate$ownedDiamonds() {
-		LocalPlayer player = Minecraft.getInstance().player;
-		return player == null ? 0 : EnchantmentDiamondCost.count(player);
+		return EnchantmentDiamondCost.countIn(
+				((EnchantmentScreen) (Object) this).getMenu());
 	}
 }
