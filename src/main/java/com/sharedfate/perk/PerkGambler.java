@@ -17,56 +17,26 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * {@code gambler} 증강(프리즘 「도박꾼」)의 즉시 지급과, 그로 인한 20·25 구간 실버 고정을 맡는다.
+ * {@code gambler} 증강(프리즘 「도박꾼」)의 즉시 지급을 맡는다.
  *
- * <p><b>{@link #grantOnChoice}를 부르는 곳은 {@link PerkManager}의 {@code commit} 하나뿐이다.</b>
+ * <p><b>{@link #grantOnChoice}를 부르는 곳은 {@link PerkGrantChain} 하나뿐이다.</b>
  * {@link PerkItemGrants}·{@link PerkLegacyGear}와 같은 자리, 같은 시점이다. 증강은 한 회차에
  * 한 번만 고를 수 있으므로 이 자리를 지나는 것도 한 번뿐이다.
  *
- * <h2>등급 상관없이 2개</h2>
+ * <h2>등급 상관없이 2개, 대가 없음</h2>
  * <p>{@link PerkDraft}의 등급별 추첨과 달리 이건 <b>전체 풀(프리즘 포함)에서 등급을 가리지
  * 않고</b> 뽑는다. 그래서 {@code PerkDraft}를 재사용하지 않고 여기서 직접 뽑는다. 이미 가진
  * 증강(도박꾼 자기 자신 포함 — {@code commit}이 {@code ownedPerks}에 도박꾼을 넣은 <b>뒤에</b>
  * 이 메서드를 부르므로 이미 걸러진다)과 이번에 같이 뽑힌 것끼리도 중복되지 않는다.
+ *
+ * <p>예전에는 그 대가로 15렙 바로 다음 두 구간(20·25렙)을 실버로 고정했지만
+ * (2026-09-01 7차에서) 없앴다. 지금은 대가 없이 무작위 2개를 그냥 받는다.
  */
 public final class PerkGambler {
 	/** 한 번에 더 얻는 증강 수. */
 	public static final int GRANT_COUNT = 2;
 
-	/** 도박꾼을 가진 팀이 실버로 고정해서 뽑는 구간. 프리즘(15렙) 바로 다음 두 구간이다. */
-	private static final Set<Integer> FORCED_SILVER_MILESTONES = Set.of(20, 25);
-
 	private PerkGambler() {
-	}
-
-	/**
-	 * 이 팀이 도박꾼을 가졌고 지금 구간이 그 대가로 실버가 고정되는 구간이면 {@link PerkRarity#SILVER}.
-	 * 아니면 {@code null}(평소대로 구간 판정을 따른다).
-	 *
-	 * <p>{@code PerkManager.advanceMilestones}가 {@code PerkDraft.rarityFor} 대신 이 답을 쓸지
-	 * 정하는 자리다. 월드 없이 시험하려고 순수 함수로 뗐다.
-	 */
-	public static @Nullable PerkRarity forcedRarity(@Nullable TeamState state, int milestone) {
-		if (state == null || !FORCED_SILVER_MILESTONES.contains(milestone)) {
-			return null;
-		}
-		return ownsGambler(state) ? PerkRarity.SILVER : null;
-	}
-
-	/** 이 팀이 지금 도박꾼을 갖고 있는가. id 를 하드코딩하지 않고 효과 타입으로 판정한다. */
-	private static boolean ownsGambler(TeamState state) {
-		for (String perkId : state.ownedPerks) {
-			Perk perk = PerkRegistry.byId(perkId).orElse(null);
-			if (perk == null) {
-				continue;
-			}
-			for (PerkEffect effect : perk.effects()) {
-				if (effect instanceof GamblerEffect) {
-					return true;
-				}
-			}
-		}
-		return false;
 	}
 
 	/**
@@ -77,8 +47,19 @@ public final class PerkGambler {
 	 */
 	public static int grantOnChoice(@Nullable MinecraftServer server, @Nullable ShareTeam team,
 			@Nullable TeamState state, @Nullable Perk perk, @Nullable RandomSource random) {
+		return grantOnChoiceDetailed(server, team, state, perk, random).size();
+	}
+
+	/**
+	 * {@link #grantOnChoice}와 같은 일을 하지만, 실제로 더 준 증강 목록을 그대로 돌려준다.
+	 *
+	 * <p>{@link PerkGrantChain}이 이 목록을 받아 그중에도 다른 즉시 지급 효과(예: 무작위로
+	 * 뽑힌 증강이 하필 「하늘의 은총」인 경우)가 있으면 마저 처리한다.
+	 */
+	static List<Perk> grantOnChoiceDetailed(@Nullable MinecraftServer server, @Nullable ShareTeam team,
+			@Nullable TeamState state, @Nullable Perk perk, @Nullable RandomSource random) {
 		if (state == null || perk == null || random == null || !hasGambler(perk)) {
-			return 0;
+			return List.of();
 		}
 
 		List<Perk> pool = eligiblePool(state);
@@ -89,7 +70,7 @@ public final class PerkGambler {
 			state.ownedPerks.add(picked.id());
 		}
 		if (granted.isEmpty()) {
-			return 0;
+			return List.of();
 		}
 
 		SharedFateMod.LOGGER.info("[PERK] 증강 {} 로 무작위 증강 {}개를 더 얻었습니다: {}",
@@ -107,7 +88,7 @@ public final class PerkGambler {
 				}
 			}
 		}
-		return granted.size();
+		return List.copyOf(granted);
 	}
 
 	private static boolean hasGambler(Perk perk) {

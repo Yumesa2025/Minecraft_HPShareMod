@@ -166,6 +166,11 @@ public final class DifficultyEscalation {
 		if (server == null) {
 			return;
 		}
+		// 게임 오버 카운트다운 5초 동안은 시간을 세지 않는다. 회차가 이미 끝났으므로 그 5초는
+		// 「회차가 시작된 뒤 흐른 시간」이 아니다.
+		if (WorldResetCoordinator.countingDown()) {
+			return;
+		}
 		int highest;
 		try {
 			highest = advanceAndFindHighest(server);

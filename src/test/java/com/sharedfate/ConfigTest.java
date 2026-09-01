@@ -30,7 +30,10 @@ class ConfigTest {
 		assertEquals(30, config.damageAlertDurationTicks);
 		assertTrue(config.requireClientMod);
 		assertTrue(config.resetWorldOnTeamDeath);
-		assertEquals(160, config.worldResetDelayTicks);
+		// 게임 오버 카운트다운 5초. 사람이 정한 값이다.
+		assertEquals(100, config.worldResetDelayTicks);
+		assertTrue(config.silenceAdvancementMessages,
+				"발전과제 달성 알림은 기본으로 꺼져 있어야 한다");
 		assertTrue(config.showRunBossBar);
 		assertTrue(config.dragonKillEndsRun);
 		assertEquals(100, config.victoryCreditsDelayTicks);
@@ -79,6 +82,25 @@ class ConfigTest {
 		assertFalse(SharedFateConfig.loadOrCreate(file).singleTeamOnly);
 	}
 
+	/**
+	 * 발전과제 달성 알림은 기본으로 끄지만 되돌릴 수 있어야 한다.
+	 *
+	 * <p>규칙을 실제로 끄는 것은 살아 있는 서버가 있어야 하는 {@code WorldGameRules} 라
+	 * 단위 시험으로 닿지 않는다. 여기서는 <b>그 동작을 켜고 끄는 스위치</b>가 파일에 남고 다시
+	 * 읽히는지만 본다.
+	 */
+	@Test
+	void 발전과제_알림_끄기는_설정으로_되돌릴_수_있다(@TempDir Path dir) throws Exception {
+		Path file = dir.resolve("sharedfate.json");
+		Files.writeString(file, "{\"silenceAdvancementMessages\": false}", StandardCharsets.UTF_8);
+
+		SharedFateConfig config = SharedFateConfig.loadOrCreate(file);
+
+		assertFalse(config.silenceAdvancementMessages);
+		config.save(file);
+		assertFalse(SharedFateConfig.loadOrCreate(file).silenceAdvancementMessages);
+	}
+
 	@Test
 	void 깨진_파일이면_기본값으로_되돌리고_복구한다(@TempDir Path dir) throws Exception {
 		Path file = dir.resolve("sharedfate.json");
@@ -110,7 +132,7 @@ class ConfigTest {
 		assertEquals(4, config.maxTeamSize);
 		assertEquals(20.0, config.sharedMaxHealth);
 		assertEquals(30, config.damageAlertDurationTicks);
-		assertEquals(160, config.worldResetDelayTicks);
+		assertEquals(100, config.worldResetDelayTicks);
 		assertEquals(100, config.victoryCreditsDelayTicks);
 	}
 

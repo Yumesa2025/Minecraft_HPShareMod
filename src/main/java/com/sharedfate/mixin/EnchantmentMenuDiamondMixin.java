@@ -3,37 +3,132 @@ package com.sharedfate.mixin;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.sharedfate.enchant.EnchantmentDiamondAccess;
 import com.sharedfate.enchant.EnchantmentDiamondCost;
+import com.sharedfate.enchant.EnchantmentDiamondSlot;
+import com.sharedfate.inventory.ExpandedInventoryManager;
+import com.sharedfate.inventory.ExpandedInventoryMoves;
+import com.sharedfate.inventory.ExpandedMenuLayout;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.EnchantmentMenu;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import org.objectweb.asm.Opcodes;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.function.BiConsumer;
 
 /**
- * 인챈트의 대가를 경험치 레벨에서 <b>다이아몬드</b>로 바꿉니다.
+ * 인챈트의 대가를 경험치 레벨에서 <b>다이아몬드</b>로 바꾸고, 그 다이아몬드를 넣을
+ * <b>칸을 하나 만듭니다.</b>
  *
- * <p>바닐라 {@code clickMenuButton} 은 다섯 가지를 봅니다 — 청금석 개수, {@code costs[칸]},
- * 아이템칸이 비었는지, 레벨이 「칸 번호 + 1」 이상인지, 레벨이 {@code costs[칸]} 이상인지.
- * 이 중 <b>레벨을 보는 둘</b>을 무력화하고, 대신 다이아몬드 검사를 앞에 붙입니다.
- * {@code costs[칸]} 계산과 인챈트 위력 체계는 손대지 않습니다 — 그 숫자는 그대로
- * {@code getEnchantmentList} 로 들어가 인챈트의 세기를 정합니다.
+ * <h2>왜 칸을 만드는가</h2>
+ *
+ * <p>직전 판은 칸 없이 인벤토리에서 걷었습니다. 사람이 실제로 해 보고 「다이아 넣는 칸이
+ * 안 보인다」고 했습니다. 대가를 무엇으로 받든 <b>넣는 자리가 눈에 보여야</b> 합니다.
+ *
+ * <h2>어떻게 붙이는가</h2>
+ *
+ * <p>바닐라 {@code enchantSlots} 는 두 칸짜리({@code SimpleContainer(2)})입니다. 그 크기
+ * 상수를 {@code @ModifyConstant} 로 늘리는 것은 <b>위험합니다</b> — 같은 생성자에
+ * {@code enchantClue[2]}·{@code levelClue[2]} 가 있어 {@code iconst_2} 가 여러 번
+ * 나오고, 어느 것이 잡힐지 서술자만으로는 알 수 없습니다. 그래서 <b>한 칸짜리 그릇을
+ * 따로 만들어</b> 붙입니다. 그러면 다이아몬드를 넣고 뺄 때 {@code slotsChanged} 가 불리지
+ * 않아 인챈트 후보를 헛되이 다시 뽑는 일도 없습니다.
+ *
+ * <p>칸은 <b>맨 뒤</b>에 붙습니다. 앞에 끼우면 바닐라 {@code quickMoveStack} 이 쓰는
+ * 상수 {@code 2}·{@code 38}(플레이어 인벤토리의 시작과 끝)이 어긋납니다.
+ *
+ * <p><b>슬롯 수가 달라지므로 옛 클라이언트는 접속하면 안 됩니다.</b> 막는 수단은 악수
+ * 규약뿐이라 {@code PROTOCOL_VERSION} 을 함께 올렸습니다.
+ *
+ * <h2>창을 닫을 때</h2>
+ *
+ * <p>바닐라 {@code removed} 는 {@code enchantSlots} 만 비웁니다. 우리 그릇을 따로 비우지
+ * 않으면 <b>창을 닫는 순간 다이아몬드가 증발합니다.</b>
  *
  * <p><b>{@code clickMenuButton} 은 클라이언트에서도 그대로 돕니다.</b>
  * {@code EnchantmentScreen.mouseClicked} 가 패킷을 보내기 전에 로컬에서 부르고 참일 때만
  * 보냅니다. 그래서 검사는 양쪽에서 같이 돌아야 하고, <b>실제 차감은
- * {@code access.execute(...)} 안</b>이어야 합니다. 클라이언트의 접근자는
- * {@code ContainerLevelAccess.NULL} 이라 그 람다가 돌지 않습니다.
+ * {@code access.execute(...)} 안</b>이어야 합니다.
  */
 @Mixin(EnchantmentMenu.class)
-public abstract class EnchantmentMenuDiamondMixin {
+public abstract class EnchantmentMenuDiamondMixin implements EnchantmentDiamondAccess {
+	/** 다이아몬드 칸의 화면 좌표. 아이템 칸(15,47)·청금석 칸(35,47) 아래 한 줄입니다. */
+	@Unique
+	private static final int DIAMOND_SLOT_X = 15;
+	@Unique
+	private static final int DIAMOND_SLOT_Y = 65;
+
+	/** 바닐라 인챈트 메뉴에서 플레이어 인벤토리가 시작하는 번호. 아이템·청금석 다음입니다. */
+	@Unique
+	private static final int PLAYER_SLOT_START = 2;
+
+	@Shadow
+	@Final
+	private ContainerLevelAccess access;
+
+	@Unique
+	private Container sharedfate$diamonds;
+	@Unique
+	private int sharedfate$diamondSlot = EnchantmentDiamondAccess.NO_SLOT;
+
+	@Override
+	public Container sharedfate$diamondContainer() {
+		return sharedfate$diamonds;
+	}
+
+	@Override
+	public int sharedfate$diamondMenuSlot() {
+		return sharedfate$diamondSlot;
+	}
+
+	@Inject(
+			method = "<init>(ILnet/minecraft/world/entity/player/Inventory;"
+					+ "Lnet/minecraft/world/inventory/ContainerLevelAccess;)V",
+			at = @At("TAIL")
+	)
+	private void sharedfate$addDiamondSlot(
+			int containerId, Inventory inventory, ContainerLevelAccess levelAccess,
+			CallbackInfo ci) {
+		sharedfate$diamonds = new SimpleContainer(1);
+		sharedfate$diamondSlot = ((AbstractContainerMenu) (Object) this).slots.size();
+		((AbstractContainerMenuAccessor) this).sharedfate$invokeAddSlot(
+				new EnchantmentDiamondSlot(
+						sharedfate$diamonds, 0, DIAMOND_SLOT_X, DIAMOND_SLOT_Y));
+	}
+
+	/**
+	 * 창을 닫을 때 다이아몬드를 돌려줍니다.
+	 *
+	 * <p>바닐라와 똑같이 {@code access.execute} 안에서 합니다. 클라이언트의 접근자는
+	 * {@code NULL} 이라 람다가 돌지 않으므로, 여기서 비우는 일은 서버에서만 일어납니다.
+	 */
+	@Inject(method = "removed", at = @At("HEAD"))
+	private void sharedfate$returnDiamonds(Player player, CallbackInfo ci) {
+		Container diamonds = sharedfate$diamonds;
+		if (diamonds == null) {
+			return;
+		}
+		access.execute((level, pos) -> ((AbstractContainerMenuInvoker) this)
+				.sharedfate$invokeClearContainer(player, diamonds));
+	}
+
 	/** 다이아몬드가 모자라면 아예 누르지 못하게 합니다. 크리에이티브는 그대로 통과합니다. */
 	@Inject(
 			method = "clickMenuButton(Lnet/minecraft/world/entity/player/Player;I)Z",
@@ -46,7 +141,7 @@ public abstract class EnchantmentMenuDiamondMixin {
 			// 범위 밖은 바닐라가 기록을 남기고 거절합니다. 그 자리를 뺏지 않습니다.
 			return;
 		}
-		if (!EnchantmentDiamondCost.canAfford(player, id)) {
+		if (!EnchantmentDiamondCost.canAfford(player, sharedfate$diamonds, id)) {
 			cir.setReturnValue(false);
 		}
 	}
@@ -85,20 +180,89 @@ public abstract class EnchantmentMenuDiamondMixin {
 			method = "clickMenuButton(Lnet/minecraft/world/entity/player/Player;I)Z",
 			at = @At(
 					value = "INVOKE",
-					target = "Lnet/minecraft/world/inventory/ContainerLevelAccess;execute(Ljava/util/function/BiConsumer;)V"
+					target = "Lnet/minecraft/world/inventory/ContainerLevelAccess;"
+							+ "execute(Ljava/util/function/BiConsumer;)V"
 			)
 	)
 	private void sharedfate$chargeDiamonds(
-			ContainerLevelAccess access, BiConsumer<Level, BlockPos> enchantAction,
+			ContainerLevelAccess levelAccess, BiConsumer<Level, BlockPos> enchantAction,
 			Operation<Void> original, Player player, int id) {
 		EnchantmentMenu menu = (EnchantmentMenu) (Object) this;
-		original.call(access, (BiConsumer<Level, BlockPos>) (level, pos) -> {
+		original.call(levelAccess, (BiConsumer<Level, BlockPos>) (level, pos) -> {
 			// getGoldCount 는 이름과 달리 청금석 개수를 돌려줍니다.
 			int lapisBefore = menu.getGoldCount();
 			enchantAction.accept(level, pos);
 			if (menu.getGoldCount() < lapisBefore) {
-				EnchantmentDiamondCost.consume(player, id);
+				EnchantmentDiamondCost.consume(player, sharedfate$diamonds, id);
 			}
 		});
+	}
+
+	/**
+	 * 쉬프트 클릭이 다이아몬드 칸과 추가 27칸을 알아보게 합니다.
+	 *
+	 * <p>바닐라는 두 칸(아이템·청금석)과 플레이어 36칸만 압니다. 그 밖의 번호가 오면
+	 * 「아이템 칸에 한 개 넣기」로 처리해 버려서, 다이아몬드를 쉬프트 클릭하면 인챈트할
+	 * 물건 자리에 다이아몬드가 놓였습니다.
+	 */
+	@Inject(method = "quickMoveStack", at = @At("HEAD"), cancellable = true)
+	private void sharedfate$quickMoveDiamonds(
+			Player player, int index, CallbackInfoReturnable<ItemStack> cir) {
+		AbstractContainerMenu menu = (AbstractContainerMenu) (Object) this;
+		int extraStart = ((ExpandedMenuLayout) menu).sharedfate$extraSlotStart();
+		int extraSize = ExpandedInventoryManager.EXTRA_SIZE;
+		boolean fromExtra = extraStart >= 0
+				&& index >= extraStart && index < extraStart + extraSize;
+		boolean fromDiamondSlot = index == sharedfate$diamondSlot;
+		boolean fromPlayer = index >= PLAYER_SLOT_START
+				&& index < PLAYER_SLOT_START + 36;
+		if (!fromExtra && !fromDiamondSlot && !fromPlayer) {
+			return;
+		}
+
+		Slot slot = menu.getSlot(index);
+		if (!slot.hasItem() || !slot.mayPickup(player)) {
+			return;
+		}
+		ItemStack stack = slot.getItem();
+
+		// 플레이어 쪽에서 온 다이아몬드는 다이아몬드 칸으로 보냅니다.
+		if ((fromExtra || fromPlayer) && stack.is(Items.DIAMOND)
+				&& sharedfate$diamondSlot != EnchantmentDiamondAccess.NO_SLOT) {
+			sharedfate$finishQuickMove(player, cir, menu, slot, stack,
+					new int[] {sharedfate$diamondSlot}, false);
+			return;
+		}
+		// 다이아몬드 칸이나 추가 칸에서 온 것은 플레이어 인벤토리로 돌려보냅니다.
+		if (fromDiamondSlot || fromExtra) {
+			sharedfate$finishQuickMove(player, cir, menu, slot, stack,
+					ExpandedInventoryMoves.order(
+							PLAYER_SLOT_START, extraSize,
+							PLAYER_SLOT_START + extraSize,
+							ExpandedInventoryManager.EXTRA_COLUMNS),
+					false);
+		}
+	}
+
+	@Unique
+	private void sharedfate$finishQuickMove(
+			Player player, CallbackInfoReturnable<ItemStack> cir, AbstractContainerMenu menu,
+			Slot slot, ItemStack stack, int[] order, boolean reverse) {
+		ItemStack original = stack.copy();
+		if (!ExpandedInventoryMoves.move(menu, stack, order, reverse)) {
+			cir.setReturnValue(ItemStack.EMPTY);
+			return;
+		}
+		if (stack.isEmpty()) {
+			slot.setByPlayer(ItemStack.EMPTY, original);
+		} else {
+			slot.setChanged();
+		}
+		if (stack.getCount() == original.getCount()) {
+			cir.setReturnValue(ItemStack.EMPTY);
+			return;
+		}
+		slot.onTake(player, stack);
+		cir.setReturnValue(original);
 	}
 }

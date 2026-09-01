@@ -7,7 +7,7 @@ import com.sharedfate.team.TeamLookup;
 import com.sharedfate.team.TeamState;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -17,6 +17,30 @@ public final class ExpandedInventoryManager {
 	public static final int EXTRA_SIZE = 27;
 	public static final int VANILLA_INVENTORY_MENU_SIZE = 46;
 	public static final int EXPANDED_INVENTORY_MENU_SIZE = VANILLA_INVENTORY_MENU_SIZE + EXTRA_SIZE;
+
+	/** 한 줄에 들어가는 칸 수. */
+	public static final int EXTRA_COLUMNS = 9;
+	/** 추가 칸이 차지하는 줄 수. */
+	public static final int EXTRA_ROWS = EXTRA_SIZE / EXTRA_COLUMNS;
+	/** 칸 하나의 간격. */
+	public static final int SLOT_PITCH = 18;
+	/** 추가 세 줄이 잡아먹는 높이. 창도 이만큼 커집니다. */
+	public static final int EXTRA_PANEL_HEIGHT = EXTRA_ROWS * SLOT_PITCH;
+
+	/**
+	 * 인벤토리 첫 줄에서 <b>추가 첫 줄</b>까지의 거리.
+	 *
+	 * <p>바닐라 세 줄이 {@code y}, {@code y+18}, {@code y+36} 이므로 그 바로 아래입니다.
+	 */
+	public static final int EXTRA_TOP_OFFSET = EXTRA_ROWS * SLOT_PITCH;
+
+	/** 인벤토리 첫 줄에서 핫바까지의 거리. 바닐라 {@code addStandardInventorySlots} 값입니다. */
+	public static final int HOTBAR_OFFSET = 58;
+	/** 추가 세 줄이 끼어들었을 때의 핫바 거리. */
+	public static final int EXPANDED_HOTBAR_OFFSET = HOTBAR_OFFSET + EXTRA_PANEL_HEIGHT;
+
+	/** 숨긴 칸을 치워 두는 y. 화면 밖이라 그려지지도, 눌리지도 않습니다. */
+	public static final int HIDDEN_Y = -1000;
 
 	private static final Map<Player, ExpandedInventoryContainer> PLAYER_CONTAINERS =
 			Collections.synchronizedMap(new IdentityHashMap<>());
@@ -92,45 +116,49 @@ public final class ExpandedInventoryManager {
 	}
 
 	public static void updateMenuLayout(Player player, boolean expandedActive) {
-		if (player == null || player.inventoryMenu == null) {
+		if (player == null) {
 			return;
 		}
 		updateMenuLayout(player.inventoryMenu, expandedActive);
-		if (player.containerMenu instanceof CraftingMenu craftingMenu) {
-			updateCraftingMenuLayout(craftingMenu, expandedActive);
+		if (player.containerMenu != player.inventoryMenu) {
+			updateMenuLayout(player.containerMenu, expandedActive);
 		}
 	}
 
-	public static void updateMenuLayout(
-			net.minecraft.world.inventory.InventoryMenu menu, boolean expandedActive) {
-		if (!enabled() || menu.slots.size() < EXPANDED_INVENTORY_MENU_SIZE) {
+	/**
+	 * 메뉴 하나의 <b>핫바와 추가 27칸</b> 좌표를 다시 잡습니다.
+	 *
+	 * <p>추가 칸은 인벤토리 세 줄 <b>바로 아래</b>로 들어가고 핫바가 그만큼 내려갑니다.
+	 * 그래서 여섯 줄이 끊김 없이 이어져 보이고, 창 안쪽이라 바닐라 칸과 똑같이 눌립니다.
+	 * 예전에는 창 <b>오른쪽 바깥</b>에 붙어 있어서 바닐라가 「창 밖을 눌렀다」로 읽고
+	 * 들고 있던 아이템을 바닥에 버렸습니다.
+	 *
+	 * <p>팀에 속하지 않으면 추가 칸을 화면 밖({@link #HIDDEN_Y})으로 치우고 핫바를
+	 * 바닐라 자리로 되돌립니다.
+	 */
+	public static void updateMenuLayout(AbstractContainerMenu menu, boolean expandedActive) {
+		if (menu == null || !enabled() || !(menu instanceof ExpandedMenuLayout layout)) {
 			return;
 		}
-		for (int menuSlot = 36; menuSlot < 45; menuSlot++) {
-			((SlotAccessor) (Object) menu.getSlot(menuSlot))
-					.sharedfate$setY(expandedActive ? 196 : 142);
+		int playerStart = layout.sharedfate$playerSlotStart();
+		int extraStart = layout.sharedfate$extraSlotStart();
+		int inventoryTop = layout.sharedfate$inventoryTopY();
+		if (playerStart < 0 || extraStart < 0 || inventoryTop < 0
+				|| extraStart + EXTRA_SIZE > menu.slots.size()) {
+			return;
 		}
-		for (int menuSlot = 46; menuSlot < EXPANDED_INVENTORY_MENU_SIZE; menuSlot++) {
-			int extraIndex = menuSlot - VANILLA_INVENTORY_MENU_SIZE;
-			int y = expandedActive ? 138 + (extraIndex / 9) * 18 : -1000;
-			((SlotAccessor) (Object) menu.getSlot(menuSlot)).sharedfate$setY(y);
-		}
-	}
 
-	public static void updateCraftingMenuLayout(
-			CraftingMenu menu, boolean expandedActive) {
-		if (!enabled() || menu.slots.size() < EXPANDED_INVENTORY_MENU_SIZE) {
-			return;
+		int hotbarY = inventoryTop + (expandedActive ? EXPANDED_HOTBAR_OFFSET : HOTBAR_OFFSET);
+		for (int column = 0; column < EXTRA_COLUMNS; column++) {
+			((SlotAccessor) (Object) menu.getSlot(playerStart + EXTRA_SIZE + column))
+					.sharedfate$setY(hotbarY);
 		}
-		for (int menuSlot = 37; menuSlot < VANILLA_INVENTORY_MENU_SIZE; menuSlot++) {
-			((SlotAccessor) (Object) menu.getSlot(menuSlot))
-					.sharedfate$setY(expandedActive ? 196 : 142);
-		}
-		for (int menuSlot = VANILLA_INVENTORY_MENU_SIZE;
-				menuSlot < EXPANDED_INVENTORY_MENU_SIZE; menuSlot++) {
-			int extraIndex = menuSlot - VANILLA_INVENTORY_MENU_SIZE;
-			int y = expandedActive ? 138 + (extraIndex / 9) * 18 : -1000;
-			((SlotAccessor) (Object) menu.getSlot(menuSlot)).sharedfate$setY(y);
+		for (int extraIndex = 0; extraIndex < EXTRA_SIZE; extraIndex++) {
+			int y = expandedActive
+					? inventoryTop + EXTRA_TOP_OFFSET
+							+ (extraIndex / EXTRA_COLUMNS) * SLOT_PITCH
+					: HIDDEN_Y;
+			((SlotAccessor) (Object) menu.getSlot(extraStart + extraIndex)).sharedfate$setY(y);
 		}
 	}
 

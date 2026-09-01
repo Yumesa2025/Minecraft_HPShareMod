@@ -138,8 +138,13 @@ public final class TeamRosterStore {
 				return;
 			}
 			int restored = manager.restoreFreshRoster(load(file));
+			// 여기까지 왔다는 것은 월드에 팀이 하나도 없는데 명단 파일만 남아 있다는 뜻이다.
+			// 곧 전멸로 월드가 지워지고 새로 열렸다는 뜻이므로 회차를 저절로 시작한다.
+			// 「게임 시작」을 눌러야 하는 것은 1회차 전 한 번뿐이다.
+			int autoStarted = GameStartManager.beginNextRun(manager);
 			SharedFateMod.LOGGER.info(
-					"[TEAM-ROSTER] 새 월드 팀 명단 복원·공유 자원 초기화: teams={}", restored);
+					"[TEAM-ROSTER] 새 월드 팀 명단 복원·공유 자원 초기화: teams={}, 자동 시작={}",
+					restored, autoStarted);
 		} catch (IOException | IllegalArgumentException | IllegalStateException e) {
 			SharedFateMod.LOGGER.error(
 					"팀 명단 파일을 처리하지 못해 기존 월드 상태를 유지합니다: {}", file, e);

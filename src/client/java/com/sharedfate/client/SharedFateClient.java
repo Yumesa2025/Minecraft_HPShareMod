@@ -2,6 +2,7 @@ package com.sharedfate.client;
 
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.client.hud.DamageAlertHud;
+import com.sharedfate.client.hud.GameOverHud;
 import com.sharedfate.client.hud.HotbarHighlight;
 import com.sharedfate.client.hud.PerkProgressHud;
 import com.sharedfate.client.hud.TeamLevelHud;
@@ -136,6 +137,11 @@ public class SharedFateClient implements ClientModInitializer {
 		HudElementRegistry.addLast(
 				SharedFateMod.id("damage_alert"),
 				new DamageAlertHud());
+		// 전멸 뒤 서버 종료까지의 5초 카운트다운. 사망 화면 위에 겹쳐 보여야 하는데 HUD 가
+		// 화면보다 먼저 그려지므로, 단추에 가리지 않는 자리를 직접 골라 그린다.
+		HudElementRegistry.addLast(
+				SharedFateMod.id("game_over"),
+				new GameOverHud());
 		// 경험치 레벨 숫자 바로 뒤에 붙인다. 그려지는 자리도 그 옆이라 순서를 맞춰 둔다.
 		// F1 로 HUD 를 끄면 바닐라가 이 구간 자체를 건너뛰므로 같이 사라진다.
 		HudElementRegistry.attachElementAfter(

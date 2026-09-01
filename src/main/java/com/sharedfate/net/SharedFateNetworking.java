@@ -35,7 +35,11 @@ public final class SharedFateNetworking {
 	//     「게임 시작」 단추를 그릴지 정하는 값이라 이것 없이는 화면을 만들 수 없다.
 	//     TeamSyncPayload 의 형식 자체가 바뀌었으므로 예전 클라이언트는 팀 동기화를
 	//     아예 읽지 못한다. 이 판도 클라이언트를 함께 배포한다.
-	public static final int PROTOCOL_VERSION = 15;
+	// 16: 인챈트 다이아몬드 칸 — EnchantmentMenu 에 칸이 하나 늘었고, 확장 27칸이 창
+	//     오른쪽 바깥에서 플레이어 인벤토리 아래로 옮겨졌다. 묶음 형식은 그대로지만
+	//     서버와 클라이언트의 슬롯 수가 다르면 클라이언트가
+	//     IndexOutOfBoundsException 으로 죽는다. 막을 수단이 악수뿐이라 번호를 올린다.
+	public static final int PROTOCOL_VERSION = 16;
 
 	private SharedFateNetworking() {
 	}

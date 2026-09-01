@@ -8,6 +8,8 @@ import com.sharedfate.team.TeamState;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
@@ -195,6 +197,12 @@ public final class PerkClientRules {
 	 * <p>{@code fallDistance} 를 여기서 0 으로 되돌리면 떨어지던 중에 한 번 뛰는 것만으로
 	 * 낙하 피해가 통째로 사라진다. 「허공답보」의 대가가 낙하 피해 2배인데 오히려 낙하
 	 * 피해를 없애 주는 셈이라 앞뒤가 맞지 않는다. 그래서 위로 미는 일만 한다.
+	 *
+	 * <h2>세기는 덮어쓰되 깎지는 않는다</h2>
+	 * <p>위쪽 속도를 {@code power} 로 <b>덮어쓴다.</b> 떨어지던 속도를 지워야 "한 번 더
+	 * 뛰었다"가 되기 때문이다. 다만 이미 {@code power} 보다 빠르게 올라가고 있었다면 그대로
+	 * 둔다. 그러지 않으면 (폭발에 떠밀렸다든가 점프력 증강이 겹쳤다든가로) 빠르게 오르던
+	 * 중에 누른 공중 점프가 <b>속도를 깎아</b> 오히려 낮게 뛰는 결과가 된다.
 	 */
 	public static void onDoubleJumpRequest(@Nullable ServerPlayer player) {
 		if (player == null) {
@@ -229,10 +237,34 @@ public final class PerkClientRules {
 		LAST_ACCEPTED_TICK.put(playerId, now);
 
 		Vec3 motion = player.getDeltaMovement();
-		player.setDeltaMovement(motion.x, features.doubleJumpPower(), motion.z);
+		player.setDeltaMovement(motion.x, Math.max(features.doubleJumpPower(), motion.y), motion.z);
 		// 이걸 켜야 ServerEntity 가 다음 동기화에서 속도 패킷을 내려보낸다. 켜지 않으면
 		// 서버만 위로 올라가고 클라이언트 화면은 그대로 떨어진다.
 		player.hurtMarked = true;
+		playJumpSound(player);
+	}
+
+	/**
+	 * 공중 점프가 실제로 받아들여졌을 때 나는 소리.
+	 *
+	 * <p>고른 소리는 {@code minecraft:entity.breeze.jump} 다. 브리즈가 바람을 밟고 뛸 때
+	 * 나는 짧은 바람 소리라 「허공답보」가 하는 일과 그대로 겹치고, 아이콘으로 쓰는
+	 * {@code minecraft:wind_charge} 와도 같은 결이다. 변주가 둘 있어 연달아 뛰어도
+	 * 같은 소리가 반복되지 않는다.
+	 *
+	 * <p><b>주변에도 들린다.</b> {@code except} 를 null 로 두었으므로 뛴 사람을 포함해
+	 * 근처 모두가 듣는다. 최대 4명이 붙어 다니는 판이라, 동료가 갑자기 떠오르는 것을
+	 * 소리로 먼저 아는 편이 낫다. 세기를 0.7 로 낮춰 들리는 거리를 열 칸 남짓으로 줄였다.
+	 * 이동할 때마다 나는 소리는 크면 금세 거슬린다.
+	 *
+	 * <p>클라이언트가 키를 누르는 순간 스스로 내지 않는 이유는 이 자리가 <b>거절되지 않은</b>
+	 * 요청만 지나는 자리이기 때문이다. 클라이언트에서 내면 서버가 버린 요청에도 소리가 나
+	 * "소리는 났는데 안 뛰었다"가 된다. 대신 왕복만큼 늦지만, 몸이 떠오르는 순간과 소리가
+	 * 같이 오므로 어긋나 보이지는 않는다.
+	 */
+	private static void playJumpSound(ServerPlayer player) {
+		player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+				SoundEvents.BREEZE_JUMP, SoundSource.PLAYERS, 0.7F, 1.0F);
 	}
 
 	/** 다시 뛸 수 있는 상태인가. 땅·물·사다리를 모두 "발판"으로 본다. */

@@ -19,9 +19,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * {@code rarity_grant} 증강(실버 「숨은 재능」, 골드 「하늘의 은총」)의 즉시 지급을 맡는다.
  *
- * <p>{@link PerkGambler}와 같은 자리, 같은 시점 — {@link PerkManager#applyChoice}가 부르는
- * {@code commit} 한 곳에서, 증강을 고른 그 순간 딱 한 번 일어난다. 도박꾼과 달리 등급을
- * 가리므로 {@code PerkDraft}의 등급별 추첨과 같은 모양으로 후보를 좁힌다.
+ * <p>{@link PerkGambler}와 같은 자리, 같은 시점 — {@link PerkGrantChain}이 증강을 고른(또는
+ * 연쇄로 더 받은) 그 순간 처리한다. 도박꾼과 달리 등급을 가리므로 {@code PerkDraft}의 등급별
+ * 추첨과 같은 모양으로 후보를 좁힌다.
  */
 public final class PerkRarityGrant {
 	private PerkRarityGrant() {
@@ -34,19 +34,30 @@ public final class PerkRarityGrant {
 	 */
 	public static int grantOnChoice(@Nullable MinecraftServer server, @Nullable ShareTeam team,
 			@Nullable TeamState state, @Nullable Perk perk, @Nullable RandomSource random) {
-		if (state == null || perk == null || random == null) {
-			return 0;
-		}
-		int total = 0;
-		for (PerkEffect effect : perk.effects()) {
-			if (effect instanceof RarityGrantEffect grant) {
-				total += grantOne(server, team, state, perk, grant, random);
-			}
-		}
-		return total;
+		return grantOnChoiceDetailed(server, team, state, perk, random).size();
 	}
 
-	private static int grantOne(@Nullable MinecraftServer server, @Nullable ShareTeam team,
+	/**
+	 * {@link #grantOnChoice}와 같은 일을 하지만, 실제로 더 준 증강 목록을 그대로 돌려준다.
+	 *
+	 * <p>{@link PerkGrantChain}이 이 목록을 받아 그중에도 다른 즉시 지급 효과가 있으면 마저
+	 * 처리한다(예: 「숨은 재능」이 뽑은 골드가 하필 「하늘의 은총」인 경우).
+	 */
+	static List<Perk> grantOnChoiceDetailed(@Nullable MinecraftServer server, @Nullable ShareTeam team,
+			@Nullable TeamState state, @Nullable Perk perk, @Nullable RandomSource random) {
+		if (state == null || perk == null || random == null) {
+			return List.of();
+		}
+		List<Perk> total = new ArrayList<>();
+		for (PerkEffect effect : perk.effects()) {
+			if (effect instanceof RarityGrantEffect grant) {
+				total.addAll(grantOne(server, team, state, perk, grant, random));
+			}
+		}
+		return List.copyOf(total);
+	}
+
+	private static List<Perk> grantOne(@Nullable MinecraftServer server, @Nullable ShareTeam team,
 			TeamState state, Perk perk, RarityGrantEffect grant, RandomSource random) {
 		List<Perk> pool = eligiblePool(state, grant.rarity());
 		List<Perk> granted = new ArrayList<>(grant.count());
@@ -56,7 +67,7 @@ public final class PerkRarityGrant {
 			state.ownedPerks.add(picked.id());
 		}
 		if (granted.isEmpty()) {
-			return 0;
+			return List.of();
 		}
 
 		SharedFateMod.LOGGER.info("[PERK] 증강 {} 로 무작위 {} 등급 증강 {}개를 더 얻었습니다: {}",
@@ -74,7 +85,7 @@ public final class PerkRarityGrant {
 				}
 			}
 		}
-		return granted.size();
+		return List.copyOf(granted);
 	}
 
 	/** 아직 안 가진, 지정 등급의 증강 전부(중복 id 제거). */

@@ -16,13 +16,15 @@ import com.sharedfate.perk.PerkEffect;
  *
  * <h2>실제로 뽑고 주는 곳</h2>
  * <p>{@link com.sharedfate.perk.PerkManager#applyChoice}가 부르는
- * {@link com.sharedfate.perk.PerkGambler#grantOnChoice} 한 곳에서, 증강을 고른 그 순간
- * 딱 한 번 일어난다. {@code item_grant}·{@code legacy_gear}와 같은 시점, 같은 이유다.
+ * {@link com.sharedfate.perk.PerkGrantChain}이 {@link com.sharedfate.perk.PerkGambler
+ * #grantOnChoiceDetailed}를 불러 처리한다. {@code item_grant}·{@code legacy_gear}와 같은
+ * 시점, 같은 이유다. 이 지급으로 받은 증강이 또 즉시 지급 효과를 가지면(예: 하필 「하늘의
+ * 은총」이 뽑힌 경우) {@code PerkGrantChain}이 그것도 마저 처리한다.
  *
- * <h2>20·25 구간 실버 고정과의 관계</h2>
- * <p>이 클래스는 그 규칙 자체를 모른다. "이 팀이 도박꾼을 가졌는가"는
- * {@link com.sharedfate.perk.PerkGambler#forcedRarity}가 {@code state.ownedPerks}를 직접
- * 훑어 판단하고, {@code PerkManager.advanceMilestones}가 그 답에 따라 뽑을 등급을 바꾼다.
+ * <h2>대가는 없다</h2>
+ * <p>예전에는 그 대가로 15렙 바로 다음 두 구간(20·25렙)이 실버로 고정됐지만
+ * (2026-09-01 7차에서) 없앴다. 이 클래스는 그 규칙을 몰랐고(있을 때도 별도 규칙이었다),
+ * 지금은 아예 그런 부작용이 없다.
  */
 public final class GamblerEffect implements PerkEffect {
 	/** 상태가 없으므로 하나만 만들어 돌려쓴다. */

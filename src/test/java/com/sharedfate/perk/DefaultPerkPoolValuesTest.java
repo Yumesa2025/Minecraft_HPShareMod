@@ -129,11 +129,32 @@ class DefaultPerkPoolValuesTest {
 	}
 
 	@Test
-	void 허공답보는_점프력_30퍼센트도_준다(@TempDir Path dir) throws IOException {
+	void 허공답보는_점프력_50퍼센트도_준다(@TempDir Path dir) throws IOException {
 		Perk perk = perk(dir, "sharedfate:void_step");
 		AttributeEffect jump = attributeEffect(perk, "minecraft:jump_strength");
 
-		assertEquals(0.3, jump.amount(), 1.0e-9);
+		assertEquals(0.5, jump.amount(), 1.0e-9);
+	}
+
+	@Test
+	void 굴착기는_모든_블록_3배에_광석만_절반으로_느려진다(@TempDir Path dir) throws IOException {
+		perk(dir, "sharedfate:excavator");
+		com.sharedfate.team.TeamState state = com.sharedfate.team.TeamState.fresh(20.0F);
+		state.perksEnabled = true;
+		state.ownedPerks.add("sharedfate:excavator");
+
+		// 돌: 전체 블록 대상 ×3 효과에만 걸린다.
+		assertEquals(3.0,
+				PerkBlockBreaks.multiplierFor(state,
+						net.minecraft.world.level.block.Blocks.STONE.defaultBlockState()),
+				1.0e-6);
+		// 고대 잔해: 데이터팩 태그(#c:ores 등) 없이도 걸리는 개별 블록 id 라 단위 시험에서
+		// 확인할 수 있다. ×3(전체) × 광석 배율이 정확히 ×0.5 가 되어야 하므로, 광석 배율은
+		// 1/6 이어야 한다.
+		assertEquals(0.5,
+				PerkBlockBreaks.multiplierFor(state,
+						net.minecraft.world.level.block.Blocks.ANCIENT_DEBRIS.defaultBlockState()),
+				1.0e-6, "×3(전체) 와 곱해져 광석은 정확히 절반이 되어야 한다");
 	}
 
 	@Test

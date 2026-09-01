@@ -1,6 +1,8 @@
 package com.sharedfate.sync;
 
 import com.sharedfate.TestBootstrap;
+import com.sharedfate.team.ShareTeam;
+import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
@@ -8,6 +10,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,6 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * 아이템을 지우는 동작이라 「실수로 도는 길」이 없는지가 이 시험의 목적이다.
  */
 class GameStartTest {
+	private static final UUID MEMBER = UUID.fromString("00000000-0000-0000-0000-0000000000a1");
+
 	@BeforeAll
 	static void bootstrap() {
 		TestBootstrap.ensureInitialized();
@@ -52,15 +59,120 @@ class GameStartTest {
 		assertFalse(GameStartManager.blocksDamage(null));
 	}
 
+	// ------------------------------------------------------------------ 자동 시작
+
+	/**
+	 * 월드 초기화를 끈 서버({@code resetWorldOnTeamDeath=false})의 전멸.
+	 *
+	 * <p>같은 월드에서 그대로 이어 가므로 회차도 이어져야 한다. 여기서 「시작 대기」로 되돌리면
+	 * 사람이 단추를 다시 눌러야 하고, 그 단추가 방금 살아남은 것들까지 지운다.
+	 */
 	@Test
-	void 전멸하면_다시_시작_대기로_돌아간다() {
+	void 전멸해도_회차는_이어진다() {
 		TeamState state = TeamState.fresh(20.0F);
 		state.runStarted = true;
 
 		state.resetAfterDeath(20.0F, false);
 
-		assertFalse(state.runStarted,
-				"전멸은 회차의 끝이므로 다음 회차는 다시 「게임 시작」에서 시작해야 한다");
+		assertTrue(state.runStarted,
+				"「게임 시작」은 첫 회차 전 한 번뿐이므로 전멸해도 회차 시작 여부는 그대로다");
+	}
+
+	/** 아직 시작하지 않은 팀은 전멸해도 대기 그대로여야 한다 (시작 전에는 죽지도 않지만). */
+	@Test
+	void 시작하지_않은_팀은_전멸_처리에도_대기_그대로다() {
+		TeamState state = TeamState.fresh(20.0F);
+
+		state.resetAfterDeath(20.0F, false);
+
+		assertFalse(state.runStarted);
+	}
+
+	private static List<TeamRosterStore.RestoredTeam> roster(ShareTeam team, int swapIntervalTicks,
+			List<ItemStack> legacyGear) {
+		return List.of(new TeamRosterStore.RestoredTeam(team, true, 20.0F, swapIntervalTicks,
+				false, false, legacyGear, false));
+	}
+
+	@Test
+	void 새_월드에서_회차가_저절로_시작된다() {
+		TeamManager source = new TeamManager();
+		ShareTeam team = source.createTeam("화이팅", MEMBER, 20.0F);
+		TeamManager fresh = new TeamManager();
+		fresh.restoreFreshRoster(roster(team, 0, List.of()));
+		// 명단 복원만으로는 아직 「시작 대기」다. 회차를 켜는 것은 beginNextRun 이다.
+		assertFalse(fresh.stateByTeamId(team.teamId()).runStarted);
+
+		assertEquals(1, GameStartManager.beginNextRun(fresh));
+
+		assertTrue(fresh.stateByTeamId(team.teamId()).runStarted,
+				"전멸해서 새 월드로 넘어간 회차는 단추 없이 저절로 진행 중이어야 한다");
+	}
+
+	@Test
+	void 이미_시작한_팀은_자동_시작이_건드리지_않는다() {
+		TeamManager manager = new TeamManager();
+		ShareTeam team = manager.createTeam("화이팅", MEMBER, 20.0F);
+		TeamState state = manager.stateByTeamId(team.teamId());
+		state.runStarted = true;
+		state.positionSwapIntervalTicks = 6000;
+		state.positionSwapRemainingTicks = 40;
+
+		assertEquals(0, GameStartManager.beginNextRun(manager));
+
+		assertEquals(40, state.positionSwapRemainingTicks,
+				"진행 중인 회차의 남은 교환 시간을 되감으면 안 된다");
+	}
+
+	/**
+	 * 「유산」이 넘긴 장비는 자동 시작 때 인벤토리에 들어가야 한다.
+	 *
+	 * <p>{@code restoreFreshRoster} 는 목록만 들고 있고 인벤토리에 꽂지 않는다. 1회차 전이라면
+	 * 「게임 시작」이 아이템을 지운 뒤에 넣지만, 2회차부터는 그 「게임 시작」이 없으므로 여기서
+	 * 넣지 않으면 유산이 영영 사라진다.
+	 */
+	@Test
+	void 자동_시작이_유산_장비를_인벤토리에_넣는다() {
+		TeamManager source = new TeamManager();
+		ShareTeam team = source.createTeam("화이팅", MEMBER, 20.0F);
+		TeamManager fresh = new TeamManager();
+		fresh.restoreFreshRoster(roster(team, 0, List.of(new ItemStack(Items.DIAMOND_PICKAXE))));
+		TeamState state = fresh.stateByTeamId(team.teamId());
+		assertEquals(1, state.legacyGear.size(), "복원 직후에는 아직 들고만 있어야 한다");
+
+		GameStartManager.beginNextRun(fresh);
+
+		assertTrue(state.legacyGear.isEmpty(), "회차가 시작되면 목록이 비어야 한다");
+		assertTrue(state.overflowItems.isEmpty(), "빈 인벤토리라 넘칠 것이 없다");
+		assertEquals(Items.DIAMOND_PICKAXE, state.mainItems.get(0).getItem());
+	}
+
+	/**
+	 * 위치 교환의 남은 시간.
+	 *
+	 * <p>{@code restoreFreshRoster} 는 주기만 이어받고 남은 시간은 0 으로 둔다. 예전에는 그
+	 * 뒤에 오는 「게임 시작」이 채웠는데, 자동 시작에는 그 자리가 없으므로 여기서 채우지 않으면
+	 * 새 월드에 들어서자마자 첫 교환이 터진다.
+	 */
+	@Test
+	void 자동_시작이_위치_교환_남은_시간을_주기로_채운다() {
+		TeamManager source = new TeamManager();
+		ShareTeam team = source.createTeam("화이팅", MEMBER, 20.0F);
+		TeamManager fresh = new TeamManager();
+		fresh.restoreFreshRoster(roster(team, 6000, List.of()));
+		TeamState state = fresh.stateByTeamId(team.teamId());
+		assertEquals(0, state.positionSwapRemainingTicks);
+
+		GameStartManager.beginNextRun(fresh);
+
+		assertEquals(6000, state.positionSwapRemainingTicks,
+				"첫 교환은 새 회차가 열린 뒤 한 주기가 지나야 온다");
+	}
+
+	@Test
+	void 팀이_없으면_자동_시작할_것도_없다() {
+		assertEquals(0, GameStartManager.beginNextRun(null));
+		assertEquals(0, GameStartManager.beginNextRun(new TeamManager()));
 	}
 
 	// ------------------------------------------------------------------ 저장 호환

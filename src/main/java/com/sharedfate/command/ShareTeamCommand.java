@@ -527,7 +527,8 @@ public final class ShareTeamCommand {
 		if (state.runStarted) {
 			context.getSource().sendFailure(Component.literal(
 					"이미 " + RunProgressManager.runNumber() + "회차가 진행 중입니다."
-							+ " 다시 시작하려면 팀이 전멸해 회차가 넘어가야 합니다."));
+							+ " 게임 시작은 첫 회차 전에 한 번만 누릅니다."
+							+ " 전멸해서 다음 회차로 넘어가면 새 월드에서 저절로 시작됩니다."));
 			return 0;
 		}
 
@@ -542,6 +543,8 @@ public final class ShareTeamCommand {
 						+ (online < team.size()
 								? "\n  접속하지 않은 팀원은 옮길 수 없습니다. 다 모인 뒤에 시작하십시오."
 								: "")
+						+ "\n이 단추는 첫 회차 전에 한 번만 누릅니다. 전멸해서 다음 회차로 넘어가면"
+						+ " 새 월드에서 저절로 시작됩니다."
 						+ "\n시작하려면 /shareteam start confirm 을 입력하세요."), false);
 		return 1;
 	}
@@ -634,6 +637,7 @@ public final class ShareTeamCommand {
 				/shareteam start confirm — 실제로 시작합니다. 되돌릴 수 없습니다
 				  모든 아이템이 사라지고, 시각이 1일차 아침이 되고, 팀원이 스폰으로 모입니다.
 				  누르기 전에는 증강 구간·위치 교환·난이도 상승이 돌지 않고 팀원은 죽지 않습니다.
+				  첫 회차 전에 한 번만 누릅니다. 다음 회차부터는 새 월드에서 저절로 시작됩니다.
 				/shareteam — 팀 화면을 엽니다 (모드가 있는 클라이언트)
 				/shareteam invite <플레이어> — 상대를 곧바로 팀에 넣습니다 (리더)
 				/shareteam status — 지금 정해져 있는 설정을 봅니다
@@ -696,7 +700,8 @@ public final class ShareTeamCommand {
 	 * {@code /shareteam status} 의 회차 한 줄.
 	 *
 	 * <p>시작 전에는 무엇을 눌러야 하는지까지 적는다. 「시작 대기」라고만 적으면 무엇을 기다리는
-	 * 것인지 알 수 없다.
+	 * 것인지 알 수 없다. 이 줄이 보이는 것은 <b>첫 회차 전뿐</b>이다 — 그 뒤로는 새 월드가
+	 * 열릴 때 회차가 저절로 시작된다.
 	 */
 	private static String runLine(TeamState state) {
 		int runNumber = RunProgressManager.runNumber();

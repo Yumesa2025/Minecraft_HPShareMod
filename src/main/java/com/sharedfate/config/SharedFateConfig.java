@@ -3,6 +3,7 @@ package com.sharedfate.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.sharedfate.SharedFateMod;
+import com.sharedfate.ui.GameOverCountdown;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -40,7 +41,24 @@ public class SharedFateConfig {
 	public int damageAlertDurationTicks = 30;
 	public boolean requireClientMod = true;
 	public boolean resetWorldOnTeamDeath = true;
-	public int worldResetDelayTicks = 160;
+	/**
+	 * 팀이 전멸한 순간부터 서버가 종료될 때까지의 시간(틱). <b>화면에 뜨는 게임 오버
+	 * 카운트다운의 길이</b>가 곧 이 값이다. 100틱 = 5초.
+	 *
+	 * <p>이 시간이 지나면 표식 파일을 남기고 서버를 정상 종료하며, 월드를 지우고 다시 여는 일은
+	 * 재시작 루프 스크립트가 한다. 자세한 것은
+	 * {@link com.sharedfate.sync.WorldResetCoordinator} 에 적어 뒀다.
+	 */
+	public int worldResetDelayTicks = 100;
+	/**
+	 * 발전과제(도전 과제) 달성을 채팅에 뿌리지 않는다.
+	 *
+	 * <p>바닐라 게임 규칙 {@code show_advancement_messages}(예전 이름
+	 * {@code announceAdvancements})를 <b>서버가 뜰 때마다</b> 끈다. 회차가 바뀌어 월드가 새로
+	 * 만들어져도 유지되어야 하므로 명령이나 {@code level.dat} 이 아니라 코드로 맞춘다. 까닭은
+	 * {@link com.sharedfate.sync.WorldGameRules} 에 적어 뒀다.
+	 */
+	public boolean silenceAdvancementMessages = true;
 	public boolean showRunBossBar = true;
 	public boolean dragonKillEndsRun = true;
 	/**
@@ -117,7 +135,7 @@ public class SharedFateConfig {
 		}
 		if (worldResetDelayTicks < MIN_WORLD_RESET_DELAY_TICKS
 				|| worldResetDelayTicks > MAX_WORLD_RESET_DELAY_TICKS) {
-			worldResetDelayTicks = 160;
+			worldResetDelayTicks = GameOverCountdown.DEFAULT_SECONDS * GameOverCountdown.TICKS_PER_SECOND;
 			changed = true;
 		}
 		if (victoryCreditsDelayTicks < 20 || victoryCreditsDelayTicks > 1200) {

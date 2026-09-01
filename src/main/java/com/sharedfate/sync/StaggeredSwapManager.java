@@ -97,7 +97,10 @@ public final class StaggeredSwapManager {
 
 	/** 진행 중인 시퀀스가 있는 팀들을 한 걸음씩 밀어 준다. */
 	public static void tick(MinecraftServer server) {
-		if (server == null || ACTIVE.isEmpty() || PerkChoiceSession.isActive()) {
+		// 게임 오버 카운트다운 5초 동안은 걸음을 진행하지 않는다. 회차가 이미 끝났으므로
+		// 종료 직전에 사람을 옮길 이유가 없다.
+		if (server == null || ACTIVE.isEmpty() || PerkChoiceSession.isActive()
+				|| WorldResetCoordinator.countingDown()) {
 			return;
 		}
 		for (UUID teamId : List.copyOf(ACTIVE.keySet())) {

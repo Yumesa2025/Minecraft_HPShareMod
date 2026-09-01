@@ -36,6 +36,18 @@ import java.util.UUID;
  * 시작했다. 그래서 팀을 만들기 전에 돌아다닌 시간도, 팀원을 기다리며 서 있던 시간도 전부
  * 회차에 들어갔다. 회차의 시작점을 사람이 정하는 한 순간으로 옮긴 것이 이 클래스다.
  *
+ * <h2>누르는 것은 <b>1회차 전 한 번뿐</b>이다</h2>
+ * <p>기다림이 필요한 자리는 <b>팀을 만들고 팀원을 모으는 동안</b>뿐이다. 전멸해서 회차가
+ * 넘어갈 때는 이미 다 모여 있고 새 월드도 비어 있으므로, 거기서 또 단추를 요구하면 회차마다
+ * 아무 뜻 없는 확인을 한 번씩 더 하는 것이 된다. 그래서 <b>2회차부터는 새 월드가 열릴 때
+ * 저절로 「진행 중」</b>이 된다({@link #beginNextRun}). 사람이 그렇게 정했다.
+ *
+ * <p>자동 시작이 「게임 시작」과 같은 일을 다시 하지는 않는다. 새 월드는 시각이 이미 0 이고
+ * 팀 상태도 {@code TeamState.fresh} 로 새로 만들어져 아이템·경험치·증강 구간이 전부 비어
+ * 있으며, 접속하는 사람은 어차피 월드 스폰에 떨어진다. <b>남는 일은 둘</b>이다 —
+ * 「유산」이 넘긴 장비를 인벤토리에 넣는 것과, 위치 교환의 남은 시간을 주기 그대로 채우는 것.
+ * 둘 다 {@link #beginNextRun} 이 한다.
+ *
  * <h2>누르면 무엇이 일어나는가</h2>
  * <ol>
  *   <li>{@link TeamState#runStarted} 가 참이 된다 — 「대기」에서 「진행 중」으로.</li>
@@ -123,8 +135,18 @@ public final class GameStartManager {
 	 * 되돌아가므로 남는 것이 없다.
 	 *
 	 * <p>팀에 속하지 않은 사람과 몹은 첫 줄에서 곧바로 빠져나간다.
+	 *
+	 * <h2>게임 오버 카운트다운 5초도 여기서 막는다</h2>
+	 * <p>전멸이 확정되고 서버가 종료되기까지의 5초 동안은 <b>사람이든 몹이든</b> 피해를 전부
+	 * 버린다. 이미 예약된 「폭발 교환」이 종료 직전에 터지거나, 관전자가 아닌 다른 접속자가
+	 * 그 사이에 죽어 또 하나의 전멸 처리가 도는 일을 없애기 위해서다. 회차는 이미 끝났으므로
+	 * 그 5초에 일어나는 피해에는 아무 뜻이 없다. 자세한 것은
+	 * {@link WorldResetCoordinator#countingDown()} 에 적어 뒀다.
 	 */
 	public static boolean blocksDamage(@Nullable Entity entity) {
+		if (WorldResetCoordinator.countingDown()) {
+			return true;
+		}
 		if (!(entity instanceof ServerPlayer player)) {
 			return false;
 		}
@@ -149,6 +171,56 @@ public final class GameStartManager {
 			}
 		}
 		return false;
+	}
+
+	// ------------------------------------------------------------------ 자동 시작
+
+	/**
+	 * 전멸 뒤 새로 열린 월드에서 <b>2회차부터의 회차를 저절로 시작한다.</b>
+	 *
+	 * <p>부르는 곳은 {@code TeamRosterStore.onServerStarted} 하나뿐이다. 그 자리는
+	 * <b>월드에 팀이 하나도 없고 명단 파일만 남아 있을 때</b>, 즉 전멸로 월드가 지워지고 새로
+	 * 열렸을 때만 지난다. 팀을 만들고 아직 시작하지 않은 채 서버를 껐다 켠 경우에는 월드에 팀이
+	 * 그대로 있으므로 이 길로 오지 않는다 — 그 팀은 「시작 대기」로 남는다.
+	 *
+	 * <h2>「게임 시작」이 하던 일 중 여기서 다시 하는 것</h2>
+	 * <p>{@link #start} 가 하는 일곱 가지 가운데 <b>다섯은 이미 되어 있다.</b> 월드가 방금
+	 * 만들어졌으므로 시각은 0 이고, 팀 상태는 {@code TeamState.fresh} 라 아이템·경험치·체력·
+	 * 상태이상·증강 구간·다시 뽑기가 전부 회차 처음 값이며, 접속하는 사람은 새 월드의 스폰에
+	 * 떨어진다. 그래서 여기서 실제로 하는 일은 셋뿐이다.
+	 *
+	 * <ol>
+	 *   <li>{@link TeamState#runStarted} 를 올린다.</li>
+	 *   <li><b>「유산」이 넘긴 장비를 인벤토리에 넣는다.</b> 회차 경계를 넘겨 지키기로 한
+	 *       유일한 물건이라 새 월드의 빈 인벤토리에 반드시 들어가야 한다.</li>
+	 *   <li><b>위치 교환의 남은 시간을 주기 그대로 채운다.</b> {@code restoreFreshRoster} 는
+	 *       주기만 이어받고 남은 시간은 0 으로 둔다. 그대로 시작하면 새 월드에 들어서자마자
+	 *       첫 교환이 터진다.</li>
+	 * </ol>
+	 *
+	 * @return 실제로 시작시킨 팀의 수
+	 */
+	public static int beginNextRun(@Nullable TeamManager manager) {
+		if (manager == null) {
+			return 0;
+		}
+		int started = 0;
+		for (ShareTeam team : manager.allTeams()) {
+			TeamState state = manager.stateByTeamId(team.teamId());
+			if (state == null || state.runStarted) {
+				continue;
+			}
+			state.runStarted = true;
+			// 첫 교환은 새 회차가 열린 뒤 한 주기가 지나야 온다.
+			state.positionSwapRemainingTicks = state.positionSwapIntervalTicks;
+			restoreLegacyGear(state);
+			started++;
+		}
+		if (started > 0) {
+			manager.setDirty();
+			SharedFateMod.LOGGER.info("[RUN] 새 월드에서 회차를 자동으로 시작했습니다: teams={}", started);
+		}
+		return started;
 	}
 
 	// ------------------------------------------------------------------ 시작
@@ -247,10 +319,12 @@ public final class GameStartManager {
 	/**
 	 * 「유산」이 지난 회차에서 몰수해 둔 장비를 돌려준다. <b>청소가 끝난 뒤여야 한다.</b>
 	 *
-	 * <p>예전에는 {@code TeamManager.restoreFreshRoster} 가 새 월드를 열 때 바로 인벤토리에
-	 * 꽂았다. 이제는 그 뒤에 「게임 시작」이 오고 그 시작이 인벤토리를 비우므로, 거기 두면
-	 * 유산이 시작과 동시에 사라진다. 그래서 회차 경계를 넘어온 목록은 {@link TeamState#legacyGear}
-	 * 에 그대로 있다가 이 자리에서 처음으로 인벤토리에 들어간다.
+	 * <p>{@code TeamManager.restoreFreshRoster} 는 회차 경계를 넘어온 목록을
+	 * {@link TeamState#legacyGear} 에 담아만 두고 인벤토리에 꽂지 않는다. 회차가 시작되는
+	 * 자리에서 처음으로 인벤토리에 들어가야 하기 때문이다 — 1회차 전이라면 「게임 시작」이
+	 * 인벤토리를 통째로 비운 <b>뒤에</b>({@link #start}), 2회차부터라면 새 월드가 열릴 때
+	 * ({@link #beginNextRun}). 앞의 경우에 미리 꽂아 두면 그 청소에 함께 쓸려 나가 「유산」이
+	 * 아무 뜻도 없는 증강이 된다.
 	 *
 	 * <p>자리가 모자라면 {@code overflowItems} 에 남아 칸이 비는 대로 자동으로 들어온다
 	 * ({@code PerkItemGrants} 가 즉시 지급을 넣을 때와 같은 경로).

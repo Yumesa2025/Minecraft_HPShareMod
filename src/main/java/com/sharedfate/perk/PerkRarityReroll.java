@@ -20,9 +20,9 @@ import java.util.UUID;
  * {@code rarity_reroll} 증강(프리즘 「환골탈태」)의 즉시 개편을 맡는다.
  *
  * <p>{@link PerkGambler}·{@link PerkRarityGrant}와 같은 자리, 같은 시점 —
- * {@link PerkManager#applyChoice}가 부르는 {@code commit} 한 곳에서, 증강을 고른 그 순간
- * 딱 한 번 일어난다. 다만 저 둘은 <b>더하기만</b> 하는 반면 이건 <b>있던 것을 지우고 다시
- * 채운다</b> — {@code ownedPerks}를 비웠다 다시 채우는 유일한 자리다.
+ * {@link PerkGrantChain}이 증강을 고른(또는 연쇄로 더 받은) 그 순간 처리한다. 다만 저 둘은
+ * <b>더하기만</b> 하는 반면 이건 <b>있던 것을 지우고 다시 채운다</b> — {@code ownedPerks}를
+ * 비웠다 다시 채우는 유일한 자리다.
  */
 public final class PerkRarityReroll {
 	private PerkRarityReroll() {
@@ -44,23 +44,37 @@ public final class PerkRarityReroll {
 	 */
 	public static int rerollOnChoice(@Nullable MinecraftServer server, @Nullable ShareTeam team,
 			@Nullable TeamState state, @Nullable Perk perk, @Nullable RandomSource random) {
+		return rerollOnChoiceDetailed(server, team, state, perk, random).size();
+	}
+
+	/**
+	 * {@link #rerollOnChoice}와 같은 일을 하지만, 새로 채운 증강 목록을 그대로 돌려준다.
+	 *
+	 * <p>{@link PerkGrantChain}이 이 목록을 받아 그중에도 다른 즉시 지급 효과가 있으면 마저
+	 * 처리한다. 다시 채운 것들은 이 개편이 끝난 <b>뒤의</b> {@code ownedPerks} 이므로, 연쇄
+	 * 도중 더 앞서 받았던 증강의 id 가 이 개편으로 함께 지워졌더라도 이상하지 않다 —
+	 * 「환골탈태」는 "가진 증강 전부"를 바꾸는 증강이고, 방금 연쇄로 받은 것도 지금 가진
+	 * 것이기 때문이다.
+	 */
+	static List<Perk> rerollOnChoiceDetailed(@Nullable MinecraftServer server, @Nullable ShareTeam team,
+			@Nullable TeamState state, @Nullable Perk perk, @Nullable RandomSource random) {
 		if (state == null || perk == null || random == null) {
-			return 0;
+			return List.of();
 		}
 		RarityRerollEffect reroll = rerollEffect(perk);
 		if (reroll == null) {
-			return 0;
+			return List.of();
 		}
 		int count = state.ownedPerks.size();
 		if (count == 0) {
-			return 0;
+			return List.of();
 		}
 		List<Perk> pool = eligiblePool(reroll.rarity());
 		if (pool.isEmpty()) {
 			SharedFateMod.LOGGER.warn(
 					"증강 {}: rarity_reroll 대상 등급({})에 후보가 하나도 없어 개편을 건너뜁니다.",
 					perk.id(), reroll.rarity().displayName());
-			return 0;
+			return List.of();
 		}
 
 		// 기존에 걸려 있던 효과(속성·상태이상)를 먼저 걷어낸다. ownedPerks 가 아직 옛 목록인
@@ -101,7 +115,7 @@ public final class PerkRarityReroll {
 				}
 			}
 		}
-		return granted.size();
+		return List.copyOf(granted);
 	}
 
 	private static @Nullable RarityRerollEffect rerollEffect(Perk perk) {

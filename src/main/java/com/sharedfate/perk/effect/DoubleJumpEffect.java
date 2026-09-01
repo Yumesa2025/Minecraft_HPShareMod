@@ -12,12 +12,12 @@ import org.jetbrains.annotations.Nullable;
  * <p>JSON 형식:
  * <pre>
  * { "type": "double_jump" }
- * { "type": "double_jump", "power": 0.42 }
+ * { "type": "double_jump", "power": 0.62 }
  * </pre>
  *
- * <p>{@code power} 는 공중 점프가 실을 위쪽 속도다. 적지 않으면 {@link #DEFAULT_POWER}
- * (바닐라 점프와 거의 같은 세기)를 쓴다. 적었는데 {@link #MIN_POWER}~{@link #MAX_POWER}
- * 밖이면 정의 자체를 버린다. 값을 몰래 깎아 주는 것보다 증강 하나가 빠지는 편이 알아채기 쉽다.
+ * <p>{@code power} 는 공중 점프가 실을 위쪽 속도다. 적지 않으면 {@link #DEFAULT_POWER}를 쓴다.
+ * 적었는데 {@link #MIN_POWER}~{@link #MAX_POWER} 밖이면 정의 자체를 버린다. 값을 몰래 깎아
+ * 주는 것보다 증강 하나가 빠지는 편이 알아채기 쉽다.
  *
  * <h2>왜 서버 혼자서는 못 하는가</h2>
  * <p>서버는 "공중에서 점프 키를 눌렀다"는 사실을 알 수 없다. 바닐라는 땅에서 뛴 결과만
@@ -34,8 +34,15 @@ import org.jetbrains.annotations.Nullable;
  * {@code minecraft:fall_damage_multiplier} 를 걸어 처리한다. 이 효과는 위로 미는 일만 한다.
  */
 public final class DoubleJumpEffect implements PerkEffect {
-	/** {@code power} 를 적지 않았을 때 쓰는 값. 바닐라 점프 속도(0.42)와 같다. */
-	public static final double DEFAULT_POWER = 0.42;
+	/**
+	 * {@code power} 를 적지 않았을 때 쓰는 값.
+	 *
+	 * <p>지금 이 타입을 쓰는 유일한 증강인 「허공답보」(2026-09-01 7차부터 {@code power: 0.62})와
+	 * 맞춰 뒀다. 바닐라 점프(0.42)를 그대로 따르면 「점프력 +50%」가 붙은 첫 점프(0.63)보다
+	 * 두 번째 점프가 오히려 약해지는 값이라, 생략했을 때의 기본값이 실제로 쓰이는 값과 어긋나면
+	 * 다음에 새 증강을 적을 때 헷갈리기 쉽다.
+	 */
+	public static final double DEFAULT_POWER = 0.62;
 	/** 이보다 약하면 뛴 티가 나지 않아 버그로 오해받는다. */
 	public static final double MIN_POWER = 0.1;
 	/** 이보다 세면 낙하 피해로 죽거나 청크 밖으로 튀어 나간다. */
