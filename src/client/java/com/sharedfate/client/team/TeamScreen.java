@@ -10,6 +10,7 @@ import com.sharedfate.ui.PanelScroll;
 import com.sharedfate.ui.StatRow;
 import com.sharedfate.ui.TeamNameInput;
 import com.sharedfate.ui.TeamCreationCycle;
+import com.sharedfate.ui.TeamCreationFlow;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -46,6 +47,12 @@ import java.util.UUID;
  * <p>명령을 보낸 결과는 서버가 다시 보내 주는 동기화 묶음으로 들어온다. 몇 틱 뒤의 일이라
  * 단추를 누른 순간에는 아직 옛 값이다. 그래서 {@link #tick()} 마다 팀 상태의 요약을 견주어
  * 달라졌을 때만 위젯을 다시 만든다. 매 틱 다시 만들면 글자 입력 칸의 커서가 튄다.
+ *
+ * <p>「팀 만들기」도 같은 길을 탄다 — 명령만 보내고 창은 열어 둔 채 기다리다가, 팀이 생겼다는
+ * 동기화가 오면 그 자리에서 팀원 목록과 「게임 시작」이 있는 화면으로 바뀐다
+ * ({@link com.sharedfate.ui.TeamCreationFlow}). 서버가 이 창을 닫지 않는 것이 전제인데,
+ * 예전에는 팀에 들어갈 때 서버가 부르던 {@code closeContainer()} 의 닫기 패킷이 컨테이너와
+ * 아무 상관 없는 이 창까지 함께 없앴다({@code InventorySwapper.prepareJoin} 참고).
  */
 public class TeamScreen extends Screen {
 	private static final int PANEL_TOP = 40;
@@ -169,6 +176,15 @@ public class TeamScreen extends Screen {
 	 * 만드는 {@link #rebuild()} 를 기다리면 한 틱 늦고, 글자 입력 칸의 커서도 튄다.
 	 */
 	private Button createButton;
+
+	/**
+	 * 「팀 만들기」 명령을 보내 두고 아직 결과를 못 봤는가.
+	 *
+	 * <p>명령을 보낸 그 틱에는 아직 팀이 없다. 팀이 생겼다는 사실은 몇 틱 뒤 도착하는
+	 * {@code TeamSyncPayload} 가 알려 주므로, 그때 양식을 정리하고 「팀」 탭으로 맞추려면
+	 * <b>내가 보냈다</b>는 것을 기억해 둬야 한다. 판정은 {@link TeamCreationFlow} 가 한다.
+	 */
+	private boolean awaitingCreate;
 
 	/**
 	 * 「게임 시작」 단추가 확인 단계인가.
@@ -391,17 +407,22 @@ public class TeamScreen extends Screen {
 	 * <p>적지 않은 항목은 서버가 기본값으로 두는데, 화면에는 이미 다른 값이 보이고 있을 수
 	 * 있어 눈에 보이는 것과 실제가 어긋난다. 그래서 늘 완전한 형태를 보낸다. 낱말 순서는
 	 * {@link TeamCreationCycle#createCommand} 가 서버 명령과 맞춰 둔다.
+	 *
+	 * <p><b>창을 닫지 않는다.</b> 명령만 보내 두고 결과를 기다린다 — 팀이 생기면 {@link #tick()}
+	 * 이 알아채고 팀원 목록과 「게임 시작」이 있는 화면으로 바꾼다. 실패하면 서버가 채팅으로
+	 * 사유를 알려 주고, 이 양식은 적던 이름까지 그대로 남는다.
 	 */
 	private void createTeam() {
 		if (nameBox == null) {
 			return;
 		}
 		String name = TeamNameInput.normalize(nameBox.getValue());
-		if (!TeamNameInput.valid(name)) {
+		if (!TeamCreationFlow.submitted(name)) {
 			return;
 		}
 		run(TeamCreationCycle.createCommand(newTeamPerks, newTeamDamageAlert, newTeamDeathAlert,
 				newTeamDifficulty, newTeamMaxHealth, newTeamSwapMinutes, newTeamRerollCount, name));
+		awaitingCreate = true;
 	}
 
 	/** 팀에 없는 접속자 이름. 자기 자신은 뺀다. */
@@ -842,6 +863,22 @@ public class TeamScreen extends Screen {
 
 	@Override
 	public void tick() {
+		boolean inTeam = ClientTeamState.inTeam();
+		if (TeamCreationFlow.created(awaitingCreate, inTeam)) {
+			// 성공했을 때만 이름 칸을 비운다. 실패는 여기까지 오지 않으므로 적던 이름이 남는다.
+			newTeamName = TeamCreationFlow.nameAfterResult(awaitingCreate, inTeam, newTeamName);
+			awaitingCreate = false;
+			// 팀을 만든 직후가 곧 「게임 시작」을 누를 자리다. 그 단추는 「팀」 탭에 있고, 방금까지
+			// 만들기 양식이 있던 바로 그 자리에 팀원 목록과 함께 그려진다. 누르는 사람이 이미
+			// 이 탭을 보고 있는 것이 보통이지만, 결과를 기다리는 사이에 다른 탭으로 옮겨 갔다면
+			// 여기서 되돌린다 — 팀을 만들고 나서 단추를 찾아 헤매게 두지 않는다.
+			tab = Tab.TEAM;
+			perkScroll = 0;
+			// 새로 그려질 단추가 확인 단계로 시작하면 한 번만 눌러도 회차가 시작된다.
+			startConfirming = false;
+			rebuild();
+			return;
+		}
 		String now = signature();
 		if (!now.equals(lastSignature)) {
 			rebuild();
