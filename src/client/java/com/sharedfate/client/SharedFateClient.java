@@ -12,6 +12,7 @@ import com.sharedfate.client.perk.DoubleJumpHandler;
 import com.sharedfate.client.perk.PerkClientState;
 import com.sharedfate.client.perk.PerkDrawScreen;
 import com.sharedfate.client.perk.PerkOfferScreen;
+import com.sharedfate.net.AttackDamagePayload;
 import com.sharedfate.net.DamageAlertPayload;
 import com.sharedfate.net.HandshakePayload;
 import com.sharedfate.net.OpenTeamScreenPayload;
@@ -112,6 +113,11 @@ public class SharedFateClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(PerkClientFeaturesPayload.TYPE,
 				(payload, context) -> context.client().execute(
 						() -> ClientPerkFeatures.update(payload)));
+		// 공격력. 바닐라가 이 속성만 클라이언트에 보내지 않아 서버가 따로 알려 준다.
+		// 팀 화면이 그리기 스레드에서 읽으므로 갱신도 클라이언트 본 스레드에서 한다.
+		ClientPlayNetworking.registerGlobalReceiver(AttackDamagePayload.TYPE,
+				(payload, context) -> context.client().execute(
+						() -> ClientAttackDamage.update(payload)));
 
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientTeamState.clear();
@@ -121,6 +127,7 @@ public class SharedFateClient implements ClientModInitializer {
 			GameOverClientDisplay.clear();
 			PerkClientState.clear();
 			ClientPerkFeatures.clear();
+			ClientAttackDamage.clear();
 			DoubleJumpHandler.reset();
 		});
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {

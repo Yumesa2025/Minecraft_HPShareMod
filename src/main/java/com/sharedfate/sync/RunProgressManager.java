@@ -188,8 +188,14 @@ public final class RunProgressManager {
 	 * 보스바에 적을 한 줄. 월드 없이 시험할 수 있게 산술만 떼어 뒀다.
 	 *
 	 * <p>「N회차」라고만 적으면 팀도 없고 아무도 시작하지 않은 상태에서 이미 회차가 굴러가는
-	 * 것처럼 읽힌다. 실제로 그렇게 읽혀서 이 기능이 필요해졌으므로, 시작 전에는 <b>「시작 대기」</b>
-	 * 라고 분명히 적는다.
+	 * 것처럼 읽힌다. 실제로 그렇게 읽혀서 이 기능이 필요해졌으므로, 시작 전에는 <b>무엇을 하면
+	 * 회차가 시작되는지</b>까지 적는다. 회차 번호는 그대로 남긴다 — 지금 몇 회차인지는 상태가
+	 * 아니라 정보다.
+	 *
+	 * <p>보스바는 화면 맨 위를 가로지르는 한 줄이라 <b>가장 짧아야 하는 자리</b>다. 그래서 여기서는
+	 * 눌러야 할 것 하나만 적고, 어디에서 누르는지와 리더가 아닐 때 할 일은 팀 화면과
+	 * {@code /shareteam status} 가 맡는다({@code GameStartButton}). 보스바는 서버가 만들어
+	 * 모두에게 같은 것을 뿌리므로 <b>보는 사람이 리더인지 알 수 없다</b>는 까닭도 있다.
 	 */
 	static String label(int runNumber, boolean victory, @Nullable String winningTeam,
 			boolean anyTeamStarted) {
@@ -199,7 +205,7 @@ public final class RunProgressManager {
 		}
 		return anyTeamStarted
 				? "SharedFate · " + runNumber + "회차 진행 중"
-				: "SharedFate · " + runNumber + "회차 · 시작 대기";
+				: "SharedFate · " + runNumber + "회차 — 「게임 시작」을 눌러 주세요";
 	}
 
 	private static BossEvent.BossBarColor color(@Nullable MinecraftServer server) {

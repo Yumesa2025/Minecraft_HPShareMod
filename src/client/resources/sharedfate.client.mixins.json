@@ -9,6 +9,7 @@
     "CreativeModeInventoryScreenMixin",
     "DeathScreenAccessor",
     "EnchantmentScreenMixin",
+    "InventoryScreenTeamButtonMixin",
     "MultiPlayerGameModeMixin",
     "ScreenAccessor"
   ],
