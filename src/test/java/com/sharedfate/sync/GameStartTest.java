@@ -27,6 +27,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 class GameStartTest {
 	private static final UUID MEMBER = UUID.fromString("00000000-0000-0000-0000-0000000000a1");
+	private static final GameStartManager.WorldOrigin FRESH =
+			GameStartManager.WorldOrigin.FRESH_WORLD;
+	private static final GameStartManager.WorldOrigin ONGOING =
+			GameStartManager.WorldOrigin.ONGOING_WORLD;
 
 	@BeforeAll
 	static void bootstrap() {
@@ -94,19 +98,89 @@ class GameStartTest {
 				false, false, legacyGear, false));
 	}
 
+	/** 전멸로 월드가 지워지고 새로 열린 뒤, 명단만 되살아난 상태. */
+	private static TeamManager freshWorld(ShareTeam team, int swapIntervalTicks,
+			List<ItemStack> legacyGear) {
+		TeamManager fresh = new TeamManager();
+		fresh.restoreFreshRoster(roster(team, swapIntervalTicks, legacyGear));
+		return fresh;
+	}
+
+	/** 회차가 시작되는지는 오직 회차 번호가 정한다. 서버가 어떤 길로 떴는지는 보지 않는다. */
+	@Test
+	void 자동_시작_여부는_회차_번호만_본다() {
+		assertFalse(GameStartManager.autoStarts(1), "1회차만이 「게임 시작」을 기다린다");
+		assertTrue(GameStartManager.autoStarts(2));
+		assertTrue(GameStartManager.autoStarts(5));
+		assertTrue(GameStartManager.autoStarts(999));
+	}
+
 	@Test
 	void 새_월드에서_회차가_저절로_시작된다() {
 		TeamManager source = new TeamManager();
 		ShareTeam team = source.createTeam("화이팅", MEMBER, 20.0F);
-		TeamManager fresh = new TeamManager();
-		fresh.restoreFreshRoster(roster(team, 0, List.of()));
-		// 명단 복원만으로는 아직 「시작 대기」다. 회차를 켜는 것은 beginNextRun 이다.
+		TeamManager fresh = freshWorld(team, 0, List.of());
+		// 명단 복원만으로는 아직 「시작 대기」다. 회차를 켜는 것은 syncRunStart 다.
 		assertFalse(fresh.stateByTeamId(team.teamId()).runStarted);
 
-		assertEquals(1, GameStartManager.beginNextRun(fresh));
+		assertEquals(1, GameStartManager.syncRunStart(fresh, 2, FRESH));
 
 		assertTrue(fresh.stateByTeamId(team.teamId()).runStarted,
 				"전멸해서 새 월드로 넘어간 회차는 단추 없이 저절로 진행 중이어야 한다");
+	}
+
+	/**
+	 * <b>이 시험이 이 파일의 핵심이다.</b>
+	 *
+	 * <p>지인 서버에서 실제로 난 일 — 5회차를 굴리던 팀이 있는 월드에서 서버만 다시 켰더니
+	 * 「시작 대기」로 보였다. 예전 코드는 <b>명단을 복원하는 순간</b>에만 회차를 켰는데, 월드에
+	 * 팀이 살아 있으면 그 길을 지나지 않아 영영 대기로 남았다. 그 상태에서 「게임 시작」을
+	 * 누르면 5회차 동안 모은 것이 전부 사라진다.
+	 */
+	@Test
+	void 이미_굴러가던_월드의_5회차_팀은_시작_대기로_남지_않는다() {
+		TeamManager manager = new TeamManager();
+		ShareTeam team = manager.createTeam("화이팅", MEMBER, 20.0F);
+		TeamState state = manager.stateByTeamId(team.teamId());
+		// 저장에서 「시작 대기」로 읽힌 채 5회차를 굴리던 팀.
+		state.runStarted = false;
+
+		assertEquals(1, GameStartManager.syncRunStart(manager, 5, ONGOING));
+
+		assertTrue(state.runStarted,
+				"회차 번호가 2 이상이면 서버가 어떤 길로 뜨든 진행 중이어야 한다");
+		assertFalse(GameStartManager.waiting(state));
+	}
+
+	/**
+	 * <b>자동 시작은 아이템을 지우지 않는다.</b>
+	 *
+	 * <p>이 버그를 고치다가 자동 시작이 「게임 시작」의 청소까지 하게 되면, 서버를 다시 켤 때마다
+	 * 진행 중이던 팀의 물건이 전부 사라진다. 이 시험이 그 길을 못 박는다.
+	 */
+	@Test
+	void 자동_시작은_이미_굴러가던_팀의_물건을_건드리지_않는다() {
+		TeamManager manager = new TeamManager();
+		ShareTeam team = manager.createTeam("화이팅", MEMBER, 20.0F);
+		TeamState state = manager.stateByTeamId(team.teamId());
+		state.runStarted = false;
+		state.mainItems.set(0, new ItemStack(Items.DIAMOND, 64));
+		state.extraItems.set(3, new ItemStack(Items.NETHERITE_INGOT, 2));
+		state.enderContainer.setItem(5, new ItemStack(Items.ELYTRA));
+		state.xpLevel = 42;
+		state.totalExperience = 5000;
+		state.lastPerkMilestone = 9;
+		state.difficultyElapsedTicks = 72000;
+
+		GameStartManager.syncRunStart(manager, 5, ONGOING);
+
+		assertEquals(64, state.mainItems.get(0).getCount(), "공유 인벤토리를 비우면 재앙이다");
+		assertEquals(2, state.extraItems.get(3).getCount());
+		assertEquals(Items.ELYTRA, state.enderContainer.getItem(5).getItem());
+		assertEquals(42, state.xpLevel, "경험치도 회차 진행 상황이라 그대로여야 한다");
+		assertEquals(5000, state.totalExperience);
+		assertEquals(9, state.lastPerkMilestone, "증강 구간을 0으로 되돌리면 선택창이 다시 터진다");
+		assertEquals(72000, state.difficultyElapsedTicks);
 	}
 
 	@Test
@@ -118,10 +192,23 @@ class GameStartTest {
 		state.positionSwapIntervalTicks = 6000;
 		state.positionSwapRemainingTicks = 40;
 
-		assertEquals(0, GameStartManager.beginNextRun(manager));
+		assertEquals(0, GameStartManager.syncRunStart(manager, 5, ONGOING));
 
 		assertEquals(40, state.positionSwapRemainingTicks,
 				"진행 중인 회차의 남은 교환 시간을 되감으면 안 된다");
+	}
+
+	/** 1회차는 사람이 눌러야 한다. 여기서 저절로 시작되면 「게임 시작」 자체가 사라진다. */
+	@Test
+	void 첫_회차는_저절로_시작되지_않는다() {
+		TeamManager manager = new TeamManager();
+		ShareTeam team = manager.createTeam("화이팅", MEMBER, 20.0F);
+
+		assertEquals(0, GameStartManager.syncRunStart(manager, 1, ONGOING));
+		assertEquals(0, GameStartManager.syncRunStart(
+				freshWorld(team, 0, List.of()), 1, FRESH));
+
+		assertFalse(manager.stateByTeamId(team.teamId()).runStarted);
 	}
 
 	/**
@@ -135,16 +222,39 @@ class GameStartTest {
 	void 자동_시작이_유산_장비를_인벤토리에_넣는다() {
 		TeamManager source = new TeamManager();
 		ShareTeam team = source.createTeam("화이팅", MEMBER, 20.0F);
-		TeamManager fresh = new TeamManager();
-		fresh.restoreFreshRoster(roster(team, 0, List.of(new ItemStack(Items.DIAMOND_PICKAXE))));
+		TeamManager fresh = freshWorld(team, 0, List.of(new ItemStack(Items.DIAMOND_PICKAXE)));
 		TeamState state = fresh.stateByTeamId(team.teamId());
 		assertEquals(1, state.legacyGear.size(), "복원 직후에는 아직 들고만 있어야 한다");
 
-		GameStartManager.beginNextRun(fresh);
+		GameStartManager.syncRunStart(fresh, 2, FRESH);
 
 		assertTrue(state.legacyGear.isEmpty(), "회차가 시작되면 목록이 비어야 한다");
 		assertTrue(state.overflowItems.isEmpty(), "빈 인벤토리라 넘칠 것이 없다");
 		assertEquals(Items.DIAMOND_PICKAXE, state.mainItems.get(0).getItem());
+	}
+
+	/**
+	 * 대기에 갇혀 있던 팀이 들고 있던 유산도 이어받는다.
+	 *
+	 * <p>시작하지 않은 팀은 증강을 고를 수 없으므로({@code PerkManager.tick} 가 건너뛴다) 그
+	 * 팀의 {@code legacyGear} 에 들어 있는 것은 언제나 <b>지난 회차에서 넘어온 것</b>뿐이다.
+	 * 이번 회차에 몰수된 장비가 섞여 있어 미리 돌려주는 일은 일어나지 않는다.
+	 */
+	@Test
+	void 대기에_갇혀_있던_팀의_유산도_이어받는다() {
+		TeamManager manager = new TeamManager();
+		ShareTeam team = manager.createTeam("화이팅", MEMBER, 20.0F);
+		TeamState state = manager.stateByTeamId(team.teamId());
+		state.runStarted = false;
+		state.legacyGear.add(new ItemStack(Items.NETHERITE_SWORD));
+		state.mainItems.set(0, new ItemStack(Items.DIAMOND, 64));
+
+		GameStartManager.syncRunStart(manager, 5, ONGOING);
+
+		assertTrue(state.legacyGear.isEmpty());
+		assertEquals(64, state.mainItems.get(0).getCount(), "있던 것은 그대로 있어야 한다");
+		assertEquals(Items.NETHERITE_SWORD, state.mainItems.get(1).getItem(),
+				"유산은 빈 칸에 들어간다");
 	}
 
 	/**
@@ -158,21 +268,56 @@ class GameStartTest {
 	void 자동_시작이_위치_교환_남은_시간을_주기로_채운다() {
 		TeamManager source = new TeamManager();
 		ShareTeam team = source.createTeam("화이팅", MEMBER, 20.0F);
-		TeamManager fresh = new TeamManager();
-		fresh.restoreFreshRoster(roster(team, 6000, List.of()));
+		TeamManager fresh = freshWorld(team, 6000, List.of());
 		TeamState state = fresh.stateByTeamId(team.teamId());
 		assertEquals(0, state.positionSwapRemainingTicks);
 
-		GameStartManager.beginNextRun(fresh);
+		GameStartManager.syncRunStart(fresh, 2, FRESH);
 
 		assertEquals(6000, state.positionSwapRemainingTicks,
 				"첫 교환은 새 회차가 열린 뒤 한 주기가 지나야 온다");
 	}
 
+	/**
+	 * 대기에 갇혀 있던 팀도 남은 시간이 0 이면 채워 준다. 대기 중에는
+	 * {@code PositionSwapManager.tick} 가 건너뛰므로 그 0 은 「곧 교환할 때」가 아니라
+	 * 「한 번도 세지 않았다」는 뜻이다. 그대로 두면 시작하는 순간 첫 교환이 터진다.
+	 */
+	@Test
+	void 이미_굴러가던_월드에서도_한_번도_세지_않은_교환은_주기로_채운다() {
+		TeamManager manager = new TeamManager();
+		ShareTeam team = manager.createTeam("화이팅", MEMBER, 20.0F);
+		TeamState state = manager.stateByTeamId(team.teamId());
+		state.runStarted = false;
+		state.positionSwapIntervalTicks = 6000;
+		state.positionSwapRemainingTicks = 0;
+
+		GameStartManager.syncRunStart(manager, 5, ONGOING);
+
+		assertEquals(6000, state.positionSwapRemainingTicks);
+	}
+
+	/** 반대로 세다 만 값이 남아 있으면 되감지 않는다. 그것이 새 월드와 다른 유일한 점이다. */
+	@Test
+	void 이미_굴러가던_월드의_세다_만_교환_시간은_되감지_않는다() {
+		TeamManager manager = new TeamManager();
+		ShareTeam team = manager.createTeam("화이팅", MEMBER, 20.0F);
+		TeamState state = manager.stateByTeamId(team.teamId());
+		state.runStarted = false;
+		state.positionSwapIntervalTicks = 6000;
+		state.positionSwapRemainingTicks = 1200;
+
+		GameStartManager.syncRunStart(manager, 5, ONGOING);
+
+		assertEquals(1200, state.positionSwapRemainingTicks);
+	}
+
 	@Test
 	void 팀이_없으면_자동_시작할_것도_없다() {
-		assertEquals(0, GameStartManager.beginNextRun(null));
-		assertEquals(0, GameStartManager.beginNextRun(new TeamManager()));
+		assertEquals(0, GameStartManager.syncRunStart(null, 5, FRESH));
+		assertEquals(0, GameStartManager.syncRunStart(new TeamManager(), 5, FRESH));
+		assertEquals(0, GameStartManager.syncRunStart(null, 5, ONGOING));
+		assertEquals(0, GameStartManager.syncRunStart(new TeamManager(), 5, ONGOING));
 	}
 
 	// ------------------------------------------------------------------ 저장 호환

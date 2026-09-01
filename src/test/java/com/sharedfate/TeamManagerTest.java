@@ -162,7 +162,10 @@ class TeamManagerTest {
 		assertTrue(restored.overflowItems.isEmpty());
 	}
 
-	/** 되살린 팀은 언제나 「시작 대기」다. 매 회차 리더가 「게임 시작」을 눌러야 한다. */
+	/**
+	 * 명단 복원 <b>그 자체</b>는 회차를 켜지 않는다. 회차를 켜는 것은 회차 번호를 아는
+	 * {@code GameStartManager.syncRunStart} 뿐이고, 이 메서드는 그 번호를 모른다.
+	 */
 	@Test
 	void 새_회차로_되살린_팀은_시작_대기_상태다() {
 		ShareTeam team = manager.createTeam("원정대", A, 40.0F);
@@ -171,7 +174,7 @@ class TeamManagerTest {
 		fresh.restoreFreshRoster(roster(java.util.List.of(team), 40.0F));
 
 		assertFalse(fresh.stateOf(A).runStarted,
-				"새 월드에 떨어졌다고 회차가 저절로 굴러가면 안 된다");
+				"명단을 되살리는 일과 회차를 켜는 일은 따로다");
 	}
 
 	@Test

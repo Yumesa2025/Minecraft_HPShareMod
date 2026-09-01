@@ -82,9 +82,10 @@ public class TeamState {
 	/**
 	 * 이 팀의 회차가 <b>실제로 시작되었는가.</b> 리더가 「게임 시작」을 누르면 참이 된다.
 	 *
-	 * <p><b>사람이 누르는 것은 1회차 전 한 번뿐이다.</b> 전멸해서 새 월드로 넘어간 회차는
-	 * {@code GameStartManager.beginNextRun} 이 저절로 켜고, 월드 초기화를 끈 서버에서는
-	 * {@link #resetAfterDeath} 가 이 값을 건드리지 않아 그대로 이어진다.
+	 * <p><b>사람이 누르는 것은 1회차 전 한 번뿐이다.</b> 2회차부터는 회차 번호만 보고
+	 * {@code GameStartManager.syncRunStart} 가 저절로 켠다 — 서버가 새 월드로 떴든 이미
+	 * 굴러가던 월드로 떴든 상관없다. 월드 초기화를 끈 서버에서는 {@link #resetAfterDeath} 가
+	 * 이 값을 건드리지 않아 그대로 이어진다.
 	 *
 	 * <p>회차의 시작점은 팀을 만든 순간이 아니라 <b>이것이 참이 되는 순간</b>이다. 팀을 만들고
 	 * 팀원을 부르고 설정을 확인하는 동안에도 게임은 돌아가는데, 그 시간까지 회차에 넣으면
@@ -170,8 +171,8 @@ public class TeamState {
 		this.rerollsRemaining = TeamCreationSettings.DEFAULT_REROLL_COUNT;
 		// 새로 만들어지는 팀 상태는 언제나 「시작 대기」다. 저장에서 읽어 온 경우에만 CODEC 이
 		// 뒤에서 덮어쓴다. 전멸 뒤 새 월드에 명단을 되살리는 길도 이 생성자를 지나지만, 그쪽은
-		// 바로 뒤에서 GameStartManager.beginNextRun 이 회차를 켠다 — 사람이 「게임 시작」을
-		// 누르는 것은 1회차 전 한 번뿐이다.
+		// 바로 뒤에서 GameStartManager.syncRunStart 가 회차 번호를 보고 회차를 켠다 — 사람이
+		// 「게임 시작」을 누르는 것은 1회차 전 한 번뿐이다.
 		this.runStarted = false;
 	}
 
@@ -209,7 +210,7 @@ public class TeamState {
 	 * <p>{@link #runStarted} 는 <b>일부러 건드리지 않는다.</b> 「게임 시작」을 누르는 것은 1회차
 	 * 전 한 번뿐이고, 그 뒤로는 전멸해도 다음 회차가 저절로 이어진다. 월드를 초기화하는
 	 * 서버에서는 팀 상태가 통째로 새로 만들어지고
-	 * {@code GameStartManager.beginNextRun} 이 새 회차를 켜므로 이 자리의 값이 남지 않는다.
+	 * {@code GameStartManager.syncRunStart} 가 새 회차를 켜므로 이 자리의 값이 남지 않는다.
 	 * 월드 초기화를 끈 서버({@code resetWorldOnTeamDeath=false})에서는 같은 월드에서 그대로
 	 * 이어 가야 하므로 여기서 내려 버리면 <b>사람이 다시 단추를 눌러야 하고, 그 단추가 방금
 	 * 살아남은 것들까지 지운다.</b>

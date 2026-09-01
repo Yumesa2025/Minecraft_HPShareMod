@@ -66,8 +66,10 @@ public class SharedFateMod implements ModInitializer {
 
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
 			TeamLookup.setServer(server);
-			TeamRosterStore.onServerStarted(server);
+			// 회차 번호를 먼저 읽어야 한다. 바로 아래에서 명단을 맞출 때 「2회차 이상이면 언제나
+			// 진행 중」이라는 규칙을 적용하는데, 그 판단의 근거가 회차 번호 하나뿐이다.
 			RunProgressManager.onServerStarted(server);
+			TeamRosterStore.onServerStarted(server);
 			WorldResetCoordinator.onServerStarted(server);
 			// 발전과제 달성 알림 끄기. 회차마다 월드가 새로 만들어지므로 월드에 한 번 적어
 			// 두는 방식으로는 유지되지 않는다. 까닭은 WorldGameRules 에 적어 뒀다.
