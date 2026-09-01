@@ -3,7 +3,6 @@ package com.sharedfate.team;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.sharedfate.SharedFateMod;
-import com.sharedfate.inventory.ExpandedInventoryManager;
 import com.sharedfate.sync.TeamRosterStore;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.server.MinecraftServer;
@@ -117,6 +116,10 @@ public class TeamManager extends SavedData {
 	 * 다시 뽑기는 가득 찬 채로 시작한다.
 	 *
 	 * <p>보유 증강은 이어지지 않는다. 회차마다 새로 고르는 것이 규칙이다.
+	 *
+	 * <p>되살린 팀은 언제나 <b>「시작 대기」</b> 다. {@link TeamState#fresh} 가 그렇게 만든다 —
+	 * 새 월드에 떨어졌다고 회차가 저절로 굴러가면 안 되고, 매 회차 리더가 「게임 시작」을 눌러야
+	 * 한다는 규칙이 여기서도 그대로 지켜져야 한다.
 	 */
 	public int restoreFreshRoster(Collection<TeamRosterStore.RestoredTeam> roster) {
 		Objects.requireNonNull(roster, "roster");
@@ -160,13 +163,11 @@ public class TeamManager extends SavedData {
 			// 남은 횟수는 여기서 가득 찬다 — 회차가 넘어가면 다시 차야 하기 때문이다.
 			state.rerollAllowance = TeamCreationSettings.sanitizeRerollCount(entry.rerollCount());
 			state.rerollsRemaining = state.rerollAllowance;
-			// 「유산」이 몰수했던 도구·무기·방어구를 새 회차 시작 인벤토리로 돌려준다.
-			// 자리가 없으면 overflowItems 에 남아 칸이 비는 대로 자동으로 들어온다
-			// (PerkItemGrants 가 즉시 지급을 넣을 때와 같은 경로).
-			if (!entry.legacyGear().isEmpty()) {
-				state.overflowItems.addAll(entry.legacyGear());
-				state.restoreOverflow(ExpandedInventoryManager.enabled());
-			}
+			// 「유산」이 몰수했던 도구·무기·방어구는 여기서 인벤토리에 꽂지 않고 그대로 들고만
+			// 있는다. 실제로 돌려주는 것은 리더가 「게임 시작」을 누르는 순간이다
+			// ({@code GameStartManager}). 시작이 아이템을 전부 지우는 동작이라, 여기서 미리
+			// 넣어 두면 그 청소에 함께 쓸려 나가 「유산」이 아무 뜻도 없는 증강이 된다.
+			state.legacyGear.addAll(entry.legacyGear());
 			teams.put(team.teamId(), team);
 			states.put(team.teamId(), state);
 			for (UUID member : team.members()) {

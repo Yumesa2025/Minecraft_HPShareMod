@@ -98,9 +98,9 @@ class TeamAlertSettingsTest {
 	}
 
 	@Test
-	void 켜고_끄기_셋은_동기화_묶음을_그대로_왕복한다() {
+	void 켜고_끄기_넷은_동기화_묶음을_그대로_왕복한다() {
 		TeamSyncPayload payload = new TeamSyncPayload(List.of(), "우리팀", 5, 6, 24.0F, 3,
-				new TeamSyncPayload.Options(true, false, true), LEADER);
+				new TeamSyncPayload.Options(true, false, true, true), LEADER);
 
 		RegistryFriendlyByteBuf buffer =
 				new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
@@ -110,15 +110,32 @@ class TeamAlertSettingsTest {
 		assertTrue(round.perksEnabled());
 		assertFalse(round.damageAlertEnabled());
 		assertTrue(round.deathAlertEnabled());
-		assertEquals(24.0F, round.maxHealth(), "셋을 묶느라 다른 항목이 밀리면 안 된다");
+		assertTrue(round.runStarted());
+		assertEquals(24.0F, round.maxHealth(), "넷을 묶느라 다른 항목이 밀리면 안 된다");
 		assertEquals(3, round.swapIntervalMinutes());
 		assertEquals("우리팀", round.teamName());
 	}
 
+	/** 회차 시작 여부만 다른 두 묶음이 실제로 다르게 실려 가는지. */
 	@Test
-	void 팀에_속하지_않은_묶음은_셋_다_꺼져_있다() {
+	void 시작_대기_묶음은_회차가_시작되지_않았다고_실려_간다() {
+		TeamSyncPayload payload = new TeamSyncPayload(List.of(), "우리팀", 0, 3, 20.0F, 0,
+				new TeamSyncPayload.Options(true, false, false, false), LEADER);
+
+		RegistryFriendlyByteBuf buffer =
+				new RegistryFriendlyByteBuf(Unpooled.buffer(), RegistryAccess.EMPTY);
+		TeamSyncPayload.CODEC.encode(buffer, payload);
+		TeamSyncPayload round = TeamSyncPayload.CODEC.decode(buffer);
+
+		assertFalse(round.runStarted());
+		assertTrue(round.perksEnabled(), "회차 시작 항목이 앞의 셋을 밀면 안 된다");
+	}
+
+	@Test
+	void 팀에_속하지_않은_묶음은_넷_다_꺼져_있다() {
 		assertFalse(TeamSyncPayload.EMPTY.perksEnabled());
 		assertFalse(TeamSyncPayload.EMPTY.damageAlertEnabled());
 		assertFalse(TeamSyncPayload.EMPTY.deathAlertEnabled());
+		assertFalse(TeamSyncPayload.EMPTY.runStarted());
 	}
 }

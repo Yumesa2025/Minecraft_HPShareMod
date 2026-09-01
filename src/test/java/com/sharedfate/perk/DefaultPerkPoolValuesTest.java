@@ -56,8 +56,12 @@ class DefaultPerkPoolValuesTest {
 
 		// clamp(1 - (1-블록마찰) * modifier, 0, 1) 에서 modifier = 1+amount 다.
 		// amount 가 양수면 modifier > 1 이 되어 오히려 안 미끄러워진다 — 반드시 음수여야 한다.
+		//
+		// amount=-1.0 은 modifier=0 을 만들어 어느 블록에서든 결과가 clamp 상한인 1 로
+		// 못박힌다 — "2배 더 미끄럽게" 요청에 맞춰 -0.5(보통 땅 0.6→0.8, 기준보다 +0.2)에서
+		// 미끄러움 증가분(1-modifier)을 두 배로 올린 값이자, 이 공식이 낼 수 있는 최댓값이다.
 		assertTrue(friction.amount() < 0.0, "부호가 양수면 오히려 덜 미끄러워진다");
-		assertEquals(-0.5, friction.amount(), 1.0e-9);
+		assertEquals(-1.0, friction.amount(), 1.0e-9);
 	}
 
 	@Test

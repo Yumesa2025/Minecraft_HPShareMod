@@ -27,6 +27,8 @@ public final class ClientTeamState {
 	private static boolean damageAlertEnabled;
 	private static boolean deathAlertEnabled;
 	private static boolean leader;
+	/** 이 팀의 회차가 시작되었는가. 거짓이면 「시작 대기」다. */
+	private static boolean runStarted;
 
 	private ClientTeamState() {
 	}
@@ -54,6 +56,7 @@ public final class ClientTeamState {
 		perksEnabled = payload.perksEnabled();
 		damageAlertEnabled = payload.damageAlertEnabled();
 		deathAlertEnabled = payload.deathAlertEnabled();
+		runStarted = payload.runStarted();
 		leader = payload.isLeader(localPlayer);
 		for (TeamSyncPayload.Member member : payload.members()) {
 			MEMBER_NAMES.put(member.id(), member.name());
@@ -77,6 +80,7 @@ public final class ClientTeamState {
 		perksEnabled = false;
 		damageAlertEnabled = false;
 		deathAlertEnabled = false;
+		runStarted = false;
 		leader = false;
 	}
 
@@ -131,6 +135,11 @@ public final class ClientTeamState {
 	/** 이 팀이 사망 알림을 쓰는가. 팀을 만들 때 정한 값이라 바뀌지 않는다. */
 	public static boolean deathAlertEnabled() {
 		return deathAlertEnabled;
+	}
+
+	/** 이 팀의 회차가 시작되었는가. 거짓이면 리더에게 「게임 시작」 단추를 보여 준다. */
+	public static boolean runStarted() {
+		return runStarted;
 	}
 
 	/** 내가 팀 리더인가. 설정 단추를 열지 말지 정하는 데 쓴다. */

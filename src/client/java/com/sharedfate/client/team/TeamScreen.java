@@ -4,6 +4,7 @@ import com.sharedfate.client.ClientTeamState;
 import com.sharedfate.client.perk.PerkClientState;
 import com.sharedfate.net.PerkSyncPayload;
 import com.sharedfate.team.TeamCreationSettings;
+import com.sharedfate.ui.GameStartButton;
 import com.sharedfate.ui.PanelScroll;
 import com.sharedfate.ui.TeamCreationCycle;
 import net.minecraft.ChatFormatting;
@@ -148,6 +149,16 @@ public class TeamScreen extends Screen {
 	 */
 	private String newTeamName = "";
 
+	/**
+	 * 「게임 시작」 단추가 확인 단계인가.
+	 *
+	 * <p>참이면 다음 누름이 실제로 명령을 보낸다. 되돌릴 수 없는 동작이라 한 번에 나가지 않게
+	 * 한 것이고, 규칙은 {@link com.sharedfate.ui.GameStartButton} 에 적어 뒀다. 탭을 옮기거나
+	 * 창을 닫으면 <b>반드시 풀린다</b> — 확인 단계로 둔 채 다른 일을 하다 돌아와서 무심코 누르는
+	 * 것이 이 장치가 막으려던 바로 그 사고다.
+	 */
+	private boolean startConfirming;
+
 	public TeamScreen() {
 		super(Component.literal("SharedFate 팀"));
 	}
@@ -182,6 +193,8 @@ public class TeamScreen extends Screen {
 		// 탭을 옮기면 목록을 맨 위부터 다시 본다. 틱마다 도는 rebuild() 는 자리를 지킨다.
 		if (next != tab) {
 			perkScroll = 0;
+			// 확인 단계는 탭을 벗어나는 순간 풀린다.
+			startConfirming = false;
 		}
 		tab = next;
 		rebuild();
@@ -251,9 +264,15 @@ public class TeamScreen extends Screen {
 		nameBox = null;
 		int y = PANEL_TOP + 14 + ROW_HEIGHT * (ClientTeamState.memberIds().size() + 1);
 
+		boolean showStart = GameStartButton.visible(
+				true, ClientTeamState.isLeader(), ClientTeamState.runStarted());
+		// 「게임 시작」 단추와 그 위의 경고 한 줄이 들어갈 자리를 초대 단추가 침범하면 안 된다.
+		// 겹치면 초대하려다 시작을 누르게 되는데, 그것이 이 화면에서 가장 나쁜 사고다.
+		int inviteBottom = showStart ? this.height - 108 : this.height - 80;
+
 		if (ClientTeamState.isLeader()) {
 			for (String name : invitableNames()) {
-				if (y > this.height - 80) {
+				if (y > inviteBottom) {
 					break;
 				}
 				addRenderableWidget(Button.builder(Component.literal(name + " 초대"),
@@ -261,6 +280,16 @@ public class TeamScreen extends Screen {
 						.bounds(left, y, PANEL_WIDTH, BUTTON_HEIGHT).build());
 				y += BUTTON_HEIGHT + 2;
 			}
+		}
+
+		if (showStart) {
+			// 「팀 나가기」·「팀 해체」 한 줄 위. 되돌릴 수 없는 단추 셋이 나란히 서지만, 이것만
+			// 판 전체 폭이라 눌러야 할 것과 눌러서는 안 될 것이 눈으로 갈린다.
+			addRenderableWidget(Button.builder(
+					Component.literal(GameStartButton.label(startConfirming))
+							.withStyle(startConfirming ? ChatFormatting.RED : ChatFormatting.GREEN),
+					button -> pressStart())
+					.bounds(left, this.height - 78, PANEL_WIDTH, BUTTON_HEIGHT).build());
 		}
 
 		addRenderableWidget(Button.builder(Component.literal("팀 나가기"), button -> run("leave"))
@@ -272,6 +301,22 @@ public class TeamScreen extends Screen {
 					.bounds(left + PANEL_WIDTH / 2 + 2, this.height - 54,
 							PANEL_WIDTH / 2 - 2, BUTTON_HEIGHT).build());
 		}
+	}
+
+	/**
+	 * 「게임 시작」 단추를 눌렀다.
+	 *
+	 * <p>첫 누름은 <b>아무것도 보내지 않고</b> 글자만 경고로 바꾼다. 두 번째 누름에서만 명령이
+	 * 나가고, 그 명령도 서버에서 리더 여부와 이미 시작했는지를 처음부터 다시 확인한다.
+	 */
+	private void pressStart() {
+		if (!startConfirming) {
+			startConfirming = true;
+			rebuild();
+			return;
+		}
+		startConfirming = false;
+		run(GameStartButton.CONFIRM_COMMAND);
 	}
 
 	/** 설정 줄 {@code index} 의 y 좌표. 0부터 센다. */
@@ -454,6 +499,15 @@ public class TeamScreen extends Screen {
 				+ ClientTeamState.memberIds().size() + "명 접속", left, y, TEXT_DIM);
 		y += ROW_HEIGHT + 2;
 
+		// 시작 전에는 이 줄이 맨 앞에 와야 한다. 아래의 레벨·증강을 먼저 읽으면 회차가 이미
+		// 굴러가는 줄 안다. 단추는 여기 두지 않는다 — 창을 열자마자 보이는 자리에 되돌릴 수
+		// 없는 단추가 있으면 잘못 누른다.
+		if (!ClientTeamState.runStarted()) {
+			graphics.text(this.font, GameStartButton.waitingNotice(ClientTeamState.isLeader()),
+					left, y, TEXT_WARN);
+			y += ROW_HEIGHT + 2;
+		}
+
 		graphics.text(this.font, "팀 레벨 " + ClientTeamState.teamLevel(), left, y, TEXT_GOOD);
 		y += ROW_HEIGHT;
 		int remaining = ClientTeamState.levelsToNextPerk();
@@ -517,6 +571,16 @@ public class TeamScreen extends Screen {
 		} else {
 			graphics.text(this.font, "누르면 곧바로 팀에 들어옵니다. 상대의 개인 아이템은 드랍됩니다.",
 					left, y + 4, TEXT_WARN);
+		}
+
+		if (!ClientTeamState.runStarted()) {
+			// 단추 바로 위. 무엇을 잃는지는 단추 글자에도 적히지만, 확인 단계로 넘어가기 전에
+			// 한 번은 읽혀야 한다.
+			int noteY = this.height - 78 - ROW_HEIGHT - 4;
+			graphics.text(this.font, ClientTeamState.isLeader()
+					? "시작하면 모든 아이템이 사라지고 팀원이 스폰으로 모입니다. 되돌릴 수 없습니다."
+					: "리더가 게임을 시작할 때까지 회차는 진행되지 않습니다.",
+					left, noteY, TEXT_WARN);
 		}
 	}
 
@@ -683,6 +747,8 @@ public class TeamScreen extends Screen {
 	/** 위젯 구성을 좌우하는 값만 모은 요약. 이 값이 그대로면 다시 만들 필요가 없다. */
 	private String signature() {
 		return tab + "|" + ClientTeamState.inTeam() + "|" + ClientTeamState.isLeader()
+				// 시작하면 단추가 사라져야 하고, 확인 단계가 바뀌면 글자와 색이 바뀐다.
+				+ "|" + ClientTeamState.runStarted() + startConfirming
 				+ "|" + ClientTeamState.memberIds().size() + "|" + ClientTeamState.swapEnabled()
 				+ "|" + ClientTeamState.swapIntervalMinutes() + "|" + ClientTeamState.perksEnabled()
 				+ "|" + ClientTeamState.maxHealth() + "|" + PerkClientState.hasPending()

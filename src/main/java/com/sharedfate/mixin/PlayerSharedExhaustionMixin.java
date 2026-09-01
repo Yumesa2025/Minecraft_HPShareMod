@@ -48,9 +48,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *
  * <p><b>자연 회복은 여기를 지나지 않는다.</b> 26.2 의 {@code FoodData.tick} 은 회복 갈래에서
  * {@code causeFoodExhaustion} 이 아니라 {@code FoodData} 자신의 {@code addExhaustion} 을 부른다
- * (javap 로 확인했다). 그래서 회복의 대가는 이 배율을 타지 않고 그대로 치러진다. 고행자가
- * 자연 회복까지 공짜로 만들지 않는 이유가 그것이고, 그 갈림을 통로에 기대지 않고 못 박아 두는
- * 것이 {@link FoodDataRegenExhaustionMixin} 이다.
+ * (javap 로 확인했다). 그래서 회복의 대가는 이 배율을 타지 않고 따로 치러진다 — 기본적으로는
+ * 그대로, 고행자처럼 {@code includeNaturalRegen: true} 를 든 팀만 예외로 면제된다. 그 갈림을
+ * 통로에 기대지 않고 못 박아 두는 것이 {@link FoodDataRegenExhaustionMixin} 이다.
  *
  * <p>배율이 1 이면 받은 값을 그대로 돌려주므로 증강이 없는 서버의 소모도는 조금도 달라지지
  * 않는다. 클라이언트 쪽 플레이어는 팀 상태를 볼 수 없어 언제나 배율이 1 이고, 애초에 바닐라가

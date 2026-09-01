@@ -4,6 +4,7 @@ import com.sharedfate.net.PerkChoiceC2SPayload;
 import com.sharedfate.net.PerkOfferPayload;
 import com.sharedfate.net.PerkRerollC2SPayload;
 import com.sharedfate.perk.PerkRarity;
+import com.sharedfate.ui.PerkCardDismiss;
 import com.sharedfate.ui.PerkRerollButton;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.ChatFormatting;
@@ -82,6 +83,14 @@ public class PerkOfferScreen extends Screen {
 
 	/** 결과를 보여 주는 동안 화면 전체에 씌우는 어둠. 고른 카드만 남기려는 것이다. */
 	private static final int RESULT_VEIL = 0x9C05050A;
+	/**
+	 * 내려가는 카드 위에 덮는 어둠의 색. 투명도는 {@link PerkCardDismiss#shade} 가 정한다.
+	 *
+	 * <p>{@link #RESULT_VEIL} 과 같은 색이라 카드가 화면 어둠 속으로 가라앉는 것처럼 보인다.
+	 */
+	private static final int DISMISS_SHADE = 0x05050A;
+	/** 내려간 카드가 화면 아래끝을 확실히 지나도록 더 얹는 거리. */
+	private static final int DISMISS_OVERSHOOT = 4;
 	/** 고른 카드 둘레에 두르는 빛의 겹 수. 바깥으로 갈수록 옅어진다. */
 	private static final int HIGHLIGHT_GLOW_LAYERS = 4;
 	/** 빛이 한 번 밝아졌다 어두워지는 데 걸리는 시간(ms). */
@@ -208,6 +217,13 @@ public class PerkOfferScreen extends Screen {
 	private int resultIndex = -1;
 	/** 결과를 보여 주는 남은 시간(틱). 0 이면 결과 화면이 아니다. */
 	private int resultTicks;
+	/**
+	 * 결과가 정해진 시각. 안 고른 카드가 내려가는 움직임의 기준점이다.
+	 *
+	 * <p>남은 틱({@code resultTicks})으로 재지 않는다. 틱은 초당 20번뿐이라 그 값으로 자리를
+	 * 옮기면 카드가 20단계로 뚝뚝 끊겨 내려간다. 움직임은 프레임마다 다시 재야 매끄럽다.
+	 */
+	private long resultStartedAtMillis;
 	/** 결과를 보여 주기로 한 전체 시간(틱). 카운트다운 막대의 분모다. */
 	private int resultTotalTicks;
 	/** 결과를 고른 사람 이름. 시간이 다 되어 자동으로 정해졌으면 빈 문자열. */
@@ -258,6 +274,10 @@ public class PerkOfferScreen extends Screen {
 	/**
 	 * 무엇이 골라졌는지 서버가 알려 왔다. 그 카드 하나만 남겨 잠깐 보여 준다.
 	 *
+	 * <p>안 고른 카드는 곧바로 사라지지 않고 <b>아래로 미끄러져 내려간다</b>
+	 * ({@link #renderDismissedCards}). 0.5초 남짓이면 다 내려가므로 남은 시간은 고른 카드를
+	 * 보는 데 쓰인다.
+	 *
 	 * <p>후보에 없는 식별자가 오면 아무것도 하지 않는다. 늦게 도착한 지시가 다음 구간의 창을
 	 * 건드리는 일을 막는다.
 	 *
@@ -271,6 +291,7 @@ public class PerkOfferScreen extends Screen {
 				resultIndex = index;
 				resultTicks = Math.max(1, holdTicks);
 				resultTotalTicks = resultTicks;
+				resultStartedAtMillis = System.currentTimeMillis();
 				resultChooser = chooserName == null ? "" : chooserName;
 				choiceSent = true;
 				playResultSound();
@@ -438,12 +459,17 @@ public class PerkOfferScreen extends Screen {
 		graphics.centeredText(this.font, this.title, centerX, titleY, TEXT_MAIN);
 		graphics.centeredText(this.font, subtitle(), centerX, subtitleY, subtitleColor());
 
+		// 안 고른 카드를 먼저 그린다. 내려가는 길이 가운데로 옮겨 온 카드와 겹치는데, 나중에
+		// 그린 것이 위에 오므로 이 순서가 아니면 떠나는 카드가 강조된 카드를 덮는다.
+		renderDismissedCards(graphics, mouseX, mouseY);
+
 		for (int index = 0; index < cards.size(); index++) {
-			// 결과를 보여 주는 중에는 정해진 카드 하나만 남긴다.
+			// 결과를 보여 주는 중에는 정해진 카드 하나만 남긴다. 나머지는 바로 위에서 이미
+			// 내려가는 중으로 그렸다.
 			if (showingResult() && index != resultIndex) {
 				continue;
 			}
-			renderCard(graphics, index, mouseX, mouseY);
+			renderCard(graphics, index, mouseX, mouseY, 0, 0.0F);
 		}
 
 		graphics.centeredText(this.font, footerHint(), centerX, this.height - 14, TEXT_HINT);
@@ -519,13 +545,51 @@ public class PerkOfferScreen extends Screen {
 	}
 
 	/**
+	 * 안 고른 카드를 아래로 미끄러뜨린다.
+	 *
+	 * <p>예전에는 결과가 정해지는 순간 이 카드들을 <b>그리지 않는 것</b>으로 끝냈다. 한 프레임
+	 * 만에 두 장이 없어지니 눈이 따라가지 못했다. 이제는 제자리에서 출발해 화면 아래끝을 지날
+	 * 때까지 가속하며 내려가고, 내려가는 동안 어둠에 가라앉는다. 걸리는 시간과 곡선은
+	 * {@link PerkCardDismiss} 에 적어 두었다 — 3초의 앞머리에서 끝나므로 뒤에는 고른 카드만
+	 * 남은 화면이 충분히 남는다.
+	 *
+	 * <p>결과 화면이 아니면 아무것도 하지 않는다.
+	 */
+	private void renderDismissedCards(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+		if (!showingResult()) {
+			return;
+		}
+		long elapsed = System.currentTimeMillis() - resultStartedAtMillis;
+		// 카드 윗변이 화면 아래끝에 닿을 만큼 내려보낸다. 도중에 잘려 사라지므로 따로
+		// 지워 줄 필요가 없다.
+		int travel = Math.max(0, this.height - cardTop) + DISMISS_OVERSHOOT;
+		for (int index = 0; index < cards.size(); index++) {
+			if (index == resultIndex || PerkCardDismiss.gone(elapsed, index)) {
+				continue;
+			}
+			int slide = PerkCardDismiss.offset(elapsed, index, travel);
+			// 윗변이 화면 밖으로 나가면 그릴 것이 없다. 여기서 끊지 않으면 화면 밖 좌표로
+			// 잘라내기(scissor)를 걸게 된다.
+			if (cardTop + slide >= this.height) {
+				continue;
+			}
+			renderCard(graphics, index, mouseX, mouseY, slide,
+					PerkCardDismiss.shade(elapsed, index));
+		}
+	}
+
+	/**
 	 * 카드 한 장을 그린다.
 	 *
 	 * <p>호버 판정과 클릭 판정은 <b>움직이지 않는 자리</b>(cardTop 기준)로 한다. 떠오른 위치로
 	 * 판정하면 카드가 올라가는 순간 마우스가 밖으로 빠져 깜빡이기 때문이다. 그리는 위치만
 	 * 위아래로 흔든다.
+	 *
+	 * @param slide 제자리에서 아래로 밀어 둘 거리. 탈락해 내려가는 카드에만 0이 아니다
+	 * @param shade 카드 위에 덮을 어둠의 세기 0.0~1.0. 0이면 덮지 않는다
 	 */
-	private void renderCard(GuiGraphicsExtractor graphics, int index, int mouseX, int mouseY) {
+	private void renderCard(GuiGraphicsExtractor graphics, int index, int mouseX, int mouseY,
+			int slide, float shade) {
 		Card card = cards.get(index);
 		// 정해진 카드는 혼자 남으므로 제자리에 두면 세 칸 중 한쪽에 치우쳐 보인다. 가운데로 옮긴다.
 		boolean highlighted = showingResult() && index == resultIndex;
@@ -535,7 +599,7 @@ public class PerkOfferScreen extends Screen {
 		// 강조한 카드는 호버와 같은 밝기를 쓰되, 아래의 빛과 두 겹 테두리로 한 단계 더 올린다.
 		boolean bright = hovered || highlighted;
 
-		int top = cardTop + entryOffset(index) - (hovered ? HOVER_LIFT : 0);
+		int top = cardTop + entryOffset(index) - (hovered ? HOVER_LIFT : 0) + slide;
 		int bottom = top + cardHeight;
 		int rarity = card.rarityColor();
 
@@ -567,7 +631,13 @@ public class PerkOfferScreen extends Screen {
 		}
 
 		// 카드가 세로로 잘린 경우 내용이 카드 밖으로 삐져나오지 않게 자른다.
-		graphics.enableScissor(left + 1, top + 1, right - 1, bottom - 1);
+		// 내려가는 카드는 아랫변이 화면 밖까지 가므로 화면 안으로 한 번 눌러 둔다. 위아래가
+		// 뒤집힌 범위를 넘기면 안 되므로, 남은 자리가 없으면 내용은 아예 건너뛴다.
+		int clipBottom = Math.min(bottom - 1, this.height);
+		if (clipBottom <= top + 1) {
+			return;
+		}
+		graphics.enableScissor(left + 1, top + 1, right - 1, clipBottom);
 		int textCenterX = left + cardWidth / 2;
 		graphics.centeredText(this.font, card.rarityLabel(), textCenterX,
 				top + (BAND_HEIGHT - this.font.lineHeight + 1) / 2, BAND_TEXT);
@@ -589,6 +659,13 @@ public class PerkOfferScreen extends Screen {
 			y += this.font.lineHeight;
 		}
 		graphics.disableScissor();
+
+		// 내려가는 카드는 마지막에 어둠 한 겹을 덮는다. 잘라내기 밖에서 테두리까지 함께
+		// 덮어야 배경만 어두워지고 테두리만 남는 그림이 되지 않는다.
+		if (shade > 0.0F) {
+			graphics.fill(left, top, right, bottom,
+					withAlpha(DISMISS_SHADE, Math.round(0xFF * Math.clamp(shade, 0.0F, 1.0F))));
+		}
 	}
 
 	/**

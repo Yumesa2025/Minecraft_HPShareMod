@@ -8,6 +8,7 @@
     "CraftingScreenMixin",
     "CreativeModeInventoryScreenMixin",
     "DeathScreenAccessor",
+    "EnchantmentScreenMixin",
     "InventoryScreenMixin",
     "MultiPlayerGameModeMixin",
     "ScreenAccessor"

@@ -12,6 +12,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.boss.enderdragon.EnderDragon;
 import net.minecraft.world.entity.player.Player;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -25,9 +26,15 @@ public final class RunProgressManager {
 	private static final UUID BOSS_EVENT_ID = UUID.nameUUIDFromBytes(
 			"sharedfate:run-progress".getBytes(StandardCharsets.UTF_8));
 
+	/** 보스바 문구를 다시 재는 주기. 사람이 단추를 누를 때만 바뀌는 값이라 1초면 충분하다. */
+	private static final int BOSS_BAR_SCAN_INTERVAL_TICKS = 20;
+
 	private static RunProgressState state;
 	private static Path stateFile;
 	private static ServerBossEvent bossBar;
+	/** 마지막으로 보스바에 써 넣은 문구. 같으면 팀을 훑지도 패킷을 보내지도 않는다. */
+	private static Component lastBossBarTitle;
+	private static int bossBarCooldown;
 
 	private RunProgressManager() {
 	}
@@ -42,7 +49,9 @@ public final class RunProgressManager {
 			SharedFateMod.LOGGER.error("회차 파일을 읽지 못해 메모리에서 1회차로 시작합니다: {}", stateFile, e);
 		}
 		if (SharedFateMod.config.showRunBossBar) {
-			bossBar = new ServerBossEvent(BOSS_EVENT_ID, title(), color(), BossEvent.BossBarOverlay.PROGRESS);
+			lastBossBarTitle = title(server);
+			bossBar = new ServerBossEvent(BOSS_EVENT_ID, lastBossBarTitle, color(server),
+					BossEvent.BossBarOverlay.PROGRESS);
 			bossBar.setProgress(1.0F);
 			bossBar.setVisible(true);
 		}
@@ -82,6 +91,16 @@ public final class RunProgressManager {
 		MinecraftServer server = dragon.level().getServer();
 		Player killer = dragon.getLastHurtByPlayer();
 		ShareTeam winningTeam = killer == null ? null : TeamManager.get(server).teamOf(killer.getUUID());
+		// 시작하지 않은 팀이 드래곤을 잡아도 회차 승리가 아니다. 시작 전에는 회차 자체가 없고,
+		// 여기서 승리로 세면 아무도 시작하지 않은 회차가 끝나 버린다.
+		if (winningTeam != null
+				&& GameStartManager.waiting(
+						TeamManager.get(server).stateByTeamId(winningTeam.teamId()))) {
+			SharedFateMod.LOGGER.info(
+					"[RUN] 아직 시작하지 않은 팀 '{}' 의 드래곤 처치라 승리로 세지 않습니다.",
+					winningTeam.name());
+			return;
+		}
 		String winningName = winningTeam != null
 				? winningTeam.name()
 				: killer != null ? killer.getPlainTextName() : "모험가";
@@ -98,7 +117,7 @@ public final class RunProgressManager {
 		}
 		WorldResetCoordinator.cancelPendingReset();
 		DamageLedger.giveVictoryBooks(server, winningTeam, state.runNumber());
-		refreshBossBar();
+		refreshBossBar(server);
 		server.getPlayerList().broadcastSystemMessage(Component.literal(
 				"승리! '" + winningName + "' 팀이 " + state.runNumber() + "회차에서 엔더 드래곤을 처치했습니다!"),
 				false);
@@ -131,26 +150,65 @@ public final class RunProgressManager {
 
 	public static void tick(MinecraftServer server) {
 		VictoryCelebration.tick(server);
+		if (++bossBarCooldown >= BOSS_BAR_SCAN_INTERVAL_TICKS) {
+			bossBarCooldown = 0;
+			refreshBossBar(server);
+		}
 	}
 
-	private static void refreshBossBar() {
+	/**
+	 * 보스바 문구를 지금 있어야 할 모습으로 맞춘다.
+	 *
+	 * <p>「시작 대기」와 「진행 중」을 오가는 값은 사람이 단추를 누를 때 바뀌므로, 승리처럼 한
+	 * 지점에서 알려 주는 대신 {@value #BOSS_BAR_SCAN_INTERVAL_TICKS} 틱마다 다시 잰다. 값이
+	 * 그대로면 아무것도 보내지 않는다 — {@code ServerBossEvent.setName} 은 이름이 실제로
+	 * 달라졌을 때만 패킷을 뿌리지만, 팀을 훑는 비용은 여기서 미리 아낀다.
+	 */
+	private static void refreshBossBar(@Nullable MinecraftServer server) {
 		if (bossBar == null) {
 			return;
 		}
-		bossBar.setName(title());
-		bossBar.setColor(color());
-	}
-
-	private static Component title() {
-		if (state != null && state.isVictory()) {
-			return Component.literal("SharedFate · " + state.runNumber() + "회차 · "
-					+ state.winningTeam() + " 승리!");
+		Component next = title(server);
+		if (next.equals(lastBossBarTitle)) {
+			return;
 		}
-		return Component.literal("SharedFate · " + (state == null ? 1 : state.runNumber()) + "회차");
+		lastBossBarTitle = next;
+		bossBar.setName(next);
+		bossBar.setColor(color(server));
 	}
 
-	private static BossEvent.BossBarColor color() {
-		return isVictory() ? BossEvent.BossBarColor.GREEN : BossEvent.BossBarColor.BLUE;
+	private static Component title(@Nullable MinecraftServer server) {
+		return Component.literal(label(runNumber(),
+				state != null && state.isVictory(),
+				state == null ? "" : state.winningTeam(),
+				GameStartManager.anyTeamStarted(server)));
+	}
+
+	/**
+	 * 보스바에 적을 한 줄. 월드 없이 시험할 수 있게 산술만 떼어 뒀다.
+	 *
+	 * <p>「N회차」라고만 적으면 팀도 없고 아무도 시작하지 않은 상태에서 이미 회차가 굴러가는
+	 * 것처럼 읽힌다. 실제로 그렇게 읽혀서 이 기능이 필요해졌으므로, 시작 전에는 <b>「시작 대기」</b>
+	 * 라고 분명히 적는다.
+	 */
+	static String label(int runNumber, boolean victory, @Nullable String winningTeam,
+			boolean anyTeamStarted) {
+		if (victory) {
+			return "SharedFate · " + runNumber + "회차 · "
+					+ (winningTeam == null ? "" : winningTeam) + " 승리!";
+		}
+		return anyTeamStarted
+				? "SharedFate · " + runNumber + "회차 진행 중"
+				: "SharedFate · " + runNumber + "회차 · 시작 대기";
+	}
+
+	private static BossEvent.BossBarColor color(@Nullable MinecraftServer server) {
+		if (isVictory()) {
+			return BossEvent.BossBarColor.GREEN;
+		}
+		// 아직 아무도 시작하지 않았다는 사실이 색으로도 보여야 한다.
+		return GameStartManager.anyTeamStarted(server)
+				? BossEvent.BossBarColor.BLUE : BossEvent.BossBarColor.YELLOW;
 	}
 
 	public static void reset() {
@@ -158,6 +216,8 @@ public final class RunProgressManager {
 			bossBar.removeAllPlayers();
 		}
 		bossBar = null;
+		lastBossBarTitle = null;
+		bossBarCooldown = 0;
 		state = null;
 		stateFile = null;
 		VictoryCelebration.reset();

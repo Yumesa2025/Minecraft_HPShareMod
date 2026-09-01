@@ -3,6 +3,7 @@ package com.sharedfate.mixin;
 import com.sharedfate.perk.PerkChoiceSession;
 import com.sharedfate.perk.PerkDamage;
 import com.sharedfate.sync.DifficultyEscalation;
+import com.sharedfate.sync.GameStartManager;
 import com.sharedfate.sync.SharedEffectDamage;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
@@ -48,6 +49,10 @@ public abstract class LivingEntityPerkDamageMixin {
 	 *       틱에서 계산돼 그대로 들어온다. 선택창이 떠 있는 동안에는 팀원의 피해를 통째로 버린다.
 	 *       무적은 {@link com.sharedfate.perk.PerkChoiceSession} 이 시간을 녹이는 순간 함께 풀린다.
 	 *       세션이 없으면 첫 줄에서 곧바로 빠져나가므로 평소 피해 처리에는 비용이 없다.</li>
+	 *   <li><b>회차 시작 전의 무적</b> — 리더가 「게임 시작」을 누르기 전에는 팀원의 피해를 통째로
+	 *       버린다. 체력이 공유라 한 명만 죽어도 팀이 전멸하는데, 아직 시작도 안 한 회차 때문에
+	 *       월드가 지워지는 일도 하드코어에서 관전자로 갇히는 일도 없어야 한다. 자세한 까닭은
+	 *       {@link com.sharedfate.sync.GameStartManager#blocksDamage} 에 있다.</li>
 	 *   <li><b>공유 상태이상의 중복 피해</b> — 아래 설명 참고.</li>
 	 * </ol>
 	 *
@@ -64,7 +69,7 @@ public abstract class LivingEntityPerkDamageMixin {
 	private void sharedfate$skipDuplicateSharedEffectDamage(ServerLevel level, DamageSource source,
 			float amount, CallbackInfoReturnable<Boolean> callback) {
 		LivingEntity self = (LivingEntity) (Object) this;
-		if (PerkChoiceSession.blocksDamage(self)) {
+		if (PerkChoiceSession.blocksDamage(self) || GameStartManager.blocksDamage(self)) {
 			callback.setReturnValue(false);
 			return;
 		}

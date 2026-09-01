@@ -51,7 +51,10 @@ public final class PositionSwapManager {
 		int countdownSeconds = configuredCountdownSeconds();
 		for (ShareTeam team : manager.allTeams()) {
 			TeamState state = manager.stateByTeamId(team.teamId());
-			if (state == null || !state.positionSwapEnabled()) {
+			// 「게임 시작」을 누르기 전에는 주기를 세지 않는다. 팀원을 기다리는 동안 자리가
+			// 뒤바뀌면 모여 있던 사람들이 흩어지고, 무엇보다 그 시간은 회차에 속하지 않는다.
+			// 시작하는 순간 남은 시간이 주기 그대로 채워진다({@code GameStartManager}).
+			if (state == null || !state.positionSwapEnabled() || !state.runStarted) {
 				continue;
 			}
 			// 시차가 걸음을 진행하는 동안에는 다음 주기 자체를 세지 않는다. 정거장은 이

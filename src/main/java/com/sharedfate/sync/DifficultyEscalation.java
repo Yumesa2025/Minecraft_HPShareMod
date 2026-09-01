@@ -56,8 +56,9 @@ import java.util.UUID;
  * </ul>
  *
  * <h2>시간을 어떻게 세는가</h2>
- * <p>{@code TeamState.difficultyElapsedTicks} 를 <b>팀원이 한 명이라도 접속해 있는 틱에만</b>
- * 올린다. 그래서 서버가 꺼져 있던 시간도, 아무도 없던 시간도 세지 않는다. 값은 월드 저장에
+ * <p>{@code TeamState.difficultyElapsedTicks} 를 <b>회차가 시작되었고 팀원이 한 명이라도 접속해
+ * 있는 틱에만</b> 올린다. 리더가 「게임 시작」({@link GameStartManager})을 누르기 전에는 아예
+ * 세지 않고, 누르는 순간 0 에서 다시 시작한다. 그래서 서버가 꺼져 있던 시간도, 아무도 없던 시간도 세지 않는다. 값은 월드 저장에
  * 들어가므로 재시작을 넘어 이어지고, 회차가 넘어가면 팀 상태를 새로 만들면서 0 이 된다.
  * 켜고 끄기만 {@code TeamRosterStore} 를 타고 다음 회차로 이어진다.
  */
@@ -133,6 +134,10 @@ public final class DifficultyEscalation {
 		if (state == null || !state.difficultyEscalationEnabled) {
 			return "끔";
 		}
+		// 시작 전에도 「+0%, 다음 상승까지 30분」이라고 적으면 이미 시간이 흐르는 것처럼 읽힌다.
+		if (!state.runStarted) {
+			return "켬 (게임을 시작하면 그때부터 셉니다)";
+		}
 		int percent = percentFor(state.difficultyElapsedTicks);
 		int remaining = ticksToNextStep(state.difficultyElapsedTicks);
 		String next = remaining < 0
@@ -187,7 +192,9 @@ public final class DifficultyEscalation {
 		int highest = 0;
 		for (ShareTeam team : manager.allTeams()) {
 			TeamState state = manager.stateByTeamId(team.teamId());
-			if (state == null || !state.difficultyEscalationEnabled) {
+			// 「게임 시작」을 누르기 전에는 세지 않는다. 이 값의 뜻이 「회차가 시작된 뒤 흐른
+			// 시간」이므로, 회차가 아직 시작되지 않았으면 셀 것이 없다.
+			if (state == null || !state.difficultyEscalationEnabled || !state.runStarted) {
 				continue;
 			}
 			// 아무도 없는 동안에는 시간이 흐르지 않는다. 하룻밤 자고 왔더니 몹이 두 배가 되어

@@ -1,9 +1,12 @@
 package com.sharedfate.perk;
 
 import com.sharedfate.TestBootstrap;
+import com.sharedfate.team.TeamState;
 import net.minecraft.world.food.FoodData;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -12,6 +15,9 @@ import java.lang.classfile.ClassModel;
 import java.lang.classfile.CodeElement;
 import java.lang.classfile.MethodModel;
 import java.lang.classfile.instruction.InvokeInstruction;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -49,13 +55,18 @@ class NaturalRegenExhaustionTest {
 		TestBootstrap.ensureInitialized();
 	}
 
+	@AfterEach
+	void 정리() {
+		PerkRegistry.clear();
+	}
+
 	// ------------------------------------------------------------------ 표시가 하는 일
 
 	@Test
 	void 자연_회복이_치르는_대가에는_증강_배율을_걸지_않는다() {
 		RecordingFoodData food = new RecordingFoodData();
 
-		PerkFoodRules.addNaturalRegenExhaustion(food, 6.0F);
+		PerkFoodRules.addNaturalRegenExhaustion(food, 6.0F, null);
 
 		assertEquals(6.0F, food.scaledWhileAdding,
 				"회복의 대가가 고행자 배율 0 을 타면 체력이 공짜로 차오른다");
@@ -71,7 +82,7 @@ class NaturalRegenExhaustionTest {
 
 	@Test
 	void 표시는_끝나면_반드시_돌아온다() {
-		PerkFoodRules.addNaturalRegenExhaustion(new FoodData(), 6.0F);
+		PerkFoodRules.addNaturalRegenExhaustion(new FoodData(), 6.0F, null);
 
 		assertEquals(0.0F, PerkFoodRules.applyExhaustionMultiplier(ASCETIC, 6.0F),
 				"표시가 남아 있으면 그 뒤의 모든 소모도가 배율을 잃는다");
@@ -87,7 +98,7 @@ class NaturalRegenExhaustionTest {
 		};
 
 		try {
-			PerkFoodRules.addNaturalRegenExhaustion(exploding, 6.0F);
+			PerkFoodRules.addNaturalRegenExhaustion(exploding, 6.0F, null);
 		} catch (IllegalStateException expected) {
 			// 예외 자체는 우리가 삼킬 일이 아니다. 표시만 남지 않으면 된다.
 		}
@@ -97,9 +108,59 @@ class NaturalRegenExhaustionTest {
 
 	@Test
 	void null_이_들어와도_표시가_남지_않는다() {
-		PerkFoodRules.addNaturalRegenExhaustion(null, 6.0F);
+		PerkFoodRules.addNaturalRegenExhaustion(null, 6.0F, null);
 
 		assertEquals(0.0F, PerkFoodRules.applyExhaustionMultiplier(ASCETIC, 6.0F));
+	}
+
+	// ------------------------------------------------------------------ includeNaturalRegen
+
+	@Test
+	void includeNaturalRegen_이_없으면_자연_회복까지_면제하지_않는다() {
+		assertFalse(PerkFoodRules.blocksNaturalRegenExhaustion(null));
+		assertFalse(PerkFoodRules.blocksNaturalRegenExhaustion(TeamState.fresh(20.0F)));
+	}
+
+	@Test
+	void includeNaturalRegen_이_참이면_자연_회복의_대가도_쌓지_않는다(@TempDir Path dir) throws IOException {
+		PerkRegistry.load(pool(dir));
+
+		TeamState state = TeamState.fresh(20.0F);
+		state.perksEnabled = true;
+		state.ownedPerks.add("sharedfate:고행자");
+
+		assertTrue(PerkFoodRules.blocksNaturalRegenExhaustion(state));
+	}
+
+	@Test
+	void includeNaturalRegen_이_거짓인_no_hunger_drain_은_자연_회복을_면제하지_않는다(@TempDir Path dir)
+			throws IOException {
+		PerkRegistry.load(pool(dir));
+
+		TeamState state = TeamState.fresh(20.0F);
+		state.perksEnabled = true;
+		state.ownedPerks.add("sharedfate:다른_고행");
+
+		assertFalse(PerkFoodRules.blocksNaturalRegenExhaustion(state),
+				"includeNaturalRegen 을 안 적었으면 기본값 거짓이라 자연 회복 대가는 그대로 치러야 한다");
+	}
+
+	/** 자연 회복까지 면제하는 고행자와, 행동만 면제하는 다른 no_hunger_drain 을 담은 풀. */
+	private static Path pool(Path dir) throws IOException {
+		Files.writeString(dir.resolve(PerkRegistry.FILE_NAME), """
+				{
+				  "perks": [
+				    { "id": "sharedfate:고행자", "rarity": "prism", "name": "고행자",
+				      "effects": [
+				        { "type": "no_hunger_drain", "includeNaturalRegen": true },
+				        { "type": "max_health_lock", "value": 10.0 }
+				      ] },
+				    { "id": "sharedfate:다른_고행", "rarity": "prism", "name": "다른 고행",
+				      "effects": [ { "type": "no_hunger_drain" } ] }
+				  ]
+				}
+				""", StandardCharsets.UTF_8);
+		return dir;
 	}
 
 	// ------------------------------------------------------------------ 26.2 의 실제 갈래

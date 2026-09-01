@@ -80,7 +80,11 @@ public final class PerkManager {
 		TeamManager manager = TeamManager.get(server);
 		for (ShareTeam team : List.copyOf(manager.allTeams())) {
 			TeamState state = manager.stateByTeamId(team.teamId());
-			if (state == null || !state.perksEnabled) {
+			// 「게임 시작」을 누르기 전에는 구간을 세지 않는다. 증강은 회차의 보상인데, 팀원을
+			// 기다리며 서 있는 동안 올린 레벨로 증강이 나오면 회차가 시작되기도 전에 판이
+			// 정해진다. 시작하는 순간 레벨과 지나온 구간이 함께 0 으로 돌아간다
+			// ({@code GameStartManager}).
+			if (state == null || !state.perksEnabled || !state.runStarted) {
 				continue;
 			}
 			boolean changed = advanceMilestones(server, team, state);
@@ -105,7 +109,7 @@ public final class PerkManager {
 		}
 		for (ShareTeam team : List.copyOf(manager.allTeams())) {
 			TeamState state = manager.stateByTeamId(team.teamId());
-			if (state == null || !state.perksEnabled || state.pending.isEmpty()) {
+			if (state == null || !state.perksEnabled || !state.runStarted || state.pending.isEmpty()) {
 				continue;
 			}
 			if (PerkChoiceSession.begin(server, team, state)) {

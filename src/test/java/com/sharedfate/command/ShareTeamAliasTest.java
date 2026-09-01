@@ -76,9 +76,38 @@ class ShareTeamAliasTest {
 	@Test
 	void 하위_명령은_원본에만_달려_있다() {
 		CommandNode<CommandSourceStack> root = node("shareteam");
-		for (String child : new String[] {"create", "invite", "leave", "disband",
+		for (String child : new String[] {"create", "invite", "leave", "disband", "start",
 				"status", "list", "help", "perk", "perktest", "swap", "health", "difficulty"}) {
 			assertNotNull(root.getChild(child), child + " 가지가 있어야 한다");
 		}
+	}
+
+	/**
+	 * 회차 시작은 <b>확인 낱말 없이는 실행되지 않아야</b> 한다.
+	 *
+	 * <p>아이템이 전부 사라지는 동작이라 {@code disband} 와 같은 모양이어야 한다 — 낱말만 친
+	 * 쪽은 안내, {@code confirm} 을 붙인 쪽만 실행이다. 여기서 확인하는 것은 트리 모양뿐이지만,
+	 * 실행 가지가 사라지거나 확인 가지가 없어지는 사고는 이걸로 잡힌다.
+	 */
+	@Test
+	void 게임_시작은_confirm_가지를_따로_둔다() {
+		CommandNode<CommandSourceStack> start = node("shareteam").getChild("start");
+		assertNotNull(start.getCommand(), "확인 낱말 없이 치면 안내가 나와야 한다");
+		CommandNode<CommandSourceStack> confirm = start.getChild("confirm");
+		assertNotNull(confirm, "확인 가지가 있어야 한다");
+		assertNotNull(confirm.getCommand(), "확인 가지가 실제로 실행되어야 한다");
+		assertTrue(confirm.getChildren().isEmpty(), "확인 뒤에 더 붙는 것은 없다");
+	}
+
+	/** 화면 단추가 보내는 명령이 실제 트리와 어긋나면 단추가 조용히 아무 일도 하지 않는다. */
+	@Test
+	void 화면_단추가_보내는_명령이_트리에_그대로_있다() {
+		String[] words = com.sharedfate.ui.GameStartButton.CONFIRM_COMMAND.split(" ");
+		CommandNode<CommandSourceStack> current = node("shareteam");
+		for (String word : words) {
+			current = current.getChild(word);
+			assertNotNull(current, word + " 가지가 있어야 화면 단추가 동작한다");
+		}
+		assertNotNull(current.getCommand());
 	}
 }
