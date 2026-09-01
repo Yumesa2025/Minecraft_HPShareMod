@@ -1066,7 +1066,7 @@
       "id": "sharedfate:sweeping_edge",
       "icon": "minecraft:diamond_sword",
       "name": "휩쓸기",
-      "description": "검의 휩쓸기 공격이 온전한 피해를 줍니다. 대신 공격력이 20% 감소합니다.",
+      "description": "검의 휩쓸기 공격이 온전한 피해를 줍니다. 대신 공격력이 10% 감소합니다.",
       "rarity": "silver",
       "effects": [
         {
@@ -1079,7 +1079,7 @@
           "type": "attribute",
           "attribute": "minecraft:attack_damage",
           "operation": "add_multiplied_total",
-          "amount": -0.2
+          "amount": -0.1
         }
       ]
     },

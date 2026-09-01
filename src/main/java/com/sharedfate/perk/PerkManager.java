@@ -357,6 +357,10 @@ public final class PerkManager {
 	 * 것도 새 후보를 뽑는 것도 전부 여기서 한다.</b> 그래서 창을 조작해도 무한히 다시 뽑을 수
 	 * 없고, 등급을 올리거나 이미 가진 증강을 다시 받게 만들 수도 없다.
 	 *
+	 * <p><b>직전에 보여 준 3개는 되도록 다시 나오지 않는다.</b> 그 3개를 {@code avoid} 로
+	 * 넘긴다 — 등급 통에 남은 후보가 3개 미만일 때만 그중에서 마저 채운다. 직전 한 번만
+	 * 피하므로 두 번 넘게 다시 뽑으면 그보다 앞서 본 후보는 돌아올 수 있다.
+	 *
 	 * <p>다음 중 하나라도 어긋나면 <b>아무 말 없이 돌아간다.</b> 지연·재전송된 패킷과 조작된
 	 * 패킷을 같은 길로 버리기 위해서다 — 실패 이유를 알려 주면 그 자체가 조작의 힌트가 된다.
 	 *
@@ -400,8 +404,13 @@ public final class PerkManager {
 		// 이미 가진 증강은 PerkDraft 가 등급을 가리지 않고 언제나 뺀다. 다시 뽑기도 같은 길을
 		// 지나므로 재추첨 결과에 보유 증강이 섞일 수 없다. 구간을 함께 넘겨야 min_level 이
 		// 걸린 증강(예: 30렙부터인 프리즘 「환골탈태」)이 이른 구간에 튀어나오지 않는다.
-		List<String> options = PerkDraft.draw(
-				rarity, milestone, PerkRegistry.all(), state.ownedPerks, random, OPTION_COUNT);
+		//
+		// 지금 화면에 떠 있는 3개를 avoid 로 넘긴다. 넘기지 않으면 실버 라운드 기준 세 번에 한
+		// 번꼴로 방금 본 카드가 그대로 돌아와, 다시 뽑기를 쓰고도 안 쓴 것처럼 보인다.
+		// 「되도록」이라 남은 후보가 3개 미만이면 뺐던 것에서 마저 채운다 — 카드가 비는 것보다
+		// 낫다. 직전 한 번만 피하므로 두 번 이상 다시 뽑으면 그전 것은 다시 나올 수 있다.
+		List<String> options = PerkDraft.draw(rarity, milestone, PerkRegistry.all(),
+				state.ownedPerks, offer.optionIds(), random, OPTION_COUNT);
 		if (options.isEmpty()) {
 			// 뽑을 것이 없으면 창이 비어 버린다. 횟수를 깎지 않고 지금 후보를 그대로 둔다.
 			SharedFateMod.LOGGER.warn(
