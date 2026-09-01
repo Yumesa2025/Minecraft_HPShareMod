@@ -15,10 +15,15 @@ package com.sharedfate.ui;
  * 움직임 자체에 담긴다.
  *
  * <h2>시간</h2>
- * <p>결과를 보여 주는 시간은 전부 3초({@code PerkChoiceSession.RESULT_TICKS})다. 이 움직임은
+ * <p>결과를 보여 주는 시간은 전부 5초({@code PerkChoiceSession.RESULT_TICKS})다. 이 움직임은
  * 그 <b>앞머리에서만</b> 끝나야 한다 — 카드가 다 내려간 뒤 고른 카드만 남은 화면을 충분히
  * 볼 시간이 있어야 강조가 뜻을 갖는다. 그래서 {@link #SLIDE_MILLIS} 와 {@link #STAGGER_MILLIS}
- * 를 합쳐도 0.6초를 넘지 않게 잡았고, 남는 2.4초 이상이 고른 카드를 보는 시간이다.
+ * 를 합쳐도 0.8초를 넘지 않게 잡았고, 남는 4초 이상이 고른 카드를 보는 시간이다.
+ *
+ * <p>예전에는 한 장에 0.38초, 시차 0.07초였다. 세 장이 0.52초 만에 다 사라지는데 뒤에 붙는
+ * 가속까지 겹쳐, 무엇이 떨어져 나갔는지 알아보기 전에 화면에서 없어졌다. 지금은 한 장이
+ * 0.52초를 쓰고 시차도 0.11초로 벌려서, 세 장이 <b>한 덩어리로 사라지지 않고</b> 왼쪽부터
+ * 차례로 떠나는 것이 눈에 보인다. 결과 시간이 5초라 0.74초를 써도 앞머리에 그대로 들어간다.
  *
  * <h2>곡선</h2>
  * <p>진행도를 <b>제곱</b>해서 쓴다(ease-in). 떨어지는 물체와 같은 가속이라 "내려간다"가 가장
@@ -31,9 +36,9 @@ package com.sharedfate.ui;
  */
 public final class PerkCardDismiss {
 	/** 카드 한 장이 다 내려가는 데 걸리는 시간(ms). */
-	public static final long SLIDE_MILLIS = 380L;
+	public static final long SLIDE_MILLIS = 520L;
 	/** 카드마다 출발을 미루는 간격(ms). 왼쪽 카드가 먼저 떠난다. */
-	public static final long STAGGER_MILLIS = 70L;
+	public static final long STAGGER_MILLIS = 110L;
 
 	/**
 	 * 다 내려갔을 때 카드에 덮이는 어둠의 세기.
@@ -107,7 +112,7 @@ public final class PerkCardDismiss {
 	/**
 	 * 카드 {@code cardCount} 장짜리 창에서 마지막 한 장까지 다 내려가는 데 걸리는 시간(ms).
 	 *
-	 * <p>고른 카드도 자리는 차지하므로 자리 수를 그대로 넣는다. 결과를 보여 주는 3초와 견줘
+	 * <p>고른 카드도 자리는 차지하므로 자리 수를 그대로 넣는다. 결과를 보여 주는 시간과 견줘
 	 * 얼마나 앞에서 끝나는지 재는 데 쓴다.
 	 */
 	public static long totalMillis(int cardCount) {

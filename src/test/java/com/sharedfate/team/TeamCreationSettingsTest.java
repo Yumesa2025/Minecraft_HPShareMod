@@ -43,15 +43,37 @@ class TeamCreationSettingsTest {
 	}
 
 	@Test
-	void 기본값에서_알림_셋과_위치_교환은_꺼져_있다() {
+	void 기본값에서_알림_둘과_난이도_상승은_꺼져_있다() {
 		TeamCreationSettings settings = TeamCreationSettings.defaults(20.0F);
 
 		assertFalse(settings.damageAlertEnabled());
 		assertFalse(settings.deathAlertEnabled());
 		assertFalse(settings.difficultyEscalationEnabled(),
 				"회차를 통째로 어렵게 만드는 설정은 손으로 켜야 한다");
-		assertFalse(settings.swapEnabled());
 		assertEquals(20.0F, settings.maxHealth());
+	}
+
+	/**
+	 * 위치 교환은 <b>켠 채로</b> 시작한다.
+	 *
+	 * <p>체력과 경험치만 나누면 팀원이 각자 제 갈 길을 가도 아무 일이 없다. 자리가 섞여야
+	 * 서로를 신경 쓰게 되므로, 이 모드에서는 켜고 시작하는 쪽이 기본이다.
+	 */
+	@Test
+	void 기본값에서_위치_교환은_5분_주기로_켜져_있다() {
+		TeamCreationSettings settings = TeamCreationSettings.defaults(20.0F);
+
+		assertTrue(settings.swapEnabled());
+		assertEquals(5, settings.swapIntervalMinutes());
+		assertEquals(5, TeamCreationSettings.DEFAULT_SWAP_MINUTES);
+	}
+
+	/** 화면이 들고 시작하는 값도 이 상수를 그대로 본다. 숫자를 옮겨 적으면 갈라진다. */
+	@Test
+	void 기본_주기는_굴림_단추의_자리_중_하나다() {
+		assertEquals(TeamCreationSettings.DEFAULT_SWAP_MINUTES,
+				com.sharedfate.ui.TeamCreationCycle.nextSwapMinutes(1),
+				"1분 다음 자리가 곧 기본값이라야 화면에서 기본값으로 되돌아올 수 있다");
 	}
 
 	// ------------------------------------------------------------------ 새기기
@@ -75,12 +97,27 @@ class TeamCreationSettingsTest {
 		assertEquals(0, state.difficultyElapsedTicks);
 	}
 
+	/** 안 적으면 기본 주기(5분)로 켜진다. 앞서 다른 주기가 새겨져 있었어도 덮어쓴다. */
 	@Test
-	void 위치_교환을_안_적으면_꺼진_채로_새겨진다() {
+	void 위치_교환을_안_적으면_기본_주기로_새겨진다() {
 		TeamState state = TeamState.fresh(20.0F);
 		state.enablePositionSwap(7);
 
 		TeamCreationSettings.defaults(20.0F).applyTo(state);
+
+		assertTrue(state.positionSwapEnabled());
+		assertEquals(TeamCreationSettings.DEFAULT_SWAP_MINUTES,
+				state.positionSwapIntervalMinutes());
+	}
+
+	/** 「끔」으로 만든 팀에는 앞서 켜져 있던 교환이 남으면 안 된다. */
+	@Test
+	void 위치_교환을_끔으로_적으면_꺼진_채로_새겨진다() {
+		TeamState state = TeamState.fresh(20.0F);
+		state.enablePositionSwap(7);
+
+		TeamCreationSettings.defaults(20.0F)
+				.withSwapIntervalMinutes(TeamCreationSettings.SWAP_DISABLED).applyTo(state);
 
 		assertFalse(state.positionSwapEnabled());
 	}

@@ -74,6 +74,21 @@ public final class PerkDamage {
 		return MobPerkModifiers.damageMultiplier(attacker);
 	}
 
+	/**
+	 * 화면이 「받는 피해」 줄에 적을 배율.
+	 *
+	 * <p>피해 계산이 실제로 쓰는 {@link #takenFactor} 를 그대로 부른다. 값을 여기서 따로
+	 * 세면 화면과 실제가 갈라진다 — 특히 「증강을 껐다」·「아직 아무 증강도 없다」 같은
+	 * 조건이 두 벌이 되면 그중 하나만 고쳐지는 사고가 난다.
+	 *
+	 * <p>피해 종류를 가리는 {@code damage_taken_from} 은 들어 있지 않다. 그쪽은 불·폭발·몹처럼
+	 * <b>맞은 것이 무엇이냐에 따라 달라지는</b> 배율이라 한 줄로 적을 수 없고, 종류마다 한
+	 * 줄씩 적으면 능력치 표시가 그 표에 잡아먹힌다. 모든 피해에 공통으로 걸리는 배율만 적는다.
+	 */
+	public static double takenMultiplier(@Nullable ServerPlayer player) {
+		return takenFactor(player);
+	}
+
 	/** 피해자가 증강을 가진 팀원일 때만 받는 피해 배율을 읽는다. */
 	private static double takenFactor(@Nullable Entity victim) {
 		if (!(victim instanceof ServerPlayer player) || !perksActive(player)) {

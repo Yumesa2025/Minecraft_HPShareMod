@@ -5,6 +5,7 @@ import com.sharedfate.net.PerkOfferPayload;
 import com.sharedfate.net.PerkRerollC2SPayload;
 import com.sharedfate.perk.PerkRarity;
 import com.sharedfate.ui.PerkCardDismiss;
+import com.sharedfate.ui.PerkCardFocus;
 import com.sharedfate.ui.PerkRerollButton;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.ChatFormatting;
@@ -218,10 +219,8 @@ public class PerkOfferScreen extends Screen {
 	/** 결과를 보여 주는 남은 시간(틱). 0 이면 결과 화면이 아니다. */
 	private int resultTicks;
 	/**
-	 * 결과가 정해진 시각. 안 고른 카드가 내려가는 움직임의 기준점이다.
-	 *
-	 * <p>남은 틱({@code resultTicks})으로 재지 않는다. 틱은 초당 20번뿐이라 그 값으로 자리를
-	 * 옮기면 카드가 20단계로 뚝뚝 끊겨 내려간다. 움직임은 프레임마다 다시 재야 매끄럽다.
+	 * 결과가 정해진 시각. 안 고른 카드가 내려가고 고른 카드가 가운데로 오는 움직임의 기준점이다.
+	 * 재는 일은 {@link #resultElapsedMillis()} 가 한다.
 	 */
 	private long resultStartedAtMillis;
 	/** 결과를 보여 주기로 한 전체 시간(틱). 카운트다운 막대의 분모다. */
@@ -274,16 +273,17 @@ public class PerkOfferScreen extends Screen {
 	/**
 	 * 무엇이 골라졌는지 서버가 알려 왔다. 그 카드 하나만 남겨 잠깐 보여 준다.
 	 *
-	 * <p>안 고른 카드는 곧바로 사라지지 않고 <b>아래로 미끄러져 내려간다</b>
-	 * ({@link #renderDismissedCards}). 0.5초 남짓이면 다 내려가므로 남은 시간은 고른 카드를
-	 * 보는 데 쓰인다.
+	 * <p>안 고른 카드는 곧바로 사라지지 않고 <b>아래로 미끄러져 내려가고</b>
+	 * ({@link #renderDismissedCards}), 고른 카드는 그동안 가운데로 미끄러져 온다
+	 * ({@link PerkCardFocus}). 0.75초면 자리가 다 잡히므로 남은 시간은 전부 고른 카드를 읽는
+	 * 데 쓰인다.
 	 *
 	 * <p>후보에 없는 식별자가 오면 아무것도 하지 않는다. 늦게 도착한 지시가 다음 구간의 창을
 	 * 건드리는 일을 막는다.
 	 *
-	 * <p>{@code holdTicks} 는 서버가 시간을 더 멈춰 둘 길이({@code RESULT_TICKS}, 3초)와 같다.
-	 * 그래서 이 시간을 그대로 <b>재개 카운트다운</b>으로 쓴다. 뒤에 3초를 더 붙이지 않는
-	 * 이유는 {@link #renderResumeCountdown} 에 적어 두었다.
+	 * <p>{@code holdTicks} 는 서버가 시간을 더 멈춰 둘 길이({@code RESULT_TICKS})와 같은 값이
+	 * 실려 온 것이다. 그래서 이 시간을 그대로 <b>재개 카운트다운</b>으로 쓴다. 뒤에 카운트다운을
+	 * 따로 더 붙이지 않는 이유는 {@link #renderResumeCountdown} 에 적어 두었다.
 	 */
 	public void showResult(String perkId, String chooserName, int holdTicks) {
 		for (int index = 0; index < options.size(); index++) {
@@ -311,6 +311,16 @@ public class PerkOfferScreen extends Screen {
 	/** 결과를 보여 주는 중인지. */
 	public boolean showingResult() {
 		return resultIndex >= 0;
+	}
+
+	/**
+	 * 결과가 정해진 뒤 지난 시간(ms). 카드가 움직이는 계산은 전부 이 값을 기준으로 한다.
+	 *
+	 * <p>남은 틱({@code resultTicks})으로 재지 않는다. 틱은 초당 20번뿐이라 그 값으로 자리를
+	 * 옮기면 카드가 20단계로 뚝뚝 끊겨 움직인다.
+	 */
+	private long resultElapsedMillis() {
+		return System.currentTimeMillis() - resultStartedAtMillis;
 	}
 
 	@Override
@@ -504,15 +514,18 @@ public class PerkOfferScreen extends Screen {
 	/**
 	 * 게임이 다시 시작되기까지 남은 초를 크게 그린다.
 	 *
-	 * <h2>왜 3초를 더 붙이지 않았나</h2>
-	 * <p>고른 카드를 보여 주는 3초는 <b>이미 시간이 멈춰 있는 3초</b>다. 뒤에 카운트다운
-	 * 3초를 더 붙이면 서버가 시간을 6초 동안 멈춰야 하고({@code RESULT_TICKS} 를 두 배로),
-	 * 무적도 그만큼 길어진다. 회차마다 일곱 번 겪는 연출이라 그 6초는 길다.
+	 * <h2>왜 뒤에 따로 더 붙이지 않았나</h2>
+	 * <p>고른 카드를 보여 주는 시간은 <b>이미 시간이 멈춰 있는 시간</b>이다. 그 뒤에 카운트다운을
+	 * 따로 붙이면 {@code RESULT_TICKS} 를 두 배로 잡는 것과 같고, 무적도 그만큼 길어진다.
+	 * 회차마다 여덟 번 겪는 연출이라 두 배는 길다.
 	 *
-	 * <p>그래서 <b>같은 3초를 카운트다운으로 바꿨다.</b> 원래도 3초 뒤에 게임이 돌아왔지만
-	 * 그 사실을 화면이 말해 주지 않아 갑자기 튕겨 나가는 느낌이었다. 숫자를 보여 주면
-	 * 같은 3초가 "기다리는 시간"이 아니라 "준비하는 시간"이 된다. 시간 정지와 무적이
-	 * 도는 길이는 하나도 바뀌지 않는다.
+	 * <p>그래서 <b>같은 시간을 카운트다운으로 바꿨다.</b> 원래도 그 시간 뒤에 게임이 돌아왔지만
+	 * 그 사실을 화면이 말해 주지 않아 갑자기 튕겨 나가는 느낌이었다. 숫자를 보여 주면 같은
+	 * 시간이 "기다리는 시간"이 아니라 "준비하는 시간"이 된다. 시간 정지와 무적이 도는 길이는
+	 * 하나도 바뀌지 않는다.
+	 *
+	 * <p>글자에 숫자를 박아 두지 않는다. 서버가 보낸 {@code holdTicks} 를 초로 바꿔 세므로
+	 * {@code RESULT_TICKS} 를 고치면 이 문구가 저절로 따라간다.
 	 */
 	private void renderResumeCountdown(GuiGraphicsExtractor graphics, int centerX) {
 		int seconds = resumeSeconds();
@@ -550,8 +563,8 @@ public class PerkOfferScreen extends Screen {
 	 * <p>예전에는 결과가 정해지는 순간 이 카드들을 <b>그리지 않는 것</b>으로 끝냈다. 한 프레임
 	 * 만에 두 장이 없어지니 눈이 따라가지 못했다. 이제는 제자리에서 출발해 화면 아래끝을 지날
 	 * 때까지 가속하며 내려가고, 내려가는 동안 어둠에 가라앉는다. 걸리는 시간과 곡선은
-	 * {@link PerkCardDismiss} 에 적어 두었다 — 3초의 앞머리에서 끝나므로 뒤에는 고른 카드만
-	 * 남은 화면이 충분히 남는다.
+	 * {@link PerkCardDismiss} 에 적어 두었다 — 결과 시간의 앞머리에서 끝나므로 뒤에는 고른
+	 * 카드만 남은 화면이 충분히 남는다.
 	 *
 	 * <p>결과 화면이 아니면 아무것도 하지 않는다.
 	 */
@@ -559,7 +572,7 @@ public class PerkOfferScreen extends Screen {
 		if (!showingResult()) {
 			return;
 		}
-		long elapsed = System.currentTimeMillis() - resultStartedAtMillis;
+		long elapsed = resultElapsedMillis();
 		// 카드 윗변이 화면 아래끝에 닿을 만큼 내려보낸다. 도중에 잘려 사라지므로 따로
 		// 지워 줄 필요가 없다.
 		int travel = Math.max(0, this.height - cardTop) + DISMISS_OVERSHOOT;
@@ -591,9 +604,13 @@ public class PerkOfferScreen extends Screen {
 	private void renderCard(GuiGraphicsExtractor graphics, int index, int mouseX, int mouseY,
 			int slide, float shade) {
 		Card card = cards.get(index);
-		// 정해진 카드는 혼자 남으므로 제자리에 두면 세 칸 중 한쪽에 치우쳐 보인다. 가운데로 옮긴다.
+		// 정해진 카드는 혼자 남으므로 제자리에 두면 세 칸 중 한쪽에 치우쳐 보인다. 가운데로
+		// 옮기되 순간이동시키지 않고 미끄러뜨린다. 이유는 PerkCardFocus 에 적어 두었다.
 		boolean highlighted = showingResult() && index == resultIndex;
-		int left = highlighted ? (this.width - cardWidth) / 2 : cardLeft(index);
+		int left = highlighted
+				? PerkCardFocus.left(resultElapsedMillis(), cardLeft(index),
+						(this.width - cardWidth) / 2)
+				: cardLeft(index);
 		int right = left + cardWidth;
 		boolean hovered = clickable() && isInside(mouseX, mouseY, left, right, cardTop + cardHeight);
 		// 강조한 카드는 호버와 같은 밝기를 쓰되, 아래의 빛과 두 겹 테두리로 한 단계 더 올린다.
@@ -676,12 +693,16 @@ public class PerkOfferScreen extends Screen {
 	 *
 	 * <p>세기를 천천히 오르내리게 해서 <b>지금 이 카드를 보라</b>는 신호로 만든다. 멈춰 있는
 	 * 테두리는 그냥 장식으로 읽힌다.
+	 *
+	 * <p>카드가 가운데로 오는 동안에는 빛도 함께 짙어진다. 옮겨 오는 첫 프레임부터 다 켜 두면
+	 * 빛만 먼저 튀어 카드가 어디서 왔는지 가린다.
 	 */
 	private void renderHighlightGlow(GuiGraphicsExtractor graphics, int left, int top, int rarity) {
 		float phase = (System.currentTimeMillis() % HIGHLIGHT_PULSE_MILLIS)
 				/ (float) HIGHLIGHT_PULSE_MILLIS;
 		float pulse = 0.5F - 0.5F * (float) Math.cos(phase * 2.0 * Math.PI);
-		float strength = HIGHLIGHT_GLOW_MIN + (HIGHLIGHT_GLOW_MAX - HIGHLIGHT_GLOW_MIN) * pulse;
+		float strength = (HIGHLIGHT_GLOW_MIN + (HIGHLIGHT_GLOW_MAX - HIGHLIGHT_GLOW_MIN) * pulse)
+				* PerkCardFocus.progress(resultElapsedMillis());
 		for (int layer = 1; layer <= HIGHLIGHT_GLOW_LAYERS; layer++) {
 			float fade = (float) (HIGHLIGHT_GLOW_LAYERS + 1 - layer) / (HIGHLIGHT_GLOW_LAYERS + 1);
 			int alpha = Math.round(0xFF * fade * strength);
@@ -806,10 +827,11 @@ public class PerkOfferScreen extends Screen {
 	}
 
 	/**
-	 * 게임이 다시 시작되기까지 남은 초. 3 → 2 → 1 로 떨어진다.
+	 * 게임이 다시 시작되기까지 남은 초. 서버가 보낸 {@code holdTicks} 를 그대로 세어 5 → 1 로
+	 * 떨어진다. <b>숫자를 박아 두지 않으므로</b> {@code RESULT_TICKS} 를 고치면 저절로 따라간다.
 	 *
-	 * <p>올림이라 60틱에서 3이 뜨고 마지막 1틱까지 1이 남는다. 내림으로 하면 시작하자마자
-	 * 2가 뜨고 마지막 1초가 0으로 보인다.
+	 * <p>올림이라 100틱에서 5가 뜨고 마지막 1틱까지 1이 남는다. 내림으로 하면 시작하자마자
+	 * 4가 뜨고 마지막 1초가 0으로 보인다.
 	 */
 	private int resumeSeconds() {
 		return (resultTicks + TICKS_PER_SECOND - 1) / TICKS_PER_SECOND;

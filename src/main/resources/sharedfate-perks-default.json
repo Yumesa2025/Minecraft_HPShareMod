@@ -854,12 +854,12 @@
       "id": "sharedfate:void_step",
       "icon": "minecraft:wind_charge",
       "name": "허공답보",
-      "description": "공중에서 한 번 더 점프할 수 있고 점프력이 50% 증가합니다. 대신 낙하 피해가 2배가 됩니다.",
+      "description": "점프력이 50% 증가하고, 공중에서 한 번 더 점프할 수 있습니다. 두 번째 점프는 70% 더 세고 가던 방향으로 밀어 줍니다. 대신 낙하 피해가 1.5배가 됩니다.",
       "rarity": "prism",
       "effects": [
         {
           "type": "double_jump",
-          "power": 0.62
+          "power": 0.714
         },
         {
           "type": "attribute",
@@ -871,7 +871,7 @@
           "type": "attribute",
           "attribute": "minecraft:fall_damage_multiplier",
           "operation": "add_multiplied_total",
-          "amount": 1.0
+          "amount": 0.5
         }
       ]
     },

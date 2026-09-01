@@ -6,6 +6,7 @@ import com.sharedfate.perk.effect.BonusDropEffect;
 import com.sharedfate.perk.effect.ConditionalEffect;
 import com.sharedfate.perk.effect.DamageTakenEffect;
 import com.sharedfate.perk.effect.DamageTakenFromEffect;
+import com.sharedfate.perk.effect.DoubleJumpEffect;
 import com.sharedfate.perk.effect.HolderEffect;
 import com.sharedfate.perk.effect.ItemGrantEffect;
 import com.sharedfate.perk.effect.MaxHealthBonusEffect;
@@ -134,6 +135,40 @@ class DefaultPerkPoolValuesTest {
 		AttributeEffect jump = attributeEffect(perk, "minecraft:jump_strength");
 
 		assertEquals(0.5, jump.amount(), 1.0e-9);
+	}
+
+	/**
+	 * 두 번째 점프는 바닐라 기본 점프의 1.7배다.
+	 *
+	 * <p>{@code LivingEntity.BASE_JUMP_POWER} 가 0.42 이므로 0.42 × 1.7 = 0.714 다. 첫 점프에
+	 * 붙는 점프력 +50%(0.63)와 값을 맞추던 예전과 달리, 이제 <b>두 번째가 첫 번째보다 세다.</b>
+	 */
+	@Test
+	void 허공답보의_두_번째_점프는_기본의_1_7배다(@TempDir Path dir) throws IOException {
+		Perk perk = perk(dir, "sharedfate:void_step");
+		DoubleJumpEffect jump = perk.effects().stream()
+				.filter(DoubleJumpEffect.class::isInstance)
+				.map(DoubleJumpEffect.class::cast)
+				.findFirst()
+				.orElseThrow(() -> new AssertionError("double_jump 효과가 없다"));
+
+		assertEquals(0.42 * 1.7, jump.power(), 1.0e-9);
+		assertEquals(DoubleJumpEffect.DEFAULT_POWER, jump.power(), 1.0e-9,
+				"power 를 적지 않았을 때의 기본값도 같아야 한다");
+	}
+
+	/**
+	 * 낙하 피해는 1.5배다.
+	 *
+	 * <p>{@code add_multiplied_total} 이라 최종 배율은 {@code 1 + amount} 다. 1.5배를 만들려면
+	 * {@code amount} 가 0.5 여야 한다.
+	 */
+	@Test
+	void 허공답보의_낙하_피해는_1_5배다(@TempDir Path dir) throws IOException {
+		Perk perk = perk(dir, "sharedfate:void_step");
+		AttributeEffect fall = attributeEffect(perk, "minecraft:fall_damage_multiplier");
+
+		assertEquals(0.5, fall.amount(), 1.0e-9);
 	}
 
 	@Test

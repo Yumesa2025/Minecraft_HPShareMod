@@ -55,8 +55,9 @@ public final class ClientPerkFeatures {
 	/**
 	 * 공중 점프의 세기.
 	 *
-	 * <p>클라이언트는 이 값으로 밀지 않는다. 실제로 미는 것은 서버뿐이고, 이 값은 화면 효과나
-	 * 진단에 쓰라고 함께 내려온 참고값이다.
+	 * <p>{@link DoubleJumpHandler} 가 누른 그 틱에 이 값으로 몸을 띄운다. 값을 정하는 것은
+	 * 여전히 서버다 — 클라이언트는 받은 값을 그대로 쓸 뿐이고, 서버도 요청을 받아들일 때
+	 * 증강 정의에서 같은 값을 다시 읽는다.
 	 */
 	public static double doubleJumpPower() {
 		return doubleJumpPower;

@@ -5,6 +5,7 @@ import com.sharedfate.perk.effect.DoubleJumpEffect;
 import com.sharedfate.perk.effect.HideHudEffect;
 import com.sharedfate.team.TeamLookup;
 import com.sharedfate.team.TeamState;
+import com.sharedfate.ui.AirJumpImpulse;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -30,7 +31,8 @@ import java.util.UUID;
  *
  * <ul>
  *   <li>{@link DoubleJumpEffect} — 서버는 공중 점프 입력을 볼 수 없으므로 클라이언트가
- *       요청을 보내고, 그 요청을 여기서 검증한 뒤 실제로 밀어 준다.</li>
+ *       스스로 뛰고 요청을 보낸다. 여기서는 그 요청을 검증해 <b>한 번 뜬 동안 한 번</b>을
+ *       세고, 증강이 없는데 뛴 것이면 되돌린다.</li>
  *   <li>{@link HideHudEffect} — 서버에는 그릴 화면이 없으므로 "무엇을 가릴지"만 내려보낸다.</li>
  * </ul>
  *
@@ -40,6 +42,12 @@ import java.util.UUID;
  * 하나라도 어긋나면 조용히 버린다. 거절 사실을 알려 주지 않는 이유는 두 가지다. 정상
  * 클라이언트는 애초에 어긋난 요청을 보내지 않으므로 알려 줄 일이 없고, 거절 응답은 곧
  * "무엇이 막혔는지" 알려 주는 신호라 오히려 탐색 통로가 된다.
+ *
+ * <p>마인크래프트에서 <b>위치는 원래 클라이언트가 정한다.</b> 서버는 보고받은 위치를 그대로
+ * 받아들이고 틱당 10칸을 넘거나 80틱 넘게 떠 있을 때만 걸러 낸다. 그러니 이 자리의 검증은
+ * "몸이 뜨는 것 자체를 막는" 장치가 아니라 <b>증강이 무엇을 허락하는지 정하는 유일한 자리</b>다.
+ * 증강이 없는 팀원이 뛰면 {@code cancelPrediction} 이 속도를 되돌리고, 증강이 있어도 한 번 뜬
+ * 동안 두 번째는 세어 주지 않는다. 세기와 미는 방향도 서버가 증강 정의에서 읽는다.
  *
  * <h2>땅을 밟았는지 누가 세는가</h2>
  * <p>공중 점프를 "한 번"으로 묶어 두는 일은 클라이언트도 하지만 그것만으로는 부족하다.
@@ -65,6 +73,8 @@ public final class PerkClientRules {
 	private static final Set<UUID> AIR_JUMP_USED = new HashSet<>();
 	/** 팀원별로 마지막 공중 점프를 받아들인 서버 틱. */
 	private static final Map<UUID, Integer> LAST_ACCEPTED_TICK = new HashMap<>();
+	/** 팀원별로 마지막으로 예측을 되돌린 서버 틱. */
+	private static final Map<UUID, Integer> LAST_CORRECTED_TICK = new HashMap<>();
 
 	private static int scanCooldown;
 
@@ -183,6 +193,7 @@ public final class PerkClientRules {
 		LAST_SENT.keySet().retainAll(online);
 		AIR_JUMP_USED.retainAll(online);
 		LAST_ACCEPTED_TICK.keySet().retainAll(online);
+		LAST_CORRECTED_TICK.keySet().retainAll(online);
 	}
 
 	// ------------------------------------------------------------------ 공중 점프
@@ -195,14 +206,27 @@ public final class PerkClientRules {
 	 *
 	 * <h2>왜 낙하 거리를 지우지 않는가</h2>
 	 * <p>{@code fallDistance} 를 여기서 0 으로 되돌리면 떨어지던 중에 한 번 뛰는 것만으로
-	 * 낙하 피해가 통째로 사라진다. 「허공답보」의 대가가 낙하 피해 2배인데 오히려 낙하
-	 * 피해를 없애 주는 셈이라 앞뒤가 맞지 않는다. 그래서 위로 미는 일만 한다.
+	 * 낙하 피해가 통째로 사라진다. 「허공답보」의 대가가 낙하 피해 증가인데 오히려 낙하
+	 * 피해를 없애 주는 셈이라 앞뒤가 맞지 않는다. 그래서 속도만 손댄다.
+	 *
+	 * <h2>여기서는 클라이언트를 되밀지 않는다</h2>
+	 * <p>속도는 클라이언트가 키를 누른 그 틱에 이미 스스로 실었다({@code DoubleJumpHandler}).
+	 * 여기서 {@code hurtMarked} 까지 켜면 몇 틱 뒤 도착한 속도 패킷이 그새 줄어든 속도를
+	 * 처음 세기로 되돌려 <b>한 번의 점프가 두 번 튄다.</b> 그래서 받아들일 때는 제 쪽 사본에만
+	 * 같은 값을 적는다 — 그래야 바닐라의 이동 검사
+	 * ({@code ServerGamePacketListenerImpl} 가 {@code getDeltaMovement().lengthSqr()} 를
+	 * 기준으로 삼는다)와 다른 코드가 같은 값을 본다. 바닐라도 땅 점프를 이렇게 다룬다.
+	 * 클라이언트가 먼저 뛰고, 서버는 위치 보고를 보고 뒤따라 {@code jumpFromGround()} 를
+	 * 부를 뿐 뛴 사람에게 속도를 되돌려 보내지 않는다.
+	 *
+	 * <p>기준으로 삼는 것은 서버가 굴린 {@code getDeltaMovement()} 가 아니라
+	 * {@code getKnownMovement()} 다. 플레이어의 위치는 클라이언트가 보고하는 것으로 덮어쓰이는데
+	 * 속도 사본은 그러지 않아 서서히 어긋나기 때문이다. {@code getKnownMovement()} 는 바로
+	 * 그 보고에서 뽑은 값이라 클라이언트가 실제로 움직인 속도에 가장 가깝다.
 	 *
 	 * <h2>세기는 덮어쓰되 깎지는 않는다</h2>
-	 * <p>위쪽 속도를 {@code power} 로 <b>덮어쓴다.</b> 떨어지던 속도를 지워야 "한 번 더
-	 * 뛰었다"가 되기 때문이다. 다만 이미 {@code power} 보다 빠르게 올라가고 있었다면 그대로
-	 * 둔다. 그러지 않으면 (폭발에 떠밀렸다든가 점프력 증강이 겹쳤다든가로) 빠르게 오르던
-	 * 중에 누른 공중 점프가 <b>속도를 깎아</b> 오히려 낮게 뛰는 결과가 된다.
+	 * <p>{@link AirJumpImpulse} 가 정한다. 클라이언트도 같은 함수를 쓰므로 양쪽 값이 어긋나지
+	 * 않는다.
 	 */
 	public static void onDoubleJumpRequest(@Nullable ServerPlayer player) {
 		if (player == null) {
@@ -210,6 +234,9 @@ public final class PerkClientRules {
 		}
 		PerkClientFeaturesPayload features = featuresOf(player);
 		if (!features.doubleJump()) {
+			// 이 팀에는 그 증강이 없다. 그런데도 요청이 왔다면 상대가 제멋대로 뛴 것이므로
+			// 미리 뜬 몸을 되돌린다.
+			cancelPrediction(player);
 			return;
 		}
 		if (player.isSpectator() || player.getAbilities().flying) {
@@ -236,12 +263,40 @@ public final class PerkClientRules {
 		AIR_JUMP_USED.add(playerId);
 		LAST_ACCEPTED_TICK.put(playerId, now);
 
-		Vec3 motion = player.getDeltaMovement();
-		player.setDeltaMovement(motion.x, Math.max(features.doubleJumpPower(), motion.y), motion.z);
-		// 이걸 켜야 ServerEntity 가 다음 동기화에서 속도 패킷을 내려보낸다. 켜지 않으면
-		// 서버만 위로 올라가고 클라이언트 화면은 그대로 떨어진다.
-		player.hurtMarked = true;
+		Vec3 known = player.getKnownMovement();
+		AirJumpImpulse.Velocity pushed = AirJumpImpulse.of(known.x, known.y, known.z,
+				features.doubleJumpPower());
+		player.setDeltaMovement(pushed.x(), pushed.y(), pushed.z());
 		playJumpSound(player);
+	}
+
+	/**
+	 * 거절한 요청 때문에 클라이언트가 미리 띄운 몸을 되돌린다.
+	 *
+	 * <p>{@code hurtMarked} 를 켜면 {@code ServerEntity} 가 <b>본인에게도</b> 속도 패킷을
+	 * 내려보내고, 그것이 {@code Entity.lerpMotion} 을 거쳐 클라이언트의 속도를 덮어쓴다.
+	 * 실어 보내는 값은 {@code getKnownMovement()} — 바로 직전에 클라이언트 스스로 보고한
+	 * 움직임이다. 서버가 굴린 속도 사본은 위치와 달리 보고로 덮어쓰이지 않아 어긋날 수 있고,
+	 * 어긋난 값을 되돌려 보내면 멀쩡한 사람의 화면이 튄다.
+	 *
+	 * <p><b>증강이 없다</b>는 거절에서만 부른다. "이번에 이미 썼다"·"지금 땅이다" 같은 거절은
+	 * 서버와 클라이언트의 판정이 한 틱 어긋나는 것만으로도 생기므로, 그때까지 되밀면 멀쩡한
+	 * 사람이 한 틱짜리 어긋남 때문에 아래로 끌려 내려온다. 그 경우 잃는 것은 기껏해야 도약
+	 * 한 번이고, 한 번 뜬 동안 한 번이라는 약속은 {@link #AIR_JUMP_USED} 가 여전히 지킨다.
+	 *
+	 * <p>{@link #MIN_REQUEST_INTERVAL_TICKS} 마다 한 번만 보낸다. 요청을 쏟아붓는 것으로
+	 * 서버가 패킷을 쏟아내게 만들 수 있으면 그 자체가 공격 통로다.
+	 */
+	private static void cancelPrediction(ServerPlayer player) {
+		UUID playerId = player.getUUID();
+		int now = player.tickCount;
+		Integer last = LAST_CORRECTED_TICK.get(playerId);
+		if (last != null && now >= last && now - last < MIN_REQUEST_INTERVAL_TICKS) {
+			return;
+		}
+		LAST_CORRECTED_TICK.put(playerId, now);
+		player.setDeltaMovement(player.getKnownMovement());
+		player.hurtMarked = true;
 	}
 
 	/**
@@ -252,18 +307,17 @@ public final class PerkClientRules {
 	 * {@code minecraft:wind_charge} 와도 같은 결이다. 변주가 둘 있어 연달아 뛰어도
 	 * 같은 소리가 반복되지 않는다.
 	 *
-	 * <p><b>주변에도 들린다.</b> {@code except} 를 null 로 두었으므로 뛴 사람을 포함해
-	 * 근처 모두가 듣는다. 최대 4명이 붙어 다니는 판이라, 동료가 갑자기 떠오르는 것을
+	 * <p><b>주변에 들린다.</b> 최대 4명이 붙어 다니는 판이라, 동료가 갑자기 떠오르는 것을
 	 * 소리로 먼저 아는 편이 낫다. 세기를 0.7 로 낮춰 들리는 거리를 열 칸 남짓으로 줄였다.
 	 * 이동할 때마다 나는 소리는 크면 금세 거슬린다.
 	 *
-	 * <p>클라이언트가 키를 누르는 순간 스스로 내지 않는 이유는 이 자리가 <b>거절되지 않은</b>
-	 * 요청만 지나는 자리이기 때문이다. 클라이언트에서 내면 서버가 버린 요청에도 소리가 나
-	 * "소리는 났는데 안 뛰었다"가 된다. 대신 왕복만큼 늦지만, 몸이 떠오르는 순간과 소리가
-	 * 같이 오므로 어긋나 보이지는 않는다.
+	 * <p>첫 인자가 "이 소리를 낸 사람"이다. 서버에서는 <b>그 사람만 빼고</b> 주변에 나가고,
+	 * 클라이언트에서는 반대로 그 사람에게만 울린다. 뛴 사람은 키를 누른 그 틱에 스스로 소리를
+	 * 내므로({@code DoubleJumpHandler}) 몸이 떠오르는 순간과 소리가 정확히 같이 오고, 여기서
+	 * 빼 두었으므로 같은 소리를 두 번 듣지도 않는다.
 	 */
 	private static void playJumpSound(ServerPlayer player) {
-		player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
+		player.level().playSound(player, player.getX(), player.getY(), player.getZ(),
 				SoundEvents.BREEZE_JUMP, SoundSource.PLAYERS, 0.7F, 1.0F);
 	}
 
@@ -288,6 +342,7 @@ public final class PerkClientRules {
 		LAST_SENT.remove(playerId);
 		AIR_JUMP_USED.remove(playerId);
 		LAST_ACCEPTED_TICK.remove(playerId);
+		LAST_CORRECTED_TICK.remove(playerId);
 	}
 
 	/** 서버가 멈출 때 들고 있던 기록을 버린다. */
@@ -295,6 +350,7 @@ public final class PerkClientRules {
 		LAST_SENT.clear();
 		AIR_JUMP_USED.clear();
 		LAST_ACCEPTED_TICK.clear();
+		LAST_CORRECTED_TICK.clear();
 		scanCooldown = 0;
 	}
 }
