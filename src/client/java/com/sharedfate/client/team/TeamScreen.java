@@ -587,8 +587,8 @@ public class TeamScreen extends Screen {
 	/**
 	 * 설정 탭. <b>보여 주기만 한다.</b>
 	 *
-	 * <p>이제 아무도 값을 바꿀 수 없지만 <b>보는 것은 리더만</b>이다. 사람이 그렇게 정했다.
-	 * 그래서 안내 문구도 「리더만 바꿀 수 있습니다」가 아니라 못 바꾼다는 사실만 적는다.
+	 * <p>아무도 값을 바꿀 수 없지만 <b>보는 것은 리더만</b>이다. 그래서 안내 문구도
+	 * 「리더만 바꿀 수 있습니다」가 아니라 못 바꾼다는 사실만 적는다.
 	 */
 	private void renderSettings(GuiGraphicsExtractor graphics, int left) {
 		int y = PANEL_TOP;
