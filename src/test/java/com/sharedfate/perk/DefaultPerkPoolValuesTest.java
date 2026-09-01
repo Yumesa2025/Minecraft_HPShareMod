@@ -15,6 +15,7 @@ import com.sharedfate.perk.effect.OnKillEffect;
 import com.sharedfate.perk.effect.OreExchangeEffect;
 import com.sharedfate.perk.effect.RarityGrantEffect;
 import com.sharedfate.perk.effect.WeaponDamageEffect;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -172,24 +173,51 @@ class DefaultPerkPoolValuesTest {
 	}
 
 	@Test
-	void 굴착기는_모든_블록_3배에_광석만_절반으로_느려진다(@TempDir Path dir) throws IOException {
-		perk(dir, "sharedfate:excavator");
+	void 굴착기는_속성으로_3배_빨라지고_공격력_15퍼센트를_잃는다(@TempDir Path dir) throws IOException {
+		// 예전에는 mining_speed ×3 이었는데 그 길로는 절대 빨라지지 않는다 — 그 타입은 서버에서만
+		// 계산되고, 26.2 에서 블록이 부서지는 시점은 클라이언트의 STOP_DESTROY_BLOCK 이 정한다.
+		// 그래서 이득이 0인 채로 광석 페널티만 물고 있었다(2026-09-02 확인).
+		// block_break_speed 는 setSyncable(true) 라 클라이언트까지 내려가 양쪽이 같은 값을 본다.
+		// 자세한 것은 PlayerMiningSpeedMixin 과 MiningSpeedEffect 의 클래스 주석에 있다.
+		Perk perk = perk(dir, "sharedfate:excavator");
+		AttributeEffect speed = attributeEffect(perk, "minecraft:block_break_speed");
+		AttributeEffect damage = attributeEffect(perk, "minecraft:attack_damage");
+
+		// 기본값 1.0 에 add_multiplied_total 이라 1.0 × (1 + 2.0) = 3.0 이다.
+		assertEquals(2.0, speed.amount(), 1.0e-9);
+		assertEquals(AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL, speed.operation());
+		assertEquals(-0.15, damage.amount(), 1.0e-9);
+		assertEquals(AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL, damage.operation());
+
+		// 서버 전용 경로에는 아무것도 남기지 않는다. 남아 있으면 그만큼이 다시 먹히지 않는 효과다.
 		com.sharedfate.team.TeamState state = com.sharedfate.team.TeamState.fresh(20.0F);
 		state.perksEnabled = true;
 		state.ownedPerks.add("sharedfate:excavator");
-
-		// 돌: 전체 블록 대상 ×3 효과에만 걸린다.
-		assertEquals(3.0,
+		assertEquals(1.0,
 				PerkBlockBreaks.multiplierFor(state,
 						net.minecraft.world.level.block.Blocks.STONE.defaultBlockState()),
-				1.0e-6);
-		// 고대 잔해: 데이터팩 태그(#c:ores 등) 없이도 걸리는 개별 블록 id 라 단위 시험에서
-		// 확인할 수 있다. ×3(전체) × 광석 배율이 정확히 ×0.5 가 되어야 하므로, 광석 배율은
-		// 1/6 이어야 한다.
-		assertEquals(0.5,
+				1.0e-6, "굴착기에 mining_speed 효과가 남아 있으면 안 된다");
+		assertEquals(1.0,
 				PerkBlockBreaks.multiplierFor(state,
 						net.minecraft.world.level.block.Blocks.ANCIENT_DEBRIS.defaultBlockState()),
-				1.0e-6, "×3(전체) 와 곱해져 광석은 정확히 절반이 되어야 한다");
+				1.0e-6, "광석 예외는 사라졌다");
+	}
+
+	@Test
+	void 기본_풀에는_빨라지는_mining_speed_가_하나도_없다(@TempDir Path dir) throws IOException {
+		// mining_speed 는 느리게 하는 데만 쓸 수 있다. 1 보다 큰 배율은 조용히 아무 일도 하지
+		// 않으므로, 새 증강이 그 함정에 다시 빠지면 여기서 걸린다. 빠르게 하려면
+		// minecraft:block_break_speed 속성을 써야 한다.
+		loadDefaultPool(dir);
+		for (Perk perk : PerkRegistry.all()) {
+			for (PerkEffect effect : perk.effects()) {
+				if (effect instanceof com.sharedfate.perk.effect.MiningSpeedEffect mining) {
+					assertTrue(mining.multiplier() <= 1.0,
+							perk.name() + " 의 mining_speed 가 " + mining.multiplier()
+									+ " 다. 빨라지는 쪽은 효과가 없으니 block_break_speed 속성을 쓸 것");
+				}
+			}
+		}
 	}
 
 	@Test
@@ -290,15 +318,21 @@ class DefaultPerkPoolValuesTest {
 				.orElseThrow(() -> new AssertionError(attributeId + " 효과가 없다: " + perk.id()));
 	}
 
-	private static Perk perk(Path dir, String id) throws IOException {
+	/** 번들 기본 풀을 임시 폴더에 풀어 레지스트리에 올린다. 이미 올렸으면 아무 일도 하지 않는다. */
+	private static void loadDefaultPool(Path dir) throws IOException {
 		Path target = dir.resolve(PerkRegistry.FILE_NAME);
-		if (!Files.exists(target)) {
-			try (InputStream bundled = DefaultPerkPoolValuesTest.class
-					.getResourceAsStream("/sharedfate-perks-default.json")) {
-				Files.copy(bundled, target);
-			}
-			PerkRegistry.load(dir);
+		if (Files.exists(target)) {
+			return;
 		}
+		try (InputStream bundled = DefaultPerkPoolValuesTest.class
+				.getResourceAsStream("/sharedfate-perks-default.json")) {
+			Files.copy(bundled, target);
+		}
+		PerkRegistry.load(dir);
+	}
+
+	private static Perk perk(Path dir, String id) throws IOException {
+		loadDefaultPool(dir);
 		return PerkRegistry.byId(id).orElseThrow(() -> new AssertionError(id + " 를 찾을 수 없다"));
 	}
 }

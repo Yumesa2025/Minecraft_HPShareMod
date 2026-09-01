@@ -166,7 +166,8 @@ public final class StatMirror {
 				continue;
 			}
 			FoodData foodData = player.getFoodData();
-			float playerHealthDelta = player.getHealth() - last.health();
+			float playerHealthDelta = healthDelta(
+					last.health(), player.getHealth(), player.getMaxHealth());
 			float playerAbsorptionDelta = player.getAbsorptionAmount() - last.absorption();
 			float consumedAbsorption = consumedAbsorption(
 					last.absorption(), player.getAbsorptionAmount(), player.getMaxAbsorption());
@@ -254,10 +255,36 @@ public final class StatMirror {
 		if (!DAMAGE_CAPTURED_THIS_TICK.add(player.getUUID())) {
 			return;
 		}
-		float healthLoss = Math.max(0.0F, last.health() - player.getHealth());
+		float healthLoss = Math.max(0.0F,
+				-healthDelta(last.health(), player.getHealth(), player.getMaxHealth()));
 		float absorptionLoss = consumedAbsorption(
 				last.absorption(), player.getAbsorptionAmount(), player.getMaxAbsorption());
 		DamageLedger.record(team, player, healthLoss + absorptionLoss);
+	}
+
+	/**
+	 * 최대 체력이 내려가 잘린 몫을 뺀, 이 사람의 진짜 체력 변화량. 음수면 피해, 양수면 회복.
+	 *
+	 * <p>{@link #consumedAbsorption} 이 흡수량에 대해 하는 일과 같다. 상한이 줄어서 줄어든 것은
+	 * 맞은 것이 아니다.
+	 *
+	 * <p><b>이걸 빼지 않으면 팀이 즉사한다.</b> 최대 체력이 20 에서 10 으로 줄면
+	 * {@link MaxHealthAttribute#apply} 가 팀원 <b>각자의</b> 체력을 10 으로 자르고,
+	 * {@link #fold} 는 그 자름을 사람 수만큼 <b>합산</b>한다. 3인 팀이 체력 18 에서 상한을
+	 * 잃으면 8 이 세 번 빠져 공유 체력이 18 − 24 = 0 이 된다. 한 번의 자름이 인원수만큼
+	 * 곱해지는 것이라, 팀이 건강할수록 확실하게 죽는다 — 3인은 15 이상, 2인은 20 에서
+	 * 그렇게 된다. 프리즘 「고행자」(최대 체력 10 고정)로 실제로 겪었다.
+	 *
+	 * <p>같은 틱에 진짜 피해도 받았다면 그 몫은 그대로 남는다. 상한이 20 → 10 이 된 틱에 3 을
+	 * 맞아 체력이 7 이 됐다면 답은 −3 이다. 반대로 상한이 오를 때는 아무 일도 하지 않는다 —
+	 * 체력이 저절로 차오르지는 않기 때문이다.
+	 *
+	 * <p>공유 체력을 새 상한으로 자르는 일은 {@link #applyDeltas} 가 이미 한다. 여기서는
+	 * 「피해로 세지 않는다」까지만 하면 된다.
+	 */
+	static float healthDelta(float previousHealth, float currentHealth, float currentMaximum) {
+		float capacityLoss = Math.max(0.0F, previousHealth - currentMaximum);
+		return currentHealth - previousHealth + capacityLoss;
 	}
 
 	static float consumedAbsorption(float previousAmount, float currentAmount, float currentMaximum) {
