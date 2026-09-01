@@ -352,7 +352,9 @@ public final class ShareTeamCommand {
 		TeamCreationSettings settings = creationSettings(context, chosen);
 		TeamState initialState = initialState(self, config);
 		settings.applyTo(initialState);
-		InventorySwapper.prepareJoin(self);
+		// 팀을 만든 사람의 창은 닫지 않는다. 이 명령은 팀 화면의 「팀 만들기」 단추가 보내는
+		// 것이고, 만든 직후가 곧 「게임 시작」을 누를 자리라 창이 사라지면 다시 열어야 한다.
+		InventorySwapper.prepareJoin(self, true);
 		ShareTeam team = manager.createTeam(name, self.getUUID(), initialState);
 		if (team == null) {
 			context.getSource().sendFailure(Component.literal("팀을 만들지 못했습니다."));

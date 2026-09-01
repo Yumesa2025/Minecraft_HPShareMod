@@ -22,7 +22,21 @@ public final class InventorySwapper {
 	}
 
 	public static void prepareJoin(ServerPlayer player) {
-		player.closeContainer();
+		prepareJoin(player, false);
+	}
+
+	/**
+	 * 팀에 들어가기 전, 이 사람이 들고 있던 것을 전부 바닥에 내려놓는다.
+	 *
+	 * @param keepScreenOpen 참이면 <b>인벤토리 메뉴만</b> 떠 있을 때 닫기 패킷을 보내지 않는다.
+	 *                       상자·화로처럼 따로 연 창은 그래도 닫는다
+	 */
+	public static void prepareJoin(ServerPlayer player, boolean keepScreenOpen) {
+		if (keepScreenOpen) {
+			closeOpenedContainerOnly(player);
+		} else {
+			player.closeContainer();
+		}
 		dropAndClear(player, player.getInventory());
 		if (ExpandedInventoryManager.enabled()) {
 			dropAndClear(player, ExpandedInventoryManager.extraFor(player));
@@ -31,6 +45,29 @@ public final class InventorySwapper {
 			Container personalEnder = ((PlayerEnderChestAccessor) player).sharedfate$getPersonalEnderChest();
 			dropAndClear(player, personalEnder);
 		}
+	}
+
+	/**
+	 * 따로 연 창(상자·화로·조합대)만 닫고 인벤토리 메뉴는 건드리지 않는다.
+	 *
+	 * <p>{@code ServerPlayer.closeContainer()} 는 컨테이너 닫기 패킷을 보내는데, 클라이언트는
+	 * 그것을 받으면 <b>지금 떠 있는 화면이 무엇이든</b> 없앤다 —
+	 * {@code LocalPlayer.clientSideCloseContainer} 가 {@code Gui.setScreen(null)} 을 부르기
+	 * 때문이다. 컨테이너와 아무 상관 없는 창까지 함께 사라진다.
+	 *
+	 * <p>여기서 창을 닫는 본래 이유는 상자를 연 채로 인벤토리를 통째로 바꿔치우면 그 창의
+	 * 아래 칸이 옛 목록을 가리키기 때문이다. 인벤토리 메뉴만 떠 있으면 그럴 일이 없다 —
+	 * {@link #finishJoin} 이 바뀐 목록을 곧바로 내려보낸다. 대신 창을 닫을 때 바닐라가 해 주던
+	 * 뒷정리({@code AbstractContainerMenu.removed} — 커서에 쥔 것을 내려놓고 2×2 조합칸을
+	 * 인벤토리로 되돌린다)는 그대로 부른다. 빠뜨리면 그 아이템만 공유되지 않고 남는다.
+	 * 되돌려 놓은 조합칸은 바로 뒤의 {@code dropAndClear} 가 함께 바닥으로 내린다.
+	 */
+	private static void closeOpenedContainerOnly(ServerPlayer player) {
+		if (player.containerMenu != player.inventoryMenu) {
+			player.closeContainer();
+			return;
+		}
+		player.containerMenu.removed(player);
 	}
 
 	public static void finishJoin(ServerPlayer player, TeamState state) {

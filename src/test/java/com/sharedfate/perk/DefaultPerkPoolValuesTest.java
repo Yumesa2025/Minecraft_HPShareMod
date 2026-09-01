@@ -252,6 +252,33 @@ class DefaultPerkPoolValuesTest {
 		assertEquals(PerkRarity.GOLD, blessing.rarity());
 	}
 
+	/**
+	 * 두 증강의 대가는 <b>받는 피해 배율 하나뿐</b>이다.
+	 *
+	 * <p>예전에는 최대 체력을 깎았다(숨은 재능 −4, 하늘의 은총 −8). 최대 체력은 팀 전체가
+	 * 나눠 쓰는 값이라 나 하나가 증강 두 장을 겹쳐 고르면 팀의 목숨이 통째로 줄고, 그 손해가
+	 * 증강을 고르지 않은 사람에게도 그대로 간다. 대가는 받는 피해 배율로 옮겼다 — 이쪽도
+	 * 팀 전체에 걸리지만 <b>맞았을 때만</b> 드러나므로, 조심하면 줄일 수 있다는 점이 다르다.
+	 */
+	@Test
+	void 숨은_재능과_하늘의_은총의_대가는_받는_피해뿐이다(@TempDir Path dir) throws IOException {
+		Perk hidden = perk(dir, "sharedfate:hidden_talent");
+		assertEquals(2, hidden.effects().size(), "지급 하나 + 대가 하나");
+		assertEquals(1.15,
+				assertInstanceOf(DamageTakenEffect.class, hidden.effects().get(1)).multiplier(),
+				1.0e-9);
+		assertTrue(hidden.effects().stream().noneMatch(e -> e instanceof MaxHealthBonusEffect),
+				"최대 체력을 깎지 않는다");
+
+		Perk blessing = perk(dir, "sharedfate:blessing_of_heaven");
+		assertEquals(2, blessing.effects().size(), "지급 하나 + 대가 하나");
+		assertEquals(1.25,
+				assertInstanceOf(DamageTakenEffect.class, blessing.effects().get(1)).multiplier(),
+				1.0e-9);
+		assertTrue(blessing.effects().stream().noneMatch(e -> e instanceof MaxHealthBonusEffect),
+				"최대 체력을 깎지 않는다");
+	}
+
 	// ------------------------------------------------------------------ 도우미
 
 	private static AttributeEffect attributeEffect(Perk perk, String attributeId) {
