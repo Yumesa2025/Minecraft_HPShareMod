@@ -5,6 +5,7 @@ import net.minecraft.util.RandomSource;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -131,22 +132,78 @@ public final class PerkDraft {
 	 */
 	public static List<String> draw(PerkRarity rarity, int milestone, List<Perk> pool,
 			List<String> owned, RandomSource random, int count) {
+		return draw(rarity, milestone, pool, owned, List.of(), random, count);
+	}
+
+	/**
+	 * 등급·구간에 더해 <b>이번에는 피하고 싶은 후보</b>까지 지정해 뽑는다. 「다시 뽑기」가 쓴다.
+	 *
+	 * <p>{@code owned} 와 {@code avoid} 는 성격이 다르다. 보유 증강은 <b>절대</b> 나오면 안 되지만,
+	 * 피하고 싶은 후보는 <b>되도록</b> 나오지 않으면 되는 것이다. 후보가 세 장 미만으로 뜨는
+	 * 것보다는 한 장 겹치는 편이 낫다.
+	 *
+	 * <p>그래서 우선순위가 <b>등급이 먼저, 회피가 나중</b>이다. 한 등급 안에서 회피 대상이 아닌
+	 * 것을 먼저 다 쓰고, 모자라면 <b>같은 등급의 회피 대상</b>을 꺼낸다. 그것마저 바닥나야
+	 * {@link #fallbackOrder} 의 다음 등급으로 내려간다. 반대로 하면 「실버 라운드에서 다시
+	 * 뽑았더니 골드가 나왔다」가 되는데, 그건 겹쳐 보이는 것보다 훨씬 나쁘다.
+	 *
+	 * <p>다시 뽑기는 이 방식으로 <b>직전에 보여 준 3장</b>을 넘긴다. 등급이 실버(30개)라면 거의
+	 * 언제나 회피 대상이 아닌 쪽에서 다 채워져 방금 본 카드가 돌아오지 않는다.
+	 *
+	 * @param avoid 되도록 다시 내보내지 않을 증강 id. null 이나 빈 목록이면 아무것도 피하지 않는다
+	 */
+	public static List<String> draw(PerkRarity rarity, int milestone, List<Perk> pool,
+			List<String> owned, List<String> avoid, RandomSource random, int count) {
 		if (rarity == null || pool == null || pool.isEmpty() || random == null || count <= 0) {
 			return List.of();
 		}
 
 		Map<PerkRarity, List<Perk>> remaining = eligibleByRarity(pool, owned, milestone);
+		Map<PerkRarity, List<Perk>> avoided = extract(remaining, idSet(avoid));
 		List<String> drawn = new ArrayList<>(count);
 		for (PerkRarity bucketRarity : fallbackOrder(rarity)) {
-			List<Perk> bucket = remaining.get(bucketRarity);
-			while (drawn.size() < count && !bucket.isEmpty()) {
-				drawn.add(bucket.remove(random.nextInt(bucket.size())).id());
-			}
+			// 한 등급 안에서 회피 대상이 아닌 것을 먼저 다 쓰고, 모자랄 때만 회피 대상을 꺼낸다.
+			// 등급을 내려가기 전에 반드시 이 순서를 지켜야 한다 — 남은 실버가 회피 대상뿐인데
+			// 골드를 끌어오면 다시 뽑기가 등급을 바꾸는 셈이 되고, 그건 회피보다 훨씬 나쁘다.
+			takeFrom(drawn, remaining.get(bucketRarity), random, count);
+			takeFrom(drawn, avoided.get(bucketRarity), random, count);
 			if (drawn.size() >= count) {
 				break;
 			}
 		}
 		return List.copyOf(drawn);
+	}
+
+	/** {@code count} 가 차거나 통이 빌 때까지 그 통에서 무작위로 꺼내 담는다. */
+	private static void takeFrom(List<String> drawn, List<Perk> bucket, RandomSource random,
+			int count) {
+		while (drawn.size() < count && !bucket.isEmpty()) {
+			drawn.add(bucket.remove(random.nextInt(bucket.size())).id());
+		}
+	}
+
+	/**
+	 * {@code buckets} 에서 {@code ids} 에 해당하는 것들을 <b>덜어내</b> 같은 모양의 통으로 돌려준다.
+	 * 원본은 그만큼 줄어든다. 예비 통이라 순서를 지킬 이유가 없다.
+	 */
+	private static Map<PerkRarity, List<Perk>> extract(Map<PerkRarity, List<Perk>> buckets,
+			Set<String> ids) {
+		Map<PerkRarity, List<Perk>> taken = new EnumMap<>(PerkRarity.class);
+		for (PerkRarity rarity : PerkRarity.values()) {
+			List<Perk> held = new ArrayList<>();
+			if (!ids.isEmpty()) {
+				Iterator<Perk> cursor = buckets.get(rarity).iterator();
+				while (cursor.hasNext()) {
+					Perk perk = cursor.next();
+					if (ids.contains(perk.id())) {
+						held.add(perk);
+						cursor.remove();
+					}
+				}
+			}
+			taken.put(rarity, held);
+		}
+		return taken;
 	}
 
 	/**
@@ -158,7 +215,7 @@ public final class PerkDraft {
 	 */
 	private static Map<PerkRarity, List<Perk>> eligibleByRarity(List<Perk> pool, List<String> owned,
 			int milestone) {
-		Set<String> ownedIds = ownedIds(owned);
+		Set<String> ownedIds = idSet(owned);
 		Map<PerkRarity, List<Perk>> byRarity = new EnumMap<>(PerkRarity.class);
 		for (PerkRarity rarity : PerkRarity.values()) {
 			byRarity.put(rarity, new ArrayList<>());
@@ -182,12 +239,13 @@ public final class PerkDraft {
 		return byRarity;
 	}
 
-	private static Set<String> ownedIds(List<String> owned) {
+	/** null 을 빈 집합으로 받아 주는 id 집합 만들기. 보유 목록과 회피 목록이 함께 쓴다. */
+	private static Set<String> idSet(List<String> perkIds) {
 		Set<String> ids = new HashSet<>();
-		if (owned == null) {
+		if (perkIds == null) {
 			return ids;
 		}
-		for (String perkId : owned) {
+		for (String perkId : perkIds) {
 			if (perkId != null) {
 				ids.add(perkId);
 			}

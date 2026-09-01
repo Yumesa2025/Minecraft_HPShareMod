@@ -441,6 +441,106 @@ class PerkDraftTest {
 		assertEquals(3, PerkDraft.DEFAULT_OPTIONS);
 	}
 
+	// ------------------------------------------------------------------ 다시 뽑기 회피
+
+	@Test
+	void 다시_뽑으면_직전_후보가_나오지_않는다() {
+		// 실버가 여섯이라 직전 3개를 빼도 셋이 남는다. 남는 한 세 개가 그대로 나와야 한다.
+		List<Perk> pool = List.of(
+				once("s1", PerkRarity.SILVER),
+				once("s2", PerkRarity.SILVER),
+				once("s3", PerkRarity.SILVER),
+				once("s4", PerkRarity.SILVER),
+				once("s5", PerkRarity.SILVER),
+				once("s6", PerkRarity.SILVER));
+		List<String> shown = List.of("s1", "s2", "s3");
+		RandomSource random = RandomSource.create(SEED);
+
+		for (int i = 0; i < 500; i++) {
+			List<String> drawn = PerkDraft.draw(
+					PerkRarity.SILVER, 20, pool, List.of(), shown, random, 3);
+
+			assertEquals(Set.of("s4", "s5", "s6"), new HashSet<>(drawn),
+					"직전에 보여 준 후보가 다시 나왔다: " + drawn);
+		}
+	}
+
+	@Test
+	void 회피하고_나면_모자랄_때는_뺐던_것으로_채운다() {
+		// 실버가 넷뿐이라 직전 3개를 빼면 하나밖에 안 남는다. 카드가 한 장만 뜨는 것보다는
+		// 뺐던 것에서 두 장을 마저 채우는 편이 낫다.
+		List<Perk> pool = List.of(
+				once("s1", PerkRarity.SILVER),
+				once("s2", PerkRarity.SILVER),
+				once("s3", PerkRarity.SILVER),
+				once("s4", PerkRarity.SILVER));
+		List<String> shown = List.of("s1", "s2", "s3");
+		RandomSource random = RandomSource.create(SEED);
+
+		for (int i = 0; i < 200; i++) {
+			List<String> drawn = PerkDraft.draw(
+					PerkRarity.SILVER, 20, pool, List.of(), shown, random, 3);
+
+			assertEquals(3, drawn.size(), "세 장을 채울 수 있는데 못 채웠다: " + drawn);
+			assertEquals(3, new HashSet<>(drawn).size(), "중복 후보가 나왔다: " + drawn);
+			assertTrue(drawn.contains("s4"), "회피하지 않은 것이 먼저 나와야 한다: " + drawn);
+		}
+	}
+
+	@Test
+	void 회피보다_보유_제외가_우선이다() {
+		// avoid 는 「되도록」이지만 owned 는 「절대」다. 모자라서 뺐던 것을 다시 끌어올 때도
+		// 이미 가진 증강은 섞이면 안 된다.
+		List<Perk> pool = List.of(
+				once("s1", PerkRarity.SILVER),
+				once("s2", PerkRarity.SILVER),
+				once("s3", PerkRarity.SILVER),
+				once("s4", PerkRarity.SILVER));
+		RandomSource random = RandomSource.create(SEED);
+
+		for (int i = 0; i < 200; i++) {
+			List<String> drawn = PerkDraft.draw(PerkRarity.SILVER, 20, pool,
+					List.of("s1"), List.of("s2", "s3", "s4"), random, 3);
+
+			assertFalse(drawn.contains("s1"), "보유 증강이 회피 목록을 뚫고 나왔다: " + drawn);
+			assertEquals(Set.of("s2", "s3", "s4"), new HashSet<>(drawn));
+		}
+	}
+
+	@Test
+	void 회피_목록이_비어_있거나_없으면_예전과_똑같다() {
+		List<Perk> pool = ninePool();
+
+		List<String> plain = PerkDraft.draw(
+				PerkRarity.SILVER, 20, pool, List.of(), RandomSource.create(SEED), 3);
+		List<String> empty = PerkDraft.draw(
+				PerkRarity.SILVER, 20, pool, List.of(), List.of(), RandomSource.create(SEED), 3);
+		List<String> none = PerkDraft.draw(
+				PerkRarity.SILVER, 20, pool, List.of(), null, RandomSource.create(SEED), 3);
+
+		assertEquals(plain, empty, "빈 회피 목록이 결과를 바꿨다");
+		assertEquals(plain, none, "null 회피 목록이 결과를 바꿨다");
+	}
+
+	@Test
+	void 회피는_등급을_넘지_않는다() {
+		// 실버를 전부 피해도 골드로 새지 않는다 — 다시 뽑아도 등급은 그대로여야 한다.
+		List<Perk> pool = List.of(
+				once("s1", PerkRarity.SILVER),
+				once("s2", PerkRarity.SILVER),
+				once("s3", PerkRarity.SILVER),
+				once("g1", PerkRarity.GOLD),
+				once("g2", PerkRarity.GOLD),
+				once("g3", PerkRarity.GOLD));
+		RandomSource random = RandomSource.create(SEED);
+
+		List<String> drawn = PerkDraft.draw(PerkRarity.SILVER, 20, pool,
+				List.of(), List.of("s1", "s2", "s3"), random, 3);
+
+		assertEquals(Set.of("s1", "s2", "s3"), new HashSet<>(drawn),
+				"실버가 셋 다 있는데 골드를 끌어왔다: " + drawn);
+	}
+
 	// ------------------------------------------------------------------ min_level 필터
 
 	@Test
