@@ -3,12 +3,18 @@ package com.sharedfate.perk;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.effect.BonusDropEffect;
 import com.sharedfate.perk.effect.EchoMiningEffect;
+import com.sharedfate.perk.effect.LuckyOreEffect;
 import com.sharedfate.perk.effect.MiningSpeedEffect;
 import com.sharedfate.perk.effect.OnBreakEffect;
 import com.sharedfate.perk.effect.PairedMiningEffect;
+import com.sharedfate.sync.TitleMessenger;
+import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamLookup;
+import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
@@ -23,6 +29,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * 블록 파괴에 걸리는 증강 효과({@code bonus_drop}, {@code on_break}, {@code mining_speed})의
@@ -115,6 +122,8 @@ public final class PerkBlockBreaks {
 					PerkResonantMining.onBreak(serverLevel.getServer(), breaker, state, serverLevel.getGameTime());
 				} else if (effect instanceof EchoMiningEffect) {
 					tryEchoMining(serverLevel, breaker, pos);
+				} else if (effect instanceof LuckyOreEffect lucky && lucky.appliesTo(state)) {
+					tryLuckyOre(serverLevel, breaker, pos, state, blockEntity, perk, lucky);
 				}
 			}
 		}
@@ -122,14 +131,14 @@ public final class PerkBlockBreaks {
 
 	// ------------------------------------------------------------------ 메아리 채굴
 
-	/** 발밑이 아니라 방금 캔 자리 주변을 훑는 반경(블록). 3×3×3 이웃(가운데 제외) 26칸이다. */
+	/** 방금 캔 자리 주변을 훑는 반경(블록). 3×3×3 이웃(가운데 제외) 26칸이다. */
 	private static final int ECHO_SEARCH_RADIUS = 1;
 
 	/**
-	 * 방금 캔 블록 근처의 블록 하나를 더 캔다. 팀원과는 무관하다.
+	 * 방금 캔 블록 근처의 블록을 {@value EchoMiningEffect#EXTRA_BLOCKS} 개 더 캔다.
 	 *
 	 * <p>캔 것과 같은 종류인지는 따지지 않는다 — "메아리"는 행동이 반복된다는 뜻이지 같은
-	 * 자원이 나온다는 약속이 아니다. 후보 중 하나를 무작위로 고른다.
+	 * 자원이 나온다는 약속이 아니다. 후보 중에서 무작위로 고른다.
 	 *
 	 * <p>{@code destroyBlock} 이 아니라 {@link ServerLevel#removeBlock} 을 쓴다. 이 메서드는
 	 * {@code PlayerBlockBreakEvents.AFTER} 를 다시 발화시키지 않으므로, 이 사건이 자기 자신을
@@ -137,34 +146,52 @@ public final class PerkBlockBreaks {
 	 *
 	 * <p>로드되지 않은 청크의 블록은 후보에서 빠진다. 청크를 억지로 불러오지 않는다
 	 * ({@link ServerLevel#isLoaded} 는 조회만 하고 불러오지는 않는다).
+	 *
+	 * <p><b>내구도는 몇 개를 캤든 정확히 1점만 더 먹인다.</b> 원래 소모 1점은 바닐라가 이 사건
+	 * 뒤에 처리하므로 합계가 정확히 2배가 된다. 추가 파괴 수를 2개로 늘렸다고 소모까지 2점으로
+	 * 올리면 「내구도 2배」라는 약속이 깨지고 도구가 순식간에 사라진다.
 	 */
 	private static void tryEchoMining(ServerLevel level, ServerPlayer breaker, BlockPos origin) {
-		BlockPos echoPos = pickEchoTarget(level, breaker, origin);
-		if (echoPos == null) {
+		List<BlockPos> targets = pickEchoTargets(
+				level, breaker, origin, EchoMiningEffect.EXTRA_BLOCKS);
+		if (targets.isEmpty()) {
 			return;
 		}
-		BlockState echoState = level.getBlockState(echoPos);
-		BlockEntity echoBlockEntity = level.getBlockEntity(echoPos);
-		List<ItemStack> drops = Block.getDrops(
-				echoState, level, echoPos, echoBlockEntity, breaker, breaker.getMainHandItem());
-		level.removeBlock(echoPos, false);
-		for (ItemStack drop : drops) {
-			if (drop != null && !drop.isEmpty()) {
-				Block.popResource(level, echoPos, drop);
+		for (BlockPos echoPos : targets) {
+			BlockState echoState = level.getBlockState(echoPos);
+			BlockEntity echoBlockEntity = level.getBlockEntity(echoPos);
+			List<ItemStack> drops = Block.getDrops(
+					echoState, level, echoPos, echoBlockEntity, breaker, breaker.getMainHandItem());
+			level.removeBlock(echoPos, false);
+			for (ItemStack drop : drops) {
+				if (drop != null && !drop.isEmpty()) {
+					Block.popResource(level, echoPos, drop);
+				}
 			}
 		}
-		// 원래 소모는 바닐라가 이 사건 뒤에 처리한다. 여기서는 정확히 한 점만 더 먹여
-		// 합계가 2배가 되게 한다. 도구를 부러뜨리지 않는 가드는 그대로 재사용한다.
 		spendExtraDurability(breaker, 1);
 	}
 
 	/**
-	 * 방금 캔 자리를 둘러싼 26칸 중 다시 캘 수 있는 것을 모아 무작위로 하나 고른다.
+	 * 방금 캔 자리를 둘러싼 26칸 중 다시 캘 수 있는 것을 모아 무작위로 {@code count} 개까지 고른다.
 	 *
-	 * <p>공기, 로드되지 않은 자리, 캘 수 없는 블록({@code getDestroySpeed} 가 음수), 도구가
-	 * 맞지 않는 블록({@code hasCorrectToolForDrops})은 후보에서 뺀다. 후보가 하나도 없으면 null.
+	 * <p>다음은 후보에서 뺀다.
+	 * <ul>
+	 *   <li>공기, 로드되지 않은 자리, 캘 수 없는 블록({@code getDestroySpeed} 가 음수)</li>
+	 *   <li>도구가 맞지 않는 블록({@code hasCorrectToolForDrops})</li>
+	 *   <li><b>팀원(캔 사람 자신 포함)의 발밑 블록</b> — 까닭은 {@link EchoMiningEffect} 에 적어
+	 *       뒀다. 요약하면 밟고 선 칸이 사라지면 그 사람이 떨어져 죽고, 이 모드는 체력을
+	 *       공유하므로 그 사고가 팀 전체를 죽인다.</li>
+	 * </ul>
+	 *
+	 * <p>후보가 {@code count} 보다 적으면 있는 만큼만 돌려준다. 하나도 없으면 빈 목록이다.
 	 */
-	static @Nullable BlockPos pickEchoTarget(ServerLevel level, ServerPlayer breaker, BlockPos origin) {
+	static List<BlockPos> pickEchoTargets(ServerLevel level, ServerPlayer breaker, BlockPos origin,
+			int count) {
+		if (count <= 0) {
+			return List.of();
+		}
+		List<BlockPos> protectedFeet = feetPositions(level, breaker);
 		List<BlockPos> candidates = new ArrayList<>();
 		for (int dx = -ECHO_SEARCH_RADIUS; dx <= ECHO_SEARCH_RADIUS; dx++) {
 			for (int dy = -ECHO_SEARCH_RADIUS; dy <= ECHO_SEARCH_RADIUS; dy++) {
@@ -173,6 +200,9 @@ public final class PerkBlockBreaks {
 						continue;
 					}
 					BlockPos candidate = origin.offset(dx, dy, dz);
+					if (isUnderFoot(candidate, protectedFeet)) {
+						continue;
+					}
 					if (!level.isLoaded(candidate)) {
 						continue;
 					}
@@ -188,9 +218,70 @@ public final class PerkBlockBreaks {
 			}
 		}
 		if (candidates.isEmpty()) {
-			return null;
+			return List.of();
 		}
-		return candidates.get(level.getRandom().nextInt(candidates.size()));
+
+		int wanted = Math.min(count, candidates.size());
+		List<BlockPos> picked = new ArrayList<>(wanted);
+		for (int i = 0; i < wanted; i++) {
+			picked.add(candidates.remove(level.getRandom().nextInt(candidates.size())));
+		}
+		return picked;
+	}
+
+	/**
+	 * 이 좌표가 누군가의 발밑인가.
+	 *
+	 * <p>{@code standing} 은 각 플레이어의 {@code blockPosition()} 이다. 그 칸과 <b>그 아래 한
+	 * 칸</b> 둘 다 발밑으로 친다 — 보통 서 있을 때 딛고 선 것은 아래 칸이지만, 반 블록·계단·눈처럼
+	 * 높이가 1보다 낮은 블록 위에서는 {@code blockPosition()} 자체가 딛고 선 블록이 된다.
+	 *
+	 * <p>마인크래프트 좌표만 쓰는 순수 계산이라 살아 있는 서버 없이 시험할 수 있다. 이 규칙은
+	 * 사람이 죽고 사는 문제라 반드시 시험으로 못박아 두어야 해서 따로 뗐다.
+	 */
+	static boolean isUnderFoot(@Nullable BlockPos candidate, @Nullable List<BlockPos> standing) {
+		if (candidate == null || standing == null || standing.isEmpty()) {
+			return false;
+		}
+		for (BlockPos feet : standing) {
+			if (feet == null) {
+				continue;
+			}
+			if (candidate.equals(feet) || candidate.equals(feet.below())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * 같은 차원에 접속해 있는 팀원(캔 사람 포함)이 서 있는 칸들.
+	 *
+	 * <p>팀이 없으면 캔 사람 하나뿐이다 — 자기 발밑을 캐서 자기가 떨어지는 것도 똑같이 막아야
+	 * 한다. 다른 차원의 팀원은 애초에 이 후보 좌표와 겹칠 일이 없으므로 넣지 않는다.
+	 */
+	private static List<BlockPos> feetPositions(ServerLevel level, ServerPlayer breaker) {
+		List<BlockPos> feet = new ArrayList<>(4);
+		feet.add(breaker.blockPosition());
+
+		MinecraftServer server = level.getServer();
+		if (server == null) {
+			return feet;
+		}
+		ShareTeam team = TeamManager.get(server).teamOf(breaker.getUUID());
+		if (team == null) {
+			return feet;
+		}
+		for (UUID member : team.members()) {
+			if (member.equals(breaker.getUUID())) {
+				continue;
+			}
+			ServerPlayer teammate = server.getPlayerList().getPlayer(member);
+			if (teammate != null && !teammate.isRemoved() && teammate.level() == level) {
+				feet.add(teammate.blockPosition());
+			}
+		}
+		return feet;
 	}
 
 	// ------------------------------------------------------------------ 추가 드롭
@@ -302,6 +393,53 @@ public final class PerkBlockBreaks {
 			return 0;
 		}
 		return Math.max(0, Math.min(amount, remaining - 1));
+	}
+
+	// ------------------------------------------------------------------ 운수 좋은 날
+
+	/**
+	 * 광물을 캘 때마다 0~3개를 더 떨어뜨리고, 더 나왔을 때만 캔 사람에게 알린다.
+	 *
+	 * <p>{@link #tryBonusDrop} 과 같은 자리·같은 방식이다. 크리에이티브이거나 도구 등급이
+	 * 모자라 바닐라가 아무것도 떨어뜨리지 않을 상황에서는 증강도 아무것도 주지 않고, 난수도
+	 * 굴리지 않는다. 추가분은 {@link #rollBonusStack} 이 전리품표를 다시 굴려 만들므로 행운·섬세한
+	 * 손길과의 관계도 {@code bonus_drop} 과 똑같다.
+	 *
+	 * <p>도구를 더 닳게 하지는 않는다. 이 증강의 대가는 정의에 따로 적혀 있고, 여기서 내구도까지
+	 * 가져가면 대가를 두 번 물리는 셈이 된다.
+	 *
+	 * <p>알림은 실제로 하나라도 나왔을 때만 나가고, 캔 사람에게만 간다. 이름은 처음 나온 것을
+	 * 쓴다 — 같은 블록의 전리품표를 여러 번 굴린 것이라 광석에서는 언제나 같은 아이템이 나온다.
+	 * 이유는 {@link LuckyOreEffect} 에 적어 뒀다.
+	 */
+	private static void tryLuckyOre(ServerLevel level, ServerPlayer breaker, BlockPos pos,
+			BlockState state, @Nullable BlockEntity blockEntity, Perk perk, LuckyOreEffect effect) {
+		if (breaker.preventsBlockDrops() || !breaker.hasCorrectToolForDrops(state)) {
+			return;
+		}
+		int extra = effect.rollExtra(level.getRandom());
+		if (extra <= 0) {
+			return;
+		}
+
+		Component itemName = null;
+		int granted = 0;
+		for (int i = 0; i < extra; i++) {
+			ItemStack bonus = rollBonusStack(level, breaker, pos, state, blockEntity);
+			if (bonus == null || bonus.isEmpty()) {
+				// 전리품표가 이번엔 아무것도 주지 않았다.
+				continue;
+			}
+			if (itemName == null) {
+				itemName = bonus.getHoverName();
+			}
+			Block.popResource(level, pos, bonus);
+			granted++;
+		}
+		if (granted > 0) {
+			TitleMessenger.showActionBar(
+					breaker, LuckyOreEffect.announcement(perk.name(), itemName, granted));
+		}
 	}
 
 	// ------------------------------------------------------------------ 채굴 속도

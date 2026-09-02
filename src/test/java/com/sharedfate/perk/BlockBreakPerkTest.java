@@ -357,14 +357,18 @@ class BlockBreakPerkTest {
 		assertEquals(1.0, fertileBonus.chanceFor(), 1.0e-9, "비옥한 땅은 확정으로 더 준다");
 		assertEquals(2, fertileBonus.extra(), "원래 1개 + 2개 = 3배");
 
+		// 「광맥 감각」은 예전에 광석을 캘 때마다 3초짜리 성급함을 얹는 on_break 였다. 지금은
+		// 성급함을 상시로 주고, 그 대가를 흙 계열 채굴 속도로만 문다 — 돌까지 느려지면
+		// 「채굴이 빨라지는 증강」이 정작 굴을 파는 동안 느려지는 모양이 됐기 때문이다.
 		Perk vein = PerkRegistry.byId("sharedfate:vein_sense").orElseThrow();
 		assertEquals("광맥 감각", vein.name());
 		assertEquals(2, vein.effects().size());
-		OnBreakEffect onBreak = assertInstanceOf(OnBreakEffect.class, vein.effects().get(0));
-		assertEquals(60, onBreak.grants().get(0).durationTicks(), "3초간 성급함이다");
+		assertTrue(vein.effects().stream().noneMatch(e -> e instanceof OnBreakEffect),
+				"더는 캘 때마다 발동하지 않는다");
 		MiningSpeedEffect mining = assertInstanceOf(MiningSpeedEffect.class, vein.effects().get(1));
 		assertEquals(0.7, mining.multiplierFor(), 1.0e-9);
 		assertTrue(mining.appliesTo(state(Blocks.GRASS_BLOCK)));
+		assertFalse(mining.appliesTo(state(Blocks.STONE)), "돌은 이제 느려지지 않는다");
 		assertFalse(mining.appliesTo(state(Blocks.IRON_ORE)));
 	}
 

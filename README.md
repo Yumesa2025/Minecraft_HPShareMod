@@ -207,7 +207,7 @@ Java 25가 필요합니다. SharedFate JAR만 받았다면 Fabric API
 | 문서 | 무엇 |
 |---|---|
 | [CHANGELOG.md](CHANGELOG.md) | 판별로 무엇이 바뀌었는지 |
-| [docs/증강-목록.md](docs/증강-목록.md) | 증강 78개 전체 표 — 실버 30 · 골드 30 · 프리즘 18 |
+| [docs/증강-목록.md](docs/증강-목록.md) | 증강 82개 전체 표 — 실버 31 · 골드 32 · 프리즘 19 |
 
 ## 소스 빌드
 

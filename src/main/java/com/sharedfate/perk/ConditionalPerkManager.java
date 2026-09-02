@@ -2,6 +2,7 @@ package com.sharedfate.perk;
 
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.effect.ConditionalEffect;
+import com.sharedfate.perk.effect.ToolMismatchSlowEffect;
 import com.sharedfate.team.TeamLookup;
 import com.sharedfate.team.TeamState;
 import net.minecraft.server.MinecraftServer;
@@ -21,6 +22,12 @@ import java.util.UUID;
  * <p>매 틱 돌 필요는 없다. 조건이 바뀌었을 때 반 초 안에 따라붙으면 충분하고, 판정이 지난번과
  * 같으면 {@link ConditionalEffect#refresh} 가 아무 일도 하지 않으므로 부담도 거의 없다.
  * 증강을 하나도 갖고 있지 않은 팀은 아예 훑지 않는다.
+ *
+ * <h2>{@code conditional} 만 보는 것은 아니다</h2>
+ * <p>"상태가 수시로 바뀌므로 주기적으로 다시 봐야 하는 효과"는 여기서 함께 돌린다. 지금은
+ * {@link ToolMismatchSlowEffect}({@code tool_mismatch_slow}) 가 손에 든 것을 다시 보는 데 이
+ * 주기를 쓴다. 그런 효과마다 폴링 루프를 따로 만들면 서버 틱에 같은 모양의 순회가 여러 벌
+ * 생기고, 어느 것이 먼저 도는지도 알 수 없게 된다.
  *
  * <h2>피해 배율 조회 대상</h2>
  * <p>{@link PerkEffect#damageDealtMultiplier} 에는 플레이어 인자가 없어서, 조건부 효과 혼자서는
@@ -88,11 +95,12 @@ public final class ConditionalPerkManager {
 				continue;
 			}
 			for (PerkEffect effect : perk.effects()) {
-				if (!(effect instanceof ConditionalEffect conditional)) {
-					continue;
-				}
 				try {
-					conditional.refresh(player);
+					if (effect instanceof ConditionalEffect conditional) {
+						conditional.refresh(player);
+					} else if (effect instanceof ToolMismatchSlowEffect toolMismatch) {
+						toolMismatch.refresh(player);
+					}
 				} catch (RuntimeException error) {
 					warnOnce(perk.id(), error);
 				}
@@ -133,6 +141,8 @@ public final class ConditionalPerkManager {
 			for (PerkEffect effect : perk.effects()) {
 				if (effect instanceof ConditionalEffect conditional) {
 					conditional.forgetAll();
+				} else if (effect instanceof ToolMismatchSlowEffect toolMismatch) {
+					toolMismatch.forgetAll();
 				}
 			}
 		}

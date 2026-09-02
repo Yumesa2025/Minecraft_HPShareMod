@@ -1,6 +1,7 @@
 package com.sharedfate.client;
 
 import com.sharedfate.SharedFateMod;
+import com.sharedfate.client.hud.CoordinateHud;
 import com.sharedfate.client.hud.DamageAlertHud;
 import com.sharedfate.client.hud.GameOverHud;
 import com.sharedfate.client.hud.HotbarHighlight;
@@ -160,6 +161,12 @@ public class SharedFateClient implements ClientModInitializer {
 				VanillaHudElements.EXPERIENCE_LEVEL,
 				SharedFateMod.id("perk_progress"),
 				new PerkProgressHud());
+		// 화면 왼쪽 위의 좌표·바이옴. 이 모드도 바닐라도 쓰지 않는 자리라 기준으로 삼을
+		// 바닐라 요소가 없다. 그래서 순서를 따지지 않고 맨 뒤에 붙인다 — 겹치는 것이
+		// 없으므로 언제 그려지든 결과가 같다.
+		HudElementRegistry.addLast(
+				SharedFateMod.id("coordinates"),
+				new CoordinateHud());
 
 		// 「장님 거인」 처럼 HUD 를 가리는 증강. 바닐라 요소를 지우지 않고 "가려야 할 때만
 		// 건너뛰는" 껍데기로 감싼다. removeElement 는 되돌릴 수 없어 증강을 잃어도 영영

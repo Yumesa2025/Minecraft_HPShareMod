@@ -10,6 +10,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.util.RandomSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -21,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -238,6 +240,155 @@ class ItemGrantEffectTest {
 		assertEquals(Identifier.parse("minecraft:fire_resistance"), potionOf(stacks.getFirst()));
 	}
 
+	// ------------------------------------------------------------------ 인챈트
+
+	@Test
+	void 인챈트와_레벨을_읽는다() {
+		ItemGrantEffect effect = itemGrant("""
+				{ "type": "item_grant", "items": [
+				  { "id": "minecraft:netherite_pickaxe", "count": 1,
+				    "enchantments": { "minecraft:efficiency": 6, "minecraft:unbreaking": 10,
+				                      "minecraft:fortune": 3 } }
+				] }
+				""");
+
+		Map<Identifier, Integer> enchantments = effect.entries().getFirst().enchantments();
+		assertEquals(3, enchantments.size());
+		assertEquals(6, enchantments.get(Identifier.parse("minecraft:efficiency")));
+		assertEquals(10, enchantments.get(Identifier.parse("minecraft:unbreaking")));
+		assertEquals(3, enchantments.get(Identifier.parse("minecraft:fortune")));
+	}
+
+	@Test
+	void 인챈트를_안_적으면_빈_목록이다() {
+		ItemGrantEffect effect = itemGrant("""
+				{ "type": "item_grant", "items": [ { "id": "minecraft:stone" } ] }
+				""");
+
+		assertTrue(effect.entries().getFirst().enchantments().isEmpty());
+	}
+
+	@Test
+	void enchantments_가_객체가_아니면_무시하고_아이템은_살린다() {
+		ItemGrantEffect effect = itemGrant("""
+				{ "type": "item_grant", "items": [
+				  { "id": "minecraft:netherite_pickaxe", "enchantments": 3 }
+				] }
+				""");
+
+		assertEquals(1, effect.entries().size(), "인챈트 칸이 잘못돼도 아이템은 남는다");
+		assertTrue(effect.entries().getFirst().enchantments().isEmpty());
+	}
+
+	@Test
+	void 레벨이나_이름이_잘못된_인챈트만_버린다() {
+		ItemGrantEffect effect = itemGrant("""
+				{ "type": "item_grant", "items": [
+				  { "id": "minecraft:netherite_pickaxe", "enchantments": {
+				      "이건::이름이아니다": 3,
+				      "minecraft:fortune": 0,
+				      "minecraft:sharpness": "다섯",
+				      "minecraft:unbreaking": 300,
+				      "minecraft:efficiency": 6 } }
+				] }
+				""");
+
+		Map<Identifier, Integer> enchantments = effect.entries().getFirst().enchantments();
+		assertEquals(1, enchantments.size(), "쓸 만한 인챈트 하나만 남는다");
+		assertEquals(6, enchantments.get(Identifier.parse("minecraft:efficiency")));
+	}
+
+	@Test
+	void 인챈트_수_상한을_넘으면_나머지를_버린다() {
+		StringBuilder table = new StringBuilder();
+		for (int i = 0; i < ItemGrantEffect.MAX_ENCHANTMENTS + 5; i++) {
+			table.append(i == 0 ? "" : ",")
+					.append("\"sharedfate:enchant_").append(i).append("\": 1");
+		}
+		ItemGrantEffect effect = itemGrant(
+				"{ \"type\": \"item_grant\", \"items\": [ { \"id\": \"minecraft:stone\","
+						+ " \"enchantments\": {" + table + "} } ] }");
+
+		assertEquals(ItemGrantEffect.MAX_ENCHANTMENTS,
+				effect.entries().getFirst().enchantments().size());
+	}
+
+	@Test
+	void 바닐라_최대_레벨을_넘겨서_붙인다() {
+		// 효율은 바닐라 최대 V, 내구성은 III 다. 최대 레벨은 인챈트 탁자와 모루가 지키는
+		// 약속일 뿐이고 컴포넌트 자체는 1~255 를 받아들인다.
+		ItemStack pickaxe = itemGrant("""
+				{ "type": "item_grant", "items": [
+				  { "id": "minecraft:netherite_pickaxe", "count": 1,
+				    "enchantments": { "minecraft:efficiency": 6, "minecraft:unbreaking": 10,
+				                      "minecraft:fortune": 3 } }
+				] }
+				""").grantStacks(TestBootstrap.registries()).getFirst();
+
+		assertSame(Items.NETHERITE_PICKAXE, pickaxe.getItem());
+		assertEquals(6, levelOf(pickaxe, "minecraft:efficiency"));
+		assertEquals(10, levelOf(pickaxe, "minecraft:unbreaking"));
+		assertEquals(3, levelOf(pickaxe, "minecraft:fortune"));
+	}
+
+	@Test
+	void 알_수_없는_인챈트만_빠지고_아이템은_그대로_준다() {
+		List<ItemStack> stacks = itemGrant("""
+				{ "type": "item_grant", "items": [
+				  { "id": "minecraft:netherite_pickaxe", "count": 1,
+				    "enchantments": { "minecraft:definitely_not_an_enchantment": 3,
+				                      "minecraft:efficiency": 6 } }
+				] }
+				""").grantStacks(TestBootstrap.registries());
+
+		assertEquals(1, stacks.size(), "인챈트 하나가 없다고 증강이 통째로 날아가면 안 된다");
+		assertEquals(6, levelOf(stacks.getFirst(), "minecraft:efficiency"));
+		assertEquals(1, enchantmentsOf(stacks.getFirst()).size());
+	}
+
+	@Test
+	void 인챈트가_하나도_없어도_아이템은_나간다() {
+		List<ItemStack> stacks = itemGrant("""
+				{ "type": "item_grant", "items": [
+				  { "id": "minecraft:netherite_pickaxe", "count": 1,
+				    "enchantments": { "minecraft:definitely_not_an_enchantment": 3 } }
+				] }
+				""").grantStacks(TestBootstrap.registries());
+
+		assertEquals(1, stacks.size());
+		assertTrue(enchantmentsOf(stacks.getFirst()).isEmpty());
+	}
+
+	@Test
+	void 레지스트리_없이_만든_견본은_재사용하지_않는다() {
+		ItemGrantEffect effect = itemGrant("""
+				{ "type": "item_grant", "items": [
+				  { "id": "minecraft:netherite_pickaxe", "count": 1,
+				    "enchantments": { "minecraft:efficiency": 6 } }
+				] }
+				""");
+
+		// 레지스트리를 모르는 자리에서 먼저 물어봐도 인챈트 없는 견본이 굳으면 안 된다.
+		assertTrue(enchantmentsOf(effect.grantStacks().getFirst()).isEmpty());
+		assertEquals(6, levelOf(effect.grantStacks(TestBootstrap.registries()).getFirst(),
+				"minecraft:efficiency"));
+	}
+
+	@Test
+	void 인챈트를_적어도_물약_동작은_그대로다() {
+		List<ItemStack> stacks = itemGrant("""
+				{ "type": "item_grant", "items": [
+				  { "id": "minecraft:potion", "count": 1, "potion": "minecraft:fire_resistance" },
+				  { "id": "minecraft:netherite_pickaxe", "count": 1,
+				    "enchantments": { "minecraft:efficiency": 6 } }
+				] }
+				""").grantStacks(TestBootstrap.registries());
+
+		assertEquals(2, stacks.size());
+		assertEquals(Identifier.parse("minecraft:fire_resistance"), potionOf(stacks.get(0)));
+		assertEquals(6, levelOf(stacks.get(1), "minecraft:efficiency"));
+	}
+
 	// ------------------------------------------------------------------ 공유 목록 지급
 
 	@Test
@@ -386,6 +537,21 @@ class ItemGrantEffectTest {
 			}
 		}
 		throw new AssertionError(perk.id() + " 에 item_grant 효과가 없습니다");
+	}
+
+	private static ItemEnchantments enchantmentsOf(ItemStack stack) {
+		ItemEnchantments enchantments = stack.get(DataComponents.ENCHANTMENTS);
+		return enchantments == null ? ItemEnchantments.EMPTY : enchantments;
+	}
+
+	private static int levelOf(ItemStack stack, String enchantId) {
+		Identifier id = Identifier.parse(enchantId);
+		for (var entry : enchantmentsOf(stack).entrySet()) {
+			if (entry.getKey().unwrapKey().orElseThrow().identifier().equals(id)) {
+				return entry.getIntValue();
+			}
+		}
+		return 0;
 	}
 
 	private static Identifier potionOf(ItemStack stack) {

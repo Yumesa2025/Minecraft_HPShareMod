@@ -52,7 +52,12 @@ public final class SharedFateNetworking {
 	//     예전 클라이언트는 이 묶음을 읽지 못한다.
 	//     공격 속도(minecraft:attack_speed)는 여기 없다 — 그 속성만은 공격력과 달리
 	//     setSyncable(true) 로 등록되어 수정자까지 클라이언트에 그대로 온다.
-	public static final int PROTOCOL_VERSION = 18;
+	// 19: 인챈트 요구 개수를 화면에 알리는 칸 — 골드 「비술 공방」이 팀마다 인챈트 값을
+	//     바꾸므로 그 값을 클라이언트가 알아야 툴팁과 단추 숫자가 맞는다. 새 패킷을 만드는
+	//     대신 EnchantmentMenu 의 데이터 칸을 하나 더 달았고, 그래서 칸이 10개에서 11개가
+	//     되었다. 16번과 똑같은 이유다 — 서버와 클라이언트의 칸 수가 다르면 클라이언트가
+	//     IndexOutOfBoundsException 으로 죽고, 막을 수단이 악수뿐이다.
+	public static final int PROTOCOL_VERSION = 19;
 
 	private SharedFateNetworking() {
 	}

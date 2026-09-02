@@ -38,11 +38,12 @@ public final class DoubleJumpEffect implements PerkEffect {
 	/**
 	 * {@code power} 를 적지 않았을 때 쓰는 값.
 	 *
-	 * <p>바닐라 점프 힘 {@code LivingEntity.BASE_JUMP_POWER} 0.42 의 1.7배다. 지금 이 타입을
+	 * <p>바닐라 점프 힘 {@code LivingEntity.BASE_JUMP_POWER} 0.42 의 1.5배다. 지금 이 타입을
 	 * 쓰는 유일한 증강인 「허공답보」의 값과 맞춰 뒀다 — 생략했을 때의 기본값이 실제로 쓰이는
-	 * 값과 어긋나면 다음에 새 증강을 적을 때 헷갈리기 쉽다.
+	 * 값과 어긋나면 다음에 새 증강을 적을 때 헷갈리기 쉽다. 그래서 「허공답보」의 값을 바꿀
+	 * 때는 이 상수도 함께 바꾼다({@code DefaultPerkPoolValuesTest} 가 둘이 같은지 지킨다).
 	 */
-	public static final double DEFAULT_POWER = 0.714;
+	public static final double DEFAULT_POWER = 0.63;
 	/** 이보다 약하면 뛴 티가 나지 않아 버그로 오해받는다. */
 	public static final double MIN_POWER = 0.1;
 	/** 이보다 세면 낙하 피해로 죽거나 청크 밖으로 튀어 나간다. */

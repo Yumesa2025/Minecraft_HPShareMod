@@ -37,7 +37,36 @@ class ConfigTest {
 		assertTrue(config.showRunBossBar);
 		assertTrue(config.dragonKillEndsRun);
 		assertEquals(100, config.victoryCreditsDelayTicks);
+		assertEquals(1.2, config.experienceMultiplier, 1.0e-9, "경험치는 기본 1.2배로 들어온다");
 		assertTrue(Files.exists(file), "설정 파일이 생성되어야 한다");
+	}
+
+	@Test
+	void 경험치_배율은_바꿔서_저장할_수_있다(@TempDir Path dir) throws Exception {
+		Path file = dir.resolve("sharedfate.json");
+		Files.writeString(file, "{\"experienceMultiplier\": 2.0}", StandardCharsets.UTF_8);
+
+		SharedFateConfig config = SharedFateConfig.loadOrCreate(file);
+
+		assertEquals(2.0, config.experienceMultiplier, 1.0e-9);
+		config.save(file);
+		assertEquals(2.0, SharedFateConfig.loadOrCreate(file).experienceMultiplier, 1.0e-9);
+	}
+
+	/**
+	 * 0 이면 경험치가 아예 나오지 않아 마법·수선이 통째로 막힌다. 그런 값은 조용히 받지 않는다.
+	 */
+	@Test
+	void 경험치_배율이_범위를_벗어나면_기본값으로_되돌린다(@TempDir Path dir) throws Exception {
+		Path file = dir.resolve("sharedfate.json");
+		for (String invalid : new String[] {"0", "-1", "0.05", "11", "1e308"}) {
+			Files.writeString(file, "{\"experienceMultiplier\":" + invalid + "}", StandardCharsets.UTF_8);
+			assertEquals(1.2, SharedFateConfig.loadOrCreate(file).experienceMultiplier, 1.0e-9, invalid);
+		}
+
+		Files.writeString(file, "{\"experienceMultiplier\": 10}", StandardCharsets.UTF_8);
+		assertEquals(10.0, SharedFateConfig.loadOrCreate(file).experienceMultiplier, 1.0e-9,
+				"상한 자체는 받는다");
 	}
 
 	@Test

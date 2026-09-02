@@ -57,6 +57,13 @@ import com.sharedfate.perk.effect.SwapExplosionEffect;
 import com.sharedfate.perk.effect.PeriodicEffect;
 import com.sharedfate.perk.effect.StatusEffectPerk;
 import com.sharedfate.perk.effect.WeaponDamageEffect;
+import com.sharedfate.perk.effect.NoSilverOffersEffect;
+import com.sharedfate.perk.effect.LuckyOreEffect;
+import com.sharedfate.perk.effect.ToolMismatchSlowEffect;
+import com.sharedfate.perk.effect.ShieldFallImmunityEffect;
+import com.sharedfate.perk.effect.DiamondSundialEffect;
+import com.sharedfate.perk.effect.EnchantCostEffect;
+import com.sharedfate.perk.effect.MobSpeedEffect;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -79,6 +86,7 @@ public enum PerkEffectType {
 	STATUS_EFFECT("status_effect", StatusEffectPerk::fromJson),
 	MOB_HEALTH("mob_health", MobHealthEffect::fromJson),
 	MOB_DAMAGE("mob_damage", MobDamageEffect::fromJson),
+	MOB_SPEED("mob_speed", MobSpeedEffect::fromJson),
 	CONDITIONAL("conditional", ConditionalEffect::fromJson),
 	PERIODIC("periodic", PeriodicEffect::fromJson),
 	ON_KILL("on_kill", OnKillEffect::fromJson),
@@ -124,6 +132,12 @@ public enum PerkEffectType {
 	RARITY_REROLL("rarity_reroll", RarityRerollEffect::fromJson),
 	NO_DAMAGE_BOOST("no_damage_boost", NoDamageBoostEffect::fromJson),
 	ORE_EXCHANGE("ore_exchange", OreExchangeEffect::fromJson),
+	NO_SILVER_OFFERS("no_silver_offers", NoSilverOffersEffect::fromJson),
+	LUCKY_ORE("lucky_ore", LuckyOreEffect::fromJson),
+	TOOL_MISMATCH_SLOW("tool_mismatch_slow", ToolMismatchSlowEffect::fromJson),
+	SHIELD_FALL_IMMUNITY("shield_fall_immunity", ShieldFallImmunityEffect::fromJson),
+	DIAMOND_SUNDIAL("diamond_sundial", DiamondSundialEffect::fromJson),
+	ENCHANT_COST("enchant_cost", EnchantCostEffect::fromJson),
 	CUSTOM("custom", CustomEffect::fromJson);
 
 	/** 효과 하나를 만드는 팩토리. 정의가 잘못됐으면 {@code null}을 돌려준다. */

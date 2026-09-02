@@ -3,6 +3,7 @@ package com.sharedfate.mixin;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.sharedfate.enchant.EnchantmentCostDataSlot;
 import com.sharedfate.enchant.EnchantmentDiamondAccess;
 import com.sharedfate.enchant.EnchantmentDiamondCost;
 import com.sharedfate.enchant.EnchantmentDiamondSlot;
@@ -10,6 +11,7 @@ import com.sharedfate.inventory.ExpandedInventoryManager;
 import com.sharedfate.inventory.ExpandedInventoryMoves;
 import com.sharedfate.inventory.ExpandedMenuLayout;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -57,6 +59,17 @@ import java.util.function.BiConsumer;
  * <p><b>슬롯 수가 달라지므로 옛 클라이언트는 접속하면 안 됩니다.</b> 막는 수단은 악수
  * 규약뿐이라 {@code PROTOCOL_VERSION} 을 함께 올렸습니다.
  *
+ * <h2>요구 개수를 화면에 알려 주기</h2>
+ *
+ * <p>{@code enchant_cost} 증강을 가진 팀은 요구 개수가 달라지는데, 팀은 서버만 압니다. 단추의
+ * 숫자와 툴팁은 클라이언트가 그리므로 그쪽도 같은 숫자를 알아야 합니다 — 5개라고 써 놓고 1개만
+ * 걷으면 버그로 보입니다. 그래서 <b>데이터 칸</b>을 하나 더 답니다
+ * ({@link EnchantmentCostDataSlot}). 새 꾸러미를 만들지 않고 메뉴가 이미 쓰는 통로에 얹는 쪽이
+ * 보내는 시점·정리 시점을 따로 관리하지 않아도 됩니다.
+ *
+ * <p><b>데이터 칸의 개수도 달라지므로</b> 이 역시 옛 클라이언트가 접속하면 안 되는 변경입니다.
+ * 슬롯을 더할 때와 같은 이유로 {@code PROTOCOL_VERSION} 을 올려야 합니다.
+ *
  * <h2>창을 닫을 때</h2>
  *
  * <p>바닐라 {@code removed} 는 {@code enchantSlots} 만 비웁니다. 우리 그릇을 따로 비우지
@@ -87,6 +100,9 @@ public abstract class EnchantmentMenuDiamondMixin implements EnchantmentDiamondA
 	private Container sharedfate$diamonds;
 	@Unique
 	private int sharedfate$diamondSlot = EnchantmentDiamondAccess.NO_SLOT;
+	/** 이 창을 연 사람. 요구 개수를 정할 때 팀을 알아내는 데 씁니다. */
+	@Unique
+	private Player sharedfate$owner;
 
 	@Override
 	public Container sharedfate$diamondContainer() {
@@ -106,11 +122,16 @@ public abstract class EnchantmentMenuDiamondMixin implements EnchantmentDiamondA
 	private void sharedfate$addDiamondSlot(
 			int containerId, Inventory inventory, ContainerLevelAccess levelAccess,
 			CallbackInfo ci) {
+		sharedfate$owner = inventory.player;
 		sharedfate$diamonds = new SimpleContainer(1);
 		sharedfate$diamondSlot = ((AbstractContainerMenu) (Object) this).slots.size();
 		((AbstractContainerMenuAccessor) this).sharedfate$invokeAddSlot(
 				new EnchantmentDiamondSlot(
 						sharedfate$diamonds, 0, DIAMOND_SLOT_X, DIAMOND_SLOT_Y));
+		// 요구 개수를 화면 쪽에 알려 주는 통로입니다. 양쪽에서 똑같이 붙어야 하므로
+		// 조건 없이 언제나 답니다.
+		((AbstractContainerMenuAccessor) this).sharedfate$invokeAddDataSlot(
+				new EnchantmentCostDataSlot(sharedfate$owner));
 	}
 
 	/**
@@ -121,6 +142,10 @@ public abstract class EnchantmentMenuDiamondMixin implements EnchantmentDiamondA
 	 */
 	@Inject(method = "removed", at = @At("HEAD"))
 	private void sharedfate$returnDiamonds(Player player, CallbackInfo ci) {
+		// 창을 닫으면 화면용 개수도 기본값으로 되돌립니다. 다음 창은 열릴 때 다시 받습니다.
+		if (!(player instanceof ServerPlayer)) {
+			EnchantmentDiamondCost.resetShown();
+		}
 		Container diamonds = sharedfate$diamonds;
 		if (diamonds == null) {
 			return;

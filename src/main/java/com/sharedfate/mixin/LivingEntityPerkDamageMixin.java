@@ -53,6 +53,10 @@ public abstract class LivingEntityPerkDamageMixin {
 	 *       버린다. 체력이 공유라 한 명만 죽어도 팀이 전멸하는데, 아직 시작도 안 한 회차 때문에
 	 *       월드가 지워지는 일도 하드코어에서 관전자로 갇히는 일도 없어야 한다. 자세한 까닭은
 	 *       {@link com.sharedfate.sync.GameStartManager#blocksDamage} 에 있다.</li>
+	 *   <li><b>방패를 든 채 착지</b> — {@code shield_fall_immunity} 를 가진 팀원이 방패로 막는
+	 *       중에 받는 낙하 피해는 통째로 버린다. 배율을 0 으로 깎지 않고 여기서 버리는 이유는
+	 *       {@link com.sharedfate.perk.effect.ShieldFallImmunityEffect} 에 적어 뒀다. 낙하가 아닌
+	 *       피해는 {@link PerkDamage#blocksFallDamage} 첫 줄에서 곧바로 빠져나간다.</li>
 	 *   <li><b>공유 상태이상의 중복 피해</b> — 아래 설명 참고.</li>
 	 * </ol>
 	 *
@@ -70,6 +74,10 @@ public abstract class LivingEntityPerkDamageMixin {
 			float amount, CallbackInfoReturnable<Boolean> callback) {
 		LivingEntity self = (LivingEntity) (Object) this;
 		if (PerkChoiceSession.blocksDamage(self) || GameStartManager.blocksDamage(self)) {
+			callback.setReturnValue(false);
+			return;
+		}
+		if (PerkDamage.blocksFallDamage(self, source)) {
 			callback.setReturnValue(false);
 			return;
 		}

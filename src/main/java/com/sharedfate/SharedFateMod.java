@@ -180,6 +180,11 @@ public class SharedFateMod implements ModInitializer {
 		// 나무를 광물로 바꾸는 증강(ore_exchange)의 등록 지점. 허공 우클릭에서만 발화한다.
 		net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(
 				com.sharedfate.perk.PerkOreExchange::onUseItem);
+		// 근처 다이아몬드 광석을 보여 주는 증강(diamond_sundial)의 등록 지점. 해시계를 들고
+		// 허공 우클릭했을 때만 발화한다. ore_exchange 와 같은 사건에 붙지만 서로 다른 아이템만
+		// 받으므로 부딪히지 않는다.
+		net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(
+				com.sharedfate.perk.PerkDiamondSundial::onUseItem);
 		EffectSync.register();
 		ServerTickEvents.END_SERVER_TICK.register(EffectSync::tick);
 		ServerTickEvents.END_SERVER_TICK.register(StatMirror::tick);
@@ -190,8 +195,6 @@ public class SharedFateMod implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.RallyPointManager::tick);
 		// 폭발 교환이 0.5초 미뤄 둔 폭발을 실제로 터뜨리는 지점.
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.SwapExplosionScheduler::tick);
-		// 공명(paired_mining)의 "혼자면 채굴 속도 페널티" 판정. 1초마다 실제로 확인한다.
-		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.perk.PerkResonantMining::tick);
 		// 흩어진 팀을 한곳으로 모으는 증강(gather)의 판정 지점. 1초에 한 번만 실제로 잰다.
 		ServerTickEvents.END_SERVER_TICK.register(TeamGathering::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PerkManager::tick);

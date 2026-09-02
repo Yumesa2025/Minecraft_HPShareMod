@@ -33,6 +33,7 @@
     "SlotOffhandLockMixin",
     "PlayerMiningSpeedMixin",
     "EnchantmentHelperLootingMixin",
+    "ExperienceOrbAwardMixin",
     "ServerPlayerCritMixin",
     "ServerPlayerDeathMessageMixin",
     "SlotAccessor"

@@ -145,7 +145,7 @@ class DefaultPerkPoolValuesTest {
 	 * 붙는 점프력 +50%(0.63)와 값을 맞추던 예전과 달리, 이제 <b>두 번째가 첫 번째보다 세다.</b>
 	 */
 	@Test
-	void 허공답보의_두_번째_점프는_기본의_1_7배다(@TempDir Path dir) throws IOException {
+	void 허공답보의_두_번째_점프는_기본의_1_5배다(@TempDir Path dir) throws IOException {
 		Perk perk = perk(dir, "sharedfate:void_step");
 		DoubleJumpEffect jump = perk.effects().stream()
 				.filter(DoubleJumpEffect.class::isInstance)
@@ -153,23 +153,23 @@ class DefaultPerkPoolValuesTest {
 				.findFirst()
 				.orElseThrow(() -> new AssertionError("double_jump 효과가 없다"));
 
-		assertEquals(0.42 * 1.7, jump.power(), 1.0e-9);
+		assertEquals(0.42 * 1.5, jump.power(), 1.0e-9);
 		assertEquals(DoubleJumpEffect.DEFAULT_POWER, jump.power(), 1.0e-9,
 				"power 를 적지 않았을 때의 기본값도 같아야 한다");
 	}
 
 	/**
-	 * 낙하 피해는 1.5배다.
+	 * 낙하 피해는 1.2배다.
 	 *
-	 * <p>{@code add_multiplied_total} 이라 최종 배율은 {@code 1 + amount} 다. 1.5배를 만들려면
-	 * {@code amount} 가 0.5 여야 한다.
+	 * <p>{@code add_multiplied_total} 이라 최종 배율은 {@code 1 + amount} 다. 1.2배를 만들려면
+	 * {@code amount} 가 0.2 여야 한다.
 	 */
 	@Test
-	void 허공답보의_낙하_피해는_1_5배다(@TempDir Path dir) throws IOException {
+	void 허공답보의_낙하_피해는_1_2배다(@TempDir Path dir) throws IOException {
 		Perk perk = perk(dir, "sharedfate:void_step");
 		AttributeEffect fall = attributeEffect(perk, "minecraft:fall_damage_multiplier");
 
-		assertEquals(0.5, fall.amount(), 1.0e-9);
+		assertEquals(0.2, fall.amount(), 1.0e-9);
 	}
 
 	@Test
@@ -281,28 +281,29 @@ class DefaultPerkPoolValuesTest {
 	}
 
 	/**
-	 * 두 증강의 대가는 <b>받는 피해 배율 하나뿐</b>이다.
+	 * 두 증강에는 <b>대가가 없다.</b>
 	 *
-	 * <p>예전에는 최대 체력을 깎았다(숨은 재능 −4, 하늘의 은총 −8). 최대 체력은 팀 전체가
-	 * 나눠 쓰는 값이라 나 하나가 증강 두 장을 겹쳐 고르면 팀의 목숨이 통째로 줄고, 그 손해가
-	 * 증강을 고르지 않은 사람에게도 그대로 간다. 대가는 받는 피해 배율로 옮겼다 — 이쪽도
-	 * 팀 전체에 걸리지만 <b>맞았을 때만</b> 드러나므로, 조심하면 줄일 수 있다는 점이 다르다.
+	 * <p>거쳐 온 길이 있다. 처음에는 최대 체력을 깎았고(숨은 재능 −4, 하늘의 은총 −8), 그것이
+	 * 팀 전체의 목숨을 줄여 증강을 고르지 않은 사람에게까지 손해를 옮기므로 받는 피해 배율로
+	 * 바꿨다. 지금은 그것마저 뺐다 — <b>「덤으로 한 장 더」 자체가 이미 이 구간의 카드 한 장을
+	 * 쓴 것</b>이라, 골라 놓고 대가까지 무는 것은 이중으로 값을 치르는 셈이었다.
+	 *
+	 * <p>그래서 이 시험이 지키는 것은 「효과가 지급 하나뿐인가」다. 대가를 다시 붙이고 싶어지면
+	 * 여기가 먼저 깨진다.
 	 */
 	@Test
-	void 숨은_재능과_하늘의_은총의_대가는_받는_피해뿐이다(@TempDir Path dir) throws IOException {
+	void 숨은_재능과_하늘의_은총에는_대가가_없다(@TempDir Path dir) throws IOException {
 		Perk hidden = perk(dir, "sharedfate:hidden_talent");
-		assertEquals(2, hidden.effects().size(), "지급 하나 + 대가 하나");
-		assertEquals(1.15,
-				assertInstanceOf(DamageTakenEffect.class, hidden.effects().get(1)).multiplier(),
-				1.0e-9);
+		assertEquals(1, hidden.effects().size(), "지급 하나뿐이다");
+		assertTrue(hidden.effects().stream().noneMatch(e -> e instanceof DamageTakenEffect),
+				"받는 피해를 늘리지 않는다");
 		assertTrue(hidden.effects().stream().noneMatch(e -> e instanceof MaxHealthBonusEffect),
 				"최대 체력을 깎지 않는다");
 
 		Perk blessing = perk(dir, "sharedfate:blessing_of_heaven");
-		assertEquals(2, blessing.effects().size(), "지급 하나 + 대가 하나");
-		assertEquals(1.25,
-				assertInstanceOf(DamageTakenEffect.class, blessing.effects().get(1)).multiplier(),
-				1.0e-9);
+		assertEquals(1, blessing.effects().size(), "지급 하나뿐이다");
+		assertTrue(blessing.effects().stream().noneMatch(e -> e instanceof DamageTakenEffect),
+				"받는 피해를 늘리지 않는다");
 		assertTrue(blessing.effects().stream().noneMatch(e -> e instanceof MaxHealthBonusEffect),
 				"최대 체력을 깎지 않는다");
 	}
@@ -334,5 +335,39 @@ class DefaultPerkPoolValuesTest {
 	private static Perk perk(Path dir, String id) throws IOException {
 		loadDefaultPool(dir);
 		return PerkRegistry.byId(id).orElseThrow(() -> new AssertionError(id + " 를 찾을 수 없다"));
+	}
+
+	/**
+	 * 기본 풀이 <b>한 개도 버려지지 않고</b> 전부 읽힌다.
+	 *
+	 * <p>이 시험이 지키는 것은 개수가 아니라 <b>조용한 실패</b>다. {@link PerkRegistry} 는
+	 * 읽을 수 없는 증강을 만나면 예외를 던지지 않고 그 하나만 건너뛴다 — 정의가 잘못됐다고
+	 * 게임이 멈추면 안 되기 때문이다. 그래서 <b>새 효과 타입을 만들고
+	 * {@link PerkEffectType} 에 등록하는 줄을 빠뜨리면</b> 빌드도 통과하고 서버도 뜨는데
+	 * 그 효과를 쓰는 증강만 풀에서 사라진다. 서버 로그의 「건너뜀 N개」를 사람이 보지 않으면
+	 * 알아챌 방법이 없다.
+	 *
+	 * <p>실제로 0.19.0-dev 에서 효과 타입 일곱을 한꺼번에 넣으면서 이 자리를 지날 뻔했다.
+	 * 등급별 개수까지 함께 세는 것은 증강을 더할 때 등급을 잘못 적는 것을 잡기 위해서다.
+	 */
+	@Test
+	void 기본_풀은_하나도_버려지지_않고_읽힌다(@TempDir Path dir) throws IOException {
+		loadDefaultPool(dir);
+
+		assertEquals(82, PerkRegistry.all().size(),
+				"파일에 적힌 수와 읽힌 수가 다르면 효과 타입이 등록되지 않은 것이다");
+
+		long silver = PerkRegistry.all().stream().filter(p -> p.rarity() == PerkRarity.SILVER).count();
+		long gold = PerkRegistry.all().stream().filter(p -> p.rarity() == PerkRarity.GOLD).count();
+		long prism = PerkRegistry.all().stream().filter(p -> p.rarity() == PerkRarity.PRISM).count();
+		assertEquals(31, silver, "실버");
+		assertEquals(32, gold, "골드");
+		assertEquals(19, prism, "프리즘");
+
+		// 0.19.0-dev 에서 새 효과 타입과 함께 들어온 넷. 등록을 빠뜨리면 여기서 먼저 걸린다.
+		for (String id : new String[] {"sharedfate:grounded_guard", "sharedfate:arcane_workshop",
+				"sharedfate:diamond_sundial", "sharedfate:final_movement"}) {
+			assertTrue(PerkRegistry.byId(id).isPresent(), id + " 가 풀에서 빠졌다");
+		}
 	}
 }

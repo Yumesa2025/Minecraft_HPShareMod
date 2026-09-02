@@ -17,6 +17,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.IntUnaryOperator;
@@ -50,6 +51,26 @@ import java.util.function.IntUnaryOperator;
  *   <li>넘길 팀원이 없으면(혼자인 팀) 그대로 유지한다.</li>
  *   <li>아무도 접속해 있지 않으면 보유자를 비운다. 누군가 돌아오면 그때 새로 뽑는다.</li>
  * </ul>
+ *
+ * <h2>{@code fixed_to_owner} 는 위 규칙을 전부 건너뛴다</h2>
+ * <p>{@link HolderEffect#fixedToOwner()} 가 참인 증강은 <b>그 증강을 고른 사람</b>이 회차 내내
+ * 보유자다. 순환({@code rotate_ticks})도, 피격 넘김({@code pass_on_hurt})도, 죽었을 때의 넘김도
+ * 일어나지 않는다. 이 갈래는 {@link #reconcileFixed} 하나로 끝나고, 나머지 경로
+ * ({@link #passOnHurt}, {@link #release})는 이런 효과를 만나면 그냥 지나친다.
+ *
+ * <p>"고른 사람"은 {@code TeamState.perkOwners} 에 증강 id 별로 적혀 있다. 보유자와 달리 이
+ * 값은 <b>월드 저장에 들어간다</b> — 보유자는 서버가 다시 뜨면 새로 뽑으면 그만이지만, 「누가
+ * 골랐는가」는 다시 뜬 뒤에 알아낼 방법이 없기 때문이다. 적는 곳은
+ * {@code PerkManager.commit} 한 자리뿐이다.
+ *
+ * <p><b>주인이 접속을 끊으면 그동안 보유자는 없다</b>({@link #fixedHolder} 가 null 을 돌려준다).
+ * 무작위로 넘기면 「고정」이 아니게 되므로 넘기지 않는다. 다시 들어오면 다음 점검(반 초 이내)에
+ * 그 사람이 곧바로 보유자로 돌아온다. 그동안 나머지 팀원은 {@code on_others} 를 계속 받는다 —
+ * 왕이 없는 동안 팀이 디메리트만 지는 것도 의도한 결과다.
+ *
+ * <p>주인이 적혀 있지 않은 경우도 있다. 「숨은 재능」처럼 다른 증강이 덤으로 준 증강은 고른
+ * 사람이 없다. 그때는 <b>처음 뽑힌 사람을 그대로 주인으로 삼아 적어 둔다.</b> 아무도 보유자가
+ * 되지 못해 증강이 죽어 있는 것보다 낫고, 한 번 정해지면 그 뒤로는 진짜 주인과 똑같이 고정된다.
  */
 public final class PerkHolderManager {
 	/** 보유자를 다시 살펴보는 주기. 반 초면 체감상 즉시 반응하는 것과 다르지 않다. */
@@ -170,6 +191,24 @@ public final class PerkHolderManager {
 	}
 
 	/**
+	 * {@code fixed_to_owner} 인 증강의 지금 보유자.
+	 *
+	 * <p>규칙이 한 줄이다 — <b>주인이 접속해 있으면 주인, 아니면 아무도 아니다.</b> 마인크래프트
+	 * 타입을 하나도 쓰지 않으므로 서버 없이 그대로 시험할 수 있다. 이 규칙이 깨지면 「제왕과
+	 * 신하」의 왕이 조용히 다른 사람에게 넘어가므로 반드시 시험으로 못박아 둔다.
+	 *
+	 * @param owner      이 증강을 고른 사람. 아직 모르면 null
+	 * @param candidates 지금 접속해 있는 팀원들
+	 * @return 보유자. 주인이 접속해 있지 않으면 null
+	 */
+	public static @Nullable UUID fixedHolder(@Nullable UUID owner, @Nullable List<UUID> candidates) {
+		if (owner == null || candidates == null || !candidates.contains(owner)) {
+			return null;
+		}
+		return owner;
+	}
+
+	/**
 	 * 최소 유지 시간을 채웠는가.
 	 *
 	 * <p>{@code pass_on_hurt} 로 넘기려면 참이어야 한다. 이 장치가 없으면 받자마자 한 대 맞고
@@ -216,7 +255,11 @@ public final class PerkHolderManager {
 					continue;
 				}
 				for (Owned owned : holdersOf(state)) {
-					reconcile(server, team, owned);
+					if (owned.effect().fixedToOwner()) {
+						reconcileFixed(server, manager, team, state, owned);
+					} else {
+						reconcile(server, team, owned);
+					}
 				}
 			}
 			if (++cleanupCounter >= CLEANUP_INTERVAL_TICKS) {
@@ -226,6 +269,42 @@ public final class PerkHolderManager {
 		} catch (RuntimeException error) {
 			warnOnce(error);
 		}
+	}
+
+	/**
+	 * {@code fixed_to_owner} 증강의 보유자를 주인에게 맞춘다.
+	 *
+	 * <p>순환도 최소 유지 시간도 보지 않는다. 주인이 접속해 있으면 주인이 보유자, 아니면
+	 * 보유자가 없다. 실제로 갈아 끼우는 것은 그 답이 지금과 달라졌을 때뿐이라, 주인이 그대로
+	 * 접속해 있는 보통의 틱에는 아무 일도 하지 않는다.
+	 *
+	 * <p>{@code on_pass} 는 언제나 걸지 않는다. 보유자가 「넘어간」 것이 아니라 주인이 잠깐
+	 * 자리를 비웠다 돌아온 것뿐이기 때문이다. 애초에 이 조합의 정의는
+	 * {@link HolderEffect#fromJson} 이 받아 주지 않는다.
+	 */
+	private static void reconcileFixed(MinecraftServer server, TeamManager manager, ShareTeam team,
+			TeamState state, Owned owned) {
+		HolderEffect effect = owned.effect();
+		Holding holding = HOLDINGS.computeIfAbsent(
+				new Key(effect, team.teamId()), ignored -> new Holding());
+		List<UUID> online = onlineMembers(server, team);
+
+		UUID owner = state.perkOwners.get(owned.perk().id());
+		if (owner == null && !online.isEmpty()) {
+			// 고른 사람을 알 수 없는 경로로 들어온 증강이다(「숨은 재능」 등). 처음 뽑힌 사람을
+			// 그대로 주인으로 굳혀 둔다 — 아무도 보유자가 되지 못해 증강이 죽어 있는 것보다 낫다.
+			owner = chooseNextHolder(null, online, randomOf(server));
+			if (owner != null) {
+				state.perkOwners.put(owned.perk().id(), owner);
+				manager.setDirty();
+			}
+		}
+
+		UUID next = fixedHolder(owner, online);
+		if (Objects.equals(next, holding.holder)) {
+			return;
+		}
+		assign(server, team, owned, holding, next, holding.holder, false);
 	}
 
 	/** 이 팀의 보유자가 아직 유효한지 보고, 아니면 넘기거나 새로 뽑는다. */
@@ -309,9 +388,18 @@ public final class PerkHolderManager {
 	private static void announce(MinecraftServer server, ShareTeam team, Owned owned,
 			@Nullable ServerPlayer holder) {
 		String name = holder == null ? null : holder.getPlainTextName();
-		Component message = Component.literal(name == null
-				? "[증강] " + owned.perk().name() + ": 보유자가 없습니다."
-				: "[증강] " + owned.perk().name() + ": 이제 " + name + "님이 보유자입니다.");
+		String perkName = owned.perk().name();
+		String text;
+		if (name != null) {
+			text = "[증강] " + perkName + ": 이제 " + name + "님이 보유자입니다.";
+		} else if (owned.effect().fixedToOwner()) {
+			// 고정 보유자가 비었다는 것은 주인이 접속을 끊었다는 뜻이다. 「없다」로만 알리면
+			// 왜 없는지, 언제 돌아오는지를 아무도 알 수 없다.
+			text = "[증강] " + perkName + ": 보유자가 접속을 끊어 돌아올 때까지 보유자가 없습니다.";
+		} else {
+			text = "[증강] " + perkName + ": 보유자가 없습니다.";
+		}
+		Component message = Component.literal(text);
 		for (UUID member : team.members()) {
 			ServerPlayer online = server.getPlayerList().getPlayer(member);
 			if (online != null) {
@@ -360,7 +448,8 @@ public final class PerkHolderManager {
 
 		for (Owned owned : holdersOf(state)) {
 			HolderEffect effect = owned.effect();
-			if (!effect.passOnHurt()) {
+			// 고정 보유자는 맞아도 넘어가지 않는다. 「고정」의 뜻이 그것이다.
+			if (effect.fixedToOwner() || !effect.passOnHurt()) {
 				continue;
 			}
 			Holding holding = HOLDINGS.get(new Key(effect, team.teamId()));
@@ -414,6 +503,9 @@ public final class PerkHolderManager {
 	 *
 	 * <p>{@code on_pass} 는 걸지 않는다. 접속을 끊었으면 걸어 줄 대상이 없고, 죽었다면 이미
 	 * 벌을 받은 셈이라 디버프를 더 얹을 이유가 없다. 팀원이 이 사람뿐이면 보유자는 비워진다.
+	 *
+	 * <p>{@code fixed_to_owner} 인 효과는 여기서 건드리지 않는다. 죽은 것뿐이면 주인은 여전히
+	 * 주인이고, 접속을 끊었다면 {@link #reconcileFixed} 가 반 초 안에 보유자를 비운다.
 	 */
 	private static void release(@Nullable ServerPlayer player) {
 		if (player == null || HOLDINGS.isEmpty()) {
@@ -436,6 +528,12 @@ public final class PerkHolderManager {
 		for (Owned owned : holdersOf(state)) {
 			Holding holding = HOLDINGS.get(new Key(owned.effect(), team.teamId()));
 			if (holding == null || !leaving.equals(holding.holder)) {
+				continue;
+			}
+			if (owned.effect().fixedToOwner()) {
+				// 고정 보유자는 여기서 아무것도 하지 않는다. 죽은 것뿐이면 주인은 그대로
+				// 주인이고, 접속을 끊었다면 반 초 안에 reconcileFixed 가 보유자를 비운다.
+				// 여기서 손대면 죽을 때마다 보유자가 잠깐 사라졌다 돌아와 알림만 두 줄 남는다.
 				continue;
 			}
 			UUID next = chooseNextHolder(leaving, candidates, randomOf(server));

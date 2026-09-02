@@ -5,6 +5,7 @@ import com.sharedfate.inventory.ExpandedInventoryManager;
 import com.sharedfate.perk.effect.ItemGrantEffect;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamState;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -49,7 +50,7 @@ public final class PerkItemGrants {
 			return 0;
 		}
 
-		List<ItemStack> granted = collect(perk);
+		List<ItemStack> granted = collect(perk, server == null ? null : server.registryAccess());
 		if (granted.isEmpty()) {
 			return 0;
 		}
@@ -67,15 +68,21 @@ public final class PerkItemGrants {
 		return granted.size();
 	}
 
-	/** 이 증강이 이번 한 번에 줄 아이템 묶음들. */
-	private static List<ItemStack> collect(Perk perk) {
+	/**
+	 * 이 증강이 이번 한 번에 줄 아이템 묶음들.
+	 *
+	 * <p>{@code registries} 는 인챈트를 찾는 데 쓴다. 26.2 의 인챈트는 데이터팩 레지스트리라
+	 * 월드가 들고 있는 것을 통해야만 찾을 수 있다. 서버가 없는 자리(시험)에서는 {@code null}
+	 * 이 오고, 그때는 인챈트가 빠진 채로 아이템만 나간다.
+	 */
+	private static List<ItemStack> collect(Perk perk, @Nullable HolderLookup.Provider registries) {
 		List<ItemStack> granted = new ArrayList<>();
 		for (PerkEffect effect : perk.effects()) {
 			if (!(effect instanceof ItemGrantEffect grant)) {
 				continue;
 			}
 			try {
-				for (ItemStack stack : grant.grantStacks()) {
+				for (ItemStack stack : grant.grantStacks(registries)) {
 					if (!stack.isEmpty()) {
 						granted.add(stack);
 					}

@@ -14,8 +14,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -28,7 +26,8 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>나무 도끼를 주 손에 들고 우클릭(빈 허공)하면, 팀 공유 인벤토리에서 종류를 가리지 않고
  * 나무 {@value com.sharedfate.perk.effect.OreExchangeEffect#WOOD_COST}개를 소모하고 무작위 광물
- * 하나를 준다. 그 대가로 쓴 사람에게 허기 V·독 I 을 10초간 건다.
+ * 하나를 준다. <b>상태이상 같은 부작용은 걸지 않는다</b> — 까닭은
+ * {@link com.sharedfate.perk.effect.OreExchangeEffect} 에 적어 뒀다.
  *
  * <h2>등록 지점</h2>
  * <p>{@code UseItemCallback.EVENT}에 붙는다. 이 사건은 블록이 아니라 <b>허공</b>을 향해
@@ -88,7 +87,6 @@ public final class PerkOreExchange {
 		deductWood(state, cost);
 		Identifier resultId = OreExchangeEffect.rollResult(breaker.getRandom());
 		String resultName = grant(state, resultId);
-		applyPenalty(breaker);
 		refreshScreen(breaker);
 
 		breaker.sendSystemMessage(Component.literal(
@@ -180,14 +178,6 @@ public final class PerkOreExchange {
 		state.overflowItems.add(stack);
 		state.restoreOverflow(ExpandedInventoryManager.enabled());
 		return stack.getHoverName().getString();
-	}
-
-	/** 대가: 허기 V · 독 I, 10초. */
-	private static void applyPenalty(ServerPlayer player) {
-		player.addEffect(new MobEffectInstance(MobEffects.HUNGER, OreExchangeEffect.PENALTY_TICKS,
-				OreExchangeEffect.HUNGER_AMPLIFIER, false, true, true));
-		player.addEffect(new MobEffectInstance(MobEffects.POISON, OreExchangeEffect.PENALTY_TICKS,
-				OreExchangeEffect.POISON_AMPLIFIER, false, true, true));
 	}
 
 	private static void refreshScreen(ServerPlayer player) {

@@ -16,6 +16,10 @@ import java.util.List;
  *
  * <p>화면이 아니라 여기에 둔 이유는 <b>시험할 수 있게</b> 하기 위해서입니다.
  * {@code src/client} 는 시험 소스셋이 보지 못합니다.
+ *
+ * <p>적는 개수는 {@link EnchantmentDiamondCost#forSlot(int)} 에서 가져옵니다. 그 값은 서버가
+ * 메뉴의 데이터 칸으로 내려보낸 것이므로, {@code enchant_cost} 증강으로 개수가 달라진 팀은
+ * 툴팁도 함께 달라집니다.
  */
 public final class EnchantmentDiamondTooltip {
 	/** 「필요 레벨: %s」 — 레벨이 모자랄 때 빨갛게 뜨는 줄. */
@@ -44,7 +48,7 @@ public final class EnchantmentDiamondTooltip {
 			// 바닐라가 이 줄에 넣는 숫자는 costs[칸] 인데, 화면 Mixin 이 그 배열을 이미
 			// 다이아몬드 개수로 바꿔 두었으므로 그대로 읽으면 됩니다.
 			case LEVEL_REQUIREMENT -> Component
-					.literal("다이아몬드 " + firstNumber(contents, EnchantmentDiamondCost.DIAMONDS_PER_ENCHANT)
+					.literal("다이아몬드 " + firstNumber(contents, EnchantmentDiamondCost.forSlot(0))
 							+ "개가 필요합니다")
 					.withStyle(ChatFormatting.RED);
 			case LEVEL_ONE -> costLine(0);
