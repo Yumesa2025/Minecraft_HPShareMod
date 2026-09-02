@@ -185,7 +185,7 @@ class FoodNutritionEffectTest {
 		state.perksEnabled = true;
 
 		state.ownedPerks.add("sharedfate:endless_recovery");
-		assertEquals(2.0, PerkFoodRules.exhaustionMultiplier(state), "무한 회복, 무한 식비");
+		assertEquals(1.5, PerkFoodRules.exhaustionMultiplier(state), "무한 회복, 무한 식비");
 
 		state.ownedPerks.clear();
 		state.ownedPerks.add("sharedfate:spoiled_feast");
@@ -194,7 +194,7 @@ class FoodNutritionEffectTest {
 		state.ownedPerks.clear();
 		state.ownedPerks.add("sharedfate:ascetic");
 		assertEquals(0.0, PerkFoodRules.exhaustionMultiplier(state), "고행자");
-		assertEquals(10.0, PerkHealthRules.lockedMaxHealth(state).orElseThrow());
+		assertEquals(12.0, PerkHealthRules.lockedMaxHealth(state).orElseThrow());
 	}
 
 	/** 회복량 배율 둘과, 먹기를 막는 증강 하나를 담은 풀. */

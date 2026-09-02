@@ -10,6 +10,8 @@ import net.minecraft.world.entity.EntityEquipment;
 import net.minecraft.world.entity.player.Abilities;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.EnchantmentMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -23,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -296,6 +299,44 @@ class EnchantmentDiamondCostTest {
 		assertEquals(5, EnchantmentDiamondCost.forSlot(0));
 		assertEquals(5, EnchantmentDiamondCost.forSlot(1));
 		assertEquals(5, EnchantmentDiamondCost.forSlot(2));
+	}
+
+	@Test
+	void 요구_개수를_화면으로_내려보내는_데이터_칸이_붙는다() throws Exception {
+		// enchant_cost 증강으로 개수가 달라져도 단추와 툴팁이 같은 숫자를 그리려면,
+		// 서버가 계산한 값이 클라이언트까지 가야 합니다. 그 통로가 이 칸입니다.
+		Player player = hollowPlayer(false);
+		EnchantmentMenu menu = readyMenu(player, 0);
+		try {
+			int index = costDataSlotOf(menu);
+			assertNotEquals(-1, index, "요구 개수를 실어 보낼 데이터 칸이 있어야 한다");
+			assertEquals(5, dataSlotsOf(menu).get(index).get(), "증강이 없으면 기본값을 보낸다");
+
+			// 클라이언트가 꾸러미를 받았을 때와 같은 자리입니다.
+			menu.setData(index, 1);
+
+			assertEquals(1, EnchantmentDiamondCost.shownDiamonds());
+			assertEquals(1, EnchantmentDiamondCost.forSlot(0), "툴팁·단추도 같은 값을 본다");
+		} finally {
+			EnchantmentDiamondCost.resetShown();
+		}
+	}
+
+	private static int costDataSlotOf(EnchantmentMenu menu) throws Exception {
+		List<DataSlot> slots = dataSlotsOf(menu);
+		for (int index = 0; index < slots.size(); index++) {
+			if (slots.get(index) instanceof EnchantmentCostDataSlot) {
+				return index;
+			}
+		}
+		return -1;
+	}
+
+	@SuppressWarnings("unchecked")
+	private static List<DataSlot> dataSlotsOf(EnchantmentMenu menu) throws Exception {
+		Field field = AbstractContainerMenu.class.getDeclaredField("dataSlots");
+		field.setAccessible(true);
+		return (List<DataSlot>) field.get(menu);
 	}
 
 	private static void assertArrayEqualsInt(int[] expected, int[] actual) {

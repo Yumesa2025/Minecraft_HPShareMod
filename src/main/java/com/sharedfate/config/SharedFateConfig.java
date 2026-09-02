@@ -23,6 +23,15 @@ public class SharedFateConfig {
 	public static final int MAX_VICTORY_STAGE_TICKS = 1200;
 	/** 위치 교환 카운트다운 최대 길이(초). */
 	public static final int MAX_POSITION_SWAP_COUNTDOWN_SECONDS = 30;
+	/**
+	 * 경험치 획득 배율의 허용 범위.
+	 *
+	 * <p>0 이면 경험치가 아예 나오지 않아 마법·수선이 통째로 막히므로 아래를 열어 두지 않는다.
+	 * 위쪽은 10배면 이미 「경험치가 의미 없는 서버」라, 오타로 적은 큰 값을 걸러 내는 선이다.
+	 */
+	public static final double MIN_EXPERIENCE_MULTIPLIER = 0.1;
+	public static final double MAX_EXPERIENCE_MULTIPLIER = 10.0;
+	public static final double DEFAULT_EXPERIENCE_MULTIPLIER = 1.2;
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
 	public int maxTeamSize = 4;
@@ -38,6 +47,21 @@ public class SharedFateConfig {
 	public boolean shareEnderChest = true;
 	public boolean shareExperience = true;
 	public boolean shareStatusEffects = true;
+	/**
+	 * 게임 전체에서 얻는 경험치에 곱하는 배율. 기본 1.2배.
+	 *
+	 * <p><b>증강이 아니라 상시 규칙이다.</b> 팀이 무엇을 골랐든, 증강을 쓰지 않는 팀이든 똑같이
+	 * 걸린다. 그래서 팀 상태가 아니라 이 설정 파일에 둔다 — 회차가 바뀌어도, 월드를 새로
+	 * 만들어도 그대로 유지되어야 하는 값이기 때문이다.
+	 *
+	 * <p>이 모드는 경험치도 팀이 공유하므로({@link #shareExperience}) 인원이 늘어도 팀 전체가
+	 * 쓸 수 있는 경험치의 총량은 늘지 않는다. 반면 마법·수선에 드는 양은 그대로라, 회차 후반에
+	 * 장비를 갖추는 단계에서 경험치가 병목이 된다. 1.2배는 그 병목만 풀어 주는 정도다.
+	 *
+	 * <p>거는 자리는 {@code ExperienceOrbAwardMixin} 이고 규칙 자체는
+	 * {@link com.sharedfate.sync.ExperienceBonus} 에 적어 뒀다.
+	 */
+	public double experienceMultiplier = DEFAULT_EXPERIENCE_MULTIPLIER;
 	public int damageAlertDurationTicks = 30;
 	public boolean requireClientMod = true;
 	public boolean resetWorldOnTeamDeath = true;
@@ -155,6 +179,12 @@ public class SharedFateConfig {
 		if (positionSwapCountdownSeconds < 0
 				|| positionSwapCountdownSeconds > MAX_POSITION_SWAP_COUNTDOWN_SECONDS) {
 			positionSwapCountdownSeconds = 5;
+			changed = true;
+		}
+		if (!Double.isFinite(experienceMultiplier)
+				|| experienceMultiplier < MIN_EXPERIENCE_MULTIPLIER
+				|| experienceMultiplier > MAX_EXPERIENCE_MULTIPLIER) {
+			experienceMultiplier = DEFAULT_EXPERIENCE_MULTIPLIER;
 			changed = true;
 		}
 		return changed;

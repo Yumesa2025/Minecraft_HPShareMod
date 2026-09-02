@@ -7,19 +7,27 @@ import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.PerkEffect;
 import com.sharedfate.perk.PerkEffectType;
 import net.minecraft.core.Holder;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.item.alchemy.PotionContents;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -40,12 +48,30 @@ import java.util.Optional;
  *     { "id": "minecraft:golden_apple", "count": 5 },
  *     { "id": "minecraft:potion", "count": 1, "potion": "minecraft:fire_resistance" },
  *     { "id": "minecraft:potion", "count": 1, "potion": "minecraft:water_breathing",
- *       "duration_minutes": 30 }
+ *       "duration_minutes": 30 },
+ *     { "id": "minecraft:netherite_pickaxe", "count": 1,
+ *       "enchantments": { "minecraft:efficiency": 6, "minecraft:unbreaking": 10 } }
  *   ]
  * }
  * </pre>
  *
  * <p>{@code potion}은 26.2의 아이템 컴포넌트({@code minecraft:potion_contents})로 붙는다.
+ *
+ * <h2>{@code enchantments}</h2>
+ * <p>아이템 컴포넌트 {@code minecraft:enchantments}로 붙는다. <b>바닐라 최대 레벨을 넘겨도
+ * 된다.</b> 최대 레벨은 인챈트 탁자와 모루가 지키는 약속일 뿐이고, 컴포넌트 자체가 받아들이는
+ * 범위는 {@code ItemEnchantments.LEVEL_CODEC} 의 1~{@value #MAX_ENCHANT_LEVEL} 이다. 그래서
+ * 효율 VI · 내구성 X 같은 값도 그대로 붙고, 효과 크기도 레벨을 변수로 쓰는 데이터팩 정의를
+ * 따라 그만큼 커진다.
+ *
+ * <p>인챈트는 26.2에서 <b>데이터팩 레지스트리</b>라 {@code BuiltInRegistries} 에 없다. 월드가
+ * 들고 있는 {@code registryAccess} 를 통해야만 {@code Holder<Enchantment>} 를 얻을 수 있으므로,
+ * 지급 시점에 그 레지스트리를 받아 견본을 만든다. 레지스트리를 받지 못한 채로 만든 견본은
+ * 인챈트가 빠진 것이라 <b>재사용하지 않는다</b>. 그러지 않으면 시험이나 이른 호출 한 번이
+ * 인챈트 없는 견본을 영영 굳혀 버린다.
+ *
+ * <p>인챈트 이름을 찾지 못하면 <b>그 인챈트만</b> 건너뛰고 아이템은 그대로 준다. 오타 하나로
+ * 증강이 통째로 사라지는 것보다 곡괭이라도 손에 쥐는 편이 낫다.
  *
  * <h2>{@code duration_minutes}</h2>
  * <p>바닐라에서 가장 긴 물약도 8분이라 그보다 길게 주려면 지속시간을 직접 적어야 한다.
@@ -65,6 +91,16 @@ public final class ItemGrantEffect implements PerkEffect {
 	public static final int MAX_ENTRIES = 16;
 	/** 적을 수 있는 최대 지속시간(분). 한 회차보다 길 이유가 없다. */
 	public static final int MAX_DURATION_MINUTES = 120;
+	/** 항목 하나에 붙일 수 있는 최대 인챈트 수. */
+	public static final int MAX_ENCHANTMENTS = 12;
+	/**
+	 * 적을 수 있는 최대 인챈트 레벨.
+	 *
+	 * <p>26.2 {@code ItemEnchantments.LEVEL_CODEC} 이 {@code Codec.intRange(1, 255)} 이고
+	 * {@code ItemEnchantments.Mutable.set} 도 255 로만 자른다. 바닐라 최대 레벨(효율 V 등)은
+	 * 여기서 아무 역할도 하지 않는다.
+	 */
+	public static final int MAX_ENCHANT_LEVEL = 255;
 	private static final int TICKS_PER_MINUTE = 20 * 60;
 
 	/**
@@ -74,9 +110,13 @@ public final class ItemGrantEffect implements PerkEffect {
 	 * @param count    개수. 1 이상 {@link #MAX_COUNT} 이하
 	 * @param potionId 물약 종류. 물약 아이템이 아니면 null
 	 * @param durationMinutes 지속시간(분). 0 이면 물약이 원래 가진 길이를 그대로 쓴다
+	 * @param enchantments 붙일 인챈트와 레벨. 없으면 빈 맵
 	 */
 	public record Entry(Identifier itemId, int count, @Nullable Identifier potionId,
-			int durationMinutes) {
+			int durationMinutes, Map<Identifier, Integer> enchantments) {
+		public Entry {
+			enchantments = Map.copyOf(enchantments);
+		}
 	}
 
 	private final List<Entry> entries;
@@ -175,7 +215,64 @@ public final class ItemGrantEffect implements PerkEffect {
 			durationMinutes = (int) Math.round(rawDuration);
 		}
 
-		return new Entry(itemId, count, potionId, durationMinutes);
+		return new Entry(itemId, count, potionId, durationMinutes,
+				readEnchantments(perkId, itemId, json));
+	}
+
+	/**
+	 * {@code enchantments} 를 읽는다.
+	 *
+	 * <p>필드가 없으면 빈 맵이다. 이름이나 레벨이 잘못된 항목은 <b>그 인챈트만</b> 버린다.
+	 * 인챈트 하나가 잘못됐다고 아이템 지급 자체를 없던 일로 만들지는 않는다.
+	 * 레지스트리에 실제로 있는 이름인지는 여기서 보지 않는다 — 정의를 읽는 시점에는 인챈트
+	 * 레지스트리(데이터팩 레지스트리)가 아직 존재하지 않기 때문이다.
+	 */
+	private static Map<Identifier, Integer> readEnchantments(String perkId, Identifier itemId,
+			JsonObject json) {
+		JsonElement element = json.get("enchantments");
+		if (element == null || element.isJsonNull()) {
+			return Map.of();
+		}
+		if (!element.isJsonObject()) {
+			SharedFateMod.LOGGER.warn(
+					"증강 {}: {} 의 enchantments 가 객체가 아니라 무시합니다", perkId, itemId);
+			return Map.of();
+		}
+
+		JsonObject table = element.getAsJsonObject();
+		Map<Identifier, Integer> enchantments = new LinkedHashMap<>();
+		for (Map.Entry<String, JsonElement> pair : table.entrySet()) {
+			if (enchantments.size() >= MAX_ENCHANTMENTS) {
+				SharedFateMod.LOGGER.warn(
+						"증강 {}: {} 의 인챈트가 {}개를 넘어 나머지를 버립니다",
+						perkId, itemId, MAX_ENCHANTMENTS);
+				break;
+			}
+			Identifier enchantId = Identifier.tryParse(pair.getKey().trim());
+			if (enchantId == null) {
+				SharedFateMod.LOGGER.warn("증강 {}: 올바르지 않은 인챈트 이름 {} 을 건너뜁니다",
+						perkId, pair.getKey());
+				continue;
+			}
+			Double level = PerkEffectType.readDouble(table, pair.getKey());
+			if (level == null || level < 1 || level > MAX_ENCHANT_LEVEL) {
+				SharedFateMod.LOGGER.warn(
+						"증강 {}: 인챈트 {} 의 레벨이 1~{} 범위를 벗어나 건너뜁니다 ({})",
+						perkId, enchantId, MAX_ENCHANT_LEVEL, level);
+				continue;
+			}
+			enchantments.put(enchantId, (int) Math.floor(level));
+		}
+		return Map.copyOf(enchantments);
+	}
+
+	/**
+	 * 인챈트 없이 지급할 아이템 묶음.
+	 *
+	 * <p>레지스트리를 알 수 없는 자리에서 쓴다. 인챈트를 적은 항목은 인챈트가 빠진 채로 나온다.
+	 */
+	public List<ItemStack> grantStacks() {
+		return grantStacks(null);
 	}
 
 	/**
@@ -183,10 +280,13 @@ public final class ItemGrantEffect implements PerkEffect {
 	 *
 	 * <p>부를 때마다 새 사본을 돌려준다. 받는 쪽이 {@code shrink} 로 개수를 깎기 때문에
 	 * 견본을 그대로 넘기면 두 번째 지급 때 빈 묶음이 나간다.
+	 *
+	 * @param registries 인챈트를 찾을 레지스트리. 보통 {@code server.registryAccess()} 다.
+	 *                   {@code null} 이면 인챈트를 붙이지 못하고 아이템만 나간다
 	 */
-	public List<ItemStack> grantStacks() {
+	public List<ItemStack> grantStacks(@Nullable HolderLookup.Provider registries) {
 		List<ItemStack> result = new ArrayList<>();
-		for (ItemStack template : templates()) {
+		for (ItemStack template : templates(registries)) {
 			result.add(template.copy());
 		}
 		return result;
@@ -197,23 +297,39 @@ public final class ItemGrantEffect implements PerkEffect {
 		return entries;
 	}
 
-	private List<ItemStack> templates() {
+	/** 이 효과가 붙이려는 인챈트가 하나라도 있는가. */
+	private boolean needsRegistries() {
+		for (Entry entry : entries) {
+			if (!entry.enchantments().isEmpty()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private List<ItemStack> templates(@Nullable HolderLookup.Provider registries) {
 		if (templates != null) {
 			return templates;
 		}
 		List<ItemStack> resolved = new ArrayList<>();
 		for (Entry entry : entries) {
-			ItemStack stack = resolve(entry);
+			ItemStack stack = resolve(entry, registries);
 			if (stack != null) {
 				resolved.add(stack);
 			}
+		}
+		// 인챈트를 붙여야 하는데 레지스트리를 못 받았으면 이번 결과는 반쪽짜리다. 굳혀 두면
+		// 나중에 제대로 된 레지스트리를 받아도 인챈트 없는 견본이 계속 나간다.
+		if (registries == null && needsRegistries()) {
+			return List.copyOf(resolved);
 		}
 		templates = List.copyOf(resolved);
 		return templates;
 	}
 
 	/** 항목 하나를 실제 아이템 묶음으로 바꾼다. 레지스트리에 없으면 경고를 남기고 null. */
-	private static @Nullable ItemStack resolve(Entry entry) {
+	private static @Nullable ItemStack resolve(Entry entry,
+			@Nullable HolderLookup.Provider registries) {
 		Item item;
 		try {
 			Optional<Holder.Reference<Item>> found = BuiltInRegistries.ITEM.get(entry.itemId());
@@ -238,7 +354,79 @@ public final class ItemGrantEffect implements PerkEffect {
 				&& !applyPotion(stack, entry.potionId(), entry.durationMinutes())) {
 			return null;
 		}
+		applyEnchantments(stack, entry, registries);
 		return stack;
+	}
+
+	/**
+	 * 인챈트를 컴포넌트로 붙인다.
+	 *
+	 * <p>실패해도 {@code false} 를 돌려주지 않는다. 인챈트를 못 붙인 곡괭이는 여전히 곡괭이라,
+	 * 아이템 자체를 없애 버리면 증강 하나가 통째로 사라진다. 찾지 못한 인챈트는 경고만 남기고
+	 * 건너뛴다.
+	 *
+	 * <p>레벨은 자르지 않는다. 바닐라 최대 레벨을 넘겨 붙이는 것이 이 기능의 요구사항이고,
+	 * {@code ItemEnchantments} 가 받아들이는 상한 {@value #MAX_ENCHANT_LEVEL} 은 정의를 읽는
+	 * 시점에 이미 확인했다.
+	 */
+	private static void applyEnchantments(ItemStack stack, Entry entry,
+			@Nullable HolderLookup.Provider registries) {
+		if (entry.enchantments().isEmpty()) {
+			return;
+		}
+		if (registries == null) {
+			SharedFateMod.LOGGER.warn(
+					"증강이 주려는 {} 에 인챈트를 붙일 레지스트리가 없어 그냥 줍니다", entry.itemId());
+			return;
+		}
+
+		HolderLookup.RegistryLookup<Enchantment> lookup;
+		try {
+			// 26.2 의 인챈트는 데이터팩 레지스트리다. 월드가 없으면 이 조회 자체가 없다.
+			Optional<? extends HolderLookup.RegistryLookup<Enchantment>> found =
+					registries.<Enchantment>lookup(Registries.ENCHANTMENT);
+			if (found.isEmpty()) {
+				SharedFateMod.LOGGER.warn(
+						"인챈트 레지스트리를 찾을 수 없어 {} 를 인챈트 없이 줍니다", entry.itemId());
+				return;
+			}
+			lookup = found.get();
+		} catch (Exception error) {
+			SharedFateMod.LOGGER.warn("인챈트 레지스트리를 읽다가 실패했습니다", error);
+			return;
+		}
+
+		Map<Holder<Enchantment>, Integer> resolved = new LinkedHashMap<>();
+		for (Map.Entry<Identifier, Integer> wanted : entry.enchantments().entrySet()) {
+			Holder<Enchantment> holder = find(lookup, wanted.getKey());
+			if (holder == null) {
+				// 이 인챈트만 빠진다. 아이템은 그대로 나간다.
+				SharedFateMod.LOGGER.warn(
+						"증강이 주려는 인챈트를 찾을 수 없어 건너뜁니다: {}", wanted.getKey());
+				continue;
+			}
+			resolved.put(holder, wanted.getValue());
+		}
+		if (resolved.isEmpty()) {
+			return;
+		}
+		// updateEnchantments 는 컴포넌트가 아직 없는 아이템에서 아무 일도 하지 않고 빠져나간다.
+		// 여기서는 새로 만든 묶음에 처음 붙이는 것이므로 직접 만들어 넣는다. 두 도우미 모두
+		// 「인챈트 책이면 stored_enchantments」를 알아서 갈라 준다.
+		ItemEnchantments.Mutable mutable =
+				new ItemEnchantments.Mutable(EnchantmentHelper.getEnchantmentsForCrafting(stack));
+		resolved.forEach(mutable::set);
+		EnchantmentHelper.setEnchantments(stack, mutable.toImmutable());
+	}
+
+	private static @Nullable Holder<Enchantment> find(
+			HolderLookup.RegistryLookup<Enchantment> lookup, Identifier id) {
+		try {
+			return lookup.get(ResourceKey.create(Registries.ENCHANTMENT, id)).orElse(null);
+		} catch (Exception error) {
+			SharedFateMod.LOGGER.warn("인챈트 {} 를 찾다가 실패했습니다", id, error);
+			return null;
+		}
 	}
 
 	/**

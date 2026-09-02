@@ -2,10 +2,12 @@ package com.sharedfate.perk;
 
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.effect.DamageTakenFromEffect;
+import com.sharedfate.perk.effect.ShieldFallImmunityEffect;
 import com.sharedfate.team.TeamLookup;
 import com.sharedfate.team.TeamState;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.Entity;
 import org.jetbrains.annotations.Nullable;
 
@@ -113,6 +115,35 @@ public final class PerkDamage {
 			return 1.0;
 		}
 		return takenSourceMultiplier(TeamLookup.stateOf(player.getUUID()), source);
+	}
+
+	// ------------------------------------------------------------------ 낙하 피해 면역
+
+	/**
+	 * 이 피해를 통째로 버려야 하는가. {@code shield_fall_immunity} 만 본다.
+	 *
+	 * <p>{@code LivingEntityPerkDamageMixin} 이 {@code hurtServer} 진입점에서 부른다. 참이면
+	 * 그 자리에서 {@code false} 를 돌려주므로 체력·무적시간·피격 애니메이션 어느 것도 움직이지
+	 * 않는다. 배율 쪽({@link #scale})과 달리 값을 깎는 것이 아니라 사건 자체를 없앤다.
+	 *
+	 * <p>피해 종류를 <b>가장 먼저</b> 본다. 낙하가 아닌 피해는 팀 상태를 찾아보지도 않고 곧바로
+	 * 빠져나가므로, 이 증강을 아무도 갖고 있지 않은 서버에서도 피해 경로에 얹히는 비용이 거의
+	 * 없다.
+	 */
+	public static boolean blocksFallDamage(@Nullable Entity victim, @Nullable DamageSource source) {
+		if (source == null || !(victim instanceof ServerPlayer player)) {
+			return false;
+		}
+		try {
+			if (!source.is(DamageTypes.FALL)) {
+				return false;
+			}
+			return ShieldFallImmunityEffect.blocks(
+					TeamLookup.stateOf(player.getUUID()), true, player.isBlocking());
+		} catch (RuntimeException error) {
+			warnOnce(error);
+			return false;
+		}
 	}
 
 	/** 이 팀이 가진 {@code damage_taken_from} 중 이 피해원에 걸리는 것들의 배율을 모두 곱한 값. */

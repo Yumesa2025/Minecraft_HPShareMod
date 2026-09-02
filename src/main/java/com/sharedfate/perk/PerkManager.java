@@ -3,6 +3,7 @@ package com.sharedfate.perk;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.net.PerkOfferPayload;
 import com.sharedfate.net.PerkSyncPayload;
+import com.sharedfate.perk.effect.NoSilverOffersEffect;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
@@ -31,6 +32,15 @@ public final class PerkManager {
 	/** 구간 감지는 매 틱 할 필요가 없다. 1초에 한 번이면 충분하다. */
 	private static final int CHECK_INTERVAL_TICKS = 20;
 	private static final int OPTION_COUNT = 3;
+	/**
+	 * 프리즘 확률을 {@link PerkDraft#PRISM_BOOST_PERCENT} 만큼 얹어 주는 증강.
+	 *
+	 * <p>효과 형이 아니라 <b>id 하나로</b> 보는 이유는, 이것이 효과가 아니라 이 증강 한 개에만
+	 * 붙은 예외이기 때문이다. 「실버 후보를 통째로 막는 대신 프리즘를 조금 더 본다」는 저울이
+	 * 이 증강의 대가와 보상 안에서만 뜻이 있어서, 효과로 일반화하면 다른 증강에 잘못 붙기 쉽다.
+	 * 정의 파일에서 이 id 가 사라지면 판정이 거짓이 되어 보너스도 함께 사라진다.
+	 */
+	private static final String PRISM_BOOST_PERK_ID = "sharedfate:expedition_kit";
 
 	private static int tickCounter;
 
@@ -125,17 +135,33 @@ public final class PerkManager {
 			return false;
 		}
 		RandomSource random = server.overworld().getRandom();
+		boolean silverBlocked = silverOffersBlocked(state);
+		boolean prismBoost = state.ownedPerks.contains(PRISM_BOOST_PERK_ID);
 		for (int milestone : reached) {
 			// 예전에는 도박꾼을 가진 팀이 15렙 바로 다음 두 구간(20·25렙)에서 실버로 고정됐지만
 			// (2026-09-01 7차에서) 그 대가를 없앴으므로 이제 이 구간도 평소대로 구간 규칙을 따른다.
-			List<String> options =
-					PerkDraft.draw(milestone, PerkRegistry.all(), state.ownedPerks, random, OPTION_COUNT);
+			//
+			// 등급을 여기서 먼저 정하고 뽑기는 그 등급으로 부른다. PerkDraft.draw(milestone, …)
+			// 한 방으로 끝내지 않는 이유는 프리즘 라운드를 세어야 하기 때문이다. 뽑힌 후보만
+			// 보고는 「프리즘 라운드였다」와 「실버 라운드인데 실버가 바닥나 폴백으로 프리즘가
+			// 섞였다」를 구분할 수 없고, 뒤엣것까지 세면 프리즘 한도가 엉뚱하게 찬다.
+			PerkRarity rarity = PerkDraft.rarityFor(milestone, state.extraPrismRounds,
+					silverBlocked, prismBoost, random);
+			List<String> options = PerkDraft.draw(rarity, milestone, PerkRegistry.all(),
+					state.ownedPerks, random, OPTION_COUNT);
 			state.lastPerkMilestone = milestone;
 			if (options.isEmpty()) {
 				SharedFateMod.LOGGER.warn(
 						"{}렙 구간의 증강 후보를 하나도 뽑지 못해 건너뜁니다. 증강 풀이 비어 있는지 확인하십시오.",
 						milestone);
 				continue;
+			}
+			// 고정 구간(15)의 프리즘는 세지 않는다. 확률표가 세는 것은 「확률로 더 나온」
+			// 프리즘뿐이고, 고정까지 넣으면 확률로 얻을 수 있는 프리즘가 하나 줄어든다.
+			// 후보를 하나도 못 뽑아 건너뛴 라운드도 위에서 이미 빠졌다 — 선택권이 뜨지
+			// 않았으니 프리즘를 한 번 썼다고 볼 이유가 없다.
+			if (rarity == PerkRarity.PRISM && !PerkDraft.PRISM_MILESTONES.contains(milestone)) {
+				state.extraPrismRounds++;
 			}
 			UUID chooser = pickChooser(server, team, random);
 			PendingOffer offer = new PendingOffer(milestone, Optional.ofNullable(chooser), options);
@@ -144,6 +170,25 @@ public final class PerkManager {
 			// PerkChoiceSession 이 구간·등급·선택자·제한시간을 한 번에 알려 준다.
 		}
 		return true;
+	}
+
+	/**
+	 * 실버 후보가 통째로 막혀 있는가.
+	 *
+	 * <p><b>이 판정은 {@link PerkDraft} 가 아니라 여기서 한다.</b> 추첨 쪽이 {@code PerkRegistry}
+	 * 나 효과 클래스에 손을 뻗는 순간 게임을 띄우지 않고는 확률표를 검증할 수 없게 되기 때문이다.
+	 * 그래서 추첨은 「막혔는가」라는 참·거짓 하나만 받고, 그 답을 만드는 일은 증강 정의를 이미
+	 * 알고 있는 이 클래스가 맡는다.
+	 *
+	 * <p>실버를 막는 것은 {@code no_silver_offers} 효과이고, 지금은 실버 「원정 준비물」 하나가
+	 * 가지고 있다. 보유 증강을 돌며 그 효과 형을 찾는 일은
+	 * {@link NoSilverOffersEffect#heldBy}가 맡는다 — {@link PerkGearRules}가 쓰는 방식과 같다.
+	 */
+	private static boolean silverOffersBlocked(TeamState state) {
+		if (state == null || !state.perksEnabled || state.ownedPerks.isEmpty()) {
+			return false;
+		}
+		return NoSilverOffersEffect.heldBy(state);
 	}
 
 	/** 발동 당시 아무도 접속해 있지 않았던 선택권에 뒤늦게 선택자를 붙인다. */
@@ -344,7 +389,8 @@ public final class PerkManager {
 
 		RandomSource random = server.overworld().getRandom();
 		commit(server, manager, team, state, perk,
-				player.getGameProfile().name() + "님이 " + gradeAndName(perk) + " 을(를) 골랐습니다.", random);
+				player.getGameProfile().name() + "님이 " + gradeAndName(perk) + " 을(를) 골랐습니다.",
+				player.getUUID(), random);
 		// 선택이 끝났으니 시간을 다시 흐르게 하고 팀 전원의 창을 닫는다.
 		PerkChoiceSession.onChoiceApplied(server, team.teamId(), milestone,
 				perk.id(), player.getGameProfile().name());
@@ -465,8 +511,12 @@ public final class PerkManager {
 			return;
 		}
 		RandomSource random = server.overworld().getRandom();
+		// 자동 선택이어도 「고른 사람」은 있다. 선택자로 지정돼 있던 그 사람이다. 그가 창을 보고
+		// 있었으니 fixed_to_owner 증강의 주인으로도 그 사람이 맞다. 선택자가 아직 정해지지
+		// 않았던 선택권이라면 주인 없이 지나간다.
 		commit(server, manager, team, state, perk,
-				"시간이 다 되어 " + gradeAndName(perk) + " 이(가) 무작위로 선택되었습니다.", random);
+				"시간이 다 되어 " + gradeAndName(perk) + " 이(가) 무작위로 선택되었습니다.",
+				offer.chooser().orElse(null), random);
 		// 자동 선택도 직접 고른 것과 똑같이 결과를 보여 준다. 고른 사람 이름은 비운다.
 		PerkChoiceSession.onChoiceApplied(server, teamId, milestone, perk.id(), "");
 	}
@@ -488,11 +538,24 @@ public final class PerkManager {
 		return takeable.get(random.nextInt(takeable.size()));
 	}
 
-	/** 선택을 실제로 반영한다. 직접 고른 경우와 자동 선택이 같은 길을 지나게 하는 자리다. */
+	/**
+	 * 선택을 실제로 반영한다. 직접 고른 경우와 자동 선택이 같은 길을 지나게 하는 자리다.
+	 *
+	 * <p><b>「고른 사람」이 여기까지 내려온다.</b> {@code holder} 의 {@code fixed_to_owner} 가
+	 * 켜진 증강은 고른 사람이 회차 내내 보유자여야 하는데, 그 사실을 아는 곳은 선택을 받는
+	 * 이 경로뿐이다. {@code TeamState.perkOwners} 에 증강 id 별로 적어 두면
+	 * {@link PerkHolderManager} 가 그것을 읽어 보유자를 정한다. 다른 증강에는 아무 영향이 없다.
+	 *
+	 * @param chooser 이 증강을 고른 사람. 알 수 없으면 null
+	 */
 	private static void commit(MinecraftServer server, TeamManager manager, ShareTeam team,
-			TeamState state, Perk perk, String announcement, RandomSource random) {
+			TeamState state, Perk perk, String announcement, @Nullable UUID chooser,
+			RandomSource random) {
 		if (!state.ownedPerks.contains(perk.id())) {
 			state.ownedPerks.add(perk.id());
+		}
+		if (chooser != null) {
+			state.perkOwners.put(perk.id(), chooser);
 		}
 		state.pending.removeFirst();
 		manager.setDirty();

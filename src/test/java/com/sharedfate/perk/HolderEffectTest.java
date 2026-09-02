@@ -10,6 +10,7 @@ import com.sharedfate.perk.effect.DamageTakenEffect;
 import com.sharedfate.perk.effect.HolderEffect;
 import com.sharedfate.perk.effect.OnKillEffect;
 import com.sharedfate.perk.effect.StatusEffectPerk;
+import com.sharedfate.team.TeamState;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -129,6 +130,117 @@ class HolderEffectTest {
 		assertEquals(-0.3, assertInstanceOf(AttributeEffect.class, effect.onOthers().getFirst()).amount(),
 				1.0e-9);
 		assertTrue(effect.onPass().isEmpty());
+	}
+
+	// ------------------------------------------------------------------ fixed_to_owner
+
+	@Test
+	void 고정_보유자는_안_적으면_거짓이다() {
+		// 이 필드를 모르던 시절의 정의가 예전과 똑같이 동작해야 한다.
+		assertFalse(parse(ROTATING_BUFF).fixedToOwner());
+		assertFalse(parse(KING_AND_SUBJECTS).fixedToOwner());
+	}
+
+	@Test
+	void 고정_보유자_정의를_읽는다() {
+		HolderEffect effect = parse("""
+				{ "type": "holder", "fixed_to_owner": true,
+				  "on_holder": [ { "type": "status_effect", "effect": "minecraft:strength", "amplifier": 1 } ],
+				  "on_others": [ { "type": "attribute", "attribute": "minecraft:attack_damage",
+				                   "operation": "add_multiplied_total", "amount": -0.3 } ] }
+				""");
+
+		assertTrue(effect.fixedToOwner());
+	}
+
+	@Test
+	void 고정_보유자여도_순환_값이_적혀_있으면_받아_준다() {
+		// 「제왕과 신하」의 정의에는 예전부터 rotate_ticks 가 적혀 있다. 여기서 정의를 버리면
+		// 증강이 통째로 풀에서 빠지므로, 무시된다는 경고만 남기고 받아 준다.
+		HolderEffect effect = parse("""
+				{ "type": "holder", "rotate_ticks": 1200, "min_hold_ticks": 200,
+				  "pass_on_hurt": true, "fixed_to_owner": true,
+				  "on_holder": [ { "type": "damage_dealt", "multiplier": 1.5 } ] }
+				""");
+
+		assertTrue(effect.fixedToOwner());
+		assertEquals(1200, effect.rotateTicks(), "값은 그대로 읽히되 집행 단계에서 무시된다");
+		assertTrue(effect.passOnHurt());
+	}
+
+	@Test
+	void 참거짓이_아닌_fixed_to_owner_는_버린다() {
+		assertNull(HolderEffect.fromJson("sharedfate:test", 0, json("""
+				{ "type": "holder", "fixed_to_owner": "네",
+				  "on_holder": [ { "type": "damage_dealt", "multiplier": 1.5 } ] }
+				""")), "오타를 조용히 거짓으로 넘기면 왕이 매분 바뀌어 버린다");
+	}
+
+	@Test
+	void 고정_보유자에_on_pass_를_적으면_버린다() {
+		// 보유자가 절대 넘어가지 않으므로 on_pass 는 영원히 발동하지 않는다.
+		assertNull(HolderEffect.fromJson("sharedfate:test", 0, json("""
+				{ "type": "holder", "rotate_ticks": 1200, "pass_on_hurt": true,
+				  "fixed_to_owner": true,
+				  "on_holder": [ { "type": "damage_dealt", "multiplier": 1.5 } ],
+				  "on_pass": [ { "type": "status_effect", "effect": "minecraft:weakness" } ] }
+				""")));
+	}
+
+	@Test
+	void 고정_보유자는_주인이_접속해_있을_때만_보유자다() {
+		// 이 시험이 「고정」의 전부다. 여기가 깨지면 왕이 조용히 다른 사람에게 넘어간다.
+		UUID king = UUID.randomUUID();
+		UUID subject = UUID.randomUUID();
+
+		assertSame(king, PerkHolderManager.fixedHolder(king, List.of(king, subject)));
+		assertSame(king, PerkHolderManager.fixedHolder(king, List.of(king)));
+	}
+
+	@Test
+	void 주인이_나가면_아무도_보유자가_아니다() {
+		// 무작위로 넘기면 「고정」이 아니게 된다. 돌아올 때까지 비워 두는 쪽이 맞다.
+		UUID king = UUID.randomUUID();
+		UUID subject = UUID.randomUUID();
+
+		assertNull(PerkHolderManager.fixedHolder(king, List.of(subject)),
+				"남아 있는 팀원에게 넘기지 않는다");
+		assertNull(PerkHolderManager.fixedHolder(king, List.of()));
+		assertNull(PerkHolderManager.fixedHolder(king, null));
+	}
+
+	@Test
+	void 주인을_아직_모르면_보유자도_없다() {
+		assertNull(PerkHolderManager.fixedHolder(null, List.of(UUID.randomUUID())));
+		assertNull(PerkHolderManager.fixedHolder(null, null));
+	}
+
+	@Test
+	void 고른_사람이_팀_상태에_남는다() {
+		// PerkManager.commit 이 적어 두는 자리다. 저장에도 함께 들어가므로 재시작을 넘어
+		// 왕이 유지된다.
+		UUID king = UUID.randomUUID();
+		TeamState state = TeamState.fresh(20.0F);
+		state.ownedPerks.add("sharedfate:king_and_subjects");
+		state.perkOwners.put("sharedfate:king_and_subjects", king);
+
+		TeamState.PerkSection section = state.perkSection();
+		assertEquals(king, section.owners().get("sharedfate:king_and_subjects"));
+
+		TeamState restored = TeamState.fresh(20.0F);
+		restored.applyPerkSection(section);
+		assertEquals(king, restored.perkOwners.get("sharedfate:king_and_subjects"));
+	}
+
+	@Test
+	void 가지고_있지_않은_증강의_주인은_지워진다() {
+		// 회차가 바뀌어 보유 목록이 비면 주인 기록만 남아 다음 회차로 새어 나가면 안 된다.
+		TeamState state = TeamState.fresh(20.0F);
+		state.perkOwners.put("sharedfate:king_and_subjects", UUID.randomUUID());
+
+		state.sanitizePerks();
+
+		assertTrue(state.perkOwners.isEmpty());
 	}
 
 	@Test

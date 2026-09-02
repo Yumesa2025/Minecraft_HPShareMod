@@ -84,6 +84,9 @@ public final class PerkRarityReroll {
 		}
 
 		state.ownedPerks.clear();
+		// 가진 증강이 통째로 갈렸으므로 「누가 골랐는가」 기록도 함께 버린다. 남겨 두면 이번에
+		// 새로 받은 증강이 우연히 같은 id 일 때 예전 주인이 딸려 온다.
+		state.perkOwners.clear();
 		// 이 증강 자신은 "무엇을 골랐었는가"의 기록으로만 남긴다. 효과는 없다.
 		state.ownedPerks.add(perk.id());
 

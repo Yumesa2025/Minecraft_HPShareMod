@@ -1,13 +1,13 @@
 {
   "_comment": "SharedFate 기본 증강 풀. 설정 폴더에 sharedfate-perks.json 이 없으면 이 파일이 그대로 만들어진다. 자유롭게 편집해도 되고, 지우면 다음 실행 때 다시 생긴다.",
-  "_rarity": "구간은 5·10·15·20·25·30·35·40 여덟 개다. 구간마다 등급 하나가 정해지고 그 등급에서만 후보 3개가 나온다. 15렙과 30렙은 항상 프리즘, 나머지 여섯 구간은 실버 또는 골드다. 해당 등급이 3개에 모자라면 다른 등급에서 채운다.",
+  "_rarity": "구간은 5·10·15·20·25·30·35·40 여덟 개다. 구간마다 등급 하나가 정해지고 그 등급에서만 후보 3개가 나온다. 15렙만 항상 프리즘이고, 나머지 일곱 구간은 실버 45 · 골드 45 · 프리즘 10 의 확률표로 정해진다. 프리즘이 추가로 뜰수록 그 확률이 줄어 회차당 최대 3번(고정 1 + 추가 2)까지만 나온다. 해당 등급이 3개에 모자라면 다른 등급에서 채운다.",
   "_duplicate": "중첩은 없다. 한 번 고른 증강은 그 회차 동안 다시 후보로 나오지 않는다. 예전 형식의 stackable·maxStacks 가 적혀 있어도 무시된다.",
   "perks": [
     {
       "id": "sharedfate:light_step",
       "icon": "minecraft:feather",
       "name": "가벼운 발걸음",
-      "description": "낙하 피해가 40% 감소합니다. 대신 넉백을 3배로 받습니다.",
+      "description": "낙하 피해가 40% 감소합니다. 대신 넉백을 2배로 받습니다.",
       "rarity": "silver",
       "effects": [
         {
@@ -20,7 +20,7 @@
           "type": "attribute",
           "attribute": "minecraft:knockback_resistance",
           "operation": "add_value",
-          "amount": -2.0
+          "amount": -1.0
         }
       ]
     },
@@ -28,14 +28,15 @@
       "id": "sharedfate:deflated_shield",
       "icon": "minecraft:shield",
       "name": "바람 빠진 방패",
-      "description": "폭발에 훨씬 덜 밀립니다. 대신 그 밖의 넉백은 2배로 받습니다.",
+      "description": "폭발에 받는 피해가 ×0.5 가 됩니다. 대신 넉백을 2배로 받습니다.",
       "rarity": "silver",
       "effects": [
         {
-          "type": "attribute",
-          "attribute": "minecraft:explosion_knockback_resistance",
-          "operation": "add_value",
-          "amount": 1.0
+          "type": "damage_taken_from",
+          "multiplier": 0.5,
+          "sources": [
+            "#minecraft:is_explosion"
+          ]
         },
         {
           "type": "attribute",
@@ -49,7 +50,7 @@
       "id": "sharedfate:bottomless_jar",
       "icon": "minecraft:decorated_pot",
       "name": "밑 빠진 독",
-      "description": "재생 II 를 상시 얻습니다. 대신 허기 IV 도 상시 얻습니다.",
+      "description": "재생 II 를 상시 얻습니다. 대신 허기 III 도 상시 얻습니다.",
       "rarity": "prism",
       "effects": [
         {
@@ -60,7 +61,7 @@
         {
           "type": "status_effect",
           "effect": "minecraft:hunger",
-          "amplifier": 3
+          "amplifier": 2
         }
       ]
     },
@@ -68,12 +69,12 @@
       "id": "sharedfate:glass_world",
       "icon": "minecraft:glass",
       "name": "유리 세계",
-      "description": "엔더 드래곤을 제외한 모든 몹의 체력이 절반이 됩니다. 대신 받는 피해가 ×2.5 가 됩니다.",
+      "description": "엔더 드래곤을 제외한 모든 몹의 체력이 ×0.4 가 됩니다. 대신 받는 피해가 ×2.5 가 됩니다.",
       "rarity": "prism",
       "effects": [
         {
           "type": "mob_health",
-          "multiplier": 0.5,
+          "multiplier": 0.4,
           "excludes": [
             "minecraft:ender_dragon"
           ]
@@ -106,7 +107,7 @@
       "id": "sharedfate:expedition_kit",
       "icon": "minecraft:potion",
       "name": "원정 준비물",
-      "description": "30분짜리 화염 저항 포션과 수중 호흡 포션을 하나씩 얻습니다.",
+      "description": "30분짜리 화염 저항 포션과 수중 호흡 포션을 하나씩 얻습니다. 대신 이 뒤로는 실버 증강이 후보에 나오지 않습니다.",
       "rarity": "silver",
       "effects": [
         {
@@ -125,6 +126,9 @@
               "duration_minutes": 30
             }
           ]
+        },
+        {
+          "type": "no_silver_offers"
         }
       ]
     },
@@ -132,7 +136,7 @@
       "id": "sharedfate:endless_recovery",
       "icon": "minecraft:ghast_tear",
       "name": "무한 회복, 무한 식비",
-      "description": "재생 I 을 상시 얻습니다. 대신 허기 소모가 ×2 가 됩니다.",
+      "description": "재생 I 을 상시 얻습니다. 대신 허기 소모가 ×1.5 가 됩니다.",
       "rarity": "silver",
       "effects": [
         {
@@ -142,7 +146,7 @@
         },
         {
           "type": "hunger_drain",
-          "multiplier": 2.0
+          "multiplier": 1.5
         }
       ]
     },
@@ -150,7 +154,7 @@
       "id": "sharedfate:spoiled_feast",
       "icon": "minecraft:rotten_flesh",
       "name": "상한 진수성찬",
-      "description": "음식의 허기 회복량이 3배가 됩니다. 대신 음식을 먹으면 독 I 을 4초간 얻습니다.",
+      "description": "음식의 허기 회복량이 3배가 됩니다. 대신 음식을 먹으면 독 I 을 2초간 얻습니다.",
       "rarity": "gold",
       "effects": [
         {
@@ -161,7 +165,7 @@
               "type": "status_effect",
               "effect": "minecraft:poison",
               "amplifier": 0,
-              "duration": 4
+              "duration": 2
             }
           ]
         }
@@ -171,7 +175,7 @@
       "id": "sharedfate:ascetic",
       "icon": "minecraft:bread",
       "name": "고행자",
-      "description": "허기가 어떤 상황에서도 줄지 않습니다. 대신 최대 체력이 10 으로 고정되며 다른 증강으로도 오르지 않습니다.",
+      "description": "허기가 어떤 상황에서도 줄지 않습니다. 대신 최대 체력이 12 로 고정되며 다른 증강으로도 오르지 않습니다.",
       "rarity": "prism",
       "effects": [
         {
@@ -180,7 +184,7 @@
         },
         {
           "type": "max_health_lock",
-          "value": 10.0
+          "value": 12.0
         }
       ]
     },
@@ -216,40 +220,18 @@
       "id": "sharedfate:vein_sense",
       "icon": "minecraft:raw_iron",
       "name": "광맥 감각",
-      "description": "광석을 캐면 3초간 성급함 I 을 얻습니다. 대신 돌과 흙의 채굴 속도가 감소합니다.",
+      "description": "성급함 I 을 상시 얻습니다. 대신 흙과 잔디 블록의 채굴 속도가 감소합니다.",
       "rarity": "silver",
       "effects": [
         {
-          "type": "on_break",
-          "durationSeconds": 3,
-          "blocks": [
-            "#c:ores",
-            "#minecraft:coal_ores",
-            "#minecraft:copper_ores",
-            "#minecraft:diamond_ores",
-            "#minecraft:emerald_ores",
-            "#minecraft:gold_ores",
-            "#minecraft:iron_ores",
-            "#minecraft:lapis_ores",
-            "#minecraft:redstone_ores",
-            "minecraft:nether_quartz_ore",
-            "minecraft:nether_gold_ore",
-            "minecraft:ancient_debris"
-          ],
-          "effects": [
-            {
-              "type": "status_effect",
-              "effect": "minecraft:haste",
-              "amplifier": 0
-            }
-          ]
+          "type": "status_effect",
+          "effect": "minecraft:haste",
+          "amplifier": 0
         },
         {
           "type": "mining_speed",
           "multiplier": 0.7,
           "blocks": [
-            "#minecraft:base_stone_overworld",
-            "#minecraft:base_stone_nether",
             "#minecraft:dirt",
             "minecraft:grass_block"
           ]
@@ -260,7 +242,7 @@
       "id": "sharedfate:shared_suffering",
       "icon": "minecraft:iron_chain",
       "name": "동병상련",
-      "description": "팀원이 피해를 받으면 2초간 저항 I 을 얻습니다. 대신 같은 시간 동안 공격력이 감소합니다.",
+      "description": "팀원이 피해를 받으면 2초간 저항 II 를 얻습니다. 대신 같은 시간 동안 공격력이 감소합니다.",
       "rarity": "silver",
       "effects": [
         {
@@ -270,13 +252,13 @@
             {
               "type": "status_effect",
               "effect": "minecraft:resistance",
-              "amplifier": 0
+              "amplifier": 1
             },
             {
               "type": "attribute",
               "attribute": "minecraft:attack_damage",
               "operation": "add_multiplied_total",
-              "amount": -0.2
+              "amount": -0.1
             }
           ]
         }
@@ -286,18 +268,18 @@
       "id": "sharedfate:vital_strike",
       "icon": "minecraft:iron_sword",
       "name": "급소만 노려",
-      "description": "치명타에 성공하면 3초간 공격력이 10% 증가합니다. 대신 일반 공격 피해가 소폭 감소합니다.",
+      "description": "치명타에 성공하면 5초간 공격력이 30% 증가합니다. 대신 일반 공격 피해가 소폭 감소합니다.",
       "rarity": "silver",
       "effects": [
         {
           "type": "on_critical",
-          "durationSeconds": 3,
+          "durationSeconds": 5,
           "effects": [
             {
               "type": "attribute",
               "attribute": "minecraft:attack_damage",
               "operation": "add_multiplied_total",
-              "amount": 0.1
+              "amount": 0.3
             }
           ]
         },
@@ -311,7 +293,7 @@
       "id": "sharedfate:vampire",
       "icon": "minecraft:glow_berries",
       "name": "흡혈귀",
-      "description": "준 피해의 일부를 체력으로 회복합니다. 대신 허기가 가득 차 있어도 체력이 자연 회복되지 않습니다.",
+      "description": "준 피해의 일부를 체력으로 회복하고, 20초마다 흡수 III 이 다시 채워집니다. 대신 허기가 가득 차 있어도 체력이 자연 회복되지 않습니다.",
       "rarity": "prism",
       "effects": [
         {
@@ -320,6 +302,22 @@
         },
         {
           "type": "no_natural_regen"
+        },
+        {
+          "type": "periodic",
+          "period_ticks": 400,
+          "phases": [
+            {
+              "ticks": 399,
+              "effects": [
+                {
+                  "type": "status_effect",
+                  "effect": "minecraft:absorption",
+                  "amplifier": 2
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -371,7 +369,7 @@
       "id": "sharedfate:forbidden_ore",
       "icon": "minecraft:netherite_ingot",
       "name": "금기의 광석",
-      "description": "네더라이트 주괴를 3개 얻습니다. 대신 다이아몬드 도구나 방어구를 핫바에 두거나 장착하면 계속 자동으로 버려집니다.",
+      "description": "네더라이트 주괴를 4개 얻습니다. 대신 다이아몬드 도구나 방어구를 핫바에 두거나 장착하면 계속 자동으로 버려집니다.",
       "rarity": "prism",
       "effects": [
         {
@@ -379,7 +377,7 @@
           "items": [
             {
               "id": "minecraft:netherite_ingot",
-              "count": 3
+              "count": 4
             }
           ]
         },
@@ -443,7 +441,7 @@
       "id": "sharedfate:shovel_master",
       "icon": "minecraft:diamond_shovel",
       "name": "삽질의 대가",
-      "description": "삽의 공격력이 3배가 됩니다. 대신 공격력을 늘리는 효과를 전혀 받지 못합니다(원래 공격력과 공격력이 줄어드는 효과만 적용됩니다).",
+      "description": "삽의 공격력이 4배가 됩니다. 대신 공격력을 늘리는 효과를 전혀 받지 못합니다(원래 공격력과 공격력이 줄어드는 효과만 적용됩니다).",
       "rarity": "prism",
       "effects": [
         {
@@ -451,7 +449,7 @@
           "tags": [
             "minecraft:shovels"
           ],
-          "multiplier": 3.0
+          "multiplier": 4.0
         },
         {
           "type": "no_damage_boost"
@@ -497,7 +495,7 @@
       "id": "sharedfate:hunters_meal",
       "icon": "minecraft:cooked_beef",
       "name": "사냥꾼의 식사",
-      "description": "몹을 처치하면 팀 허기가 2 회복됩니다. 대신 몹에게 받는 피해가 ×1.15 가 됩니다.",
+      "description": "몹을 처치하면 팀 허기가 2 회복됩니다. 대신 몹에게 받는 피해가 ×1.1 이 됩니다.",
       "rarity": "silver",
       "effects": [
         {
@@ -507,7 +505,7 @@
         },
         {
           "type": "mob_damage",
-          "multiplier": 1.15
+          "multiplier": 1.1
         }
       ]
     },
@@ -515,7 +513,7 @@
       "id": "sharedfate:predator",
       "icon": "minecraft:cooked_porkchop",
       "name": "포식자",
-      "description": "허기가 가득 차 있으면 공격력이 15% 증가합니다. 대신 가득 차 있지 않으면 이동 속도가 20%, 공격력이 30% 감소합니다.",
+      "description": "허기가 가득 차 있으면 공격력이 35% 증가합니다. 대신 가득 차 있지 않으면 이동 속도가 10%, 공격력이 10% 감소합니다.",
       "rarity": "gold",
       "effects": [
         {
@@ -526,7 +524,7 @@
               "type": "attribute",
               "attribute": "minecraft:attack_damage",
               "operation": "add_multiplied_total",
-              "amount": 0.15
+              "amount": 0.35
             }
           ],
           "when_false": [
@@ -534,13 +532,13 @@
               "type": "attribute",
               "attribute": "minecraft:movement_speed",
               "operation": "add_multiplied_total",
-              "amount": -0.2
+              "amount": -0.1
             },
             {
               "type": "attribute",
               "attribute": "minecraft:attack_damage",
               "operation": "add_multiplied_total",
-              "amount": -0.3
+              "amount": -0.1
             }
           ]
         }
@@ -550,7 +548,7 @@
       "id": "sharedfate:flawless",
       "icon": "minecraft:diamond",
       "name": "무결점",
-      "description": "체력이 가득 차 있으면 공격력이 15% 증가합니다. 대신 가득 차 있지 않으면 이동 속도가 20%, 공격력이 30% 감소합니다.",
+      "description": "체력이 가득 차 있으면 공격력이 35% 증가합니다. 대신 가득 차 있지 않으면 이동 속도가 10%, 공격력이 10% 감소합니다.",
       "rarity": "gold",
       "effects": [
         {
@@ -561,7 +559,7 @@
               "type": "attribute",
               "attribute": "minecraft:attack_damage",
               "operation": "add_multiplied_total",
-              "amount": 0.15
+              "amount": 0.35
             }
           ],
           "when_false": [
@@ -569,13 +567,13 @@
               "type": "attribute",
               "attribute": "minecraft:movement_speed",
               "operation": "add_multiplied_total",
-              "amount": -0.2
+              "amount": -0.1
             },
             {
               "type": "attribute",
               "attribute": "minecraft:attack_damage",
               "operation": "add_multiplied_total",
-              "amount": -0.3
+              "amount": -0.1
             }
           ]
         }
@@ -585,13 +583,13 @@
       "id": "sharedfate:brink",
       "icon": "minecraft:redstone",
       "name": "벼랑 끝",
-      "description": "체력이 60% 이하일 때 힘 II 를 얻습니다. 대신 체력이 60% 를 넘을 때 나약함 I 을 얻습니다.",
+      "description": "체력이 80% 이하일 때 힘 II 를 얻습니다. 대신 체력이 80% 를 넘을 때 나약함 I 을 얻습니다.",
       "rarity": "prism",
       "effects": [
         {
           "type": "conditional",
           "condition": "health_below",
-          "threshold": 0.6,
+          "threshold": 0.8,
           "when_true": [
             {
               "type": "status_effect",
@@ -631,7 +629,7 @@
       "id": "sharedfate:overload",
       "icon": "minecraft:blaze_powder",
       "name": "과부하",
-      "description": "힘 II 와 신속 II 를 상시 얻습니다. 대신 30초마다 둘 다 사라지고 8초간 나약함 III 과 구속 III 을 얻습니다.",
+      "description": "힘 II 와 신속 II 를 상시 얻습니다. 대신 30초마다 둘 다 사라지고 8초간 나약함 III 과 구속 I 을 얻습니다.",
       "rarity": "prism",
       "effects": [
         {
@@ -661,7 +659,7 @@
                 {
                   "type": "status_effect",
                   "effect": "minecraft:slowness",
-                  "amplifier": 2
+                  "amplifier": 0
                 }
               ]
             }
@@ -726,7 +724,7 @@
       "id": "sharedfate:shared_fate_bond",
       "icon": "minecraft:lead",
       "name": "운명 공동체",
-      "description": "팀원 전원이 30칸 안에 있으면 재생 I·성급함 I·저항 I 을 얻습니다. 대신 30칸 넘게 떨어지면 모두 한곳에 모이고 5초간 실명과 구속을 얻습니다.",
+      "description": "팀원 전원이 30칸 안에 있으면 재생 II·성급함 II·저항 II 를 얻습니다. 대신 30칸 넘게 떨어지면 모두 한곳에 모이고 5초간 실명과 구속을 얻습니다.",
       "rarity": "prism",
       "effects": [
         {
@@ -736,19 +734,19 @@
             {
               "type": "status_effect",
               "effect": "minecraft:regeneration",
-              "amplifier": 0,
+              "amplifier": 1,
               "duration": 3
             },
             {
               "type": "status_effect",
               "effect": "minecraft:haste",
-              "amplifier": 0,
+              "amplifier": 1,
               "duration": 3
             },
             {
               "type": "status_effect",
               "effect": "minecraft:resistance",
-              "amplifier": 0,
+              "amplifier": 1,
               "duration": 3
             }
           ]
@@ -789,12 +787,12 @@
           "on_holder": [
             {
               "type": "damage_dealt",
-              "multiplier": 1.5
+              "multiplier": 2.0
             },
             {
               "type": "status_effect",
               "effect": "minecraft:haste",
-              "amplifier": 0
+              "amplifier": 1
             }
           ],
           "on_others": [],
@@ -819,7 +817,7 @@
       "id": "sharedfate:king_and_subjects",
       "icon": "minecraft:golden_helmet",
       "name": "제왕과 신하",
-      "description": "무작위 팀원 한 명이 1분마다 바뀌며 리더가 되어 강한 버프를 얻습니다. 대신 나머지 팀원은 공격력이 15% 감소합니다.",
+      "description": "이 증강을 고른 사람이 제왕이 되어 힘 II 와 저항 I 을 얻습니다. 대신 나머지 팀원은 공격력이 15% 감소합니다.",
       "rarity": "prism",
       "effects": [
         {
@@ -827,6 +825,7 @@
           "rotate_ticks": 1200,
           "min_hold_ticks": 200,
           "pass_on_hurt": false,
+          "fixed_to_owner": true,
           "on_holder": [
             {
               "type": "status_effect",
@@ -854,12 +853,12 @@
       "id": "sharedfate:void_step",
       "icon": "minecraft:wind_charge",
       "name": "허공답보",
-      "description": "점프력이 50% 증가하고, 공중에서 한 번 더 점프할 수 있습니다. 두 번째 점프는 70% 더 세고 가던 방향으로 밀어 줍니다. 대신 낙하 피해가 1.5배가 됩니다.",
+      "description": "점프력이 50% 증가하고, 공중에서 한 번 더 점프할 수 있습니다. 두 번째 점프는 50% 더 세고 가던 방향으로 밀어 줍니다. 대신 낙하 피해가 1.2배가 됩니다.",
       "rarity": "prism",
       "effects": [
         {
           "type": "double_jump",
-          "power": 0.714
+          "power": 0.63
         },
         {
           "type": "attribute",
@@ -871,7 +870,7 @@
           "type": "attribute",
           "attribute": "minecraft:fall_damage_multiplier",
           "operation": "add_multiplied_total",
-          "amount": 0.5
+          "amount": 0.2
         }
       ]
     },
@@ -879,15 +878,17 @@
       "id": "sharedfate:sleepless_watch",
       "icon": "minecraft:red_bed",
       "name": "불면의 파수꾼",
-      "description": "좀비와 스켈레톤의 공격력이 15% 감소합니다. 대신 잠을 잘 수 없습니다.",
+      "description": "좀비·스켈레톤·크리퍼·엔더맨의 공격력이 30% 감소합니다. 대신 잠을 잘 수 없습니다.",
       "rarity": "silver",
       "effects": [
         {
           "type": "mob_damage",
-          "multiplier": 0.85,
+          "multiplier": 0.7,
           "targets": [
             "minecraft:zombie",
-            "minecraft:skeleton"
+            "minecraft:skeleton",
+            "minecraft:creeper",
+            "minecraft:enderman"
           ]
         },
         {
@@ -899,19 +900,19 @@
       "id": "sharedfate:arrow_guard",
       "icon": "minecraft:arrow",
       "name": "화살막이",
-      "description": "화살과 던진 것에 받는 피해가 ×0.7 이 됩니다. 대신 폭발 피해를 ×1.5 로 받습니다.",
+      "description": "화살과 던진 것에 받는 피해가 ×0.5 가 됩니다. 대신 폭발 피해를 ×1.2 로 받습니다.",
       "rarity": "silver",
       "effects": [
         {
           "type": "damage_taken_from",
-          "multiplier": 0.7,
+          "multiplier": 0.5,
           "sources": [
             "#minecraft:is_projectile"
           ]
         },
         {
           "type": "damage_taken_from",
-          "multiplier": 1.5,
+          "multiplier": 1.2,
           "sources": [
             "#minecraft:is_explosion"
           ]
@@ -922,20 +923,20 @@
       "id": "sharedfate:practiced_wrist",
       "icon": "minecraft:golden_pickaxe",
       "name": "익숙한 손목",
-      "description": "모든 블록의 채굴 속도가 15% 빨라집니다. 대신 공격력이 15% 감소합니다.",
+      "description": "모든 블록의 채굴 속도가 2배가 됩니다. 대신 공격력이 10% 감소합니다.",
       "rarity": "silver",
       "effects": [
         {
           "type": "attribute",
           "attribute": "minecraft:block_break_speed",
           "operation": "add_multiplied_total",
-          "amount": 0.15
+          "amount": 1.0
         },
         {
           "type": "attribute",
           "attribute": "minecraft:attack_damage",
           "operation": "add_multiplied_total",
-          "amount": -0.15
+          "amount": -0.1
         }
       ]
     },
@@ -943,7 +944,7 @@
       "id": "sharedfate:woodcutters_greed",
       "icon": "minecraft:oak_log",
       "name": "나무꾼의 욕심",
-      "description": "나무 도끼를 들고 우클릭하면 나무 60개를 소모하고 무작위 광물 하나를 얻습니다(다이아몬드 10% · 금 15% · 철 15% · 구리 30% · 석탄 30%). 대신 쓸 때마다 허기 V 와 독 I 이 10초간 걸립니다.",
+      "description": "나무 도끼를 들고 우클릭하면 나무 30개를 소모하고 무작위 광물 하나를 얻습니다(다이아몬드 10% · 금 15% · 철 15% · 구리 30% · 석탄 30%).",
       "rarity": "silver",
       "effects": [
         {
@@ -955,7 +956,7 @@
       "id": "sharedfate:trophy_shield",
       "icon": "minecraft:gold_ingot",
       "name": "전리품 방패",
-      "description": "몹을 처치하면 8초간 흡수 I 을 얻습니다. 대신 최대 체력이 2 감소합니다.",
+      "description": "몹을 처치하면 8초간 흡수 II 와 재생 I 을 얻습니다. 대신 최대 체력이 2 감소합니다.",
       "rarity": "silver",
       "effects": [
         {
@@ -964,6 +965,12 @@
             {
               "type": "status_effect",
               "effect": "minecraft:absorption",
+              "amplifier": 1,
+              "duration": 8
+            },
+            {
+              "type": "status_effect",
+              "effect": "minecraft:regeneration",
               "amplifier": 0,
               "duration": 8
             }
@@ -979,16 +986,28 @@
       "id": "sharedfate:in_step",
       "icon": "minecraft:goat_horn",
       "name": "발맞춰 걷기",
-      "description": "팀원 전원이 16칸 안에 있으면 신속 I 을 얻습니다. 대신 모든 몹의 체력이 ×1.15 가 됩니다.",
+      "description": "팀원 전원이 32칸 안에 있으면 신속 II·재생 I·힘 I 을 얻습니다. 대신 모든 몹의 체력이 ×1.3 이 됩니다.",
       "rarity": "silver",
       "effects": [
         {
           "type": "proximity",
-          "distance": 16,
+          "distance": 32,
           "effects": [
             {
               "type": "status_effect",
               "effect": "minecraft:speed",
+              "amplifier": 1,
+              "duration": 3
+            },
+            {
+              "type": "status_effect",
+              "effect": "minecraft:regeneration",
+              "amplifier": 0,
+              "duration": 3
+            },
+            {
+              "type": "status_effect",
+              "effect": "minecraft:strength",
               "amplifier": 0,
               "duration": 3
             }
@@ -996,7 +1015,7 @@
         },
         {
           "type": "mob_health",
-          "multiplier": 1.15,
+          "multiplier": 1.3,
           "excludes": [
             "minecraft:ender_dragon"
           ]
@@ -1007,16 +1026,16 @@
       "id": "sharedfate:light_disguise",
       "icon": "minecraft:dried_kelp",
       "name": "가벼운 위장",
-      "description": "움직일 때 허기 소모가 30% 줄어듭니다. 대신 받는 피해가 ×1.15 가 됩니다.",
+      "description": "움직일 때 허기 소모가 50% 줄어듭니다. 대신 받는 피해가 ×1.1 이 됩니다.",
       "rarity": "silver",
       "effects": [
         {
           "type": "hunger_drain",
-          "multiplier": 0.7
+          "multiplier": 0.5
         },
         {
           "type": "damage_taken",
-          "multiplier": 1.15
+          "multiplier": 1.1
         }
       ]
     },
@@ -1024,20 +1043,20 @@
       "id": "sharedfate:bare_skin_resolve",
       "icon": "minecraft:leather",
       "name": "맨살의 각오",
-      "description": "방어력이 2 증가합니다. 대신 채굴 속도가 15% 감소합니다.",
+      "description": "방어력이 4 증가합니다. 대신 채굴 속도가 25% 감소합니다.",
       "rarity": "silver",
       "effects": [
         {
           "type": "attribute",
           "attribute": "minecraft:armor",
           "operation": "add_value",
-          "amount": 2.0
+          "amount": 4.0
         },
         {
           "type": "attribute",
           "attribute": "minecraft:block_break_speed",
           "operation": "add_multiplied_total",
-          "amount": -0.15
+          "amount": -0.25
         }
       ]
     },
@@ -1045,7 +1064,7 @@
       "id": "sharedfate:small_frame",
       "icon": "minecraft:rabbit_foot",
       "name": "작아진 몸",
-      "description": "몸 크기가 0.85배가 됩니다. 대신 공격력이 5% 감소합니다.",
+      "description": "몸 크기가 0.85배가 됩니다. 대신 공격 속도가 35% 빨라집니다.",
       "rarity": "silver",
       "effects": [
         {
@@ -1056,9 +1075,9 @@
         },
         {
           "type": "attribute",
-          "attribute": "minecraft:attack_damage",
+          "attribute": "minecraft:attack_speed",
           "operation": "add_multiplied_total",
-          "amount": -0.05
+          "amount": 0.35
         }
       ]
     },
@@ -1087,14 +1106,14 @@
       "id": "sharedfate:hushed_step",
       "icon": "minecraft:chainmail_boots",
       "name": "숨죽인 걸음",
-      "description": "웅크린 채로도 거의 평소 속도로 움직입니다. 대신 서서 걷는 속도가 10% 감소합니다.",
+      "description": "웅크린 채로 달리기보다 10% 빠르게 움직입니다. 대신 서서 걷는 속도가 10% 감소합니다.",
       "rarity": "silver",
       "effects": [
         {
           "type": "attribute",
           "attribute": "minecraft:sneaking_speed",
           "operation": "add_value",
-          "amount": 0.6
+          "amount": 1.13
         },
         {
           "type": "attribute",
@@ -1108,18 +1127,11 @@
       "id": "sharedfate:lucky_day",
       "icon": "minecraft:fishing_rod",
       "name": "운수 좋은 날",
-      "description": "행운이 3 증가해 낚시와 상자 전리품의 등급이 올라갑니다. 대신 몹에게 받는 피해가 ×1.15 가 됩니다.",
+      "description": "광물을 캘 때 최대 3개까지 더 나옵니다. 대신 하나도 안 나올 때도 있습니다.",
       "rarity": "silver",
       "effects": [
         {
-          "type": "attribute",
-          "attribute": "minecraft:luck",
-          "operation": "add_value",
-          "amount": 3.0
-        },
-        {
-          "type": "mob_damage",
-          "multiplier": 1.15
+          "type": "lucky_ore"
         }
       ]
     },
@@ -1127,7 +1139,7 @@
       "id": "sharedfate:fortress_finder",
       "icon": "minecraft:compass",
       "name": "요새 탐지기",
-      "description": "네더에서 나침반이 가장 가까운 네더 요새를 가리킵니다. 대신 화염 피해를 ×1.5 로 받습니다.",
+      "description": "네더에서 나침반이 가장 가까운 네더 요새를 가리킵니다.",
       "rarity": "gold",
       "effects": [
         {
@@ -1135,13 +1147,6 @@
           "structure": "minecraft:fortress",
           "dimension": "minecraft:the_nether",
           "search_radius": 100
-        },
-        {
-          "type": "damage_taken_from",
-          "multiplier": 1.5,
-          "sources": [
-            "#minecraft:is_fire"
-          ]
         }
       ]
     },
@@ -1167,7 +1172,7 @@
       "id": "sharedfate:iron_wall",
       "icon": "minecraft:netherite_chestplate",
       "name": "철벽",
-      "description": "방어력이 8 증가하고 넉백을 받지 않습니다. 대신 이동 속도가 25% 감소합니다.",
+      "description": "방어력이 8 증가하고 넉백을 받지 않습니다. 대신 이동 속도가 25% 감소하고 엔더 드래곤을 제외한 모든 몹의 체력이 ×1.5 가 됩니다.",
       "rarity": "gold",
       "effects": [
         {
@@ -1187,6 +1192,13 @@
           "attribute": "minecraft:movement_speed",
           "operation": "add_multiplied_total",
           "amount": -0.25
+        },
+        {
+          "type": "mob_health",
+          "multiplier": 1.5,
+          "excludes": [
+            "minecraft:ender_dragon"
+          ]
         }
       ]
     },
@@ -1194,7 +1206,7 @@
       "id": "sharedfate:assassin",
       "icon": "minecraft:golden_sword",
       "name": "암살자",
-      "description": "이동 속도가 10% 증가하고 주는 피해가 ×1.25 가 됩니다. 대신 받는 피해가 ×1.4 가 됩니다.",
+      "description": "이동 속도가 10% 증가하고 주는 피해가 ×1.25 가 됩니다. 대신 크리퍼와 엔더 드래곤을 제외한 모든 몹의 공격력이 ×1.3 이 됩니다.",
       "rarity": "gold",
       "effects": [
         {
@@ -1208,8 +1220,12 @@
           "multiplier": 1.25
         },
         {
-          "type": "damage_taken",
-          "multiplier": 1.4
+          "type": "mob_damage",
+          "multiplier": 1.3,
+          "excludes": [
+            "minecraft:creeper",
+            "minecraft:ender_dragon"
+          ]
         }
       ]
     },
@@ -1217,7 +1233,7 @@
       "id": "sharedfate:giant_slayer",
       "icon": "minecraft:bow",
       "name": "거인 사냥꾼",
-      "description": "모든 몹의 체력이 ×0.7 이 됩니다. 대신 모든 몹의 공격력이 ×1.3 이 됩니다.",
+      "description": "모든 몹의 체력이 ×0.7 이 됩니다. 대신 모든 몹의 공격력이 ×1.2 가 됩니다.",
       "rarity": "gold",
       "effects": [
         {
@@ -1229,7 +1245,7 @@
         },
         {
           "type": "mob_damage",
-          "multiplier": 1.3,
+          "multiplier": 1.2,
           "excludes": [
             "minecraft:ender_dragon"
           ]
@@ -1240,7 +1256,7 @@
       "id": "sharedfate:unbroken",
       "icon": "minecraft:enchanted_golden_apple",
       "name": "불굴",
-      "description": "체력이 50% 이하일 때 저항 III 을 얻습니다. 대신 체력이 50% 를 넘을 때 받는 피해가 ×1.2 가 됩니다.",
+      "description": "체력이 절반 이하일 때 저항 III 을 얻습니다. 대신 체력이 75% 를 넘을 때 받는 피해가 ×1.1 이 됩니다.",
       "rarity": "gold",
       "effects": [
         {
@@ -1253,11 +1269,16 @@
               "effect": "minecraft:resistance",
               "amplifier": 2
             }
-          ],
-          "when_false": [
+          ]
+        },
+        {
+          "type": "conditional",
+          "condition": "health_above",
+          "threshold": 0.75,
+          "when_true": [
             {
               "type": "damage_taken",
-              "multiplier": 1.2
+              "multiplier": 1.1
             }
           ]
         }
@@ -1308,12 +1329,12 @@
       "id": "sharedfate:price_of_blood",
       "icon": "minecraft:redstone_block",
       "name": "피의 대가",
-      "description": "준 피해의 10% 를 체력으로 회복합니다. 대신 최대 체력이 6 감소합니다.",
+      "description": "준 피해의 15% 를 체력으로 회복합니다. 대신 최대 체력이 6 감소합니다.",
       "rarity": "gold",
       "effects": [
         {
           "type": "lifesteal",
-          "fraction": 0.1
+          "fraction": 0.15
         },
         {
           "type": "max_health_bonus",
@@ -1325,7 +1346,7 @@
       "id": "sharedfate:light_armor",
       "icon": "minecraft:leather_boots",
       "name": "경장",
-      "description": "이동 속도가 30% 증가하고 더 높이 뜁니다. 대신 다리와 발 방어구를 착용할 수 없습니다.",
+      "description": "이동 속도가 30% 증가하고 더 높이 뜁니다. 대신 다리 방어구를 착용할 수 없습니다.",
       "rarity": "gold",
       "effects": [
         {
@@ -1338,13 +1359,12 @@
           "type": "attribute",
           "attribute": "minecraft:jump_strength",
           "operation": "add_multiplied_total",
-          "amount": 0.3
+          "amount": 0.5
         },
         {
           "type": "equip_ban",
           "slots": [
-            "legs",
-            "feet"
+            "legs"
           ]
         }
       ]
@@ -1407,7 +1427,7 @@
       "id": "sharedfate:riposte",
       "icon": "minecraft:iron_axe",
       "name": "반격",
-      "description": "팀원이 피해를 받으면 4초간 힘 II 를 얻습니다. 대신 받는 피해가 ×1.15 가 됩니다.",
+      "description": "팀원이 피해를 받으면 4초간 힘 II 를 얻습니다. 대신 받는 피해가 ×1.1 이 됩니다.",
       "rarity": "gold",
       "effects": [
         {
@@ -1423,7 +1443,7 @@
         },
         {
           "type": "damage_taken",
-          "multiplier": 1.15
+          "multiplier": 1.1
         }
       ]
     },
@@ -1431,7 +1451,7 @@
       "id": "sharedfate:lone_swordsman",
       "icon": "minecraft:stone_sword",
       "name": "외길 검사",
-      "description": "검의 공격력이 ×1.5 가 됩니다. 대신 방어력이 5 감소합니다.",
+      "description": "검의 공격력이 ×1.5 가 됩니다. 대신 방어력이 3 감소합니다.",
       "rarity": "gold",
       "effects": [
         {
@@ -1445,7 +1465,7 @@
           "type": "attribute",
           "attribute": "minecraft:armor",
           "operation": "add_value",
-          "amount": -5.0
+          "amount": -3.0
         }
       ]
     },
@@ -1453,7 +1473,7 @@
       "id": "sharedfate:pickaxe_fighter",
       "icon": "minecraft:iron_pickaxe",
       "name": "곡괭이 전사",
-      "description": "곡괭이의 공격력이 ×2 가 됩니다. 대신 그 밖의 무기와 도구의 공격력이 1이 됩니다.",
+      "description": "곡괭이의 공격력이 ×2.5 가 됩니다. 대신 곡괭이가 아닌 도구를 들고 있으면 이동 속도가 30% 감소합니다(도구가 아닌 아이템은 상관없습니다).",
       "rarity": "gold",
       "effects": [
         {
@@ -1461,8 +1481,11 @@
           "tags": [
             "minecraft:pickaxes"
           ],
-          "multiplier": 2.0,
-          "othersDamage": 1.0
+          "multiplier": 2.5
+        },
+        {
+          "type": "tool_mismatch_slow",
+          "multiplier": -0.3
         }
       ]
     },
@@ -1470,22 +1493,18 @@
       "id": "sharedfate:giant",
       "icon": "minecraft:iron_block",
       "name": "거인",
-      "description": "몸 크기가 1.2배가 되고 최대 체력이 6 증가합니다. 대신 받는 피해가 ×1.3 이 됩니다.",
+      "description": "몸 크기가 1.3배가 되고 최대 체력이 6 증가합니다.",
       "rarity": "gold",
       "effects": [
         {
           "type": "attribute",
           "attribute": "minecraft:scale",
           "operation": "add_multiplied_total",
-          "amount": 0.2
+          "amount": 0.3
         },
         {
           "type": "max_health_bonus",
           "amount": 6.0
-        },
-        {
-          "type": "damage_taken",
-          "multiplier": 1.3
         }
       ]
     },
@@ -1493,7 +1512,7 @@
       "id": "sharedfate:knockback_blow",
       "icon": "minecraft:piston",
       "name": "밀어내기",
-      "description": "때린 적이 크게 날아갑니다. 대신 공격력이 10% 감소합니다.",
+      "description": "때린 적이 크게 날아갑니다. 대신 엔더 드래곤을 제외한 모든 몹의 체력이 ×1.3 이 됩니다.",
       "rarity": "gold",
       "effects": [
         {
@@ -1503,10 +1522,11 @@
           "amount": 2.0
         },
         {
-          "type": "attribute",
-          "attribute": "minecraft:attack_damage",
-          "operation": "add_multiplied_total",
-          "amount": -0.1
+          "type": "mob_health",
+          "multiplier": 1.3,
+          "excludes": [
+            "minecraft:ender_dragon"
+          ]
         }
       ]
     },
@@ -1514,20 +1534,14 @@
       "id": "sharedfate:moonwalker",
       "icon": "minecraft:phantom_membrane",
       "name": "달 위를 걷다",
-      "description": "중력이 30% 줄어 높이 뛰고 천천히 떨어집니다. 대신 넉백을 크게 받습니다.",
+      "description": "중력이 50% 줄어 높이 뛰고 천천히 떨어집니다.",
       "rarity": "gold",
       "effects": [
         {
           "type": "attribute",
           "attribute": "minecraft:gravity",
           "operation": "add_multiplied_total",
-          "amount": -0.3
-        },
-        {
-          "type": "attribute",
-          "attribute": "minecraft:knockback_resistance",
-          "operation": "add_value",
-          "amount": -1.0
+          "amount": -0.5
         }
       ]
     },
@@ -1535,19 +1549,24 @@
       "id": "sharedfate:offbeat",
       "icon": "minecraft:note_block",
       "name": "엇박자",
-      "description": "15초간 힘 I 을 얻습니다. 대신 이어지는 10초간 나약함 I 을 얻고, 이것이 계속 반복됩니다.",
+      "description": "20초간 힘 I 과 신속 I 을 얻습니다. 대신 이어지는 10초간 나약함 I 을 얻고, 이것이 계속 반복됩니다.",
       "rarity": "gold",
       "effects": [
         {
           "type": "periodic",
-          "period_ticks": 500,
+          "period_ticks": 600,
           "phases": [
             {
-              "ticks": 300,
+              "ticks": 400,
               "effects": [
                 {
                   "type": "status_effect",
                   "effect": "minecraft:strength",
+                  "amplifier": 0
+                },
+                {
+                  "type": "status_effect",
+                  "effect": "minecraft:speed",
                   "amplifier": 0
                 }
               ]
@@ -1570,14 +1589,14 @@
       "id": "sharedfate:icy_feet",
       "icon": "minecraft:blue_ice",
       "name": "얼음 발",
-      "description": "이동 속도가 25% 증가합니다. 대신 땅이 얼음처럼 미끄러워집니다.",
+      "description": "이동 속도가 30% 증가합니다. 대신 땅이 얼음처럼 미끄러워집니다.",
       "rarity": "gold",
       "effects": [
         {
           "type": "attribute",
           "attribute": "minecraft:movement_speed",
           "operation": "add_multiplied_total",
-          "amount": 0.25
+          "amount": 0.3
         },
         {
           "type": "attribute",
@@ -1628,7 +1647,7 @@
       "id": "sharedfate:shared_pickaxe",
       "icon": "minecraft:stone_pickaxe",
       "name": "돌아가는 곡괭이",
-      "description": "1분마다 무작위 팀원 한 명이 채굴 속도가 20% 증가합니다. 대신 나머지 팀원은 채굴 속도가 10% 감소합니다.",
+      "description": "1분마다 무작위 팀원 한 명이 채굴 속도가 5배가 됩니다. 대신 나머지 팀원은 채굴 속도가 15% 감소합니다.",
       "rarity": "silver",
       "effects": [
         {
@@ -1641,7 +1660,7 @@
               "type": "attribute",
               "attribute": "minecraft:block_break_speed",
               "operation": "add_multiplied_total",
-              "amount": 0.2
+              "amount": 4.0
             }
           ],
           "on_others": [
@@ -1649,7 +1668,7 @@
               "type": "attribute",
               "attribute": "minecraft:block_break_speed",
               "operation": "add_multiplied_total",
-              "amount": -0.1
+              "amount": -0.15
             }
           ]
         }
@@ -1659,7 +1678,7 @@
       "id": "sharedfate:village_finder",
       "icon": "minecraft:compass",
       "name": "길잡이 나침반",
-      "description": "나침반을 1개 얻고, 그 나침반이 가장 가까운 마을을 가리킵니다. 대신 몹에게 받는 피해가 ×1.3 이 됩니다.",
+      "description": "나침반을 1개 얻고, 그 나침반이 가장 가까운 마을을 가리킵니다.",
       "rarity": "silver",
       "effects": [
         {
@@ -1676,10 +1695,6 @@
           "structure": "#minecraft:village",
           "dimension": "minecraft:overworld",
           "search_radius": 100
-        },
-        {
-          "type": "mob_damage",
-          "multiplier": 1.3
         }
       ]
     },
@@ -1711,11 +1726,28 @@
       "id": "sharedfate:staggered_swap",
       "icon": "minecraft:comparator",
       "name": "시차",
-      "description": "위치 교환이 한꺼번에가 아니라 팀원 한 명씩 5~10초 간격으로 순서대로 일어납니다. 그동안 팀은 옛 자리와 새 자리에 나뉘어 있습니다.",
+      "description": "위치 교환이 한꺼번에가 아니라 팀원 한 명씩 5~10초 간격으로 순서대로 일어납니다. 그동안 팀은 옛 자리와 새 자리에 나뉘어 있습니다. 교환된 팀원은 30초간 힘 I 과 재생 I 을 얻습니다.",
       "rarity": "silver",
       "effects": [
         {
           "type": "staggered_swap"
+        },
+        {
+          "type": "on_swap",
+          "effects": [
+            {
+              "type": "status_effect",
+              "effect": "minecraft:strength",
+              "amplifier": 0,
+              "duration": 30
+            },
+            {
+              "type": "status_effect",
+              "effect": "minecraft:regeneration",
+              "amplifier": 0,
+              "duration": 30
+            }
+          ]
         }
       ]
     },
@@ -1746,7 +1778,7 @@
       "id": "sharedfate:paired_mining",
       "icon": "minecraft:copper_pickaxe",
       "name": "공명",
-      "description": "16칸 안의 팀원과 같은 종류 블록을 캐면 둘 다 성급함 I 을 5초 얻습니다. 대신 16칸 안에 팀원이 아무도 없으면 채굴 속도가 15% 감소합니다.",
+      "description": "팀원과 같은 종류 블록을 캐면 둘 다 성급함 III 을 5초 얻습니다.",
       "rarity": "silver",
       "effects": [
         {
@@ -1758,7 +1790,7 @@
       "id": "sharedfate:echo_mining",
       "icon": "minecraft:echo_shard",
       "name": "메아리 채굴",
-      "description": "내가 캔 블록 근처의 블록 하나가 더 캐집니다. 대신 쓰는 도구의 내구도가 2배로 닳습니다.",
+      "description": "내가 캔 블록 근처의 블록 두 개가 더 캐집니다(발밑은 캐지 않습니다). 대신 쓰는 도구의 내구도가 2배로 닳습니다.",
       "rarity": "gold",
       "effects": [
         {
@@ -1770,13 +1802,111 @@
       "id": "sharedfate:hidden_talent",
       "icon": "minecraft:amethyst_shard",
       "name": "숨은 재능",
-      "description": "무작위 골드 증강을 하나 더 얻습니다. 대신 받는 피해가 ×1.15 가 됩니다.",
+      "description": "무작위 골드 증강을 하나 더 얻습니다.",
       "rarity": "silver",
       "effects": [
         {
           "type": "rarity_grant",
           "rarity": "gold",
           "count": 1
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:blessing_of_heaven",
+      "icon": "minecraft:nether_star",
+      "name": "하늘의 은총",
+      "description": "무작위 프리즘 증강을 하나 더 얻습니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "rarity_grant",
+          "rarity": "prism",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:golden_rebirth",
+      "icon": "minecraft:gold_block",
+      "name": "환골탈태",
+      "description": "가진 증강 전부가 무작위 골드 증강으로 바뀝니다.",
+      "rarity": "prism",
+      "effects": [
+        {
+          "type": "rarity_reroll",
+          "rarity": "gold"
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:grounded_guard",
+      "icon": "minecraft:shield",
+      "name": "버티는 방패",
+      "description": "방패를 들어 막는 동안 낙하 피해를 받지 않습니다. 대신 모든 몹의 체력이 ×1.15 가 됩니다.",
+      "rarity": "silver",
+      "effects": [
+        {
+          "type": "shield_fall_immunity"
+        },
+        {
+          "type": "mob_health",
+          "multiplier": 1.15,
+          "excludes": [
+            "minecraft:ender_dragon"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:arcane_workshop",
+      "icon": "minecraft:enchanting_table",
+      "name": "비술 공방",
+      "description": "인챈트 탁자와 서고 30개를 얻고, 인챈트 값이 다이아몬드 1개가 됩니다. 대신 모든 몹의 체력이 ×1.2 가 됩니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "item_grant",
+          "items": [
+            {
+              "id": "minecraft:enchanting_table",
+              "count": 1
+            },
+            {
+              "id": "minecraft:bookshelf",
+              "count": 30
+            }
+          ]
+        },
+        {
+          "type": "enchant_cost",
+          "diamonds": 1
+        },
+        {
+          "type": "mob_health",
+          "multiplier": 1.2,
+          "excludes": [
+            "minecraft:ender_dragon"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sharedfate:diamond_sundial",
+      "icon": "minecraft:clock",
+      "name": "해시계",
+      "description": "해시계를 얻습니다. 우클릭하면 20칸 안의 다이아몬드 광석이 보입니다(20초마다). 대신 모든 블록의 채굴 속도가 35% 감소하고 받는 피해가 ×1.15 가 됩니다.",
+      "rarity": "gold",
+      "effects": [
+        {
+          "type": "diamond_sundial",
+          "radius": 20,
+          "cooldown_seconds": 20,
+          "max_results": 16
+        },
+        {
+          "type": "mining_speed",
+          "multiplier": 0.65
         },
         {
           "type": "damage_taken",
@@ -1785,34 +1915,32 @@
       ]
     },
     {
-      "id": "sharedfate:blessing_of_heaven",
-      "icon": "minecraft:nether_star",
-      "name": "하늘의 은총",
-      "description": "무작위 프리즘 증강을 하나 더 얻습니다. 대신 받는 피해가 ×1.25 가 됩니다.",
-      "rarity": "gold",
+      "id": "sharedfate:final_movement",
+      "icon": "minecraft:netherite_pickaxe",
+      "name": "종결곡",
+      "description": "효율 VI · 내구성 X · 행운 III 이 붙은 네더라이트 곡괭이를 얻습니다. 대신 모든 몹의 이동 속도가 15% 빨라집니다.",
+      "rarity": "prism",
       "effects": [
         {
-          "type": "rarity_grant",
-          "rarity": "prism",
-          "count": 1
+          "type": "item_grant",
+          "items": [
+            {
+              "id": "minecraft:netherite_pickaxe",
+              "count": 1,
+              "enchantments": {
+                "minecraft:efficiency": 6,
+                "minecraft:unbreaking": 10,
+                "minecraft:fortune": 3
+              }
+            }
+          ]
         },
         {
-          "type": "damage_taken",
-          "multiplier": 1.25
-        }
-      ]
-    },
-    {
-      "id": "sharedfate:golden_rebirth",
-      "icon": "minecraft:gold_block",
-      "name": "환골탈태",
-      "description": "가진 증강 전부가 무작위 골드 증강으로 바뀝니다. 대신 지금까지 골라 둔 조합을 통째로 잃고, 그보다 나빠질 수도 있습니다.",
-      "rarity": "prism",
-      "min_level": 30,
-      "effects": [
-        {
-          "type": "rarity_reroll",
-          "rarity": "gold"
+          "type": "mob_speed",
+          "multiplier": 1.15,
+          "excludes": [
+            "minecraft:ender_dragon"
+          ]
         }
       ]
     }

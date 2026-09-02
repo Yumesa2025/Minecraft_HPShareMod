@@ -28,6 +28,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@link com.sharedfate.perk.effect.PairedMiningEffect} 문서와 같은 이유(사건·태그 판정이
  * 데이터팩·살아 있는 서버를 필요로 함)로 여기서 다루지 않는다. 빈 인벤토리처럼 태그 판정
  * 자체가 필요 없는 경계값만 확인한다.
+ *
+ * <p>「쓸 때 걸리던 허기 V·독 I」은 없앴다. 상태이상을 거는 코드가 아예 사라졌으므로 그 자리를
+ * 향하던 시험도 함께 지웠다 — 없는 동작을 「없음」으로 못박을 자리가 없다.
  */
 class OreExchangeEffectTest {
 
@@ -62,11 +65,8 @@ class OreExchangeEffectTest {
 
 	@Test
 	void 상수가_설명과_맞는다() {
-		assertEquals(60, OreExchangeEffect.WOOD_COST);
+		assertEquals(30, OreExchangeEffect.WOOD_COST, "나무 30개를 소모한다");
 		assertEquals(Identifier.withDefaultNamespace("wooden_axe"), OreExchangeEffect.TOOL);
-		assertEquals(4, OreExchangeEffect.HUNGER_AMPLIFIER, "허기 V 는 amplifier 4 다");
-		assertEquals(0, OreExchangeEffect.POISON_AMPLIFIER, "독 I 은 amplifier 0 이다");
-		assertEquals(200, OreExchangeEffect.PENALTY_TICKS, "10초 = 200틱");
 	}
 
 	@Test

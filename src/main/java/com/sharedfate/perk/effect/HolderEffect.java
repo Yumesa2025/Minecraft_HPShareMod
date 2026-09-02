@@ -33,6 +33,7 @@ import java.util.UUID;
  *   "rotate_ticks": 1200,
  *   "min_hold_ticks": 200,
  *   "pass_on_hurt": true,
+ *   "fixed_to_owner": false,
  *   "on_holder": [ { "type": "damage_dealt", "multiplier": 1.5 },
  *                  { "type": "status_effect", "effect": "minecraft:haste", "amplifier": 0 } ],
  *   "on_others": [ ],
@@ -40,6 +41,22 @@ import java.util.UUID;
  *                    "amplifier": 0, "duration": 5 } ]
  * }
  * }</pre>
+ *
+ * <h2>{@code fixed_to_owner} — 고른 사람이 계속 보유자</h2>
+ * <p>참이면 <b>이 증강을 고른 사람</b>이 회차 내내 보유자다. {@code rotate_ticks} 로도
+ * {@code pass_on_hurt} 로도 넘어가지 않고, 그 사람이 죽어도 자리를 잃지 않는다. 프리즘
+ * 「제왕과 신하」처럼 "누가 왕인가"가 회차의 이야기가 되어야 하는 증강을 위한 것이다 —
+ * 1분마다 왕이 바뀌면 그건 왕이 아니라 당번이다.
+ *
+ * <p>적지 않으면 거짓이고, 그때의 동작은 이 필드가 없던 시절과 완전히 같다.
+ *
+ * <p><b>고른 사람이 접속을 끊으면 그동안 아무도 보유자가 아니다.</b> 다시 들어오면 그 사람이
+ * 곧바로 보유자로 돌아온다. 무작위로 다른 사람에게 넘기지 않는 이유는 그러면 「고정」이 아니게
+ * 되기 때문이다 — 왕이 잠깐 자리를 비웠다고 옆 사람이 왕이 된다면 이 필드는 뜻이 없다.
+ * 대신 그동안 나머지 팀원은 계속 {@code on_others} 를 받는다. 즉 <b>왕이 없는 동안 팀은
+ * 디메리트만 지고 버프는 없다.</b> 이것도 의도한 결과다. 왕이 접속을 끊으면 팀이 손해를 보는
+ * 편이, 왕이 없는데도 아무 일 없는 것보다 「제왕과 신하」라는 이름에 맞는다.
+ * 자세한 집행은 {@link PerkHolderManager} 에 있다.
  *
  * <h2>이 클래스가 하지 않는 일</h2>
  * <p>여기는 "누가 보유자인가에 따라 무엇을 붙이는가"만 아는 자료 그릇이다. "지금 누가
@@ -94,15 +111,23 @@ public final class HolderEffect implements PerkEffect {
 	private final int rotateTicks;
 	private final int minHoldTicks;
 	private final boolean passOnHurt;
+	private final boolean fixedToOwner;
 	private final List<PerkEffect> onHolder;
 	private final List<PerkEffect> onOthers;
 	private final List<OnKillEffect.Grant> onPass;
 
+	/** {@code fixed_to_owner} 가 거짓인 예전 형태. 기존 호출부와 시험이 그대로 쓴다. */
 	public HolderEffect(int rotateTicks, int minHoldTicks, boolean passOnHurt,
+			List<PerkEffect> onHolder, List<PerkEffect> onOthers, List<OnKillEffect.Grant> onPass) {
+		this(rotateTicks, minHoldTicks, passOnHurt, false, onHolder, onOthers, onPass);
+	}
+
+	public HolderEffect(int rotateTicks, int minHoldTicks, boolean passOnHurt, boolean fixedToOwner,
 			List<PerkEffect> onHolder, List<PerkEffect> onOthers, List<OnKillEffect.Grant> onPass) {
 		this.rotateTicks = Math.max(0, rotateTicks);
 		this.minHoldTicks = Math.max(0, minHoldTicks);
 		this.passOnHurt = passOnHurt;
+		this.fixedToOwner = fixedToOwner;
 		this.onHolder = List.copyOf(onHolder);
 		this.onOthers = List.copyOf(onOthers);
 		this.onPass = List.copyOf(onPass);
@@ -140,6 +165,11 @@ public final class HolderEffect implements PerkEffect {
 		if (passOnHurt == null) {
 			return null;
 		}
+		// 없으면 거짓이라, 이 필드를 적지 않은 기존 정의는 예전과 완전히 같이 동작한다.
+		Boolean fixedToOwner = readBoolean(perkId, json, "fixed_to_owner");
+		if (fixedToOwner == null) {
+			return null;
+		}
 
 		List<PerkEffect> onHolder = parseBranch(perkId, index, json, "on_holder", 0);
 		List<PerkEffect> onOthers = parseBranch(perkId, index, json, "on_others", OTHERS_BRANCH_OFFSET);
@@ -156,16 +186,24 @@ public final class HolderEffect implements PerkEffect {
 		if (onPass == null) {
 			return null;
 		}
-		if (!onPass.isEmpty() && !passOnHurt && rotateTicks == 0) {
+		if (!onPass.isEmpty() && (fixedToOwner || (!passOnHurt && rotateTicks == 0))) {
 			// 넘어갈 일이 없는데 넘길 때 걸 효과만 적어 둔 정의다. 조용히 죽어 있는 것보다
-			// 여기서 걸러 내는 편이 낫다.
+			// 여기서 걸러 내는 편이 낫다. fixed_to_owner 가 켜져 있으면 rotate_ticks 나
+			// pass_on_hurt 를 적어 두었더라도 보유자는 절대 넘어가지 않으므로 같은 경우다.
 			SharedFateMod.LOGGER.warn(
 					"증강 {}: holder 에 on_pass 를 적었지만 보유자가 넘어갈 길이 없습니다 "
-							+ "(rotate_ticks 0, pass_on_hurt 거짓)", perkId);
+							+ "(fixed_to_owner 참이거나, rotate_ticks 0 이고 pass_on_hurt 거짓)", perkId);
 			return null;
 		}
+		if (fixedToOwner && (rotateTicks > 0 || passOnHurt)) {
+			// 버리지는 않는다. 「고정」이 이기고 나머지는 무시된다는 것만 남겨 둔다. 정의를
+			// 버리면 증강이 통째로 풀에서 빠지는데, 이 조합은 뜻이 분명해서 그럴 일이 아니다.
+			SharedFateMod.LOGGER.warn(
+					"증강 {}: holder 가 fixed_to_owner 라 rotate_ticks·pass_on_hurt 는 무시됩니다", perkId);
+		}
 
-		return new HolderEffect(rotateTicks, minHoldTicks, passOnHurt, onHolder, onOthers, onPass);
+		return new HolderEffect(rotateTicks, minHoldTicks, passOnHurt, fixedToOwner,
+				onHolder, onOthers, onPass);
 	}
 
 	/**
@@ -500,9 +538,20 @@ public final class HolderEffect implements PerkEffect {
 		return minHoldTicks;
 	}
 
-	/** 보유자가 피해를 받으면 넘기는가. */
+	/** 보유자가 피해를 받으면 넘기는가. {@link #fixedToOwner()} 가 참이면 무시된다. */
 	public boolean passOnHurt() {
 		return passOnHurt;
+	}
+
+	/**
+	 * 이 증강을 고른 사람이 계속 보유자인가.
+	 *
+	 * <p>참이면 순환도 넘김도 일어나지 않는다. "고른 사람"이 누구인지는
+	 * {@code TeamState.perkOwners} 에 증강 id 별로 적혀 있고, 그것을 읽어 실제 보유자를 정하는
+	 * 것은 {@link PerkHolderManager} 다.
+	 */
+	public boolean fixedToOwner() {
+		return fixedToOwner;
 	}
 
 	public List<PerkEffect> onHolder() {

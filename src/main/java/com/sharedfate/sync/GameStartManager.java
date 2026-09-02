@@ -414,6 +414,9 @@ public final class GameStartManager {
 		state.lastPerkMilestone = 0;
 		state.pending.clear();
 		state.rerollsRemaining = state.rerollAllowance;
+		// 프리즘 한도도 회차 안에서만 뜻이 있는 값이다. 여기서 0 으로 되돌리지 않으면 지난
+		// 회차에 프리즘를 두 번 받은 팀이 새 회차 내내 확률 프리즘를 한 번도 못 본다.
+		state.extraPrismRounds = 0;
 		state.difficultyElapsedTicks = 0;
 		// 첫 교환은 시작으로부터 한 주기 뒤다. 대기하는 동안 흘러 있던 남은 시간을 그대로 두면
 		// 시작하자마자 자리가 뒤바뀐다.

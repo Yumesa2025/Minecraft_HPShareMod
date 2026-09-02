@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.effect.MobDamageEffect;
 import com.sharedfate.perk.effect.MobHealthEffect;
+import com.sharedfate.perk.effect.MobSpeedEffect;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
@@ -29,9 +30,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 몹에게 걸리는 증강 효과({@code mob_health}, {@code mob_damage})의 실행부.
+ * 몹에게 걸리는 증강 효과({@code mob_health}, {@code mob_damage}, {@code mob_speed})의 실행부.
  *
- * <p>다른 효과들은 {@link PerkEffect#apply}로 팀원 한 명에게 붙였다 떼면 끝나지만, 이 둘은
+ * <p>다른 효과들은 {@link PerkEffect#apply}로 팀원 한 명에게 붙였다 떼면 끝나지만, 이 셋은
  * 대상이 팀원이 아니라 월드의 몹이다. 그래서 효과 객체는 "무엇을 얼마나" 만 들고 있고,
  * "언제 누구에게" 는 이 클래스가 전부 맡는다.
  *
@@ -39,6 +40,9 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>{@code mob_health} 는 몹이 월드에 올라올 때({@code ServerEntityEvents.ENTITY_LOAD})
  *       최대 체력 속성에 임시 수정자를 붙인다. 임시 수정자는 저장되지 않으므로 서버를 껐다
  *       켜면 저절로 사라지고, 다시 올라올 때 그때의 증강 구성으로 새로 계산된다.</li>
+ *   <li>{@code mob_speed} 는 같은 자리에서 같은 방식으로 이동 속도 속성에 붙인다. 수정자
+ *       식별자만 {@link #SPEED_MODIFIER_ID} 로 다르다. 체력과 달리 현재 값을 정리할 일이
+ *       없어({@code settleHealth} 같은 뒷정리) 붙였다 떼는 것으로 끝난다.</li>
  *   <li>{@code mob_damage} 는 {@link PerkDamage} 가 피해 계산 시점에 배율만 조회해 간다.
  *       몹에게 아무것도 붙이지 않으므로 정리할 상태가 없다.</li>
  * </ul>
@@ -59,6 +63,14 @@ public final class MobPerkModifiers {
 	/** 최대 체력 수정자의 식별자. 여러 증강의 배율을 하나로 합쳐 붙이므로 고정값 하나면 된다. */
 	public static final Identifier HEALTH_MODIFIER_ID = SharedFateMod.id("perk/mob_health");
 
+	/**
+	 * 이동 속도 수정자의 식별자.
+	 *
+	 * <p>체력({@link #HEALTH_MODIFIER_ID})·난이도 상승({@code difficulty/mob_health})과 반드시
+	 * 달라야 한다. 같은 식별자를 쓰면 나중에 붙는 쪽이 앞의 것을 조용히 덮어쓴다.
+	 */
+	public static final Identifier SPEED_MODIFIER_ID = SharedFateMod.id("perk/mob_speed");
+
 	/** 증강 구성이 바뀌었는지 보는 주기. 매 틱 볼 필요가 없다. */
 	private static final int CHECK_INTERVAL_TICKS = 20;
 	/** 최대 체력이 0 이 되면 몹이 존재할 수 없으므로 하한을 둔다. */
@@ -72,6 +84,19 @@ public final class MobPerkModifiers {
 	 */
 	private static final Map<EntityType<?>, Double> HEALTH_CACHE = new ConcurrentHashMap<>();
 	private static final Map<EntityType<?>, Double> DAMAGE_CACHE = new ConcurrentHashMap<>();
+	private static final Map<EntityType<?>, Double> SPEED_CACHE = new ConcurrentHashMap<>();
+
+	/**
+	 * 어느 속성의 배율을 묻는지.
+	 *
+	 * <p>세 갈래가 캐시·기본값·정리 규칙만 다르고 나머지는 같아서, 계산 경로를 하나로 두고
+	 * 이 값으로 갈라 준다.
+	 */
+	private enum Kind {
+		HEALTH,
+		DAMAGE,
+		SPEED
+	}
 
 	private static int tickCounter;
 	private static int signature;
@@ -84,13 +109,14 @@ public final class MobPerkModifiers {
 	// ------------------------------------------------------------------ 등록 지점
 
 	/**
-	 * 몹이 월드에 올라올 때 최대 체력 수정자를 맞춘다.
+	 * 몹이 월드에 올라올 때 최대 체력·이동 속도 수정자를 맞춘다.
 	 *
 	 * <p>새로 스폰될 때든 청크가 다시 읽힐 때든 같은 자리를 지나므로, 여기 한 곳만 잡으면
 	 * mixin 없이 모든 몹을 덮는다.
 	 */
 	public static void onEntityLoad(Entity entity, ServerLevel level) {
 		applyHealth(entity);
+		applySpeed(entity);
 	}
 
 	/** 증강 구성이 바뀌었으면 캐시를 비우고 이미 올라와 있는 몹을 다시 계산한다. */
@@ -117,6 +143,7 @@ public final class MobPerkModifiers {
 		signatureKnown = true;
 		HEALTH_CACHE.clear();
 		DAMAGE_CACHE.clear();
+		SPEED_CACHE.clear();
 		sweep(server);
 	}
 
@@ -139,6 +166,7 @@ public final class MobPerkModifiers {
 	public static void reset() {
 		HEALTH_CACHE.clear();
 		DAMAGE_CACHE.clear();
+		SPEED_CACHE.clear();
 		tickCounter = 0;
 		signature = 0;
 		signatureKnown = false;
@@ -155,21 +183,26 @@ public final class MobPerkModifiers {
 		if (!(attacker instanceof Mob mob)) {
 			return 1.0;
 		}
-		return lookup(DAMAGE_CACHE, mob, false);
+		return lookup(DAMAGE_CACHE, mob, Kind.DAMAGE);
 	}
 
 	/** 이 몹의 최대 체력에 곱할 배율. */
 	public static double healthMultiplier(Mob mob) {
-		return lookup(HEALTH_CACHE, mob, true);
+		return lookup(HEALTH_CACHE, mob, Kind.HEALTH);
 	}
 
-	private static double lookup(Map<EntityType<?>, Double> cache, Mob mob, boolean health) {
+	/** 이 몹의 이동 속도에 곱할 배율. */
+	public static double speedMultiplier(Mob mob) {
+		return lookup(SPEED_CACHE, mob, Kind.SPEED);
+	}
+
+	private static double lookup(Map<EntityType<?>, Double> cache, Mob mob, Kind kind) {
 		try {
 			Double cached = cache.get(mob.getType());
 			if (cached != null) {
 				return cached;
 			}
-			double value = compute(mob, health);
+			double value = compute(mob, kind);
 			cache.put(mob.getType(), value);
 			return value;
 		} catch (RuntimeException error) {
@@ -183,12 +216,12 @@ public final class MobPerkModifiers {
 	 *
 	 * <p>한 팀 안에서는 곱하고, 팀 사이에서는 {@link #stronger} 로 하나를 고른다.
 	 */
-	private static double compute(Mob mob, boolean health) {
+	private static double compute(Mob mob, Kind kind) {
 		MinecraftServer server = mob.level().getServer();
 		if (server == null) {
 			return 1.0;
 		}
-		return computeFor(server, mob.getType(), mob instanceof Enemy, health);
+		return computeFor(server, mob.getType(), mob instanceof Enemy, kind);
 	}
 
 	/**
@@ -207,7 +240,7 @@ public final class MobPerkModifiers {
 			return 1.0;
 		}
 		try {
-			return computeFor(server, EntityTypes.ZOMBIE, true, health);
+			return computeFor(server, EntityTypes.ZOMBIE, true, health ? Kind.HEALTH : Kind.DAMAGE);
 		} catch (RuntimeException error) {
 			warnOnce(error);
 			return 1.0;
@@ -215,7 +248,7 @@ public final class MobPerkModifiers {
 	}
 
 	private static double computeFor(MinecraftServer server, EntityType<?> type, boolean hostile,
-			boolean health) {
+			Kind kind) {
 		TeamManager manager = TeamManager.get(server);
 		double chosen = 1.0;
 		for (ShareTeam team : manager.allTeams()) {
@@ -223,14 +256,15 @@ public final class MobPerkModifiers {
 			if (state == null || !state.perksEnabled || state.ownedPerks.isEmpty()) {
 				continue;
 			}
-			chosen = stronger(chosen, teamMultiplier(state, type, hostile, health));
+			chosen = stronger(chosen, teamMultiplier(state, type, hostile, kind));
 		}
-		return health ? sanitizeHealth(chosen) : sanitizeDamage(chosen);
+		// 이동 속도도 0 이 되면 몹이 제자리에 굳으므로 체력과 같은 하한을 쓴다.
+		return kind == Kind.DAMAGE ? sanitizeDamage(chosen) : sanitizeHealth(chosen);
 	}
 
 	/** 한 팀이 보유한 증강들의 배율을 모두 곱한 값. */
 	private static double teamMultiplier(TeamState state, EntityType<?> type, boolean hostile,
-			boolean health) {
+			Kind kind) {
 		double total = 1.0;
 		for (String perkId : state.ownedPerks) {
 			Perk perk = PerkRegistry.byId(perkId).orElse(null);
@@ -238,20 +272,22 @@ public final class MobPerkModifiers {
 				continue;
 			}
 			for (PerkEffect effect : perk.effects()) {
-				total *= contribution(effect, type, hostile, health);
+				total *= contribution(effect, type, hostile, kind);
 			}
 		}
 		return total;
 	}
 
 	private static double contribution(PerkEffect effect, EntityType<?> type, boolean hostile,
-			boolean health) {
-		if (health) {
-			return effect instanceof MobHealthEffect mobHealth && mobHealth.appliesTo(type, hostile)
-					? mobHealth.multiplierFor() : 1.0;
-		}
-		return effect instanceof MobDamageEffect mobDamage && mobDamage.appliesTo(type, hostile)
-				? mobDamage.multiplierFor() : 1.0;
+			Kind kind) {
+		return switch (kind) {
+			case HEALTH -> effect instanceof MobHealthEffect mobHealth
+					&& mobHealth.appliesTo(type, hostile) ? mobHealth.multiplierFor() : 1.0;
+			case DAMAGE -> effect instanceof MobDamageEffect mobDamage
+					&& mobDamage.appliesTo(type, hostile) ? mobDamage.multiplierFor() : 1.0;
+			case SPEED -> effect instanceof MobSpeedEffect mobSpeed
+					&& mobSpeed.appliesTo(type, hostile) ? mobSpeed.multiplierFor() : 1.0;
+		};
 	}
 
 	/**
@@ -356,12 +392,56 @@ public final class MobPerkModifiers {
 		}
 	}
 
+	// ------------------------------------------------------------------ 이동 속도 반영
+
+	/**
+	 * 몹 하나의 이동 속도 수정자를 지금 있어야 할 모습으로 맞춘다.
+	 *
+	 * <p>{@link #applyHealth} 와 같은 자리·같은 방식이다. 여러 번 불려도 결과가 같고, 배율이
+	 * 1.0 이면 붙어 있던 수정자를 떼고 끝내므로 증강을 잃은 뒤에는 바닐라와 완전히 같아진다.
+	 *
+	 * <p>체력과 달리 뒷정리가 없다. 최대 체력은 현재 체력이 새 최대치를 넘지 않게 맞춰 줘야
+	 * 하지만, 이동 속도에는 "현재 값"이 따로 없어 속성만 갈아 끼우면 그것으로 끝이다.
+	 *
+	 * <p>몹 스폰 경로 한가운데서 불리므로 어떤 예외도 밖으로 내보내지 않는다.
+	 */
+	private static void applySpeed(@Nullable Entity entity) {
+		if (!(entity instanceof Mob mob)) {
+			return;
+		}
+		try {
+			AttributeInstance instance = mob.getAttribute(Attributes.MOVEMENT_SPEED);
+			if (instance == null) {
+				return;
+			}
+			double multiplier = speedMultiplier(mob);
+			// ADD_MULTIPLIED_TOTAL 은 다른 수정자까지 계산한 뒤 (1 + amount) 를 곱한다.
+			double amount = multiplier - 1.0;
+			AttributeModifier existing = instance.getModifier(SPEED_MODIFIER_ID);
+
+			if (multiplier == 1.0) {
+				if (existing != null) {
+					instance.removeModifier(SPEED_MODIFIER_ID);
+				}
+				return;
+			}
+			if (existing != null && existing.amount() == amount) {
+				return;
+			}
+			instance.addOrUpdateTransientModifier(new AttributeModifier(
+					SPEED_MODIFIER_ID, amount, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+		} catch (RuntimeException error) {
+			warnOnce(error);
+		}
+	}
+
 	/** 이미 올라와 있는 몹 전체를 다시 계산한다. 증강 구성이 바뀐 순간에만 돈다. */
 	private static void sweep(MinecraftServer server) {
 		try {
 			for (ServerLevel level : server.getAllLevels()) {
 				for (Entity entity : level.getAllEntities()) {
 					applyHealth(entity);
+					applySpeed(entity);
 				}
 			}
 		} catch (RuntimeException error) {

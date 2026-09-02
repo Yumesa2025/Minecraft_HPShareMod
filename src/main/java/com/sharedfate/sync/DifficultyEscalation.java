@@ -4,9 +4,12 @@ import com.sharedfate.SharedFateMod;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityTypes;
@@ -17,7 +20,9 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Enemy;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 시간이 흐를수록 적대적 몹이 강해지는 「난이도 상승」.
@@ -55,6 +60,18 @@ import java.util.UUID;
  *       곱한다. 역시 곱셈이라 순서가 결과를 바꾸지 않는다.</li>
  * </ul>
  *
+ * <h2>단계가 오르면 알린다</h2>
+ * <p>30분마다 조용히 세지는 것은 난이도가 아니라 그냥 이상한 일이다. 단계가 오르는 그 순간
+ * 팀 전원에게 <b>빨간 글씨</b>로 지금 몹이 얼마나 세졌는지 알린다.
+ *
+ * <p><b>액션바가 아니라 채팅이다.</b> {@code PerkHolderManager} 는 보유자 순환을 액션바로
+ * 알리는데, 그건 1분마다 바뀌는 값이라 채팅에 쌓이면 다른 안내를 밀어내기 때문이다. 여기는
+ * 반대다 — 30분에 한 번뿐이라 로그가 쌓일 일이 없고, 액션바는 다음 안내에 곧 덮여 사라져
+ * 「몰랐다」가 나온다. 회차의 난이도가 영구히 바뀌는 사건은 기록으로 남아야 한다.
+ *
+ * <p>상한(+100%)에 닿았을 때는 <b>그 사실만 한 번</b> 알리고 그 뒤로는 조용히 있는다. 더 이상
+ * 오르지 않는데 계속 알릴 것이 없다.
+ *
  * <h2>시간을 어떻게 세는가</h2>
  * <p>{@code TeamState.difficultyElapsedTicks} 를 <b>회차가 시작되었고 팀원이 한 명이라도 접속해
  * 있는 틱에만</b> 올린다. 리더가 「게임 시작」({@link GameStartManager})을 누르기 전에는 아예
@@ -89,6 +106,17 @@ public final class DifficultyEscalation {
 	private static int appliedSteps;
 	private static boolean appliedStepsKnown;
 	private static volatile boolean warned;
+
+	/**
+	 * 팀별로 마지막으로 알린 단계.
+	 *
+	 * <p>{@link #appliedSteps} 와 따로 두는 이유가 둘 있다. 그쪽은 <b>서버 전체에서 가장 높은</b>
+	 * 단계이고 몹 속성을 다시 계산할지만 정하는 값이라, 팀별 알림의 기준으로 쓸 수 없다. 그리고
+	 * 이 값이 없으면 서버를 껐다 켰을 때 이미 지나온 단계를 처음부터 다시 알리게 된다 — 저장하지
+	 * 않는 대신, 처음 보는 팀은 <b>지금 단계를 알림 없이 그대로 기준으로 삼는다</b>. 재시작 직후
+	 * 「몹이 강해졌습니다」가 우르르 뜨는 것보다 한 번 건너뛰는 편이 낫다.
+	 */
+	private static final Map<UUID, Integer> ANNOUNCED_STEPS = new ConcurrentHashMap<>();
 
 	private DifficultyEscalation() {
 	}
@@ -218,9 +246,57 @@ public final class DifficultyEscalation {
 			if (state.difficultyElapsedTicks < MAX_ELAPSED_TICKS && anyOnline(server, team)) {
 				state.difficultyElapsedTicks++;
 			}
-			highest = Math.max(highest, stepsFor(state.difficultyElapsedTicks));
+			int steps = stepsFor(state.difficultyElapsedTicks);
+			announceIfRaised(server, team, steps);
+			highest = Math.max(highest, steps);
 		}
 		return highest;
+	}
+
+	// ------------------------------------------------------------------ 단계 상승 알림
+
+	/**
+	 * 이 팀의 단계가 방금 올랐으면 팀 전원에게 알린다.
+	 *
+	 * <p>매 틱 지나는 자리라 값이 그대로면 첫 줄에서 되돌아간다. 처음 보는 팀은 지금 단계를
+	 * 기준으로만 삼고 알리지 않는다 — 서버를 다시 켰을 때 지나온 단계가 한꺼번에 쏟아지는 것을
+	 * 막기 위해서다.
+	 */
+	private static void announceIfRaised(MinecraftServer server, ShareTeam team, int steps) {
+		Integer previous = ANNOUNCED_STEPS.get(team.teamId());
+		if (previous != null && previous.intValue() == steps) {
+			return;
+		}
+		ANNOUNCED_STEPS.put(team.teamId(), steps);
+		if (previous == null || steps <= previous.intValue()) {
+			// 처음 보는 팀이거나(재시작 직후) 아직 안 올랐다. 회차가 새로 시작돼 단계가 0 으로
+			// 되돌아간 경우도 여기로 떨어져 조용히 기준만 다시 잡는다.
+			return;
+		}
+		Component message = Component.literal(announcementFor(steps))
+				.withStyle(ChatFormatting.RED);
+		for (UUID member : team.members()) {
+			ServerPlayer online = server.getPlayerList().getPlayer(member);
+			if (online != null) {
+				online.sendSystemMessage(message);
+			}
+		}
+	}
+
+	/**
+	 * 단계가 올랐을 때 띄울 한 줄. 순수 계산이라 서버 없이 시험할 수 있다.
+	 *
+	 * <p>상한에 닿은 순간에는 <b>더 오르지 않는다는 사실</b>을 함께 적는다. 이 줄이 뜬 뒤로는
+	 * {@link #announceIfRaised} 가 다시는 알리지 않는다 — 단계가 더 오르지 않으므로 조건 자체가
+	 * 성립하지 않기 때문이다.
+	 */
+	static String announcementFor(int steps) {
+		int percent = (int) Math.round((multiplierForSteps(steps) - 1.0) * 100.0);
+		if (steps >= MAX_STEPS) {
+			return "몹이 강해졌습니다 — 체력과 공격력 +" + percent + "% (" + steps
+					+ "단계, 상한). 더는 강해지지 않습니다.";
+		}
+		return "몹이 강해졌습니다 — 체력과 공격력 +" + percent + "% (" + steps + "단계)";
 	}
 
 	private static boolean anyOnline(MinecraftServer server, ShareTeam team) {
@@ -272,6 +348,7 @@ public final class DifficultyEscalation {
 		tickCounter = 0;
 		appliedSteps = 0;
 		appliedStepsKnown = false;
+		ANNOUNCED_STEPS.clear();
 	}
 
 	// ------------------------------------------------------------------ 최대 체력 반영

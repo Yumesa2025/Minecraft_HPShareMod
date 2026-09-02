@@ -1,6 +1,9 @@
 package com.sharedfate.perk;
 
+import com.sharedfate.TestBootstrap;
+import com.sharedfate.team.TeamState;
 import net.minecraft.util.RandomSource;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -19,8 +22,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PerkDraftTest {
 	private static final long SEED = 20260829L;
 
-	/** 프리즘가 아닌, 실버 또는 골드가 배정되는 구간들. */
-	private static final int[] RANDOM_MILESTONES = {5, 10, 20, 25, 35};
+	/** 등급이 고정되지 않아 확률표로 굴리는 일곱 구간. 30 은 2026-09-02부터 이쪽이다. */
+	private static final int[] RANDOM_MILESTONES = {5, 10, 20, 25, 30, 35, 40};
+
+	@BeforeAll
+	static void bootstrap() {
+		// 확률표 자체는 순수 계산이라 부트스트랩이 필요 없지만, 「회차가 넘어가면 카운터가
+		// 0 으로 돌아간다」만은 그 값이 사는 자리(TeamState)를 실제로 만들어 봐야 뜻이 있다.
+		TestBootstrap.ensureInitialized();
+	}
 
 	private static Perk once(String id, PerkRarity rarity) {
 		return new Perk(id, id, "설명 " + id, rarity, List.of());
@@ -65,29 +75,148 @@ class PerkDraftTest {
 	}
 
 	@Test
-	void 삼십렙도_난수와_무관하게_항상_프리즘다() {
-		for (long seed = 0; seed < 500; seed++) {
-			assertEquals(PerkRarity.PRISM,
-					PerkDraft.rarityFor(30, RandomSource.create(seed)),
-					"시드 " + seed + "에서 30렙이 프리즘가 아니었다");
+	void 삼십렙은_더는_고정이_아니라_확률표를_따른다() {
+		// 고정에서 풀렸을 뿐 프리즘가 사라진 것은 아니다. 시드를 바꿔 가며 굴리면 세 등급이
+		// 모두 나와야 한다 — 하나라도 안 나오면 30 이 다른 값으로 고정됐다는 뜻이다.
+		assertFalse(PerkDraft.PRISM_MILESTONES.contains(30), "30 은 고정 프리즘 구간이 아니다");
+		assertEquals(1, PerkDraft.PRISM_MILESTONES.size(), "고정 프리즘 구간은 15 하나뿐이다");
+
+		RandomSource random = RandomSource.create(SEED);
+		Set<PerkRarity> seen = new HashSet<>();
+		for (int i = 0; i < 2000; i++) {
+			seen.add(PerkDraft.rarityFor(30, 0, false, false, random));
 		}
-		assertEquals(PerkRarity.PRISM, PerkDraft.rarityFor(30, null),
-				"난수원이 없어도 30렙은 프리즘다");
-		assertTrue(PerkDraft.PRISM_MILESTONES.contains(30));
-		assertEquals(2, PerkDraft.PRISM_MILESTONES.size(), "프리즘 구간은 15·30 둘뿐이다");
+
+		assertEquals(3, seen.size(), "30렙에서 세 등급이 모두 나와야 한다: " + seen);
 	}
 
 	@Test
-	void 나머지_구간에서는_프리즘가_절대_나오지_않는다() {
+	void 확률표는_세_값을_더하면_언제나_백이다() {
+		assertEquals(PerkDraft.MAX_EXTRA_PRISM + 1, PerkDraft.ODDS_BY_EXTRA_PRISM.size(),
+				"표의 줄 수와 프리즘 한도가 어긋나면 한도에 닿은 줄을 짚을 수 없다");
+		for (int extra = -1; extra <= PerkDraft.MAX_EXTRA_PRISM + 2; extra++) {
+			for (boolean boost : new boolean[] {false, true}) {
+				for (boolean blocked : new boolean[] {false, true}) {
+					PerkDraft.RarityOdds odds = PerkDraft.oddsFor(extra, boost, blocked);
+					assertEquals(100, odds.silver() + odds.gold() + odds.prism(),
+							"합이 100이 아니다: extra=" + extra + " boost=" + boost
+									+ " blocked=" + blocked + " → " + odds);
+					assertTrue(odds.silver() >= 0 && odds.gold() >= 0 && odds.prism() >= 0,
+							"음수 확률이 나왔다: " + odds);
+				}
+			}
+		}
+	}
+
+	@Test
+	void 추가_프리즘이_한도에_닿으면_일곱_구간에서_프리즘가_절대_안_나온다() {
 		RandomSource random = RandomSource.create(SEED);
 
-		for (int round = 0; round < 5000; round++) {
-			for (int milestone : RANDOM_MILESTONES) {
-				PerkRarity rarity = PerkDraft.rarityFor(milestone, random);
-
-				assertNotEquals(PerkRarity.PRISM, rarity, milestone + "렙에서 프리즘가 나왔다");
-				assertTrue(rarity == PerkRarity.SILVER || rarity == PerkRarity.GOLD);
+		// 한도를 넘긴 값(손상된 저장)도 한도와 똑같이 다뤄야 한다. 「원정 준비물」 보너스가
+		// 한도를 뚫고 들어오는 일도 없어야 한다.
+		for (int extra : new int[] {PerkDraft.MAX_EXTRA_PRISM, PerkDraft.MAX_EXTRA_PRISM + 5}) {
+			for (int round = 0; round < 2000; round++) {
+				for (int milestone : RANDOM_MILESTONES) {
+					assertNotEquals(PerkRarity.PRISM,
+							PerkDraft.rarityFor(milestone, extra, false, false, random),
+							milestone + "렙에서 한도를 넘긴 프리즘가 나왔다");
+					assertNotEquals(PerkRarity.PRISM,
+							PerkDraft.rarityFor(milestone, extra, false, true, random),
+							milestone + "렙에서 보너스가 프리즘 한도를 뚫었다");
+				}
 			}
+		}
+	}
+
+	@Test
+	void 실버가_막혀_있으면_실버가_절대_안_나온다() {
+		RandomSource random = RandomSource.create(SEED);
+
+		for (int extra = 0; extra <= PerkDraft.MAX_EXTRA_PRISM; extra++) {
+			for (int round = 0; round < 2000; round++) {
+				for (int milestone : RANDOM_MILESTONES) {
+					assertNotEquals(PerkRarity.SILVER,
+							PerkDraft.rarityFor(milestone, extra, true, false, random),
+							milestone + "렙에서 막혀 있어야 할 실버가 나왔다");
+					assertNotEquals(PerkRarity.SILVER,
+							PerkDraft.rarityFor(milestone, extra, true, true, random),
+							milestone + "렙에서 막혀 있어야 할 실버가 나왔다(보너스 있음)");
+				}
+			}
+		}
+		// 난수원이 없어 굴리지 못하는 길도 차단을 뚫지 않는다. 예전에는 여기가 무조건 실버였다.
+		assertEquals(PerkRarity.GOLD, PerkDraft.rarityFor(20, 0, true, false, null));
+		assertEquals(PerkRarity.SILVER, PerkDraft.rarityFor(20, 0, false, false, null));
+	}
+
+	@Test
+	void 프리즘가_없는_상태에서는_열_번에_한_번쯤_프리즘다() {
+		RandomSource random = RandomSource.create(SEED);
+		int rounds = 10000;
+
+		int prism = 0;
+		for (int i = 0; i < rounds; i++) {
+			if (PerkDraft.rarityFor(30, 0, false, false, random) == PerkRarity.PRISM) {
+				prism++;
+			}
+		}
+
+		double ratio = prism / (double) rounds;
+		double expected = PerkDraft.ODDS_BY_EXTRA_PRISM.getFirst().prism() / 100.0;
+		assertTrue(Math.abs(expected - ratio) < 0.02,
+				"기대 비율 " + expected + ", 실제 " + ratio);
+	}
+
+	@Test
+	void 원정_준비물은_프리즘_확률을_골드에서_떼어_올린다() {
+		PerkDraft.RarityOdds plain = PerkDraft.oddsFor(0, false, false);
+		PerkDraft.RarityOdds boosted = PerkDraft.oddsFor(0, true, false);
+
+		assertEquals(plain.prism() + PerkDraft.PRISM_BOOST_PERCENT, boosted.prism());
+		assertEquals(plain.gold() - PerkDraft.PRISM_BOOST_PERCENT, boosted.gold());
+		assertEquals(plain.silver(), boosted.silver(), "보너스 몫은 실버가 아니라 골드에서 뗀다");
+	}
+
+	@Test
+	void 실버가_막히면_실버_몫이_통째로_골드로_간다() {
+		PerkDraft.RarityOdds plain = PerkDraft.oddsFor(0, false, false);
+		PerkDraft.RarityOdds blocked = PerkDraft.oddsFor(0, false, true);
+
+		assertEquals(0, blocked.silver());
+		assertEquals(plain.silver() + plain.gold(), blocked.gold());
+		assertEquals(plain.prism(), blocked.prism(), "실버가 막혔다고 프리즘가 늘지는 않는다");
+	}
+
+	@Test
+	void 회차가_넘어가면_추가_프리즘_카운터가_0으로_돌아간다() {
+		TeamState state = TeamState.fresh(20.0F);
+		assertEquals(0, state.extraPrismRounds, "갓 만든 팀 상태는 한 번도 안 나온 상태다");
+
+		state.extraPrismRounds = PerkDraft.MAX_EXTRA_PRISM;
+
+		// 회차가 넘어가면 팀 상태를 통째로 새로 만든다(TeamManager.restoreFreshRoster).
+		// 월드를 지우지 않는 서버에서도 회차를 시작하는 자리가 이 값을 0 으로 되돌린다.
+		assertEquals(0, TeamState.fresh(20.0F).extraPrismRounds,
+				"새 회차의 팀 상태에 지난 회차의 프리즘 수가 남았다");
+
+		// 손상된 저장에서 흘러들어온 값은 조용히 한도 안으로 접힌다.
+		state.extraPrismRounds = 99;
+		state.sanitizePerks();
+		assertEquals(PerkDraft.MAX_EXTRA_PRISM, state.extraPrismRounds);
+		state.extraPrismRounds = -3;
+		state.sanitizePerks();
+		assertEquals(0, state.extraPrismRounds);
+	}
+
+	@Test
+	void 옛_두_인자_시그니처는_아무것도_안_나온_상태로_굴린다() {
+		// 회차 상태를 모르는 옛 호출부와 기존 시험이 그대로 돌아가야 한다.
+		RandomSource first = RandomSource.create(SEED);
+		RandomSource second = RandomSource.create(SEED);
+
+		for (int i = 0; i < 200; i++) {
+			assertEquals(PerkDraft.rarityFor(20, 0, false, false, first),
+					PerkDraft.rarityFor(20, second));
 		}
 	}
 
@@ -108,21 +237,26 @@ class PerkDraftTest {
 	}
 
 	@Test
-	void 실버와_골드는_대략_반반이다() {
+	void 실버와_골드는_표에_적힌_비율대로_나온다() {
 		RandomSource random = RandomSource.create(SEED);
 		int rounds = 40000;
 
 		int silver = 0;
+		int gold = 0;
 		for (int i = 0; i < rounds; i++) {
-			if (PerkDraft.rarityFor(20, random) == PerkRarity.SILVER) {
-				silver++;
+			switch (PerkDraft.rarityFor(20, 0, false, false, random)) {
+				case SILVER -> silver++;
+				case GOLD -> gold++;
+				default -> {
+				}
 			}
 		}
 
-		double ratio = silver / (double) rounds;
-		double expected = PerkDraft.SILVER_PERCENT / 100.0;
-		assertTrue(Math.abs(expected - ratio) < 0.02,
-				"기대 비율 " + expected + ", 실제 " + ratio);
+		PerkDraft.RarityOdds odds = PerkDraft.ODDS_BY_EXTRA_PRISM.getFirst();
+		assertTrue(Math.abs(odds.silver() / 100.0 - silver / (double) rounds) < 0.02,
+				"실버 기대 비율 " + odds.silver() + "%, 실제 " + silver * 100.0 / rounds + "%");
+		assertTrue(Math.abs(odds.gold() / 100.0 - gold / (double) rounds) < 0.02,
+				"골드 기대 비율 " + odds.gold() + "%, 실제 " + gold * 100.0 / rounds + "%");
 	}
 
 	@Test
@@ -139,6 +273,8 @@ class PerkDraftTest {
 
 	@Test
 	void 한_라운드의_후보_세_개는_전부_같은_등급이다() {
+		// 등급이 무엇으로 정해지든 한 라운드에 섞여 나오지는 않는다. 이제 확률 구간에서도
+		// 프리즘가 나올 수 있으므로 「프리즘가 아니다」까지 함께 확인하지는 않는다.
 		List<Perk> pool = ninePool();
 		Map<String, PerkRarity> index = rarityIndex(pool);
 		RandomSource random = RandomSource.create(SEED);
@@ -151,8 +287,26 @@ class PerkDraftTest {
 			Set<PerkRarity> rarities = new HashSet<>();
 			drawn.forEach(id -> rarities.add(index.get(id)));
 			assertEquals(1, rarities.size(), "등급이 섞여 나왔다: " + drawn);
-			assertFalse(rarities.contains(PerkRarity.PRISM),
-					milestone + "렙에서 프리즘가 나왔다: " + drawn);
+		}
+	}
+
+	@Test
+	void 한도에_닿은_라운드는_후보에_프리즘가_섞이지_않는다() {
+		// 한도에 닿으면 등급 추첨이 프리즘를 뽑지 않는다. 풀에 실버·골드가 넉넉하면 폴백도
+		// 프리즘까지 내려갈 이유가 없으므로 화면에 프리즘 카드가 뜰 길이 아예 없다.
+		List<Perk> pool = ninePool();
+		Map<String, PerkRarity> index = rarityIndex(pool);
+		RandomSource random = RandomSource.create(SEED);
+
+		for (int i = 0; i < 500; i++) {
+			int milestone = RANDOM_MILESTONES[i % RANDOM_MILESTONES.length];
+			PerkRarity rarity = PerkDraft.rarityFor(
+					milestone, PerkDraft.MAX_EXTRA_PRISM, false, true, random);
+			List<String> drawn = PerkDraft.draw(rarity, milestone, pool, List.of(), random, 3);
+
+			assertEquals(3, drawn.size());
+			drawn.forEach(id -> assertNotEquals(PerkRarity.PRISM, index.get(id),
+					milestone + "렙에서 한도를 넘긴 프리즘 후보가 떴다: " + drawn));
 		}
 	}
 
@@ -172,25 +326,11 @@ class PerkDraftTest {
 	}
 
 	@Test
-	void 삼십렙_라운드도_프리즘만_나온다() {
-		List<Perk> pool = ninePool();
-		Map<String, PerkRarity> index = rarityIndex(pool);
-		RandomSource random = RandomSource.create(SEED);
-
-		for (int i = 0; i < 200; i++) {
-			List<String> drawn = PerkDraft.draw(30, pool, List.of(), random, 3);
-
-			assertEquals(3, drawn.size());
-			drawn.forEach(id -> assertEquals(PerkRarity.PRISM, index.get(id),
-					"30렙 라운드에 프리즘가 아닌 후보가 섞였다: " + drawn));
-		}
-	}
-
-	@Test
-	void 십오렙에서_고른_프리즘은_삼십렙에_다시_나오지_않는다() {
-		// 도박꾼처럼 15렙에서 프리즘 하나를 이미 골랐다고 가정한다. 30렙도 프리즘 라운드이므로
-		// 같은 증강이 후보로 다시 뜨면 안 된다. 폴백(프리즘이 모자라면 골드로 채움)이 결과를
-		// 헷갈리게 하지 않도록 프리즘만 네 개 있는 풀로 확인한다.
+	void 십오렙에서_고른_프리즘은_뒤에_또_프리즘가_떠도_다시_나오지_않는다() {
+		// 15렙에서 프리즘 하나를 이미 골랐다고 가정한다. 30렙이 확률로 다시 프리즘 라운드가
+		// 되더라도 같은 증강이 후보로 다시 뜨면 안 된다. 폴백(프리즘이 모자라면 골드로 채움)이
+		// 결과를 헷갈리게 하지 않도록 프리즘만 네 개 있는 풀로 확인한다 — 이 풀에서는 등급이
+		// 무엇으로 정해지든 폴백이 프리즘로 내려온다.
 		List<Perk> pool = List.of(
 				once("p1", PerkRarity.PRISM),
 				once("p2", PerkRarity.PRISM),
@@ -211,7 +351,8 @@ class PerkDraftTest {
 
 	@Test
 	void 등급별_등장_횟수가_기록된다() {
-		// 여러 구간을 많이 돌리면 실버 라운드와 골드 라운드가 모두 나와야 한다
+		// 여러 구간을 많이 돌리면 세 등급 라운드가 모두 나와야 한다. 한도가 차지 않은 상태로
+		// 계속 굴리므로 프리즘도 열 번에 한 번쯤 섞인다.
 		List<Perk> pool = ninePool();
 		Map<String, PerkRarity> index = rarityIndex(pool);
 		RandomSource random = RandomSource.create(SEED);
@@ -224,7 +365,7 @@ class PerkDraftTest {
 
 		assertTrue(rounds.getOrDefault(PerkRarity.SILVER, 0) > 0, "실버 라운드가 한 번도 없었다");
 		assertTrue(rounds.getOrDefault(PerkRarity.GOLD, 0) > 0, "골드 라운드가 한 번도 없었다");
-		assertEquals(0, rounds.getOrDefault(PerkRarity.PRISM, 0).intValue());
+		assertTrue(rounds.getOrDefault(PerkRarity.PRISM, 0) > 0, "프리즘 라운드가 한 번도 없었다");
 	}
 
 	@Test
@@ -245,8 +386,8 @@ class PerkDraftTest {
 
 		Set<List<String>> results = new HashSet<>();
 		for (int i = 0; i < 200; i++) {
-			// 20렙은 프리즘 라운드가 아니라 실버/골드가 반반씩 섞여 나오므로 조합이 갈린다.
-			// 30렙은 이제 프리즘 라운드라 후보 3개짜리 풀에서는 언제나 같은 조합 하나뿐이다.
+			// 20렙은 고정 구간이 아니라 등급이 매번 갈리므로 조합도 갈린다. 15렙은 언제나
+			// 프리즘라 후보 3개짜리 풀에서는 같은 조합 하나뿐이다.
 			results.add(PerkDraft.draw(20, pool, List.of(), random, 3));
 		}
 

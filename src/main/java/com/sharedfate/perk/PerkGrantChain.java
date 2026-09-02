@@ -62,8 +62,8 @@ final class PerkGrantChain {
 	 * 끝까지 처리한다.
 	 *
 	 * <p>{@code chosen}은 부르는 쪽이 이미 {@code state.ownedPerks}에 넣어 둔 뒤 넘겨야 한다.
-	 * {@code item_grant}·{@code legacy_gear}·{@code gambler}·{@code rarity_grant}·
-	 * {@code rarity_reroll} 다섯 가지 즉시 지급 효과를 연쇄로 처리한다.
+	 * {@code item_grant}·{@code legacy_gear}·{@code diamond_sundial}·{@code gambler}·
+	 * {@code rarity_grant}·{@code rarity_reroll} 여섯 가지 즉시 지급 효과를 연쇄로 처리한다.
 	 */
 	static void run(@Nullable MinecraftServer server, @Nullable ShareTeam team,
 			@Nullable TeamState state, @Nullable Perk chosen, @Nullable RandomSource random) {
@@ -85,10 +85,14 @@ final class PerkGrantChain {
 			}
 			Perk current = queue.poll();
 
-			// 즉시 지급은 정확히 이 다섯 곳에서만 일어난다. item_grant 와 legacy_gear 는
-			// 서로를 부르지 않는(더 받게 하지 않는) 단순 지급·몰수라 큐에 넣을 것이 없다.
+			// 즉시 지급은 정확히 이 여섯 곳에서만 일어난다. item_grant · legacy_gear ·
+			// diamond_sundial 은 서로를 부르지 않는(더 받게 하지 않는) 단순 지급·몰수라 큐에
+			// 넣을 것이 없다.
 			PerkItemGrants.grantOnChoice(server, team, state, current);
 			PerkLegacyGear.sacrificeOnChoice(server, team, state, current);
+			// 해시계는 커스텀 컴포넌트를 붙여야 해서 item_grant 로 줄 수 없다. 대신 지급 시점은
+			// 여기, item_grant 와 정확히 같은 자리다.
+			PerkDiamondSundial.grantOnChoice(server, team, state, current);
 
 			for (Perk granted : PerkGambler.grantOnChoiceDetailed(server, team, state, current, random)) {
 				enqueue(queue, visited, granted);

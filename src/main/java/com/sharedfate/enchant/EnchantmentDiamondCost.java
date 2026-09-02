@@ -1,9 +1,17 @@
 package com.sharedfate.enchant;
 
+import com.sharedfate.perk.Perk;
+import com.sharedfate.perk.PerkEffect;
+import com.sharedfate.perk.PerkRegistry;
+import com.sharedfate.perk.effect.EnchantCostEffect;
+import com.sharedfate.team.TeamLookup;
+import com.sharedfate.team.TeamState;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * 인챈트 탁자의 대가를 경험치 레벨 대신 <b>다이아몬드</b>로 받습니다.
@@ -21,25 +29,116 @@ import net.minecraft.world.item.Items;
  * <h2>값을 바꾸려면</h2>
  *
  * <ul>
- *   <li>세 칸이 모두 같은 값이면 {@link #DIAMONDS_PER_ENCHANT} 하나만 고칩니다.</li>
- *   <li>칸마다 다르게 하려면 {@link #forSlot(int)} 하나만 고칩니다. 예를 들어
- *       5·6·7 로 만들려면 {@code return DIAMONDS_PER_ENCHANT + slot;} 로 바꾸면 됩니다.
+ *   <li>세 칸이 모두 같은 기본값이면 {@link #DIAMONDS_PER_ENCHANT} 하나만 고칩니다.</li>
+ *   <li>칸마다 다르게 하려면 {@link #forSlot(Player, int)} 하나만 고칩니다. 예를 들어
+ *       5·6·7 로 만들려면 {@code return forPlayer(player) + slot;} 로 바꾸면 됩니다.
  *       단추 표시·툴팁·차감·검사가 모두 이 메서드 하나를 보므로 다른 곳은 손댈 필요가
  *       없습니다.</li>
  * </ul>
+ *
+ * <h2>팀마다 값이 다릅니다 — {@code enchant_cost} 증강</h2>
+ *
+ * <p>{@link EnchantCostEffect} 를 가진 팀은 기본값 대신 그 증강이 적은 개수를 냅니다. 증강이
+ * 없는 팀은 {@value #DIAMONDS_PER_ENCHANT} 개 그대로입니다.
+ *
+ * <p><b>팀은 서버만 압니다.</b> 그런데 단추의 숫자와 툴팁은 클라이언트가 그리므로, 클라이언트도
+ * 같은 숫자를 알아야 합니다 — 5개라고 써 놓고 1개만 걷으면 버그로 보입니다. 그래서 인챈트
+ * 메뉴에 데이터 칸({@link EnchantmentCostDataSlot})을 하나 더 달아 서버가 계산한 개수를
+ * 내려보내고, 클라이언트는 그 값을 {@link #rememberShown} 으로 받아 둡니다. 화면 쪽 경로
+ * ({@link #forSlot(int)}, {@link #displayCosts}, {@link EnchantmentDiamondTooltip})는 전부 그
+ * 값을 봅니다.
+ *
+ * <p>서버 쪽 경로({@link #canAfford}, {@link #consume})는 받아 둔 값을 쓰지 않고 <b>플레이어의
+ * 팀을 직접</b> 봅니다. 실제로 걷는 개수가 클라이언트가 보낸 숫자에 좌우되면 안 됩니다.
  */
 public final class EnchantmentDiamondCost {
 	/** 인챈트 칸 수. 바닐라 {@code EnchantmentMenu.costs} 배열 길이와 같습니다. */
 	public static final int SLOT_COUNT = 3;
 
-	/** 인챈트 한 번에 드는 다이아몬드 개수. 지금은 세 칸이 모두 같습니다. */
+	/** 인챈트 한 번에 드는 다이아몬드 개수. {@code enchant_cost} 증강이 없을 때의 값입니다. */
 	public static final int DIAMONDS_PER_ENCHANT = 5;
+
+	/**
+	 * 화면이 그릴 개수. 서버가 메뉴의 데이터 칸으로 내려보낸 값입니다.
+	 *
+	 * <p>한 클라이언트가 인챈트 창을 둘 열 수는 없으므로 정적 값 하나로 충분합니다. 창을 열 때
+	 * {@code sendAllDataToRemote} 가 반드시 한 번 내려보내므로, 창이 열려 있는 동안 이 값은
+	 * 언제나 그 창의 것입니다. 전용 서버에서는 아무도 이 값을 쓰지 않습니다.
+	 */
+	private static volatile int shownDiamonds = DIAMONDS_PER_ENCHANT;
 
 	private EnchantmentDiamondCost() {
 	}
 
+	// ------------------------------------------------------------------ 팀별 개수
+
 	/**
-	 * 칸 하나에 드는 다이아몬드 개수입니다. 칸마다 다른 값을 주려면 여기만 고칩니다.
+	 * 이 팀이 인챈트 한 번에 내는 다이아몬드 개수입니다.
+	 *
+	 * <p>{@code enchant_cost} 를 여럿 가졌으면 <b>가장 작은 값</b>이 이깁니다. 어느 쪽을 골라도
+	 * 자의적이지만, 답이 보유 순서에 따라 달라지면 같은 증강을 가진 팀이 회차마다 다른 값을
+	 * 보게 됩니다.
+	 *
+	 * <p>증강을 꺼 두었거나 가진 증강이 없으면 팀 상태 두 번만 보고 곧바로 기본값입니다.
+	 */
+	public static int forState(@Nullable TeamState state) {
+		if (state == null || !state.perksEnabled || state.ownedPerks.isEmpty()) {
+			return DIAMONDS_PER_ENCHANT;
+		}
+		int cheapest = DIAMONDS_PER_ENCHANT;
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
+			if (perk == null) {
+				continue;
+			}
+			for (PerkEffect effect : perk.effects()) {
+				if (effect instanceof EnchantCostEffect cost) {
+					cheapest = Math.min(cheapest, cost.diamonds());
+				}
+			}
+		}
+		return cheapest;
+	}
+
+	/**
+	 * 이 사람이 인챈트 한 번에 내는 다이아몬드 개수입니다.
+	 *
+	 * <p>서버의 팀원일 때만 팀을 봅니다. 클라이언트 쪽 플레이어는 팀 상태를 볼 수 없으므로
+	 * 서버가 내려보낸 {@link #shownDiamonds} 를 씁니다. {@code clickMenuButton} 은 클라이언트에서도
+	 * 그대로 도는 자리라, 여기서 무턱대고 기본값을 돌려주면 값이 1인 팀이 다이아몬드 2개를 들고도
+	 * 단추를 누르지 못합니다.
+	 */
+	public static int forPlayer(@Nullable Player player) {
+		if (player instanceof ServerPlayer) {
+			return forState(TeamLookup.stateOf(player.getUUID()));
+		}
+		return shownDiamonds();
+	}
+
+	/** 서버가 내려보낸 개수를 받아 둡니다. {@link EnchantmentCostDataSlot} 만 부릅니다. */
+	public static void rememberShown(int diamonds) {
+		if (diamonds < 0 || diamonds > EnchantCostEffect.MAX_DIAMONDS) {
+			// 우리가 보낸 값이 아닙니다. 기본값으로 물러납니다.
+			shownDiamonds = DIAMONDS_PER_ENCHANT;
+			return;
+		}
+		shownDiamonds = diamonds;
+	}
+
+	/** 화면이 그릴 개수. 아직 아무것도 받지 못했으면 기본값입니다. */
+	public static int shownDiamonds() {
+		return shownDiamonds;
+	}
+
+	/** 받아 둔 값을 기본값으로 되돌립니다. 월드에서 나갈 때와 시험이 씁니다. */
+	public static void resetShown() {
+		shownDiamonds = DIAMONDS_PER_ENCHANT;
+	}
+
+	// ------------------------------------------------------------------ 칸별 개수
+
+	/**
+	 * 칸 하나에 드는 다이아몬드 개수입니다. <b>화면용</b>이며 서버가 내려보낸 값을 봅니다.
 	 *
 	 * @param slot 인챈트 칸 번호 (0 = 맨 위)
 	 */
@@ -47,7 +146,20 @@ public final class EnchantmentDiamondCost {
 		if (slot < 0 || slot >= SLOT_COUNT) {
 			return 0;
 		}
-		return DIAMONDS_PER_ENCHANT;
+		return shownDiamonds();
+	}
+
+	/**
+	 * 칸 하나에 드는 다이아몬드 개수입니다. 칸마다 다른 값을 주려면 여기만 고칩니다.
+	 *
+	 * @param player 인챈트하려는 사람. 팀을 알아내는 데 씁니다
+	 * @param slot   인챈트 칸 번호 (0 = 맨 위)
+	 */
+	public static int forSlot(@Nullable Player player, int slot) {
+		if (slot < 0 || slot >= SLOT_COUNT) {
+			return 0;
+		}
+		return forPlayer(player);
 	}
 
 	/**
@@ -99,7 +211,7 @@ public final class EnchantmentDiamondCost {
 		if (player.hasInfiniteMaterials()) {
 			return true;
 		}
-		return count(diamonds) >= forSlot(slot);
+		return count(diamonds) >= forSlot(player, slot);
 	}
 
 	/**
@@ -118,7 +230,7 @@ public final class EnchantmentDiamondCost {
 		if (diamonds == null) {
 			return 0;
 		}
-		int wanted = forSlot(slot);
+		int wanted = forSlot(player, slot);
 		int taken = 0;
 		for (int index = 0; index < diamonds.getContainerSize() && taken < wanted; index++) {
 			ItemStack stack = diamonds.getItem(index);

@@ -108,6 +108,41 @@ class DifficultyEscalationTest {
 		assertTrue(text.contains("상한"), text);
 	}
 
+	// ------------------------------------------------------------------ 단계 상승 알림
+
+	@Test
+	void 단계가_오르면_얼마나_세졌는지_알린다() {
+		String text = DifficultyEscalation.announcementFor(2);
+
+		assertTrue(text.contains("몹이 강해졌습니다"), text);
+		assertTrue(text.contains("+8%"), text);
+		assertTrue(text.contains("2단계"), text);
+		assertTrue(text.contains("체력") && text.contains("공격력"),
+				"무엇이 세졌는지 적어야 한다: " + text);
+	}
+
+	@Test
+	void 첫_단계도_퍼센트로_적는다() {
+		String text = DifficultyEscalation.announcementFor(1);
+
+		assertTrue(text.contains("+4%"), text);
+		assertTrue(text.contains("1단계"), text);
+		assertFalse(text.contains("상한"), text);
+	}
+
+	/**
+	 * 상한에서는 「더는 강해지지 않는다」를 함께 알린다. 이 줄이 뜬 뒤로는 단계가 더 오르지
+	 * 않으므로 알림 조건 자체가 다시 성립하지 않는다 — 즉 상한 안내는 한 번뿐이다.
+	 */
+	@Test
+	void 상한에_닿으면_그_사실을_함께_알린다() {
+		String text = DifficultyEscalation.announcementFor(DifficultyEscalation.MAX_STEPS);
+
+		assertTrue(text.contains("+100%"), text);
+		assertTrue(text.contains("상한"), text);
+		assertTrue(text.contains("더는"), text);
+	}
+
 	/** 시작 전에는 「+0%, 다음 상승까지 30분」처럼 이미 시간이 흐르는 것처럼 적으면 안 된다. */
 	@Test
 	void 시작하지_않은_팀은_아직_세지_않는다고_보여_준다() {
