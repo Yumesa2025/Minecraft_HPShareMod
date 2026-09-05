@@ -9,6 +9,8 @@
     "FoodDataRegenExhaustionMixin",
     "FoodPropertiesMixin",
     "CreativeModeSlotPacketMixin",
+    "DisguisePlayerChatMixin",
+    "SecureChatClaimMixin",
     "EnchantmentMenuDiamondMixin",
     "InventoryAccessor",
     "InventoryMixin",

@@ -119,7 +119,7 @@ class PerkOfferPayloadTest {
 	void 아이콘이_null_이면_빈_문자열로_바뀐다() {
 		// 서버 쪽 null 하나로 패킷 인코딩이 터지면 선택창 자체가 안 열린다.
 		PerkOfferPayload.PerkOption option =
-				new PerkOfferPayload.PerkOption("a", "강골", "최대 체력 +2", "silver", null);
+				new PerkOfferPayload.PerkOption("a", "강골", "최대 체력 +2", "silver", null, "");
 
 		assertEquals("", option.icon());
 		assertEquals("", roundTrip(PerkOfferPayload.manual(5, true, List.of(option)))
@@ -167,10 +167,12 @@ class PerkOfferPayloadTest {
 	void 유형을_안_넘긴_생성자는_무유형이_된다() {
 		// 서버가 아직 유형을 안 싣는 동안에도 카드가 떠야 한다.
 		PerkOfferPayload.PerkOption option =
-				new PerkOfferPayload.PerkOption("a", "강골", "최대 체력 +2", "silver", "");
+				new PerkOfferPayload.PerkOption("a", "강골", "최대 체력 +2", "silver", "", "");
 
 		assertEquals("", option.setTypes());
 		assertFalse(option.hasSetTypes());
+		// id 도 빈 문자열이라 화면이 툴팁을 물어도 빈 덩어리가 나온다.
+		assertEquals("", option.setTypeIds());
 	}
 
 	@Test

@@ -1,7 +1,11 @@
 package com.sharedfate.client.hud;
 
 import com.sharedfate.client.ClientTeamState;
+import com.sharedfate.ui.BottomBarMetrics;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 
 /**
@@ -11,54 +15,52 @@ import net.minecraft.world.entity.player.Player;
  * 서로 겹치므로, 바닥선을 여기서 한 번만 구하고 누가 몇 줄을 먹는지도 여기서 정한다.
  *
  * <h2>쌓는 순서</h2>
- * <p>바닥에 <b>팀 레벨</b>이 오고 그 위로 <b>피격 알림</b>이 올라간다. 팀 레벨은 늘 떠 있고
- * 피격 알림은 잠깐 떴다 사라지므로, 항상 있는 것을 고정된 자리에 두어야 눈이 익는다.
- * 반대로 두면 팀 레벨이 피격 때마다 위아래로 흔들린다.
+ * <p>아래에서 위로 <b>바닐라 표시</b>(하트·방어구·배고픔·공기 방울) → <b>증강 게이지</b> →
+ * <b>팀 레벨</b> → <b>피격 알림</b> 이다. 팀 레벨은 늘 떠 있고 피격 알림은 잠깐 떴다
+ * 사라지므로, 항상 있는 것을 아래에 두어야 눈이 익는다. 반대로 두면 팀 레벨이 피격 때마다
+ * 위아래로 흔들린다.
  *
- * <p>{@link PerkProgressHud} 는 화면 가운데에 그리지만 <b>왼쪽 끝이 핫바 왼쪽 끝과 같은
- * x</b> 라 이 글줄들과 세로로 부딪힌다. 그래서 바닥선을 잴 때 그 게이지도 함께 센다.
+ * <p>{@link PerkProgressHud} 는 화면 가운데에 그리지만 <b>폭이 핫바와 같아</b> 이 글줄들과
+ * 세로로 부딪힌다. 그래서 바닥선을 잴 때 그 게이지도 함께 센다.
+ *
+ * <h2>바닐라 표시 높이는 상수가 아니다</h2>
+ * <p>이 모드는 최대 체력이 팀 설정과 증강으로 바뀌므로 하트가 한 줄일 때도 세 줄일 때도
+ * 있고, 흡수(노란 하트)와 방어구가 붙으면 더 올라간다. 그 높이 계산은 시험할 수 있도록
+ * {@link BottomBarMetrics} 에 따로 두었다. 여기서는 플레이어에게서 값을 꺼내 넘길 뿐이다.
  */
 public final class BottomLeftStack {
 	/** 글줄 높이. 바닐라 기본 글꼴 기준이다. */
 	public static final int LINE_HEIGHT = 10;
-	/** 핫바 왼쪽 끝은 화면 가운데에서 이만큼 왼쪽이다. 바닐라 값과 같아야 한다. */
-	private static final int HOTBAR_HALF_WIDTH = 91;
-	/** 핫바와 경험치 바가 차지하는 높이. 이 위로 체력 줄이 쌓인다. */
-	private static final int BOTTOM_BARS_HEIGHT = 39;
-	/** 하트 한 줄의 기본 간격. 줄이 많아지면 바닐라가 이보다 촘촘하게 그린다. */
-	private static final int HEART_ROW_SPACING = 10;
-	/** 하트가 아무리 촘촘해져도 이보다 좁아지지는 않는다. */
-	private static final int MIN_HEART_ROW_SPACING = 3;
-	/** 방어구 칸이 차지하는 한 줄. */
-	private static final int ARMOR_ROW_HEIGHT = 10;
 
 	private BottomLeftStack() {
 	}
 
 	/** 핫바 왼쪽 끝 x. */
 	public static int left(GuiGraphicsExtractor graphics) {
-		return graphics.guiWidth() / 2 - HOTBAR_HALF_WIDTH;
+		return graphics.guiWidth() / 2 - BottomBarMetrics.HOTBAR_HALF_WIDTH;
+	}
+
+	/**
+	 * 핫바 위 바닐라 표시가 차지하는 높이. 화면 아래끝에서 위로 잰 값이다.
+	 *
+	 * <p>{@link PerkProgressHud} 도 자기 자리를 잡을 때 이 값을 쓴다.
+	 */
+	public static int vanillaBarsHeight(Player player) {
+		// 바닐라는 최대 체력 특성과 지금 체력 중 큰 쪽으로 줄 수를 센다. 최대 체력이 방금
+		// 줄었을 때 하트가 곧바로 사라지지 않게 하려는 것이라, 우리도 같은 쪽을 봐야 한다.
+		float maxHealth = Math.max(player.getMaxHealth(), player.getHealth());
+		return BottomBarMetrics.height(maxHealth, player.getAbsorptionAmount(),
+				player.getArmorValue() > 0, vehicleHearts(player), showsAirBubbles(player));
 	}
 
 	/**
 	 * 가장 아래 글줄을 그릴 y.
 	 *
-	 * <p>흡수 체력까지 더해 하트가 몇 줄인지 세고, 방어구를 입고 있으면 한 줄 더 올린다.
-	 * 최대 체력이 늘거나 방어구를 갈아입으면 이 값이 따라 움직인다.
+	 * <p>하트 줄 수·흡수·방어구가 바뀌면 바닐라 표시가 높아지고, 그러면 게이지도 글줄도
+	 * 따라 올라간다. 고정된 값은 글줄 높이뿐이다.
 	 */
 	public static int baseline(Player player, int guiHeight) {
-		int heartRows = Math.max(1,
-				(int) Math.ceil((player.getMaxHealth() + player.getAbsorptionAmount()) / 20.0F));
-		int rowSpacing = Math.max(HEART_ROW_SPACING - (heartRows - 2), MIN_HEART_ROW_SPACING);
-		// 증강 게이지는 핫바 왼쪽 끝과 같은 x 에서 시작하므로 이 글줄들과 세로로 부딪힌다.
-		// 게이지가 떠 있으면 그 위에서 쌓기 시작한다.
-		int bottom = Math.min(guiHeight - BOTTOM_BARS_HEIGHT,
-				PerkProgressHud.clearanceTop(guiHeight));
-		int y = bottom - (heartRows - 1) * rowSpacing - LINE_HEIGHT;
-		if (player.getArmorValue() > 0) {
-			y -= ARMOR_ROW_HEIGHT;
-		}
-		return y;
+		return PerkProgressHud.clearanceTop(guiHeight, vanillaBarsHeight(player)) - LINE_HEIGHT;
 	}
 
 	/**
@@ -72,5 +74,25 @@ public final class BottomLeftStack {
 			return 0;
 		}
 		return ClientTeamState.levelsToNextPerk() < 0 ? 1 : 2;
+	}
+
+	/**
+	 * 탈것 하트 수. {@code Hud.getVehicleMaxHearts} 를 그대로 옮겼다.
+	 *
+	 * <p>탈것을 타면 바닐라가 배고픔 대신 이 하트를 그리므로 오른쪽 높이가 달라진다.
+	 */
+	private static int vehicleHearts(Player player) {
+		Entity vehicle = player.getVehicle();
+		if (!(vehicle instanceof LivingEntity living) || !living.showVehicleHealth()) {
+			return 0;
+		}
+		return Math.min((int) (living.getMaxHealth() + 0.5F) / 2, BottomBarMetrics.MAX_VEHICLE_HEARTS);
+	}
+
+	/** 공기 방울이 떠 있는가. {@code Hud.extractAirBubbles} 의 조건과 같다. */
+	private static boolean showsAirBubbles(Player player) {
+		int maxAir = player.getMaxAirSupply();
+		return player.isEyeInFluid(FluidTags.WATER)
+				|| Math.clamp((long) player.getAirSupply(), 0, maxAir) < maxAir;
 	}
 }

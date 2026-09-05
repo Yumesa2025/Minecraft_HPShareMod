@@ -636,7 +636,32 @@
     },
     {
       "type": "weapon",
-      "tiers": []
+      "tiers": [
+        {
+          "count": 2,
+          "description": "공격 속도가 15% 빨라집니다.",
+          "effects": [
+            {
+              "type": "attribute",
+              "attribute": "minecraft:attack_speed",
+              "operation": "add_multiplied_total",
+              "amount": 0.15
+            }
+          ]
+        },
+        {
+          "count": 3,
+          "description": "공격력이 15% 늘어납니다.",
+          "effects": [
+            {
+              "type": "attribute",
+              "attribute": "minecraft:attack_damage",
+              "operation": "add_multiplied_total",
+              "amount": 0.15
+            }
+          ]
+        }
+      ]
     }
   ]
 }
