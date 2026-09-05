@@ -2,8 +2,10 @@ package com.sharedfate.perk;
 
 import com.google.gson.JsonObject;
 import com.sharedfate.SharedFateMod;
+import com.sharedfate.config.SharedFateConfig;
 import com.sharedfate.perk.effect.MobDamageEffect;
 import com.sharedfate.perk.effect.MobHealthEffect;
+import com.sharedfate.perk.effect.MobSpawnRateEffect;
 import com.sharedfate.perk.effect.MobSpeedEffect;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
@@ -23,6 +25,7 @@ import net.minecraft.world.entity.monster.Enemy;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +48,10 @@ import java.util.concurrent.ConcurrentHashMap;
  *       없어({@code settleHealth} 같은 뒷정리) 붙였다 떼는 것으로 끝난다.</li>
  *   <li>{@code mob_damage} 는 {@link PerkDamage} 가 피해 계산 시점에 배율만 조회해 간다.
  *       몹에게 아무것도 붙이지 않으므로 정리할 상태가 없다.</li>
+ *   <li>{@code mob_spawn_rate} 는 몹 한 마리가 아니라 <b>월드의 스폰 경로</b>에 걸린다.
+ *       {@code NaturalSpawnerRateMixin} 이 청크마다 {@link #spawnRateMultiplier} 를 물어
+ *       적대 몹 스폰 시도를 몇 번 돌릴지 정한다. 붙였다 뗄 상태가 없으므로 증강을 잃으면
+ *       그 다음 틱부터 바닐라 그대로다.</li>
  * </ul>
  *
  * <h2>어느 팀의 증강을 몹에게 적용하는가</h2>
@@ -77,6 +84,13 @@ public final class MobPerkModifiers {
 	static final double MIN_HEALTH_MULTIPLIER = 0.01;
 	/** 합쳐진 배율의 상한. 무한대가 속성이나 피해 계산으로 새어나가지 않게 막는다. */
 	static final double MAX_MULTIPLIER = 1.0e4;
+	/**
+	 * 합쳐진 스폰율 배율의 상한.
+	 *
+	 * <p>다른 배율과 달리 크게 잡을 수 없다. 이 값이 곧 <b>매 틱 스폰 경로를 다시 도는
+	 * 횟수</b>라 서버 부담에 그대로 곱해지기 때문이다. 4배면 이미 「몹이 끝없이 나오는 판」이다.
+	 */
+	static final double MAX_SPAWN_RATE_MULTIPLIER = 4.0;
 
 	/**
 	 * 몹 종류별로 계산해 둔 배율. 피해 계산은 초당 수십 번 도는 자리라 매번 팀을 훑을 수 없다.
@@ -97,6 +111,16 @@ public final class MobPerkModifiers {
 		DAMAGE,
 		SPEED
 	}
+
+	/**
+	 * 계산해 둔 적대 몹 스폰율 배율. 몹 종류와 무관한 값 하나뿐이라 표가 아니라 밭 하나로 둔다.
+	 *
+	 * <p>{@code spawnRateKnown} 이 켜져 있을 때만 {@code spawnRateValue} 를 믿는다. 증강
+	 * 구성이 바뀌면 {@link #tick} 이 이 깃발을 내려 다음 물음에서 다시 계산하게 한다.
+	 * 스폰 경로는 매 틱 청크마다 도는 자리라 여기서 팀을 훑을 수 없다.
+	 */
+	private static volatile double spawnRateValue = 1.0;
+	private static volatile boolean spawnRateKnown;
 
 	private static int tickCounter;
 	private static int signature;
@@ -144,6 +168,7 @@ public final class MobPerkModifiers {
 		HEALTH_CACHE.clear();
 		DAMAGE_CACHE.clear();
 		SPEED_CACHE.clear();
+		spawnRateKnown = false;
 		sweep(server);
 	}
 
@@ -167,6 +192,8 @@ public final class MobPerkModifiers {
 		HEALTH_CACHE.clear();
 		DAMAGE_CACHE.clear();
 		SPEED_CACHE.clear();
+		spawnRateValue = 1.0;
+		spawnRateKnown = false;
 		tickCounter = 0;
 		signature = 0;
 		signatureKnown = false;
@@ -194,6 +221,175 @@ public final class MobPerkModifiers {
 	/** 이 몹의 이동 속도에 곱할 배율. */
 	public static double speedMultiplier(Mob mob) {
 		return lookup(SPEED_CACHE, mob, Kind.SPEED);
+	}
+
+	// ------------------------------------------------------------------ 적대 몹 스폰율
+
+	/**
+	 * 적대 몹 자연 스폰 시도 횟수에 곱할 배율. 걸린 증강이 없거나 설정이 꺼져 있으면 1.0.
+	 *
+	 * <p><b>매 틱, 스폰이 도는 청크마다 불린다.</b> 그래서 팀을 훑는 일은 증강 구성이 바뀐
+	 * 뒤 첫 물음에서 딱 한 번만 하고, 나머지는 밭 두 개를 읽는 것으로 끝난다. 설정이 꺼져
+	 * 있으면 그 검사에서 곧바로 돌아간다.
+	 */
+	public static double spawnRateMultiplier(@Nullable MinecraftServer server) {
+		if (!spawnRatePerksEnabled()) {
+			return 1.0;
+		}
+		if (spawnRateKnown) {
+			return spawnRateValue;
+		}
+		if (server == null) {
+			return 1.0;
+		}
+		try {
+			// 팀마다 보유 증강과 켜진 세트를 함께 곱한 뒤, 팀끼리는 1.0 에서 가장 먼 하나를
+			// 고른다. 세트를 여기서 함께 넘기지 않으면 화력 4단계의 스폰율이 무동작이 된다.
+			double chosen = 1.0;
+			TeamManager manager = TeamManager.get(server);
+			for (ShareTeam team : manager.allTeams()) {
+				TeamState state = manager.stateByTeamId(team.teamId());
+				if (state == null || !state.perksEnabled || state.ownedPerks.isEmpty()) {
+					continue;
+				}
+				chosen = stronger(chosen,
+						spawnRateForTeam(state.ownedPerks, PerkSetEffects.activeEffectsOf(state)));
+			}
+			double value = sanitizeSpawnRate(chosen);
+			// 값을 먼저 넣고 깃발을 나중에 올린다. 다른 스레드가 반쪽짜리를 보지 않게.
+			spawnRateValue = value;
+			spawnRateKnown = true;
+			return value;
+		} catch (RuntimeException error) {
+			warnOnce(error);
+			return 1.0;
+		}
+	}
+
+	/**
+	 * 설정에서 이 효과를 켜 두었는지. 설정을 아직 읽지 않았으면(시험·초기화 전) 켜진 것으로 본다.
+	 *
+	 * <p>조회 쪽({@link #spawnRateMultiplier})과 합성 쪽({@link #spawnRateOf}) 두 곳에서 본다.
+	 * 조회 쪽에 있어야 설정을 끈 순간 캐시가 비워지기를 기다리지 않고 바로 멈추고, 합성 쪽에
+	 * 있어야 「끄면 1.0」이 규칙 자체의 성질이 되어 서버 없이 시험할 수 있다.
+	 */
+	static boolean spawnRatePerksEnabled() {
+		SharedFateConfig config = SharedFateMod.config;
+		return config == null || config.mobSpawnRatePerks;
+	}
+
+	/**
+	 * 팀별 보유 증강 목록에서 적대 몹 스폰율 배율을 합성한다.
+	 *
+	 * <p>한 팀 안에서는 곱하고, 팀이 여럿이면 {@link #stronger} 로 <b>1.0 에서 가장 멀리
+	 * 떨어진 하나</b>만 고른다. 체력·공격력과 똑같은 규칙이다.
+	 *
+	 * <p>서버 상태를 보지 않는 순수 계산이라 시험에서 그대로 부를 수 있다.
+	 */
+	static double spawnRateOf(Iterable<? extends Collection<String>> teamOwnedPerks) {
+		if (!spawnRatePerksEnabled()) {
+			return 1.0;
+		}
+		double chosen = 1.0;
+		for (Collection<String> owned : teamOwnedPerks) {
+			chosen = stronger(chosen, spawnRateForTeam(owned, List.of()));
+		}
+		return sanitizeSpawnRate(chosen);
+	}
+
+	/**
+	 * 한 팀의 스폰율 배율. <b>보유 증강과 켜진 세트를 함께 곱한다.</b>
+	 *
+	 * <p>세트 몫이 곱셈인 이유는 같은 팀 안에서 더해지는 값이기 때문이다. 팀끼리 고를 때만
+	 * {@link #stronger} 로 1.0 에서 가장 먼 하나를 고른다.
+	 *
+	 * <p>지금 {@code mob_spawn_rate} 를 쓰는 정의는 <b>세트 「화력 4」 하나뿐</b>이라, 이 줄이
+	 * 빠지면 그 효과 타입이 통째로 무동작이 된다. 실제로 한 번 그 상태로 있었다.
+	 *
+	 * @param owned      그 팀의 보유 증강 id
+	 * @param setEffects 그 팀에 켜져 있는 세트 효과. 세트를 안 보는 자리는 빈 목록을 넘긴다
+	 */
+	static double spawnRateForTeam(Collection<String> owned,
+			Iterable<? extends PerkEffect> setEffects) {
+		double total = 1.0;
+		for (String perkId : owned) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
+			if (perk == null) {
+				continue;
+			}
+			total *= productOfSpawnRates(perk.effects());
+		}
+		return total * productOfSpawnRates(setEffects);
+	}
+
+	/**
+	 * 효과 목록에서 스폰율 몫만 골라 모두 곱한다. {@code mob_spawn_rate} 가 아닌 효과는 1.0.
+	 *
+	 * <p>레지스트리도 팀도 보지 않는 순수 계산이다. 증강 하나 안의 효과들에도, 한 팀이 보유한
+	 * 증강 전체에도 같은 곱셈이 걸리므로 시험은 이 하나로 둘 다 확인할 수 있다.
+	 */
+	static double productOfSpawnRates(Iterable<? extends PerkEffect> effects) {
+		double total = 1.0;
+		for (PerkEffect effect : effects) {
+			if (effect instanceof MobSpawnRateEffect rate) {
+				total *= rate.multiplierFor();
+			}
+		}
+		return total;
+	}
+
+	/**
+	 * 팀별로 구한 스폰율 배율을 하나로 합친다.
+	 *
+	 * <p>{@link #spawnRateOf} 가 쓰는 규칙과 같다. 팀 목록을 만들지 않고도 시험할 수 있게
+	 * 따로 떼 두었다.
+	 */
+	static double combineSpawnRates(double... teamRates) {
+		if (!spawnRatePerksEnabled()) {
+			return 1.0;
+		}
+		double chosen = 1.0;
+		for (double rate : teamRates) {
+			chosen = stronger(chosen, rate);
+		}
+		return sanitizeSpawnRate(chosen);
+	}
+
+	/**
+	 * 스폰율 배율은 0 이 될 수 없다. 이상한 값은 1.0 으로 물러난다.
+	 *
+	 * <p>0 을 허용하면 적대 몹이 자연스럽게 전혀 생기지 않아 판이 성립하지 않는다. 위쪽은
+	 * {@link #MAX_SPAWN_RATE_MULTIPLIER} 로 자른다 — 이 값이 곧 매 틱 스폰 경로를 다시 도는
+	 * 횟수라, 커지면 그만큼 서버가 느려진다.
+	 */
+	static double sanitizeSpawnRate(double value) {
+		if (!Double.isFinite(value) || value <= 0.0) {
+			return 1.0;
+		}
+		return Math.min(MAX_SPAWN_RATE_MULTIPLIER, value);
+	}
+
+	/**
+	 * 배율을 「이번 청크에서 스폰을 몇 번 돌릴까」로 바꾼다.
+	 *
+	 * <p>바닐라는 청크마다 정확히 한 번 돈다. 배율 1.35 를 「1.35번」 돌 수는 없으므로
+	 * <b>정수 부분만큼 돌고 소수 부분은 확률로</b> 돈다. 1.35 면 65% 확률로 1번, 35% 확률로
+	 * 2번이라 기댓값이 정확히 1.35 가 된다. 0.5 면 절반은 아예 건너뛴다.
+	 *
+	 * <p>주사위를 밖에서 받는 것은 시험에서 결과를 못박기 위해서다.
+	 *
+	 * @param multiplier 합성된 스폰율 배율
+	 * @param roll       0 이상 1 미만의 난수
+	 * @return 돌 횟수. 0 이면 이번 청크의 적대 몹 스폰을 건너뛴다
+	 */
+	public static int spawnPasses(double multiplier, double roll) {
+		double safe = sanitizeSpawnRate(multiplier);
+		int whole = (int) Math.floor(safe);
+		double fraction = safe - whole;
+		if (roll < fraction) {
+			whole++;
+		}
+		return Math.max(0, whole);
 	}
 
 	private static double lookup(Map<EntityType<?>, Double> cache, Mob mob, Kind kind) {

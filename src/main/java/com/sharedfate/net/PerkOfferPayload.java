@@ -51,13 +51,37 @@ public record PerkOfferPayload(int milestone, boolean canChoose, boolean forced,
 	 * @param rarity      등급 문자열 ({@code common} / {@code rare} / {@code epic})
 	 * @param icon        카드에 그릴 아이템 이름 (예: {@code minecraft:feather}).
 	 *                    빈 문자열이면 클라이언트가 등급별 기본 아이콘을 쓴다
+	 * @param setTypes    이 증강이 속한 세트 유형을 <b>이미 이어 붙인 한 줄</b>
+	 *                    (예: {@code 무기·화력}). 어느 유형에도 안 들어가면 빈 문자열
 	 */
 	public record PerkOption(String id, String name, String description, String rarity,
-			String icon) {
+			String icon, String setTypes) {
+
+		/** 여러 유형을 한 줄로 이을 때 쓰는 가운뎃점. 서버와 화면이 같은 것을 써야 한다. */
+		public static final String SET_TYPE_JOINER = "·";
 
 		public PerkOption {
 			// 아이콘은 없어도 되는 값이라 서버 쪽 null 하나로 패킷 인코딩이 터지면 안 된다.
 			icon = icon == null ? "" : icon;
+			// 유형도 마찬가지다. 무유형 증강이 열여섯 개나 되므로 빈 값이 정상이다.
+			setTypes = setTypes == null ? "" : setTypes;
+		}
+
+		/**
+		 * 유형을 아직 싣지 않는 쪽을 위한 생성자.
+		 *
+		 * <p>유형을 채우는 자리({@code PerkManager.describeOptions})는 이 작업과 별개로 손보는
+		 * 중이라, 그쪽이 여섯 번째 값을 넘기기 전까지는 이 다섯 자리 생성자로 컴파일이 선다.
+		 * <b>세트 유형이 서버에서 채워지면 이 생성자를 지워도 된다</b> — 남겨 두면 새 자리에서
+		 * 유형을 빠뜨려도 아무 표시 없이 무유형으로 보인다.
+		 */
+		public PerkOption(String id, String name, String description, String rarity, String icon) {
+			this(id, name, description, rarity, icon, "");
+		}
+
+		/** 화면에 적을 유형 줄이 있는가. */
+		public boolean hasSetTypes() {
+			return !setTypes.isEmpty();
 		}
 
 		public static final StreamCodec<RegistryFriendlyByteBuf, PerkOption> CODEC =
@@ -67,6 +91,7 @@ public record PerkOfferPayload(int milestone, boolean canChoose, boolean forced,
 						ByteBufCodecs.STRING_UTF8, PerkOption::description,
 						ByteBufCodecs.STRING_UTF8, PerkOption::rarity,
 						ByteBufCodecs.STRING_UTF8, PerkOption::icon,
+						ByteBufCodecs.STRING_UTF8, PerkOption::setTypes,
 						PerkOption::new);
 	}
 

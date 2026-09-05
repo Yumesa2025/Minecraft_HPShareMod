@@ -89,6 +89,10 @@ public final class ConditionalPerkManager {
 		if (state == null || !state.perksEnabled || state.ownedPerks.isEmpty()) {
 			return;
 		}
+		// 대가로 표시된 효과는 세트 「방어 3단계」를 켠 팀에서 다시 보지 않는다. 이 줄이 없으면
+		// PerkManager.refreshPlayer 가 걷어낸 것을 여기가 반 초 뒤에 도로 붙인다 — 조건부는
+		// 자기 하위 효과를 스스로 붙였다 떼기 때문이다.
+		PerkDrawbacks.Waiver waiver = PerkDrawbacks.waiverFor(state);
 		for (String perkId : state.ownedPerks) {
 			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			if (perk == null) {
@@ -96,6 +100,9 @@ public final class ConditionalPerkManager {
 			}
 			for (PerkEffect effect : perk.effects()) {
 				try {
+					if (waiver.waives(perk, effect)) {
+						continue;
+					}
 					if (effect instanceof ConditionalEffect conditional) {
 						conditional.refresh(player);
 					} else if (effect instanceof ToolMismatchSlowEffect toolMismatch) {

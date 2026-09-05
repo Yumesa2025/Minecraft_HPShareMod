@@ -7,6 +7,7 @@ import com.sharedfate.perk.effect.LuckyOreEffect;
 import com.sharedfate.perk.effect.MiningSpeedEffect;
 import com.sharedfate.perk.effect.OnBreakEffect;
 import com.sharedfate.perk.effect.PairedMiningEffect;
+import com.sharedfate.perk.effect.SameKindMiningEffect;
 import com.sharedfate.sync.TitleMessenger;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamLookup;
@@ -30,6 +31,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.BiPredicate;
+import java.util.function.Function;
 
 /**
  * 블록 파괴에 걸리는 증강 효과({@code bonus_drop}, {@code on_break}, {@code mining_speed})의
@@ -73,9 +76,36 @@ import java.util.UUID;
  * <p>블록을 캘 때마다 지나는 자리이므로 빠져나가는 길이 짧아야 한다. 팀이 없거나 보유 증강이
  * 비어 있으면 증강 풀을 들여다보지도 않고 곧바로 돌아간다. 어떤 예외도 밖으로 내보내지 않는다.
  * 증강 하나가 잘못돼 블록 파괴가 멈추면 안 된다.
+ *
+ * <h2>연쇄는 연쇄를 부르지 않는다</h2>
+ * <p>{@code echo_mining}·{@code same_kind_mining} 은 이 사건 안에서 <b>다른 블록을 부순다.</b>
+ * 그 파괴가 이 사건을 다시 부르면 고리가 닫히고, 「같은 종류」쪽은 이웃이 같은 종류일수록 잘
+ * 걸리므로 돌밭 한복판에서 한 번만 캐도 <b>도미노가 끝나지 않아 서버가 멈춘다.</b> 막는 장치가
+ * 두 겹이다.
+ *
+ * <ol>
+ *   <li><b>{@code ServerLevel.removeBlock} 을 쓴다.</b> {@code destroyBlock} 이 아니다.
+ *       {@code PlayerBlockBreakEvents.AFTER} 는 {@code ServerPlayerGameMode.destroyBlock} 안에서
+ *       발화하므로, 그 경로를 지나지 않는 {@code removeBlock} 은 애초에 이 사건을 다시 부르지
+ *       않는다. 원래부터 있던 장치다.</li>
+ *   <li><b>{@link #beginChain()} 재진입 표시.</b> 그래도 이 사건이 처리되는 <b>동안</b> 같은
+ *       스레드에서 이 진입점이 다시 불리면 곧바로 돌아간다. 다른 모드가 같은 이벤트를 쏘거나
+ *       나중에 누군가 {@code removeBlock} 을 {@code destroyBlock} 으로 바꿔 적어도 고리가 닫히지
+ *       않게 하려는 안전판이다. 위의 한 겹만으로도 지금은 충분하지만, 이 사고는 한 번 나면
+ *       서버가 통째로 멈추기 때문에 「지금은 안 난다」에 기대지 않는다.</li>
+ * </ol>
  */
 public final class PerkBlockBreaks {
 	private static volatile boolean warned;
+
+	/**
+	 * 지금 이 스레드가 블록 파괴 증강을 처리하는 중인가.
+	 *
+	 * <p>스레드마다 따로 둔다. 서버 스레드에서만 오가는 것이 정상이지만, 전역 플래그로 두면
+	 * 다른 스레드가 켜 놓은 표시 때문에 정작 서버 스레드의 증강이 통째로 사라질 수 있다.
+	 * 그런 사고는 조용해서 알아채기가 매우 어렵다.
+	 */
+	private static final ThreadLocal<Boolean> CHAINING = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
 	private PerkBlockBreaks() {
 	}
@@ -89,11 +119,47 @@ public final class PerkBlockBreaks {
 	 */
 	public static void onBlockBroken(Level level, Player player, BlockPos pos, BlockState state,
 			@Nullable BlockEntity blockEntity) {
+		// 증강이 일으킨 파괴가 이 자리를 다시 밟았다면 아무 일도 하지 않는다. 클래스 문서의
+		// 「연쇄는 연쇄를 부르지 않는다」 참고.
+		if (!beginChain()) {
+			return;
+		}
 		try {
 			handleBreak(level, player, pos, state, blockEntity);
 		} catch (RuntimeException error) {
 			warnOnce(error);
+		} finally {
+			endChain();
 		}
+	}
+
+	/**
+	 * 연쇄 처리에 들어간다고 표시하고, 들어가도 되는지 알려 준다.
+	 *
+	 * <p>{@code false} 를 받으면 <b>{@link #endChain()} 을 부르면 안 된다.</b> 표시를 켠 것은
+	 * 바깥쪽 호출이고, 안쪽이 끄면 그 뒤로 고리가 다시 열린다.
+	 *
+	 * <p>좌표도 월드도 보지 않는 순수한 상태 전이라 살아 있는 서버 없이 시험할 수 있다. 이
+	 * 규칙은 깨지면 서버가 멈추는 문제라 반드시 시험으로 못박아 두어야 해서 따로 뗐다.
+	 *
+	 * @return 처음 들어온 것이면 {@code true}, 이미 처리 중이면 {@code false}
+	 */
+	static boolean beginChain() {
+		if (Boolean.TRUE.equals(CHAINING.get())) {
+			return false;
+		}
+		CHAINING.set(Boolean.TRUE);
+		return true;
+	}
+
+	/** 연쇄 처리에서 빠져나온다. {@link #beginChain()} 이 {@code true} 를 준 쪽만 부른다. */
+	static void endChain() {
+		CHAINING.set(Boolean.FALSE);
+	}
+
+	/** 지금 이 스레드가 연쇄를 처리하는 중인가. 시험과 문서용이다. */
+	static boolean isChaining() {
+		return Boolean.TRUE.equals(CHAINING.get());
 	}
 
 	private static void handleBreak(Level level, Player player, BlockPos pos, BlockState state,
@@ -114,25 +180,169 @@ public final class PerkBlockBreaks {
 				continue;
 			}
 			for (PerkEffect effect : perk.effects()) {
-				if (effect instanceof OnBreakEffect onBreak && onBreak.appliesTo(state)) {
-					onBreak.grantTemporaryEffects(breaker);
-				} else if (effect instanceof BonusDropEffect bonus && bonus.appliesTo(state)) {
-					tryBonusDrop(serverLevel, breaker, pos, state, blockEntity, bonus);
-				} else if (effect instanceof PairedMiningEffect) {
-					PerkResonantMining.onBreak(serverLevel.getServer(), breaker, state, serverLevel.getGameTime());
-				} else if (effect instanceof EchoMiningEffect) {
-					tryEchoMining(serverLevel, breaker, pos);
-				} else if (effect instanceof LuckyOreEffect lucky && lucky.appliesTo(state)) {
-					tryLuckyOre(serverLevel, breaker, pos, state, blockEntity, perk, lucky);
+				handleEffect(serverLevel, breaker, pos, state, blockEntity, effect, perk.name());
+			}
+		}
+		// 켜진 세트도 같은 규칙으로 지난다. 채굴 3단계의 bonus_drop 이 이 길을 탄다.
+		// 세트가 없으면 빈 목록이라 블록을 캘 때마다 얹히는 부담이 없다.
+		for (PerkSets.Tier tier : PerkSetEffects.activeTiersOf(teamState)) {
+			for (PerkEffect effect : tier.effects()) {
+				handleEffect(serverLevel, breaker, pos, state, blockEntity, effect, tier.name());
+			}
+		}
+	}
+
+	/**
+	 * 효과 하나를 이 블록 파괴에 적용한다.
+	 *
+	 * <p>보유 증강에서 온 것과 세트에서 온 것이 같은 길을 지나게 하는 자리다.
+	 *
+	 * @param sourceName 알림에 쓸 이름. 증강이면 증강 이름, 세트면 그 단계의 이름이다
+	 */
+	private static void handleEffect(ServerLevel serverLevel, ServerPlayer breaker, BlockPos pos,
+			BlockState state, @Nullable BlockEntity blockEntity, PerkEffect effect,
+			String sourceName) {
+		if (effect instanceof OnBreakEffect onBreak && onBreak.appliesTo(state)) {
+			onBreak.grantTemporaryEffects(breaker);
+		} else if (effect instanceof BonusDropEffect bonus && bonus.appliesTo(state)) {
+			tryBonusDrop(serverLevel, breaker, pos, state, blockEntity, bonus);
+		} else if (effect instanceof PairedMiningEffect) {
+			PerkResonantMining.onBreak(serverLevel.getServer(), breaker, state, serverLevel.getGameTime());
+		} else if (effect instanceof EchoMiningEffect) {
+			tryEchoMining(serverLevel, breaker, pos);
+		} else if (effect instanceof SameKindMiningEffect sameKind) {
+			trySameKindMining(serverLevel, breaker, pos, state, sameKind);
+		} else if (effect instanceof LuckyOreEffect lucky && lucky.appliesTo(state)) {
+			tryLuckyOre(serverLevel, breaker, pos, state, blockEntity, sourceName, lucky);
+		}
+	}
+
+	// ------------------------------------------------------------------ 이웃 채굴 공통
+
+	/**
+	 * 방금 캔 자리 주변을 훑는 반경(블록). 3×3×3 이웃(가운데 제외) 26칸이다.
+	 *
+	 * <p>{@code echo_mining} 과 {@code same_kind_mining} 이 같은 값을 쓴다. 대각선까지 넣는
+	 * 이유는 광맥이 대각선으로 이어지는 일이 흔해서다 — 상하좌우 6칸만 보면 「같은 종류」쪽이
+	 * 정작 광맥에서 잘 안 걸린다.
+	 */
+	private static final int NEIGHBOR_SEARCH_RADIUS = 1;
+
+	/**
+	 * 방금 캔 자리를 둘러싼 26칸 중 조건에 맞는 것을 좌표 순서대로 모은다.
+	 *
+	 * <p><b>순수 계산이다.</b> 월드도 플레이어도 보지 않고, 블록 상태를 어디서 가져오는지와
+	 * 「캘 수 있는 칸인가」를 어떻게 판단하는지를 전부 인자로 받는다. {@code echo_mining} 과
+	 * {@code same_kind_mining} 이 <b>같은 이 함수</b>를 쓰고 마지막 인자 하나로만 갈린다. 그래야
+	 * 「메아리 채굴은 종류를 안 따진다」와 「4단계는 같은 종류만 캔다」를 살아 있는 서버 없이
+	 * 나란히 시험할 수 있다.
+	 *
+	 * @param origin     방금 캔 자리
+	 * @param stateAt    한 칸의 블록 상태를 가져온다. <b>로드되지 않은 자리에는 {@code null} 을
+	 *                   돌려준다</b> — 청크를 억지로 불러오지 않는다는 규칙이 여기로 들어온다
+	 * @param breakable  그 칸을 실제로 캐도 되는가. 발밑 보호·캘 수 없는 블록·도구 등급을 본다
+	 * @param sameKindAs {@code null} 이면 종류를 따지지 않는다(「메아리 채굴」). 값이 있으면 그
+	 *                   블록과 {@link SameKindMiningEffect#isSameKind 같은 종류}인 칸만 남긴다
+	 *                   (「채굴 4단계」)
+	 * @return 새로 만든 목록. 부르는 쪽이 마음대로 고쳐도 된다. 없으면 빈 목록
+	 */
+	static List<BlockPos> neighborCandidates(@Nullable BlockPos origin,
+			@Nullable Function<BlockPos, BlockState> stateAt,
+			@Nullable BiPredicate<BlockPos, BlockState> breakable,
+			@Nullable BlockState sameKindAs) {
+		List<BlockPos> candidates = new ArrayList<>();
+		if (origin == null || stateAt == null || breakable == null) {
+			return candidates;
+		}
+		for (int dx = -NEIGHBOR_SEARCH_RADIUS; dx <= NEIGHBOR_SEARCH_RADIUS; dx++) {
+			for (int dy = -NEIGHBOR_SEARCH_RADIUS; dy <= NEIGHBOR_SEARCH_RADIUS; dy++) {
+				for (int dz = -NEIGHBOR_SEARCH_RADIUS; dz <= NEIGHBOR_SEARCH_RADIUS; dz++) {
+					if (dx == 0 && dy == 0 && dz == 0) {
+						continue;
+					}
+					BlockPos candidate = origin.offset(dx, dy, dz);
+					BlockState candidateState = stateAt.apply(candidate);
+					// null 은 로드되지 않은 자리다.
+					if (candidateState == null || candidateState.isAir()) {
+						continue;
+					}
+					if (sameKindAs != null
+							&& !SameKindMiningEffect.isSameKind(sameKindAs, candidateState)) {
+						continue;
+					}
+					if (!breakable.test(candidate, candidateState)) {
+						continue;
+					}
+					candidates.add(candidate);
+				}
+			}
+		}
+		return candidates;
+	}
+
+	/**
+	 * 26칸에서 실제로 캘 자리를 무작위로 {@code count} 개까지 고른다.
+	 *
+	 * <p>다음은 후보에서 뺀다.
+	 * <ul>
+	 *   <li>공기, 로드되지 않은 자리, 캘 수 없는 블록({@code getDestroySpeed} 가 음수)</li>
+	 *   <li>도구가 맞지 않는 블록({@code hasCorrectToolForDrops})</li>
+	 *   <li><b>팀원(캔 사람 자신 포함)의 발밑 블록</b> — 까닭은 {@link EchoMiningEffect} 에 적어
+	 *       뒀다. 요약하면 밟고 선 칸이 사라지면 그 사람이 떨어져 죽고, 이 모드는 체력을
+	 *       공유하므로 그 사고가 팀 전체를 죽인다.</li>
+	 *   <li>{@code sameKindAs} 를 넘겼으면 그것과 다른 종류인 블록</li>
+	 * </ul>
+	 *
+	 * <p>후보가 {@code count} 보다 적으면 있는 만큼만 돌려준다. 하나도 없으면 빈 목록이다.
+	 */
+	private static List<BlockPos> pickTargets(ServerLevel level, ServerPlayer breaker, BlockPos origin,
+			int count, @Nullable BlockState sameKindAs) {
+		if (count <= 0) {
+			return List.of();
+		}
+		List<BlockPos> protectedFeet = feetPositions(level, breaker);
+		List<BlockPos> candidates = neighborCandidates(
+				origin,
+				pos -> level.isLoaded(pos) ? level.getBlockState(pos) : null,
+				(pos, state) -> !isUnderFoot(pos, protectedFeet)
+						&& state.getDestroySpeed(level, pos) >= 0.0F
+						&& breaker.hasCorrectToolForDrops(state),
+				sameKindAs);
+		if (candidates.isEmpty()) {
+			return List.of();
+		}
+
+		int wanted = Math.min(count, candidates.size());
+		List<BlockPos> picked = new ArrayList<>(wanted);
+		for (int i = 0; i < wanted; i++) {
+			picked.add(candidates.remove(level.getRandom().nextInt(candidates.size())));
+		}
+		return picked;
+	}
+
+	/**
+	 * 고른 자리를 실제로 지우고 전리품을 그 자리에 떨어뜨린다.
+	 *
+	 * <p>{@code destroyBlock} 이 아니라 {@link ServerLevel#removeBlock} 을 쓴다. 까닭은 클래스
+	 * 문서의 「연쇄는 연쇄를 부르지 않는다」에 적어 뒀다.
+	 */
+	private static void breakExtraBlocks(ServerLevel level, ServerPlayer breaker,
+			List<BlockPos> targets) {
+		for (BlockPos target : targets) {
+			BlockState targetState = level.getBlockState(target);
+			BlockEntity targetBlockEntity = level.getBlockEntity(target);
+			List<ItemStack> drops = Block.getDrops(
+					targetState, level, target, targetBlockEntity, breaker, breaker.getMainHandItem());
+			level.removeBlock(target, false);
+			for (ItemStack drop : drops) {
+				if (drop != null && !drop.isEmpty()) {
+					Block.popResource(level, target, drop);
 				}
 			}
 		}
 	}
 
 	// ------------------------------------------------------------------ 메아리 채굴
-
-	/** 방금 캔 자리 주변을 훑는 반경(블록). 3×3×3 이웃(가운데 제외) 26칸이다. */
-	private static final int ECHO_SEARCH_RADIUS = 1;
 
 	/**
 	 * 방금 캔 블록 근처의 블록을 {@value EchoMiningEffect#EXTRA_BLOCKS} 개 더 캔다.
@@ -157,76 +367,54 @@ public final class PerkBlockBreaks {
 		if (targets.isEmpty()) {
 			return;
 		}
-		for (BlockPos echoPos : targets) {
-			BlockState echoState = level.getBlockState(echoPos);
-			BlockEntity echoBlockEntity = level.getBlockEntity(echoPos);
-			List<ItemStack> drops = Block.getDrops(
-					echoState, level, echoPos, echoBlockEntity, breaker, breaker.getMainHandItem());
-			level.removeBlock(echoPos, false);
-			for (ItemStack drop : drops) {
-				if (drop != null && !drop.isEmpty()) {
-					Block.popResource(level, echoPos, drop);
-				}
-			}
-		}
+		breakExtraBlocks(level, breaker, targets);
 		spendExtraDurability(breaker, 1);
 	}
 
 	/**
-	 * 방금 캔 자리를 둘러싼 26칸 중 다시 캘 수 있는 것을 모아 무작위로 {@code count} 개까지 고른다.
+	 * 「메아리 채굴」이 캘 자리를 고른다. <b>종류를 따지지 않는다</b>({@code sameKindAs} 가 없다).
 	 *
-	 * <p>다음은 후보에서 뺀다.
-	 * <ul>
-	 *   <li>공기, 로드되지 않은 자리, 캘 수 없는 블록({@code getDestroySpeed} 가 음수)</li>
-	 *   <li>도구가 맞지 않는 블록({@code hasCorrectToolForDrops})</li>
-	 *   <li><b>팀원(캔 사람 자신 포함)의 발밑 블록</b> — 까닭은 {@link EchoMiningEffect} 에 적어
-	 *       뒀다. 요약하면 밟고 선 칸이 사라지면 그 사람이 떨어져 죽고, 이 모드는 체력을
-	 *       공유하므로 그 사고가 팀 전체를 죽인다.</li>
-	 * </ul>
-	 *
-	 * <p>후보가 {@code count} 보다 적으면 있는 만큼만 돌려준다. 하나도 없으면 빈 목록이다.
+	 * <p>거르는 규칙은 {@link #pickTargets} 에 적어 뒀다.
 	 */
 	static List<BlockPos> pickEchoTargets(ServerLevel level, ServerPlayer breaker, BlockPos origin,
 			int count) {
-		if (count <= 0) {
-			return List.of();
-		}
-		List<BlockPos> protectedFeet = feetPositions(level, breaker);
-		List<BlockPos> candidates = new ArrayList<>();
-		for (int dx = -ECHO_SEARCH_RADIUS; dx <= ECHO_SEARCH_RADIUS; dx++) {
-			for (int dy = -ECHO_SEARCH_RADIUS; dy <= ECHO_SEARCH_RADIUS; dy++) {
-				for (int dz = -ECHO_SEARCH_RADIUS; dz <= ECHO_SEARCH_RADIUS; dz++) {
-					if (dx == 0 && dy == 0 && dz == 0) {
-						continue;
-					}
-					BlockPos candidate = origin.offset(dx, dy, dz);
-					if (isUnderFoot(candidate, protectedFeet)) {
-						continue;
-					}
-					if (!level.isLoaded(candidate)) {
-						continue;
-					}
-					BlockState candidateState = level.getBlockState(candidate);
-					if (candidateState.isAir() || candidateState.getDestroySpeed(level, candidate) < 0.0F) {
-						continue;
-					}
-					if (!breaker.hasCorrectToolForDrops(candidateState)) {
-						continue;
-					}
-					candidates.add(candidate);
-				}
-			}
-		}
-		if (candidates.isEmpty()) {
-			return List.of();
-		}
+		return pickTargets(level, breaker, origin, count, null);
+	}
 
-		int wanted = Math.min(count, candidates.size());
-		List<BlockPos> picked = new ArrayList<>(wanted);
-		for (int i = 0; i < wanted; i++) {
-			picked.add(candidates.remove(level.getRandom().nextInt(candidates.size())));
+	// ------------------------------------------------------------------ 같은 종류 채굴
+
+	/**
+	 * 방금 캔 것과 <b>같은 종류</b>인 이웃 블록을 함께 캔다. 세트 「채굴 4단계」가 쓴다.
+	 *
+	 * <p>「같은 종류」의 뜻은 {@link SameKindMiningEffect#isSameKind} 한 곳에만 있다. 요약하면
+	 * <b>블록 종류만 보고 블록 상태는 보지 않으며, 딥슬레이트 변종은 다른 종류</b>다.
+	 *
+	 * <h2>「메아리 채굴」과 겹치면 어떻게 되는가</h2>
+	 * <p><b>둘 다 발동한다. 합쳐서 최대 4칸이고 내구도도 각각 문다(원래 1 + 1 + 1 = 3배).</b>
+	 * 한쪽을 죽이지 않는 이유는, 겹쳤다고 억누르면 <b>플레이어가 값을 치르고 얻은 것 하나가
+	 * 아무 말 없이 사라지기</b> 때문이다. 골드 증강을 걸어 「메아리 채굴」을 집은 사람이 채굴
+	 * 증강 네 개를 모았다는 이유로 그 골드를 잃는 것은 설명할 방법이 없다.
+	 *
+	 * <p>같은 칸을 두 번 캐는 일은 없다. {@link #handleEffect} 는 보유 증강을 먼저, 세트를
+	 * 나중에 지나므로 「메아리 채굴」이 먼저 두 칸을 지우고, 그 뒤에 이 효과가 후보를 <b>새로
+	 * 훑는다</b> — 이미 지워진 칸은 공기라 후보에서 빠진다. 그래서 겹치는 만큼 실제로 캐지는
+	 * 수가 줄 뿐, 같은 블록의 전리품이 두 번 나오지는 않는다.
+	 *
+	 * <p>여기서 {@code originState} 를 다시 읽지 않고 인자로 받는 것이 중요하다. 이 시점에
+	 * 캔 자리는 <b>이미 공기</b>여서 월드에서 읽으면 아무것과도 같은 종류가 아니게 된다.
+	 */
+	private static void trySameKindMining(ServerLevel level, ServerPlayer breaker, BlockPos origin,
+			BlockState originState, SameKindMiningEffect effect) {
+		if (originState == null || originState.isAir()) {
+			return;
 		}
-		return picked;
+		List<BlockPos> targets = pickTargets(
+				level, breaker, origin, effect.extraBlocks(), originState);
+		if (targets.isEmpty()) {
+			return;
+		}
+		breakExtraBlocks(level, breaker, targets);
+		spendExtraDurability(breaker, effect.extraDurability());
 	}
 
 	/**
@@ -413,7 +601,8 @@ public final class PerkBlockBreaks {
 	 * 이유는 {@link LuckyOreEffect} 에 적어 뒀다.
 	 */
 	private static void tryLuckyOre(ServerLevel level, ServerPlayer breaker, BlockPos pos,
-			BlockState state, @Nullable BlockEntity blockEntity, Perk perk, LuckyOreEffect effect) {
+			BlockState state, @Nullable BlockEntity blockEntity, String sourceName,
+			LuckyOreEffect effect) {
 		if (breaker.preventsBlockDrops() || !breaker.hasCorrectToolForDrops(state)) {
 			return;
 		}
@@ -438,7 +627,7 @@ public final class PerkBlockBreaks {
 		}
 		if (granted > 0) {
 			TitleMessenger.showActionBar(
-					breaker, LuckyOreEffect.announcement(perk.name(), itemName, granted));
+					breaker, LuckyOreEffect.announcement(sourceName, itemName, granted));
 		}
 	}
 
@@ -516,8 +705,9 @@ public final class PerkBlockBreaks {
 				"블록 파괴 증강을 처리하지 못해 이번에는 건너뜁니다. 이 경고는 한 번만 남습니다.", error);
 	}
 
-	/** 테스트가 상태를 격리할 때 쓴다. */
+	/** 테스트가 상태를 격리할 때 쓴다. 연쇄 표시도 함께 끈다. */
 	static void resetForTesting() {
 		warned = false;
+		endChain();
 	}
 }

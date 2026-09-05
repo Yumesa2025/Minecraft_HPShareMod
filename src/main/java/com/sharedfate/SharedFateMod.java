@@ -16,6 +16,7 @@ import com.sharedfate.perk.PerkLegacyGear;
 import com.sharedfate.perk.PerkLifesteal;
 import com.sharedfate.perk.PerkManager;
 import com.sharedfate.perk.PerkRegistry;
+import com.sharedfate.perk.PerkSetRegistry;
 import com.sharedfate.perk.PerkTriggers;
 import com.sharedfate.perk.PerkWorldRules;
 import com.sharedfate.perk.PeriodicPerkManager;
@@ -62,6 +63,7 @@ public class SharedFateMod implements ModInitializer {
 		config = SharedFateConfig.loadOrCreate(
 				FabricLoader.getInstance().getConfigDir().resolve("sharedfate.json"));
 		PerkRegistry.load(FabricLoader.getInstance().getConfigDir());
+		PerkSetRegistry.load(FabricLoader.getInstance().getConfigDir());
 		SharedFateNetworking.register();
 
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
@@ -92,6 +94,7 @@ public class SharedFateMod implements ModInitializer {
 			PerkHealthRules.reset();
 			ConditionalPerkManager.reset();
 			PeriodicPerkManager.reset();
+			com.sharedfate.perk.PerkSupplyDrops.reset();
 			PerkHolderManager.reset();
 			TeamGathering.reset();
 			com.sharedfate.sync.StaggeredSwapManager.reset();
@@ -107,6 +110,7 @@ public class SharedFateMod implements ModInitializer {
 			com.sharedfate.sync.DifficultyEscalation.reset();
 			PerkClientRules.reset();
 			com.sharedfate.net.StatSnapshotBroadcaster.reset();
+			com.sharedfate.net.PerkSetBroadcaster.reset();
 			EffectSync.reset();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(server -> TeamManager.get(server).markDirtyIfActive());
@@ -205,6 +209,9 @@ public class SharedFateMod implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(ConditionalPerkManager::tick);
 		// 주기로 켜졌다 꺼지는 증강(periodic)의 주기 평가 지점.
 		ServerTickEvents.END_SERVER_TICK.register(PeriodicPerkManager::tick);
+		// 「보급」 세트가 주기마다 팀에게 무작위 아이템을 내려 주는 지점. 단계가 여럿 켜져도
+		// PerkSupplyDrops 가 그중 하나만 고르므로 보급은 한 회에 한 번만 온다.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.perk.PerkSupplyDrops::tick);
 		// 한 명만 효과를 받는 증강(holder)의 보유자 순환 지점.
 		ServerTickEvents.END_SERVER_TICK.register(PerkHolderManager::tick);
 		// 시간 고정 증강(time_lock)의 되돌리기 지점. 20틱마다 오버월드 시계만 제자리로 돌린다.

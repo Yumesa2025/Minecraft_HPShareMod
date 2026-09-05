@@ -39,6 +39,17 @@ import com.sharedfate.perk.PerkEffect;
  * <p>판정은 {@link com.sharedfate.perk.PerkBlockBreaks#isUnderFoot}에 좌표 계산만으로 떼어 두었다.
  * 이 규칙은 살아 있는 서버 없이도 반드시 시험할 수 있어야 하기 때문이다.
  *
+ * <h2>「같은 종류만」이 필요하면 이 클래스가 아니다</h2>
+ * <p>{@link SameKindMiningEffect}({@code same_kind_mining}) 가 따로 있다. 같은 26칸을 같은
+ * 규칙으로 훑되 <b>방금 캔 것과 같은 종류만</b> 고른다. 이 클래스에 「같은 종류만」 옵션을
+ * 더하지 않은 이유는, 여기가 필드 없는 홑 인스턴스({@link #INSTANCE})라서 옵션을 하나라도
+ * 넣는 순간 그 구조가 깨지고, 「메아리 채굴」이 예전 그대로라는 보장이 <b>기본값 하나에만</b>
+ * 걸리기 때문이다. 두 효과가 공유하는 것은 이웃을 훑는 계산뿐이고, 그쪽은
+ * {@link com.sharedfate.perk.PerkBlockBreaks#neighborCandidates} 한 함수로 이미 합쳐져 있다.
+ *
+ * <p><b>둘을 같이 가지면 둘 다 발동한다.</b> 이쪽이 먼저 2칸을 캐고 그 뒤에 저쪽이 남은 칸을
+ * 다시 훑는다. 자세한 것은 {@code PerkBlockBreaks.trySameKindMining} 에 적어 뒀다.
+ *
  * <h2>무한 연쇄를 막는 방법</h2>
  * <p>메아리로 캐는 블록은 {@code ServerLevel.removeBlock}로 지운다. {@code destroyBlock}이
  * 아니라 이 메서드를 쓰는 이유는, {@code PlayerBlockBreakEvents.AFTER}가 발화하는 자리가

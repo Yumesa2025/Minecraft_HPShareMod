@@ -155,6 +155,17 @@ public final class PerkHealthRules {
 				}
 			}
 		}
+		// 세트가 주는 최대 체력도 같은 규칙으로 더한다. 생존 2단계가 이 길을 탄다.
+		// 여기서 세지 않으면 max_health_bonus 를 붙여도 MaxHealthAttribute 의 덮어쓰기가
+		// 정확히 상쇄해 아무 일도 일어나지 않는다 — 그 함정은 MaxHealthBonusEffect 에 적혀 있다.
+		for (PerkEffect effect : PerkSetEffects.activeEffectsOf(state)) {
+			if (effect instanceof MaxHealthBonusEffect bonus) {
+				total += bonus.amount();
+			} else if (effect instanceof AttributeEffect attribute
+					&& attribute.isLegacyMaxHealthBonus()) {
+				total += attribute.amount();
+			}
+		}
 		return Double.isFinite(total) ? total : 0.0;
 	}
 

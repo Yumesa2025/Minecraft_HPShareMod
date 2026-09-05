@@ -166,6 +166,8 @@ public class TeamManager extends SavedData {
 			// 남은 횟수는 여기서 가득 찬다 — 회차가 넘어가면 다시 차야 하기 때문이다.
 			state.rerollAllowance = TeamCreationSettings.sanitizeRerollCount(entry.rerollCount());
 			state.rerollsRemaining = state.rerollAllowance;
+			// 세트로 받은 몫은 이어지지 않는다. 회차가 넘어가면 세트도 처음부터 다시 모은다.
+			state.rerollSetBonus = 0;
 			// 「유산」이 몰수했던 도구·무기·방어구는 여기서 인벤토리에 꽂지 않고 그대로 들고만
 			// 있는다. 실제로 돌려주는 것은 회차가 시작되는 자리다 — 1회차 전이라면 리더가
 			// 「게임 시작」을 누르는 순간, 2회차부터라면 GameStartManager.syncRunStart.

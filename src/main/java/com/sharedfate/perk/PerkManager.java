@@ -4,6 +4,7 @@ import com.sharedfate.SharedFateMod;
 import com.sharedfate.net.PerkOfferPayload;
 import com.sharedfate.net.PerkSyncPayload;
 import com.sharedfate.perk.effect.NoSilverOffersEffect;
+import com.sharedfate.perk.effect.PrismRerollEffect;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
@@ -59,6 +60,8 @@ public final class PerkManager {
 	public static void reset() {
 		tickCounter = 0;
 		PerkChoiceSession.reset();
+		// 세트는 저장하지 않는 파생 상태다. 붙여 준 기록도 함께 비운다.
+		PerkSetEffects.reset();
 	}
 
 	/** 서버가 켜질 때. 이전 실행에서 얼려 둔 시간이 남아 있지 않은지 확인한다. */
@@ -191,6 +194,44 @@ public final class PerkManager {
 		return NoSilverOffersEffect.heldBy(state);
 	}
 
+	/**
+	 * 다시 뽑기가 프리즘만 내놓아야 하는가.
+	 *
+	 * <p>{@link #silverOffersBlocked} 와 같은 자리·같은 이유로 여기서 판정한다. 세트
+	 * 「도박 3단계 — 어차피 프리즘」이 {@code prism_reroll} 표시를 켜고, 그것을 찾는 일은
+	 * {@link PrismRerollEffect#heldBy} 가 맡는다.
+	 *
+	 * <p><b>구간 추첨에는 영향이 없다.</b> 이 판정을 보는 곳은 {@link #applyReroll} 하나뿐이라,
+	 * 세트를 모은 팀도 처음 뜨는 후보는 여전히 구간 확률표대로 나온다. 「다시 뽑으면」이라는
+	 * 설명 그대로다.
+	 */
+	private static boolean prismRerollActive(TeamState state) {
+		if (state == null || !state.perksEnabled || state.ownedPerks.isEmpty()) {
+			return false;
+		}
+		return PrismRerollEffect.heldBy(state);
+	}
+
+	/**
+	 * 후보에서 프리즘이 아닌 것을 걸러낸다. 「어차피 프리즘」이 폴백으로 섞인 골드를 버리는 자리다.
+	 *
+	 * <p>풀에서 사라진 id 도 함께 버린다. 등급을 알 수 없는 후보를 「프리즘일 것」으로 보고
+	 * 남겨 두면 그 한 장이 이 세트의 약속을 깨뜨린다.
+	 *
+	 * <p>패키지 전용인 것은 시험 때문이다. {@link #applyReroll} 자체는 살아 있는 서버가 있어야
+	 * 부를 수 있어, 「프리즘이 모자라면 적게 준다」는 결정만 따로 확인할 자리가 필요하다.
+	 */
+	static List<String> onlyPrism(List<String> options) {
+		List<String> filtered = new ArrayList<>(options.size());
+		for (String id : options) {
+			Perk perk = PerkRegistry.byId(id).orElse(null);
+			if (perk != null && perk.rarity() == PerkRarity.PRISM) {
+				filtered.add(id);
+			}
+		}
+		return List.copyOf(filtered);
+	}
+
 	/** 발동 당시 아무도 접속해 있지 않았던 선택권에 뒤늦게 선택자를 붙인다. */
 	private static boolean assignMissingChoosers(MinecraftServer server, ShareTeam team, TeamState state) {
 		boolean changed = false;
@@ -256,6 +297,9 @@ public final class PerkManager {
 
 	/** 선택권을 가진 사람이 나가면 접속 중인 다른 팀원에게 넘긴다. 후보는 그대로 유지한다. */
 	public static void onPlayerLeave(ServerPlayer player) {
+		// 나간 사람에게 무엇을 붙여 뒀는지는 더 들고 있을 이유가 없다. 다시 들어오면
+		// refreshPlayer 가 처음부터 다시 붙인다.
+		PerkSetEffects.forget(player.getUUID());
 		MinecraftServer server = player.level().getServer();
 		if (server == null) {
 			return;
@@ -346,9 +390,13 @@ public final class PerkManager {
 				continue;
 			}
 			// 아이콘이 없는 증강은 빈 문자열로 보낸다. 화면이 등급별 기본 아이콘으로 메운다.
+			// 세트 유형도 함께 보낸다 — 무유형이면 빈 문자열이 되어 카드에 줄이 안 그려진다.
 			options.add(new PerkOfferPayload.PerkOption(
 					perk.id(), perk.name(), perk.description(), perk.rarity().id(),
-					perk.icon() == null ? "" : perk.icon().toString()));
+					perk.icon() == null ? "" : perk.icon().toString(),
+					perk.setTypes().stream().map(PerkSetType::displayName)
+							.collect(java.util.stream.Collectors.joining(
+									PerkOfferPayload.PerkOption.SET_TYPE_JOINER))));
 		}
 		return options;
 	}
@@ -407,6 +455,10 @@ public final class PerkManager {
 	 * 넘긴다 — 등급 통에 남은 후보가 3개 미만일 때만 그중에서 마저 채운다. 직전 한 번만
 	 * 피하므로 두 번 넘게 다시 뽑으면 그보다 앞서 본 후보는 돌아올 수 있다.
 	 *
+	 * <p><b>세트 「도박 3단계 — 어차피 프리즘」을 켠 팀만 등급이 프리즘으로 올라간다.</b>
+	 * 그때 아직 안 가진 프리즘이 3장 미만이면 카드도 그만큼만 뜬다 — 골드를 섞느니 적게 주는
+	 * 쪽을 택했다. 자세한 까닭은 {@link PrismRerollEffect} 에 적어 뒀다.
+	 *
 	 * <p>다음 중 하나라도 어긋나면 <b>아무 말 없이 돌아간다.</b> 지연·재전송된 패킷과 조작된
 	 * 패킷을 같은 길로 버리기 위해서다 — 실패 이유를 알려 주면 그 자체가 조작의 힌트가 된다.
 	 *
@@ -442,7 +494,12 @@ public final class PerkManager {
 		// 다시 뽑아도 등급은 그대로다. 「골드 라운드에서 다시 뽑았더니 실버가 나왔다」가 되면
 		// 안 되고, 반대로 프리즘이 나와도 안 된다. 후보에서 등급을 읽지 못하면 아무것도 하지
 		// 않는다 — 등급을 모르는 채로 뽑으면 구간 규칙을 다시 굴리는 셈이 된다.
-		PerkRarity rarity = offerRarity(offer);
+		//
+		// 유일한 예외가 세트 「도박 3단계 — 어차피 프리즘」이다. 그 팀만 등급이 프리즘으로
+		// 올라간다. 판정은 실버 차단(silverOffersBlocked)과 같은 이유로 PerkDraft 가 아니라
+		// 여기서 한다 — 추첨기가 PerkRegistry 에 손을 뻗으면 게임 없이 확률표를 검증할 수 없다.
+		boolean prismOnly = prismRerollActive(state);
+		PerkRarity rarity = prismOnly ? PerkRarity.PRISM : offerRarity(offer);
 		if (rarity == null) {
 			return;
 		}
@@ -457,6 +514,13 @@ public final class PerkManager {
 		// 낫다. 직전 한 번만 피하므로 두 번 이상 다시 뽑으면 그전 것은 다시 나올 수 있다.
 		List<String> options = PerkDraft.draw(rarity, milestone, PerkRegistry.all(),
 				state.ownedPerks, offer.optionIds(), random, OPTION_COUNT);
+		if (prismOnly) {
+			// PerkDraft.fallbackOrder(PRISM) 은 프리즘 → 골드 → 실버라, 아직 안 가진 프리즘이
+			// 3장 미만이면 골드가 섞여 들어온다. 「프리즘 등급만 나옵니다」라고 적어 놓고 골드를
+			// 보여 주면 설명이 거짓이 되므로, 모자라면 「적게 준다」를 택했다. 남은 프리즘이
+			// 두 장이면 카드도 두 장이다 — 일반 추첨도 후보가 모자라면 가능한 만큼만 준다.
+			options = onlyPrism(options);
+		}
 		if (options.isEmpty()) {
 			// 뽑을 것이 없으면 창이 비어 버린다. 횟수를 깎지 않고 지금 후보를 그대로 둔다.
 			SharedFateMod.LOGGER.warn(
@@ -585,12 +649,23 @@ public final class PerkManager {
 
 	// ------------------------------------------------------------------ 효과 적용
 
-	/** 한 플레이어에게 팀이 보유한 증강 효과를 전부 다시 맞춘다. */
+	/**
+	 * 한 플레이어에게 팀이 보유한 증강 효과를 전부 다시 맞춘다.
+	 *
+	 * <p><b>세트 효과도 여기서 함께 맞춘다.</b> 세트는 {@code ownedPerks} 를 다시 세어 만드는
+	 * 파생 상태라 보유 목록이 바뀌는 모든 경로가 결국 이 자리를 지난다
+	 * ({@code commit} → {@code applyToTeam} → 여기). 그래서 재평가 훅이 따로 필요 없다.
+	 *
+	 * <p>몇 번을 불러도 결과가 같아야 한다. 접속·부활·상태이상 재적용마다 불리는 자리다.
+	 */
 	public static void refreshPlayer(ServerPlayer player) {
 		TeamState state = com.sharedfate.team.TeamLookup.stateOf(player.getUUID());
 		if (state == null) {
 			return;
 		}
+		// 세트 「방어 3단계」를 켠 팀에서는 방어 유형 증강의 대가를 붙이지 않는다. 대가가 하나도
+		// 없는 팀은 세트를 보지도 않는다.
+		PerkDrawbacks.Waiver waiver = PerkDrawbacks.waiverFor(state);
 		for (String perkId : state.ownedPerks) {
 			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			if (perk == null) {
@@ -598,12 +673,22 @@ public final class PerkManager {
 			}
 			for (PerkEffect effect : perk.effects()) {
 				try {
-					effect.apply(player);
+					if (waiver.waives(perk, effect)) {
+						// 건너뛰기만 하면 안 된다. 세트가 켜지기 전에 이미 붙어 있던 수정자는
+						// 아무도 걷어내지 않으므로 여기서 걷어낸다. remove 는 몇 번을 불러도
+						// 결과가 같아서 이 자리는 그대로 멱등하다.
+						effect.remove(player);
+					} else {
+						effect.apply(player);
+					}
 				} catch (RuntimeException error) {
 					SharedFateMod.LOGGER.warn("증강 '{}' 효과 적용에 실패했습니다.", perk.id(), error);
 				}
 			}
 		}
+		// 켜진 세트를 붙이고, 방금 꺼진 세트를 걷어낸다. 순서가 뒤가 아니라 여기인 이유는
+		// PerkSetEffects 에 적어 뒀다 — 세트가 걷어내는 것은 세트가 붙인 것뿐이다.
+		PerkSetEffects.refresh(player);
 	}
 
 	/**
@@ -645,6 +730,9 @@ public final class PerkManager {
 					}
 				}
 			}
+			// 증강을 끄면 세트도 함께 꺼진다. 세트는 보유 증강에서 파생되는 것이라 증강이 멈춘
+			// 채로 세트만 켜져 있을 이유가 없다.
+			PerkSetEffects.removeAll(online);
 		}
 		broadcastSync(server, team, state);
 	}
@@ -675,6 +763,9 @@ public final class PerkManager {
 		}
 		// 조건부 증강은 배율 조회에 플레이어 인자가 없어 대상을 따로 알려 줘야 한다.
 		ConditionalPerkManager.beginMultiplierLookup(player);
+		// 「불굴」의 체력 75% 초과 시 받는 피해 ×1.1 이 이 길로 들어온다. 대가를 실제로 만나기
+		// 전에는 세트 판정을 하지 않으므로 대가가 없는 팀의 피해 계산은 예전과 똑같다.
+		PerkDrawbacks.Waiver waiver = PerkDrawbacks.waiverFor(state);
 		double total = 1.0;
 		for (String perkId : state.ownedPerks) {
 			Perk perk = PerkRegistry.byId(perkId).orElse(null);
@@ -682,10 +773,19 @@ public final class PerkManager {
 				continue;
 			}
 			for (PerkEffect effect : perk.effects()) {
+				if (waiver.waives(perk, effect)) {
+					continue;
+				}
 				total *= dealt
 						? effect.damageDealtMultiplier()
 						: effect.damageTakenMultiplier();
 			}
+		}
+		// 세트가 건 배율도 같은 곱에 들어간다. 세트가 없으면 빈 목록이라 값이 그대로다.
+		for (PerkEffect effect : PerkSetEffects.activeEffectsOf(state)) {
+			total *= dealt
+					? effect.damageDealtMultiplier()
+					: effect.damageTakenMultiplier();
 		}
 		return Double.isFinite(total) && total > 0.0 ? total : 1.0;
 	}

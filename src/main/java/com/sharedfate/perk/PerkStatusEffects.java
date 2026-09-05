@@ -59,24 +59,29 @@ public final class PerkStatusEffects {
 			return NONE;
 		}
 
-		Map<Holder<MobEffect>, Integer> collected = null;
+		List<PerkEffect> all = new ArrayList<>();
 		for (String perkId : state.ownedPerks) {
 			Perk perk = PerkRegistry.byId(perkId).orElse(null);
-			if (perk == null) {
-				continue;
+			if (perk != null) {
+				all.addAll(perk.effects());
 			}
-			for (PerkEffect effect : perk.effects()) {
-				for (StatusEffectPerk status : statusEffectsIn(effect)) {
-					Holder<MobEffect> resolved = status.resolvedEffect();
-					if (resolved == null) {
-						continue;
-					}
-					if (collected == null) {
-						collected = new HashMap<>();
-					}
-					// 같은 종류를 여러 증강이 걸면 결국 가장 센 것만 겉으로 남는다.
-					collected.merge(resolved, status.amplifier(), Math::max);
+		}
+		// 켜진 세트가 거는 상시 상태이상도 증강분이다. 여기서 세지 않으면 EffectSync 가 그것을
+		// 팀 공유 풀로 퍼 나르고, 세트가 꺼진 뒤에도 되살아난다.
+		all.addAll(PerkSetEffects.activeEffectsOf(state));
+
+		Map<Holder<MobEffect>, Integer> collected = null;
+		for (PerkEffect effect : all) {
+			for (StatusEffectPerk status : statusEffectsIn(effect)) {
+				Holder<MobEffect> resolved = status.resolvedEffect();
+				if (resolved == null) {
+					continue;
 				}
+				if (collected == null) {
+					collected = new HashMap<>();
+				}
+				// 같은 종류를 여러 증강이 걸면 결국 가장 센 것만 겉으로 남는다.
+				collected.merge(resolved, status.amplifier(), Math::max);
 			}
 		}
 		return collected == null ? NONE : new PerkStatusEffects(collected);

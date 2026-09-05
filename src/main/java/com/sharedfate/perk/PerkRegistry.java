@@ -52,6 +52,9 @@ public final class PerkRegistry {
 	 */
 	public static synchronized void load(Path configDir) {
 		PERKS.clear();
+		// 대가 표시는 효과 객체의 신원으로 걸려 있다. 정의를 다시 읽으면 객체가 통째로 새로
+		// 만들어지므로 옛 표시는 아무도 가리키지 않는 쓰레기가 된다.
+		PerkDrawbacks.clear();
 		loaded = true;
 
 		if (configDir == null) {
@@ -140,6 +143,7 @@ public final class PerkRegistry {
 	public static synchronized void clear() {
 		PERKS.clear();
 		CUSTOM_HANDLERS.clear();
+		PerkDrawbacks.clear();
 		loaded = false;
 	}
 
@@ -207,12 +211,16 @@ public final class PerkRegistry {
 			// 음수는 뜻이 없으므로 0으로 접어 둔다.
 			int minLevel = Math.max(0, PerkEffectType.readInt(json, "min_level", 0));
 
+			// 세트 유형. 안 적으면 빈 목록(무유형)이고, 그것이 정상이라 경고하지 않는다.
+			List<PerkSetType> setTypes = parseSetTypes(id, json);
+
 			List<PerkEffect> effects = parseEffects(id, json);
 			if (effects == null) {
 				return null;
 			}
 
-			return new Perk(id, name, description, rarity, parseIcon(id, json), minLevel, effects);
+			return new Perk(id, name, description, rarity, parseIcon(id, json), minLevel,
+					setTypes, effects);
 		} catch (Exception error) {
 			SharedFateMod.LOGGER.warn("증강 항목을 읽다가 실패해 건너뜁니다", error);
 			return null;
@@ -253,6 +261,36 @@ public final class PerkRegistry {
 	}
 
 	/**
+	 * 세트 유형 목록을 읽는다.
+	 *
+	 * <p>효과와 달리 <b>잘못돼 있어도 증강을 버리지 않는다.</b> 유형은 세트 판정에만 쓰는
+	 * 덧붙임이라, 오타 하나 때문에 증강이 통째로 사라지면 잃는 쪽이 훨씬 크다. 모르는
+	 * 문자열은 그 항목만 건너뛰고 경고를 남긴다.
+	 *
+	 * <p>{@code set_types} 를 아예 안 적은 증강은 무유형이며 이는 정상이다. 무유형이 열여섯
+	 * 개나 되므로 그때는 아무 말도 하지 않는다. 같은 유형을 두 번 적으면 한 번만 센다.
+	 */
+	private static List<PerkSetType> parseSetTypes(String perkId, JsonObject json) {
+		List<String> raw = PerkEffectType.readStringList(json, "set_types");
+		if (raw == null || raw.isEmpty()) {
+			return List.of();
+		}
+		List<PerkSetType> types = new ArrayList<>(raw.size());
+		for (String entry : raw) {
+			PerkSetType type = PerkSetType.fromId(entry);
+			if (type == null) {
+				SharedFateMod.LOGGER.warn("증강 {}: 알 수 없는 세트 유형이라 그것만 건너뜁니다 ({})",
+						perkId, entry);
+				continue;
+			}
+			if (!types.contains(type)) {
+				types.add(type);
+			}
+		}
+		return List.copyOf(types);
+	}
+
+	/**
 	 * 효과 목록을 읽는다. 하나라도 잘못됐으면 증강 전체를 버린다.
 	 * 설명은 그대로인데 효과 일부만 빠진 증강은 플레이어를 속이는 셈이기 때문이다.
 	 */
@@ -282,6 +320,9 @@ public final class PerkRegistry {
 			if (effect == null) {
 				return null;
 			}
+			// {@code "drawback": true} 가 적혀 있으면 대가로 등록한다. 안 적혀 있으면 아무 일도
+			// 하지 않으므로 예전 정의는 한 톨도 달라지지 않는다.
+			PerkDrawbacks.mark(perkId, effectJson, effect);
 			effects.add(effect);
 		}
 		return effects;

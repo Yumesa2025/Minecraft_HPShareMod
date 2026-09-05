@@ -1,5 +1,8 @@
 package com.sharedfate.client.hud;
 
+import com.sharedfate.client.perk.ClientPerkSets;
+import com.sharedfate.ui.PerkSetLines;
+import com.sharedfate.ui.StatRow;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -10,6 +13,8 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+
+import java.util.List;
 
 /**
  * 화면 <b>왼쪽 위</b>에 지금 서 있는 좌표와 한글 바이옴 이름을 두 줄로 늘 띄운다.
@@ -39,6 +44,20 @@ import net.minecraft.resources.ResourceKey;
  * 글줄들처럼 {@code BottomLeftStack} 같은 계산기를 따로 두지 않은 이유는, 지금 이 자리를 쓰는
  * 것이 이 요소 하나뿐이라 나눌 것이 없기 때문이다.
  *
+ * <h2>세트 효과</h2>
+ * <p>{@link #NEXT_LINE_Y} 아래에 구분선을 하나 긋고 세트를 쌓는다. 좌표·바이옴과 한 덩어리로
+ * 보이면 안 되므로 선으로 가른다. 무엇을 몇 줄이나 어떤 차례로 그릴지는
+ * {@link com.sharedfate.ui.PerkSetLines} 가 정한다 — 그리기와 떼어 놓아야 게임 없이 시험할 수
+ * 있고, 같은 계산을 팀 화면도 쓴다.
+ *
+ * <pre>
+ * X 128  Y 64  Z -302
+ * 어두운 숲
+ * ────────────────
+ * ◆ 채굴 3/3
+ * ◇ 방어 1/2
+ * </pre>
+ *
  * <h2>안 그리는 때</h2>
  * <p>F3 디버그 화면이 켜져 있으면 그리지 않는다. F3 이 왼쪽 위부터 글자를 깔기 때문에 그대로
  * 두면 두 글자가 겹쳐 둘 다 못 읽는다. F1 로 HUD 를 껐을 때와 관전 중일 때도 빠진다 —
@@ -60,6 +79,23 @@ public class CoordinateHud implements HudElement {
 	private static final int POSITION_COLOR = 0xFFFFFFFF;
 	/** 바이옴은 한 단계 눈에 덜 띄는 회색. {@link GameOverHud} 의 안내 줄과 같은 색이다. */
 	private static final int BIOME_COLOR = 0xFFCCCCCC;
+
+	/** 바이옴 줄과 구분선 사이의 틈. */
+	private static final int SEPARATOR_GAP = 3;
+	/** 구분선 아래 첫 세트 줄까지의 틈. */
+	private static final int SEPARATOR_BOTTOM_GAP = 3;
+	/** 구분선이 아무리 짧아도 이만큼은 긋는다. */
+	private static final int SEPARATOR_MIN_WIDTH = 60;
+	/** 구분선 색. 좌표·바이옴보다 흐려야 <b>가르는 선</b>으로만 읽힌다. */
+	private static final int SEPARATOR_COLOR = 0x50FFFFFF;
+	/**
+	 * 켜진 세트의 글자색. 능력치 줄의 「올랐다」와 같은 색이다({@link StatRow#COLOR_GOOD}).
+	 *
+	 * <p>두 곳에 같은 뜻으로 두 색을 쓰면 화면마다 다른 규칙을 외워야 한다.
+	 */
+	private static final int SET_ACTIVE_COLOR = StatRow.COLOR_GOOD;
+	/** 아직 안 켜진 세트. 바이옴보다도 한 단계 더 가라앉혀 「지금은 아니다」를 색으로도 말한다. */
+	private static final int SET_PROGRESS_COLOR = StatRow.COLOR_MASKED;
 
 	/**
 	 * 좌표 한 줄을 만든다.
@@ -104,6 +140,37 @@ public class CoordinateHud implements HudElement {
 		String biome = BiomeNames.korean(currentBiomeId(level, player));
 		if (!biome.isEmpty()) {
 			graphics.text(font, biome, MARGIN, BIOME_Y, BIOME_COLOR);
+		}
+
+		renderSets(graphics, font);
+	}
+
+	/**
+	 * 좌표·바이옴 아래에 세트를 쌓는다.
+	 *
+	 * <p><b>켜진 것만이 아니라 진행도까지</b> 보여 준다. 「방어 1/2」를 알아야 다음 카드에서
+	 * 무엇을 집을지 정할 수 있고, 그 판단은 선택창이 뜬 몇 초 안에 내려야 하므로 그때 팀 화면을
+	 * 열 겨를이 없다. 대신 <b>한 개도 없는 유형은 뺀다</b> — 열한 줄이 다 뜨면 화면 왼쪽 위를
+	 * 통째로 덮는다. 그 규칙은 {@link PerkSetLines#visible} 이 들고 있다.
+	 *
+	 * <p>세트가 하나도 없으면 구분선도 긋지 않는다. 아래에 아무것도 없는 선은 무언가 그리다 만
+	 * 것처럼 보인다.
+	 */
+	private static void renderSets(GuiGraphicsExtractor graphics, Font font) {
+		List<PerkSetLines.Line> lines = ClientPerkSets.lines(PerkSetLines.MAX_HUD_LINES);
+		if (lines.isEmpty()) {
+			return;
+		}
+
+		int separatorY = NEXT_LINE_Y + SEPARATOR_GAP;
+		int width = PerkSetLines.blockWidth(lines, font::width, SEPARATOR_MIN_WIDTH);
+		graphics.fill(MARGIN, separatorY, MARGIN + width, separatorY + 1, SEPARATOR_COLOR);
+
+		int y = separatorY + 1 + SEPARATOR_BOTTOM_GAP;
+		for (PerkSetLines.Line line : lines) {
+			graphics.text(font, line.text(), MARGIN, y,
+					line.active() ? SET_ACTIVE_COLOR : SET_PROGRESS_COLOR);
+			y += LINE_HEIGHT;
 		}
 	}
 

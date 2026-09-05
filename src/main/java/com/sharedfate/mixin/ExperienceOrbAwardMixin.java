@@ -66,6 +66,18 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
  * <h2>여기에 걸리지 않는 것</h2>
  * <p>{@code Player.giveExperiencePoints}(운영자의 {@code /xp} 등)는 오브를 만들지 않으므로
  * 배율이 걸리지 않는다. 손으로 넣어 준 값까지 부풀릴 이유가 없으니 이대로가 맞다.
+ *
+ * <h2>출처별 배율은 여기가 아니다</h2>
+ * <p>「광물에서 나오는 경험치만 +50%」 같은 세트 보상({@code experience_bonus})은 여기서
+ * 처리하지 <b>않는다.</b> 이 자리에 남아 있는 것은 월드·좌표·양뿐이라 <b>출처도 사람도 알
+ * 수 없기</b> 때문이다. 여기서 출처를 알려면 블록·몹 쪽에서 스레드 전역 문맥을 적어 보내야
+ * 하는데, 그러면 문맥이 한 번 새는 순간 화로·낚시·번식·주민 거래·경험치병까지 전부
+ * 사정권에 들어간다.
+ *
+ * <p>그래서 출처별 배율은 「누가·무엇에서」를 아직 알고 있는 위쪽 두 자리에서 곱한다 —
+ * {@link BlockExperienceSourceMixin} 과 {@link MobExperienceSourceMixin} 이다. 그쪽이 먼저
+ * 곱하고 그 결과가 이 자리로 흘러 들어오므로 <b>두 배율은 자연히 곱해진다.</b>
+ * 설정 1.2 배에 세트 1.5 배면 1.8 배다.
  */
 @Mixin(ExperienceOrb.class)
 public abstract class ExperienceOrbAwardMixin {

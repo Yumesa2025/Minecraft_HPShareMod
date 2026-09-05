@@ -57,7 +57,11 @@ public final class SharedFateNetworking {
 	//     대신 EnchantmentMenu 의 데이터 칸을 하나 더 달았고, 그래서 칸이 10개에서 11개가
 	//     되었다. 16번과 똑같은 이유다 — 서버와 클라이언트의 칸 수가 다르면 클라이언트가
 	//     IndexOutOfBoundsException 으로 죽고, 막을 수단이 악수뿐이다.
-	public static final int PROTOCOL_VERSION = 19;
+	// 20: 세트 효과 — 새 S2C 패킷(perk_sets)과 선택 카드의 유형 줄. 클라이언트는 증강 풀을
+	//     아예 읽지 않아(PerkRegistry.load 는 서버 전용) 「어느 유형을 몇 개 가졌나」도
+	//     「그 유형에 무엇이 더 있나」도 스스로 셀 수 없다. 게다가 PerkOfferPayload.PerkOption
+	//     에 유형 칸이 하나 늘어 형식 자체가 바뀌었다 — 옛 클라이언트는 선택창 패킷을 못 읽는다.
+	public static final int PROTOCOL_VERSION = 20;
 
 	private SharedFateNetworking() {
 	}
@@ -81,6 +85,8 @@ public final class SharedFateNetworking {
 		PayloadTypeRegistry.clientboundPlay().register(PerkDrawPayload.TYPE, PerkDrawPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(
 				PerkResultPayload.TYPE, PerkResultPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(
+				PerkSetSyncPayload.TYPE, PerkSetSyncPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(SelectedSlotC2SPayload.TYPE, SelectedSlotC2SPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(PerkChoiceC2SPayload.TYPE, PerkChoiceC2SPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(
@@ -107,6 +113,9 @@ public final class SharedFateNetworking {
 		// 서버만 아는 능력치(공격력·받는 피해 배율·몹 배율). 팀에 속하지 않은 사람도
 		// 능력치 표시에서 이 줄들을 보므로 팀 경로가 아니라 여기에 있다.
 		ServerTickEvents.END_SERVER_TICK.register(StatSnapshotBroadcaster::flush);
+		// 세트 효과의 지금 상태. 세트는 저장하지 않는 파생 상태이고 보유 목록이 바뀌는
+		// 자리가 넷이라, 사건마다 거는 대신 결과를 견주어 달라졌을 때만 보낸다.
+		ServerTickEvents.END_SERVER_TICK.register(PerkSetBroadcaster::flush);
 		// 클라이언트가 있어야 하는 증강(double_jump / hide_hud)의 동기화·접지 판정 지점.
 		// SharedFateMod 가 아니라 여기서 거는 이유는 이 기능이 네트워크 경로 하나로만
 		// 성립하기 때문이다. 패킷 등록과 같은 자리에 두면 한쪽만 빠뜨릴 수 없다.
@@ -117,6 +126,7 @@ public final class SharedFateNetworking {
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			PerkClientRules.forget(handler.player.getUUID());
 			StatSnapshotBroadcaster.forget(handler.player.getUUID());
+			PerkSetBroadcaster.forget(handler.player.getUUID());
 		});
 		ClientModGate.register();
 	}

@@ -9,6 +9,7 @@ import com.sharedfate.client.hud.PerkProgressHud;
 import com.sharedfate.client.hud.TeamLevelHud;
 import com.sharedfate.client.team.TeamScreen;
 import com.sharedfate.client.perk.ClientPerkFeatures;
+import com.sharedfate.client.perk.ClientPerkSets;
 import com.sharedfate.client.perk.DoubleJumpHandler;
 import com.sharedfate.client.perk.PerkClientState;
 import com.sharedfate.client.perk.PerkDrawScreen;
@@ -22,6 +23,7 @@ import com.sharedfate.net.PerkCloseOfferPayload;
 import com.sharedfate.net.PerkDrawPayload;
 import com.sharedfate.net.PerkOfferPayload;
 import com.sharedfate.net.PerkResultPayload;
+import com.sharedfate.net.PerkSetSyncPayload;
 import com.sharedfate.net.PerkSyncPayload;
 import com.sharedfate.net.SelectedSlotPayload;
 import com.sharedfate.net.SharedFateNetworking;
@@ -119,6 +121,12 @@ public class SharedFateClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(StatSnapshotPayload.TYPE,
 				(payload, context) -> context.client().execute(
 						() -> ClientStatSnapshot.update(payload)));
+		// 세트 효과의 지금 상태. 클라이언트는 증강 풀을 읽지 않으므로 「어느 유형을 몇 개
+		// 가졌는지」도 「그 유형에 무엇이 더 있는지」도 이 패킷으로만 안다. HUD 와 팀 화면이
+		// 그리기 스레드에서 읽으므로 갱신도 클라이언트 본 스레드에서 한다.
+		ClientPlayNetworking.registerGlobalReceiver(PerkSetSyncPayload.TYPE,
+				(payload, context) -> context.client().execute(
+						() -> ClientPerkSets.update(payload)));
 
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientTeamState.clear();
@@ -128,6 +136,10 @@ public class SharedFateClient implements ClientModInitializer {
 			GameOverClientDisplay.clear();
 			PerkClientState.clear();
 			ClientPerkFeatures.clear();
+			// 여기서 안 비우면 서버의 LAST_SENT 와 어긋난다. 세트가 그대로인 채 다시 들어온
+			// 사람에게는 서버가 "이미 보냈다"고 여겨 패킷을 다시 보내지 않고, 클라이언트는
+			// 월드에서 나가며 값을 버렸으므로 그 회차 내내 세트 줄이 영영 안 뜬다.
+			ClientPerkSets.clear();
 			ClientStatSnapshot.clear();
 			DoubleJumpHandler.reset();
 		});

@@ -1,6 +1,7 @@
 package com.sharedfate.perk;
 
 import com.sharedfate.SharedFateMod;
+import com.sharedfate.perk.effect.DamageTakenBlockingEffect;
 import com.sharedfate.perk.effect.DamageTakenFromEffect;
 import com.sharedfate.perk.effect.ShieldFallImmunityEffect;
 import com.sharedfate.team.TeamLookup;
@@ -34,7 +35,8 @@ public final class PerkDamage {
 	/**
 	 * 피해량에 "주는 피해"·"받는 피해" 배율을 반영한다.
 	 *
-	 * @param victim 피해를 받는 대상. 팀원이면 받는 피해 배율이 걸린다.
+	 * @param victim 피해를 받는 대상. 팀원이면 받는 피해 배율이 걸리고, 방패로 막는 중이면
+	 *               {@code damage_taken_blocking} 배율까지 함께 걸린다.
 	 * @param source 피해원. 가해자가 팀원이면 주는 피해 배율이, 몹이면 {@code mob_damage}
 	 *               배율이 걸린다.
 	 * @param amount {@code hurtServer} 가 받은 원래 피해량
@@ -49,7 +51,7 @@ public final class PerkDamage {
 			// 조회 실패가 피해 처리를 막으면 안 된다. 어떤 예외든 원래 값으로 돌아간다.
 			Entity attacker = source == null ? null : source.getEntity();
 			factor = dealtFactor(attacker) * takenFactor(victim) * mobDealtFactor(attacker)
-					* takenSourceFactor(victim, source);
+					* takenSourceFactor(victim, source) * takenBlockingFactor(victim);
 		} catch (RuntimeException error) {
 			warnOnce(error);
 			return amount;
@@ -86,6 +88,9 @@ public final class PerkDamage {
 	 * <p>피해 종류를 가리는 {@code damage_taken_from} 은 들어 있지 않다. 그쪽은 불·폭발·몹처럼
 	 * <b>맞은 것이 무엇이냐에 따라 달라지는</b> 배율이라 한 줄로 적을 수 없고, 종류마다 한
 	 * 줄씩 적으면 능력치 표시가 그 표에 잡아먹힌다. 모든 피해에 공통으로 걸리는 배율만 적는다.
+	 *
+	 * <p>같은 이유로 {@code damage_taken_blocking} 도 빠져 있다. 그쪽은 <b>지금 막는 중이냐에
+	 * 따라 달라지는</b> 값이라 한 줄로 적으면 방패를 내린 순간 거짓말이 된다.
 	 */
 	public static double takenMultiplier(@Nullable ServerPlayer player) {
 		return takenFactor(player);
@@ -117,6 +122,68 @@ public final class PerkDamage {
 		return takenSourceMultiplier(TeamLookup.stateOf(player.getUUID()), source);
 	}
 
+	// ------------------------------------------------------------------ 막는 중일 때의 배율
+
+	/**
+	 * 방패로 막는 중일 때만 걸리는 {@code damage_taken_blocking} 배율을 읽는다.
+	 *
+	 * <p>{@link #takenSourceFactor} 와 같은 구도다. {@link PerkEffect#damageTakenMultiplier()} 에는
+	 * 피해자의 <b>자세가 넘어오지 않기</b> 때문에, 자세를 아는 여기서 따로 훑는다.
+	 *
+	 * <p>자세를 <b>가장 먼저</b> 본다. 막고 있지 않은 피해는 팀 상태를 찾아보지도 않고 곧바로
+	 * 빠져나가므로, 이 효과를 아무도 갖고 있지 않은 서버에서도 피해 경로에 얹히는 비용이 거의
+	 * 없다. {@code isBlocking()} 은 방패를 <b>손에 들고만</b> 있을 때는 거짓이고 실제로
+	 * 우클릭으로 막는 중일 때만 참이다 — {@link #blocksFallDamage} 가 보는 것과 같은 값이다.
+	 */
+	private static double takenBlockingFactor(@Nullable Entity victim) {
+		if (!(victim instanceof ServerPlayer player) || !player.isBlocking() || !perksActive(player)) {
+			return 1.0;
+		}
+		return blockingMultiplier(TeamLookup.stateOf(player.getUUID()), true);
+	}
+
+	/**
+	 * 이 팀이 가진 {@code damage_taken_blocking} 중 지금 자세에 걸리는 것들의 배율을 모두 곱한 값.
+	 *
+	 * <p><b>보유 증강과 세트를 둘 다 훑는다.</b> {@code ownedPerks} 만 훑고 세트를 빠뜨리면 방어
+	 * 2단계가 통째로 무동작이 되는데, 빌드도 통과하고 로그도 남지 않는다.
+	 */
+	static double blockingMultiplier(@Nullable TeamState state, boolean blocking) {
+		if (state == null || !blocking || state.ownedPerks.isEmpty()) {
+			return 1.0;
+		}
+		double total = 1.0;
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
+			if (perk == null) {
+				continue;
+			}
+			total *= blockingMultiplierOf(perk.effects(), blocking);
+		}
+		total *= blockingMultiplierOf(PerkSetEffects.activeEffectsOf(state), blocking);
+		// 배율 0 은 "막는 동안 완전 면역"이라는 뜻이라 그대로 살려 둔다. 음수와 무한대만 물러난다.
+		return Double.isFinite(total) && total >= 0.0 ? total : 1.0;
+	}
+
+	/**
+	 * 효과 목록만 보는 순수 계산.
+	 *
+	 * <p>살아 있는 팀이나 레지스트리 없이 시험할 수 있게 떼어 두었다. 막고 있지 않으면 목록을
+	 * 훑지도 않는다.
+	 */
+	static double blockingMultiplierOf(@Nullable Iterable<PerkEffect> effects, boolean blocking) {
+		if (effects == null || !blocking) {
+			return 1.0;
+		}
+		double total = 1.0;
+		for (PerkEffect effect : effects) {
+			if (effect instanceof DamageTakenBlockingEffect blockingEffect) {
+				total *= blockingEffect.multiplierFor(blocking);
+			}
+		}
+		return total;
+	}
+
 	// ------------------------------------------------------------------ 낙하 피해 면역
 
 	/**
@@ -146,24 +213,55 @@ public final class PerkDamage {
 		}
 	}
 
-	/** 이 팀이 가진 {@code damage_taken_from} 중 이 피해원에 걸리는 것들의 배율을 모두 곱한 값. */
+	/**
+	 * 이 팀이 가진 {@code damage_taken_from} 중 이 피해원에 걸리는 것들의 배율을 모두 곱한 값.
+	 *
+	 * <p><b>보유 증강과 세트를 둘 다 훑는다.</b> 세트에서 이 타입을 쓰는 단계는 아직 없지만,
+	 * 훑는 자리를 한 곳으로 맞춰 두어야 나중에 넣는 사람이 「빌드는 통과하는데 아무 일도 안
+	 * 일어나는」 함정에 빠지지 않는다.
+	 */
 	static double takenSourceMultiplier(@Nullable TeamState state, @Nullable DamageSource source) {
 		if (state == null || source == null || state.ownedPerks.isEmpty()) {
 			return 1.0;
 		}
+		// 「화살막이」의 폭발 피해 ×1.2 가 이 길로 들어온다. 세트 「방어 3단계」를 켠 팀에서는
+		// 그 한 줄만 빠지고 ×0.5 쪽은 그대로 남는다.
+		PerkDrawbacks.Waiver waiver = PerkDrawbacks.waiverFor(state);
 		double total = 1.0;
 		for (String perkId : state.ownedPerks) {
 			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			if (perk == null) {
 				continue;
 			}
-			for (PerkEffect effect : perk.effects()) {
-				if (effect instanceof DamageTakenFromEffect from) {
-					total *= from.multiplierFor(source);
+			total *= takenSourceMultiplierOf(perk.effects(), source, waiver, perk);
+		}
+		// 세트가 건 배율에는 대가가 없다. 걸러 낼 것이 없으므로 판정기를 넘기지 않는다.
+		total *= takenSourceMultiplierOf(PerkSetEffects.activeEffectsOf(state), source, null, null);
+		return Double.isFinite(total) && total > 0.0 ? total : 1.0;
+	}
+
+	/**
+	 * 효과 목록만 보는 순수 계산.
+	 *
+	 * @param waiver 대가를 건너뛸지 판정할 그릇. {@code null} 이면 전부 센다
+	 * @param owner  이 목록을 가진 증강. 판정을 빠르게 하려고 함께 넘긴다
+	 */
+	private static double takenSourceMultiplierOf(@Nullable Iterable<PerkEffect> effects,
+			@Nullable DamageSource source, PerkDrawbacks.@Nullable Waiver waiver,
+			@Nullable Perk owner) {
+		if (effects == null || source == null) {
+			return 1.0;
+		}
+		double total = 1.0;
+		for (PerkEffect effect : effects) {
+			if (effect instanceof DamageTakenFromEffect from) {
+				if (waiver != null && waiver.waives(owner, effect)) {
+					continue;
 				}
+				total *= from.multiplierFor(source);
 			}
 		}
-		return Double.isFinite(total) && total > 0.0 ? total : 1.0;
+		return total;
 	}
 
 	/**

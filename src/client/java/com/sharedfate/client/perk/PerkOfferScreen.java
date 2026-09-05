@@ -6,6 +6,7 @@ import com.sharedfate.net.PerkRerollC2SPayload;
 import com.sharedfate.perk.PerkRarity;
 import com.sharedfate.ui.PerkCardDismiss;
 import com.sharedfate.ui.PerkCardFocus;
+import com.sharedfate.ui.PerkCardMetrics;
 import com.sharedfate.ui.PerkRerollButton;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.ChatFormatting;
@@ -44,9 +45,13 @@ import java.util.Optional;
  *       마감도 없으므로 ESC 로 자유롭게 닫을 수 있다.</li>
  * </ul>
  *
- * <p>카드 한 장은 위에서부터 <b>등급 띠 → 아이템 아이콘 → 이름 → 구분선 → 설명</b> 순서로
- * 쌓인다. 등급색은 띠·테두리·배경 그라데이션에 함께 쓰여서 무엇을 고르는 라운드인지
- * 글자를 읽지 않아도 알 수 있게 한다.
+ * <p>카드 한 장은 위에서부터 <b>등급 띠 → 아이템 아이콘 → 이름 → 세트 유형 → 구분선 →
+ * 설명</b> 순서로 쌓인다. 등급색은 띠·테두리·배경 그라데이션에 함께 쓰여서 무엇을 고르는
+ * 라운드인지 글자를 읽지 않아도 알 수 있게 한다.
+ *
+ * <p>세트 유형 줄은 어느 유형에도 안 들어가는 증강에는 아예 없다. 그 줄이 늘어나면
+ * {@link PerkCardMetrics} 가 재는 카드 높이도 함께 늘어야 한다 — 카드 안쪽은 잘려 그려지므로
+ * 높이를 덜 세면 설명 마지막 줄이 소리 없이 사라진다.
  */
 public class PerkOfferScreen extends Screen {
 	private static final int COLOR_SILVER = 0xFFC0C6CC;
@@ -123,6 +128,32 @@ public class PerkOfferScreen extends Screen {
 	private static final int CARD_PADDING = 6;
 	/** 이름과 설명 사이 구분선이 차지하는 세로 공간(위 여백 3 + 선 1 + 아래 여백 4). */
 	private static final int SEPARATOR_BLOCK_HEIGHT = 8;
+	/**
+	 * 이름과 세트 유형 줄 사이의 틈.
+	 *
+	 * <p>유형이 없는 카드에는 이 틈도 없다. {@code Card.height} 가 같은 조건으로 더하므로
+	 * <b>둘 중 한쪽만 고치면 카드가 짧아져 설명 마지막 줄이 잘린다.</b>
+	 */
+	private static final int SET_TYPE_GAP = 2;
+	/**
+	 * 세트 유형 줄의 글자색.
+	 *
+	 * <p>이름보다 흐리고 설명과는 같다. 이름 아래에 이름만큼 밝은 줄이 또 있으면 어느 쪽이
+	 * 증강 이름인지 한눈에 안 갈린다.
+	 */
+	private static final int TEXT_SET_TYPE = 0xFF8FB8C8;
+
+	/**
+	 * 카드 높이 계산에 넘길 치수.
+	 *
+	 * <p>계산 자체는 {@link PerkCardMetrics} 에 있다. 여기서 상수만 모아 넘기는 이유는 그 계산을
+	 * 게임 없이 시험하기 위해서다 — 이 화면은 {@code src/client} 에 있어 시험 소스셋이 보지
+	 * 못한다.
+	 */
+	private static PerkCardMetrics metrics(int lineHeight) {
+		return new PerkCardMetrics(BAND_HEIGHT, ICON_GAP_TOP, ICON_GAP_BOTTOM, SET_TYPE_GAP,
+				SEPARATOR_BLOCK_HEIGHT, CARD_PADDING, lineHeight);
+	}
 
 	/** 카드 맨 위 등급 띠의 높이. */
 	private static final int BAND_HEIGHT = 11;
@@ -668,6 +699,15 @@ public class PerkOfferScreen extends Screen {
 			graphics.centeredText(this.font, line, textCenterX, y, TEXT_MAIN);
 			y += this.font.lineHeight;
 		}
+		// 세트 유형. 이름 바로 아래, 구분선 위다 — 「이 증강이 무엇에 속하는가」는 이름의 일부처럼
+		// 읽혀야지 설명에 섞이면 안 된다. 유형이 없는 증강(열여섯 개)에는 이 자리가 아예 없다.
+		if (!card.setTypeLines().isEmpty()) {
+			y += SET_TYPE_GAP;
+			for (FormattedCharSequence line : card.setTypeLines()) {
+				graphics.centeredText(this.font, line, textCenterX, y, TEXT_SET_TYPE);
+				y += this.font.lineHeight;
+			}
+		}
 		y += 3;
 		graphics.fill(left + CARD_PADDING, y, right - CARD_PADDING, y + 1, SEPARATOR);
 		y += 5;
@@ -1046,6 +1086,7 @@ public class PerkOfferScreen extends Screen {
 
 	/** 화면 폭이 정해진 뒤 한 번 계산해 두는 카드 한 장의 표시 내용. */
 	private record Card(List<FormattedCharSequence> nameLines,
+			List<FormattedCharSequence> setTypeLines,
 			Component rarityLabel,
 			PerkRarity rarity,
 			int rarityColor,
@@ -1059,8 +1100,15 @@ public class PerkOfferScreen extends Screen {
 			// 이름은 굵게 해서 설명과 무게를 벌린다. 굵으면 폭도 늘어나므로 줄바꿈도 굵은 채로 잰다.
 			Component name = Component.literal(text(option.name()))
 					.withStyle(ChatFormatting.BOLD);
+			// 유형이 여럿이면 서버가 이미 「무기·화력」처럼 이어 붙여 보낸다. 좁은 카드에서는
+			// 그 한 줄도 넘칠 수 있으므로 이름·설명과 똑같이 폭에 맞춰 접는다.
+			String setTypes = text(option.setTypes());
+			List<FormattedCharSequence> setTypeLines = setTypes.isEmpty()
+					? List.of()
+					: font.split(Component.literal(setTypes), innerWidth);
 			return new Card(
 					font.split(name, innerWidth),
+					setTypeLines,
 					Component.literal(PerkOfferScreen.rarityLabel(rarity)),
 					rarity,
 					PerkOfferScreen.rarityColor(rarity),
@@ -1068,12 +1116,17 @@ public class PerkOfferScreen extends Screen {
 					font.split(Component.literal(text(option.description())), innerWidth));
 		}
 
-		/** 아이콘을 {@code iconSize} 로 그린다고 할 때 이 카드가 필요로 하는 세로 길이. */
+		/**
+		 * 아이콘을 {@code iconSize} 로 그린다고 할 때 이 카드가 필요로 하는 세로 길이.
+		 *
+		 * <p><b>{@code renderCard} 가 그리는 것을 하나도 빠짐없이 세야 한다.</b> 여기서 덜 세면
+		 * 카드가 그만큼 짧아지고, 카드 안쪽은 {@code enableScissor} 로 잘리므로 <b>설명 마지막
+		 * 줄이 소리 없이 사라진다.</b> 세트 유형 줄과 그 위의 틈이 그 자리다.
+		 */
 		int height(Font font, int iconSize) {
-			int lines = nameLines.size() + descriptionLines.size();
-			int iconBlock = iconSize > 0 ? iconSize + ICON_GAP_BOTTOM : 0;
-			return BAND_HEIGHT + ICON_GAP_TOP + iconBlock
-					+ lines * font.lineHeight + SEPARATOR_BLOCK_HEIGHT + CARD_PADDING;
+			return metrics(font.lineHeight)
+					.height(iconSize, nameLines.size(), setTypeLines.size(),
+							descriptionLines.size());
 		}
 
 		private static String text(String value) {
