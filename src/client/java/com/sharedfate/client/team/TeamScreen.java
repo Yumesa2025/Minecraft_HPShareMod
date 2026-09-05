@@ -2,11 +2,14 @@ package com.sharedfate.client.team;
 
 import com.sharedfate.client.ClientStatRows;
 import com.sharedfate.client.ClientTeamState;
+import com.sharedfate.client.perk.ClientPerkSets;
 import com.sharedfate.client.perk.PerkClientState;
 import com.sharedfate.net.PerkSyncPayload;
 import com.sharedfate.team.TeamCreationSettings;
 import com.sharedfate.ui.GameStartButton;
 import com.sharedfate.ui.PanelScroll;
+import com.sharedfate.ui.PerkSetLines;
+import com.sharedfate.ui.PerkSetTooltip;
 import com.sharedfate.ui.StatRow;
 import com.sharedfate.ui.TeamNameInput;
 import com.sharedfate.ui.TeamCreationCycle;
@@ -32,6 +35,10 @@ import java.util.UUID;
  *
  * <p>탭 넷으로 나뉜다. <b>현황</b>은 누구나, <b>팀</b>은 만들기·초대·탈퇴, <b>설정</b>은 리더만,
  * <b>증강</b>은 지금 보유한 증강을 보여 준다.
+ *
+ * <p>「증강」 탭은 위에서부터 <b>머리글 → 세트 → 증강 목록</b> 순서다. 세트 줄에 마우스를
+ * 올리면 그 유형에서 <b>아직 안 가진 증강</b>이 툴팁으로 뜬다 — 클라이언트는 증강 풀을 읽지
+ * 않으므로 그 목록도 서버가 보내 준 것이다({@code PerkSetSyncPayload}).
  *
  * <h2>왜 새 패킷을 만들지 않았나</h2>
  * <p>이 화면이 하는 일은 전부 이미 있는 {@code /shareteam ...} 명령으로 표현된다. 그래서 단추를
@@ -80,6 +87,18 @@ public class TeamScreen extends Screen {
 	private static final int PERK_LIST_BOTTOM_WITH_BUTTON = 58;
 	/** 단추가 없을 때 비워 둘 자리. 판 바닥(height − 32)과 닫기 단추를 침범하지 않는 값이다. */
 	private static final int PERK_LIST_BOTTOM_PLAIN = 36;
+
+	/**
+	 * 세트 줄을 몇 줄까지 보여 줄지.
+	 *
+	 * <p>한 줄이 늘 때마다 아래 증강 목록이 그만큼 좁아진다. 한 회차에 고르는 증강이 여덟 개
+	 * 남짓이라 유형이 여섯 가지를 넘게 흩어지는 일은 드물고, 그렇게까지 흩어졌다면 어차피
+	 * 켜진 세트가 없어 급히 볼 줄도 없다. 잘릴 때 없어지는 것은 가장 덜 모은 유형이다
+	 * ({@link PerkSetLines#visible}).
+	 */
+	private static final int MAX_SET_ROWS = 6;
+	/** 세트 덩어리와 그 아래 증강 목록 사이의 틈. */
+	private static final int SET_BLOCK_GAP = 4;
 
 	/** 팀 이름 길이 상한. 서버의 {@code MAX_TEAM_NAME_LENGTH} 와 같아야 한다. */
 	private static final int MAX_TEAM_NAME_LENGTH = 32;
@@ -132,6 +151,14 @@ public class TeamScreen extends Screen {
 	 * 한다. 매 프레임 다시 접으면 증강이 늘어날수록 그리기가 무거워진다.
 	 */
 	private final List<PerkLine> perkLines = new ArrayList<>();
+	/**
+	 * 증강 목록 위에 그릴 세트 줄들.
+	 *
+	 * <p>{@link #layoutPerkList()} 에서 한 번 정하고 그 프레임 내내 쓴다. <b>그리기와 자리
+	 * 계산이 같은 목록을 봐야</b> 한다 — {@link #perkListTop()} 이 이 목록의 길이만큼 아래로
+	 * 내려가는데, 그리는 쪽이 다른 길이를 쓰면 세트가 증강 목록 위에 겹쳐 찍힌다.
+	 */
+	private List<PerkSetLines.Line> setLines = List.of();
 	/** 증강 목록 전체의 세로 길이(px). 스크롤 범위의 분모다. */
 	private int perkContentHeight;
 	/** 증강 목록이 보이는 창의 세로 길이(px). */
@@ -476,6 +503,9 @@ public class TeamScreen extends Screen {
 	 */
 	private void layoutPerkList() {
 		perkLines.clear();
+		// 세트 줄을 먼저 정한다. perkListTop() 이 이 목록의 길이를 보고 자리를 내리기 때문에
+		// 순서가 바뀌면 첫 프레임이 옛 길이로 계산된다.
+		setLines = ClientPerkSets.lines(MAX_SET_ROWS);
 		int top = perkListTop();
 		perkViewHeight = Math.max(ROW_HEIGHT, perkListBottom() - top);
 
@@ -502,9 +532,23 @@ public class TeamScreen extends Screen {
 		perkScroll = PanelScroll.clamp(perkScroll, perkContentHeight, perkViewHeight);
 	}
 
-	/** 증강 목록이 시작하는 y. 「보유 증강 N개」 머리글 바로 아래다. */
-	private int perkListTop() {
+	/** 세트 덩어리가 시작하는 y. 「보유 증강 N개」 머리글 바로 아래다. */
+	private int setBlockTop() {
 		return PANEL_TOP + ROW_HEIGHT + 2;
+	}
+
+	/**
+	 * 증강 목록이 시작하는 y. 세트 덩어리 바로 아래다.
+	 *
+	 * <p><b>이 한 줄이 스크롤 계산과 잘라내기 양쪽의 단일 진실원이다.</b> 세트 줄이 늘어 목록이
+	 * 내려가야 할 때 여기만 고치면 {@code perkViewHeight}·{@code perkContentHeight}·
+	 * {@code enableScissor} 가 전부 따라온다. 그리는 쪽에서 y 를 직접 더하면 스크롤이 여전히
+	 * 옛 자리를 기준으로 삼아, 맨 아래 증강이 창 밖에 남아 영영 안 보인다.
+	 *
+	 * <p>세트가 하나도 없으면 {@link PerkSetLines#blockHeight} 가 0 이라 예전과 같은 자리다.
+	 */
+	private int perkListTop() {
+		return setBlockTop() + PerkSetLines.blockHeight(setLines.size(), ROW_HEIGHT, SET_BLOCK_GAP);
 	}
 
 	/** 증강 목록이 끝나는 y. 아래 단추와 판 바닥을 침범하지 않는다. */
@@ -532,7 +576,9 @@ public class TeamScreen extends Screen {
 			case STATUS -> renderStatus(graphics, left);
 			case TEAM -> renderTeam(graphics, left);
 			case SETTINGS -> renderSettings(graphics, left);
-			case PERKS -> renderPerks(graphics, left);
+			// 세트 줄에 마우스를 올리면 툴팁이 뜬다. 그 판정에 마우스 자리가 필요해서 여기만
+			// 좌표를 함께 넘긴다.
+			case PERKS -> renderPerks(graphics, left, mouseX, mouseY);
 			case STATS -> renderStats(graphics, left);
 		}
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
@@ -753,7 +799,7 @@ public class TeamScreen extends Screen {
 		return y;
 	}
 
-	private void renderPerks(GuiGraphicsExtractor graphics, int left) {
+	private void renderPerks(GuiGraphicsExtractor graphics, int left, int mouseX, int mouseY) {
 		int y = PANEL_TOP;
 		if (!ClientTeamState.inTeam()) {
 			graphics.text(this.font, "팀이 있어야 증강을 봅니다.", left, y, TEXT_DIM);
@@ -772,6 +818,8 @@ public class TeamScreen extends Screen {
 		graphics.text(this.font, "보유 증강 " + owned.size() + "개"
 				+ (overflows ? "  (휠로 넘겨 보세요)" : ""), left, y, TEXT_MAIN);
 
+		renderSets(graphics, left);
+
 		// 창 밖으로 나가는 줄이 그려지지 않게 자른다. 자르지 않으면 스크롤한 목록이 머리글과
 		// 아래 단추를 덮어쓴다.
 		int top = perkListTop();
@@ -789,6 +837,76 @@ public class TeamScreen extends Screen {
 		if (overflows) {
 			renderPerkScrollBar(graphics, left, top);
 		}
+
+		// 툴팁은 맨 마지막이다. 잘라내기가 풀린 뒤라야 목록 창 밖까지 뻗을 수 있다.
+		renderSetTooltip(graphics, left, mouseX, mouseY);
+	}
+
+	/**
+	 * 머리글과 증강 목록 사이의 세트 덩어리.
+	 *
+	 * <p>켜진 세트와 진행도를 함께 보여 준다. 무엇을 몇 줄이나 어떤 차례로 그릴지는
+	 * {@link PerkSetLines} 가 정하고, 여기서는 색만 고른다 — HUD 와 같은 계산을 써야 두 화면이
+	 * 다른 말을 하지 않는다.
+	 */
+	private void renderSets(GuiGraphicsExtractor graphics, int left) {
+		int y = setBlockTop();
+		for (PerkSetLines.Line line : setLines) {
+			graphics.text(this.font, line.text(), left, y,
+					line.active() ? TEXT_GOOD : TEXT_DIM);
+			y += ROW_HEIGHT;
+		}
+	}
+
+	/**
+	 * 세트 줄에 마우스를 올렸을 때 「아직 없는 것」을 띄운다.
+	 *
+	 * <p>클라이언트는 증강 풀을 읽지 않으므로 이 목록은 통째로 서버가 보내 준 것이다
+	 * ({@code PerkSetSyncPayload.catalog}). 등급은 글자색으로 가른다 — 「(골드)」처럼 괄호로
+	 * 적으면 이름보다 등급이 길어져 무엇을 노려야 할지가 되레 안 읽힌다.
+	 *
+	 * <p>목록이 길면 자른다. 채굴에는 증강이 열 개 있어 툴팁이 팀 화면 절반을 덮을 수 있다.
+	 * 자를 때는 「… 외 N개」를 반드시 붙인다 — 말없이 자르면 「이게 전부구나」로 읽힌다.
+	 */
+	private void renderSetTooltip(GuiGraphicsExtractor graphics, int left, int mouseX, int mouseY) {
+		if (setLines.isEmpty()) {
+			return;
+		}
+		// 마우스를 받는 가로 폭은 글자 폭이다. 판 오른쪽 빈자리까지 받으면 마우스를 어디에
+		// 두어도 툴팁이 떠 다른 것을 읽을 수 없다.
+		int width = PerkSetLines.blockWidth(setLines, this.font::width, 0);
+		int row = PerkSetLines.rowAt(mouseX, mouseY, left, width, setBlockTop(), ROW_HEIGHT,
+				setLines.size());
+		if (row < 0) {
+			return;
+		}
+		PerkSetLines.Line line = setLines.get(row);
+		List<PerkSetTooltip.Missing> missing = ClientPerkSets.missing(line.typeId());
+		PerkSetTooltip.Trimmed trimmed = PerkSetTooltip.trim(missing, PerkSetTooltip.MAX_ROWS);
+
+		List<Component> tooltip = new ArrayList<>();
+		tooltip.add(Component.literal(
+				PerkSetTooltip.header(ClientPerkSets.displayName(line.typeId()), missing.size()))
+				.withColor(rgb(TEXT_MAIN)));
+		for (PerkSetTooltip.Missing entry : trimmed.shown()) {
+			tooltip.add(Component.literal("· " + entry.perkName())
+					.withColor(rgb(rarityColor(entry.rarity()))));
+		}
+		if (trimmed.truncated()) {
+			tooltip.add(Component.literal(PerkSetTooltip.overflowLine(trimmed.hidden()))
+					.withColor(rgb(TEXT_DIM)));
+		}
+		graphics.setComponentTooltipForNextFrame(this.font, tooltip, mouseX, mouseY);
+	}
+
+	/**
+	 * 0xAARRGGBB 색에서 알파를 뗀다.
+	 *
+	 * <p>{@code MutableComponent.withColor} 는 24비트 색만 받는다. 알파를 남긴 채 넘기면
+	 * 상위 바이트가 색값에 섞여 <b>등급색이 엉뚱한 색으로 뜬다.</b>
+	 */
+	private static int rgb(int argb) {
+		return argb & 0xFFFFFF;
 	}
 
 	/** 목록 오른쪽의 스크롤 막대. 지금 어디쯤을 보고 있는지만 알려 준다. */
@@ -895,6 +1013,9 @@ public class TeamScreen extends Screen {
 				+ "|" + ClientTeamState.maxHealth() + "|" + PerkClientState.hasPending()
 				// 증강이 늘면 목록을 다시 접어야 한다. init() 이 그 일을 한다.
 				+ "|" + PerkClientState.owned().size()
+				// 세트가 켜지거나 진행도가 오르면 줄의 글자가 바뀌고, 줄 수가 바뀌면 아래
+				// 증강 목록이 통째로 내려간다. 여기 안 넣으면 세트가 켜져도 화면이 그대로다.
+				+ "|" + ClientPerkSets.signature()
 				+ "|" + newTeamPerks + newTeamDamageAlert + newTeamDeathAlert + newTeamDifficulty
 				+ "|" + newTeamMaxHealth + "," + newTeamSwapMinutes + "," + newTeamRerollCount
 				+ "|" + invitableNames();

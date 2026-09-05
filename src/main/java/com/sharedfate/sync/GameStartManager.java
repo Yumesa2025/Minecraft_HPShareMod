@@ -414,6 +414,9 @@ public final class GameStartManager {
 		state.lastPerkMilestone = 0;
 		state.pending.clear();
 		state.rerollsRemaining = state.rerollAllowance;
+		// 세트로 받은 다시 뽑기 몫도 회차와 함께 사라진다. 여기서 0 으로 되돌리지 않으면
+		// 「이미 5회를 줬다」는 기록만 남아, 새 회차에 도박 세트를 다시 모아도 한 번도 못 받는다.
+		state.rerollSetBonus = 0;
 		// 프리즘 한도도 회차 안에서만 뜻이 있는 값이다. 여기서 0 으로 되돌리지 않으면 지난
 		// 회차에 프리즘를 두 번 받은 팀이 새 회차 내내 확률 프리즘를 한 번도 못 본다.
 		state.extraPrismRounds = 0;

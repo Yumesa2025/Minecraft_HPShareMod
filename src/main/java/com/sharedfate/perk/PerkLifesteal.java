@@ -2,6 +2,7 @@ package com.sharedfate.perk;
 
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.effect.LifestealEffect;
+import com.sharedfate.perk.effect.LifestealEfficiencyEffect;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
@@ -16,6 +17,10 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>{@link LifestealEffect} 는 "준 피해의 몇 할인가"만 들고 있고, "누가 누구에게 얼마를
  * 입혔는가"와 그 회복을 어디에 넣는가는 전부 여기서 정한다.
+ *
+ * <p>흡혈률을 모으는 규칙은 두 단계다. {@code lifesteal} 은 <b>더하고</b>,
+ * {@link LifestealEfficiencyEffect}({@code lifesteal_efficiency})는 그 총합에 <b>곱한다.</b>
+ * 계산은 {@link #totalFraction} 한 곳에만 있다.
  *
  * <h2>어떤 피해가 세어지는가</h2>
  * <ul>
@@ -113,24 +118,22 @@ public final class PerkLifesteal {
 	 *
 	 * <p>같은 팀이 {@code lifesteal} 증강을 여러 개 가졌으면 비율을 전부 더한다. 서로 다른
 	 * 증강이 각각 약속한 회복이라 하나만 골라 줄 이유가 없다.
+	 *
+	 * <h2>더한 뒤에 곱한다</h2>
+	 * <p>{@code lifesteal} 은 <b>더하고</b>, {@code lifesteal_efficiency} 는 그렇게 모인 총합에
+	 * <b>곱한다.</b> 순서가 이래야 「효율 +30%」가 뜻대로 산다 — 5% 에 1.3 을 곱하면 6.5% 이고,
+	 * 여기에 0.3 을 <b>더해</b> 35% 로 만들면 완전히 다른 것이 된다. 자세한 사정은
+	 * {@link LifestealEfficiencyEffect} 에 적어 뒀다.
+	 *
+	 * <p>{@link #totalFraction} 이 그 두 단계를 한 번의 순회로 모으고, 여기서는 그 결과에 피해를
+	 * 곱해 상한만 씌운다.
 	 */
 	public static float healingFor(@Nullable TeamState state, float damageDealt) {
 		if (state == null || state.ownedPerks.isEmpty()
 				|| !(damageDealt > 0.0F) || !Float.isFinite(damageDealt)) {
 			return 0.0F;
 		}
-		double fraction = 0.0;
-		for (String perkId : state.ownedPerks) {
-			Perk perk = PerkRegistry.byId(perkId).orElse(null);
-			if (perk == null) {
-				continue;
-			}
-			for (PerkEffect effect : perk.effects()) {
-				if (effect instanceof LifestealEffect lifesteal) {
-					fraction += lifesteal.fractionFor();
-				}
-			}
-		}
+		double fraction = totalFraction(state);
 		if (!(fraction > 0.0)) {
 			return 0.0F;
 		}
@@ -139,6 +142,55 @@ public final class PerkLifesteal {
 			return MAX_HEAL_PER_HIT;
 		}
 		return (float) Math.min(MAX_HEAL_PER_HIT, healing);
+	}
+
+	/**
+	 * 이 팀에 지금 걸려 있는 <b>최종 흡혈률</b>. 준 피해에 이 값을 곱하면 회복량이다.
+	 *
+	 * <p>보유 증강과 켜져 있는 세트 단계를 한 번씩 훑어 {@code lifesteal} 은 더하고
+	 * {@code lifesteal_efficiency} 는 곱해 둔 뒤, 마지막에 한 번만 곱한다.
+	 *
+	 * <p>화력 3·4단계가 <b>둘 다</b> 켜져 있으면 두 단계의 {@code lifesteal} 이 모두 더해진다.
+	 * 세트 단계는 누적이라 높은 단계 하나만 남는 것이 아니기 때문이다({@link PerkSets}). 그래서
+	 * 4단계 「흡혈이 5% → 15%」는 <b>3단계를 대체하는 15% 가 아니라 3단계 위에 얹는 +10%</b> 로
+	 * 적혀 있다. 0.05 + 0.10 = 0.15 다.
+	 */
+	public static double totalFraction(@Nullable TeamState state) {
+		if (state == null || state.ownedPerks.isEmpty()) {
+			return 0.0;
+		}
+		double fraction = 0.0;
+		double efficiency = 1.0;
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
+			if (perk == null) {
+				continue;
+			}
+			for (PerkEffect effect : perk.effects()) {
+				if (effect instanceof LifestealEffect lifesteal) {
+					fraction += lifesteal.fractionFor();
+				} else if (effect instanceof LifestealEfficiencyEffect boost) {
+					efficiency *= boost.multiplierFor();
+				}
+			}
+		}
+		// 세트가 준 것도 같은 규칙으로 모은다. 화력 3·4단계와 회복 3단계가 이 길을 탄다.
+		for (PerkEffect effect : PerkSetEffects.activeEffectsOf(state)) {
+			if (effect instanceof LifestealEffect lifesteal) {
+				fraction += lifesteal.fractionFor();
+			} else if (effect instanceof LifestealEfficiencyEffect boost) {
+				efficiency *= boost.multiplierFor();
+			}
+		}
+		if (!(fraction > 0.0)) {
+			// 흡혈이 없으면 효율만 있어도 0 이다. 곱셈 단계라 그것이 옳다.
+			return 0.0;
+		}
+		if (!Double.isFinite(efficiency)) {
+			efficiency = 1.0;
+		}
+		double total = fraction * efficiency;
+		return Double.isFinite(total) ? Math.max(0.0, total) : fraction;
 	}
 
 	/**

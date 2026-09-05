@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.effect.OnKillEffect;
 import com.sharedfate.perk.effect.StatusEffectPerk;
+import com.sharedfate.team.TeamLookup;
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffect;
@@ -120,6 +121,10 @@ public final class TemporaryPerkGrants {
 			if (effect == null) {
 				return null;
 			}
+			// 하위 효과에 붙은 {@code drawback} 표시를 여기서 읽는다. 「동병상련」처럼 발동 자체는
+			// 이득이고 하위 하나만 대가인 정의가 있어서, 부모가 아니라 하위에 붙여야 뜻이 맞다.
+			// 실제로 건너뛰는 자리는 {@link #grant} 다.
+			PerkDrawbacks.mark(perkId, childJson, effect);
 			effects.add(effect);
 		}
 		return new Window(durationTicks, effects);
@@ -129,12 +134,23 @@ public final class TemporaryPerkGrants {
 	 * 한 사람에게 이 창을 얹는다.
 	 *
 	 * <p>하위 효과 하나가 실패해도 나머지는 계속 얹는다.
+	 *
+	 * <p><b>대가로 표시된 하위 효과는 세트 「방어 3단계」를 켠 팀에서 얹지 않는다.</b> 창에 대가가
+	 * 하나도 없으면 팀 상태를 찾아보지도 않으므로, 그런 정의가 없는 서버에는 아무 부담도 얹히지
+	 * 않는다. 걷어내는 쪽({@link #revoke})은 가리지 않는다 — 걸려 있지도 않은 것을 걷어내는 일은
+	 * 언제나 안전하고, 세트가 켜지기 <b>전에</b> 얹힌 것이 남아 있을 수 있기 때문이다.
 	 */
 	public static void grant(@Nullable ServerPlayer player, @Nullable Window window) {
 		if (player == null || window == null) {
 			return;
 		}
+		PerkDrawbacks.Waiver waiver = PerkDrawbacks.anyDrawback(window.effects())
+				? PerkDrawbacks.waiverFor(TeamLookup.stateOf(player.getUUID()))
+				: null;
 		for (PerkEffect effect : window.effects()) {
+			if (waiver != null && waiver.waives(null, effect)) {
+				continue;
+			}
 			try {
 				grantOne(player, effect, window.durationTicks());
 			} catch (RuntimeException error) {

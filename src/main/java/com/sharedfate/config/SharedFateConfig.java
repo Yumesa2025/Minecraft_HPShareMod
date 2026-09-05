@@ -108,6 +108,24 @@ public class SharedFateConfig {
 	 * {@link com.sharedfate.command.PerkTestCommand} 에 적어 뒀다.
 	 */
 	public boolean perkTestCommands = false;
+	/**
+	 * 적대 몹 스폰율을 바꾸는 증강({@code mob_spawn_rate})을 실제로 걸지.
+	 *
+	 * <p><b>기본값은 켜짐.</b> 끄면 그 효과를 가진 증강을 보유하고 있어도 배율이 1.0 으로
+	 * 고정되어 자연 스폰이 바닐라 그대로가 된다. 증강 자체가 사라지지는 않으므로 증강 목록과
+	 * 설명은 그대로 보인다.
+	 *
+	 * <p>이 항목이 필요한 까닭은 <b>성능</b>이다. 이 효과만은 몹 하나에 수정자를 붙이는 것이
+	 * 아니라 매 틱 도는 스폰 경로를 배율만큼 더 돌게 한다. 인원이 많거나 사양이 낮은 서버에서
+	 * 틱이 밀리면 다른 것을 건드리지 않고 이 한 줄로 끌 수 있어야 한다.
+	 *
+	 * <p>거는 자리는 {@code NaturalSpawnerRateMixin} 이고 규칙 자체는
+	 * {@link com.sharedfate.perk.MobPerkModifiers#spawnRateOf} 에 적어 뒀다.
+	 *
+	 * <p>참·거짓뿐이라 {@link #sanitize} 가 되돌릴 「범위를 벗어난 값」이 없다. 설정 파일에
+	 * 이 줄이 없으면 Gson 이 밭을 건드리지 않으므로 여기 적힌 기본값 {@code true} 가 남는다.
+	 */
+	public boolean mobSpawnRatePerks = true;
 
 	public static SharedFateConfig loadOrCreate(Path file) {
 		if (Files.exists(file)) {

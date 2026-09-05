@@ -22,6 +22,13 @@ import org.jetbrains.annotations.Nullable;
  *       쉬운 값이라 기본값으로 두지 않는다.</li>
  * </ul>
  *
+ * <h2>「무기 조건 없음」은 여기가 아니라 {@link AlwaysLootingEffect} 다</h2>
+ * <p>{@code items}/{@code tags} 를 강제하는 것은 <b>의도된 안전장치</b>라 「조건 없음」 스위치를
+ * 여기 달지 않는다. 무엇을 들었든 언제나 걸려야 하는 자리(세트 보상 같은 것)는
+ * {@code always_looting} 을 쓴다. 겹쳤을 때의 규칙도 서로 다르다 — 이쪽은 <b>더하고</b>,
+ * 그쪽은 <b>가장 높은 하나만</b> 센다. 자세한 것은 {@link com.sharedfate.perk.PerkLootRules} 에
+ * 적어 뒀다.
+ *
  * <h2>바닐라 약탈에 더한다, 덮어쓰지 않는다</h2>
  * <p>약탈 III 이 붙은 다이아 호미를 들었으면 결과는 3 + {@code levels} 다. 인챈트를 무의미하게
  * 만들지 않으려는 것이고, {@code max_health_bonus} 가 팀 상한에 <b>더하는</b> 것과 같은 규칙이다.

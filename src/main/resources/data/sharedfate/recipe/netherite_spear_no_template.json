@@ -1,0 +1,8 @@
+{
+  "type": "minecraft:smithing_transform",
+  "base": "minecraft:diamond_spear",
+  "addition": "#minecraft:netherite_tool_materials",
+  "result": {
+    "id": "minecraft:netherite_spear"
+  }
+}

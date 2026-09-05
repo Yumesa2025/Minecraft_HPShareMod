@@ -9,9 +9,12 @@ import com.sharedfate.perk.effect.AttributeEffect;
 import com.sharedfate.perk.effect.BonusDropEffect;
 import com.sharedfate.perk.effect.ConditionalEffect;
 import com.sharedfate.perk.effect.CustomEffect;
+import com.sharedfate.perk.effect.ExperienceBonusEffect;
 import com.sharedfate.perk.effect.DamageDealtEffect;
 import com.sharedfate.perk.effect.DamageTakenEffect;
+import com.sharedfate.perk.effect.DamageTakenBlockingEffect;
 import com.sharedfate.perk.effect.DamageTakenFromEffect;
+import com.sharedfate.perk.effect.HungerOnDamageEffect;
 import com.sharedfate.perk.effect.CompassTargetEffect;
 import com.sharedfate.perk.effect.NoSleepEffect;
 import com.sharedfate.perk.effect.TimeLockEffect;
@@ -23,9 +26,14 @@ import com.sharedfate.perk.effect.ItemBanEffect;
 import com.sharedfate.perk.effect.ItemGrantEffect;
 import com.sharedfate.perk.effect.GamblerEffect;
 import com.sharedfate.perk.effect.LegacyGearEffect;
+import com.sharedfate.perk.effect.FoodHealEffect;
 import com.sharedfate.perk.effect.LifestealEffect;
+import com.sharedfate.perk.effect.LifestealEfficiencyEffect;
+import com.sharedfate.perk.effect.AlwaysLootingEffect;
 import com.sharedfate.perk.effect.LootBonusEffect;
 import com.sharedfate.perk.effect.PairedMiningEffect;
+import com.sharedfate.perk.effect.SameKindMiningEffect;
+import com.sharedfate.perk.effect.SupplyDropEffect;
 import com.sharedfate.perk.effect.HolderEffect;
 import com.sharedfate.perk.effect.MaxHealthBonusEffect;
 import com.sharedfate.perk.effect.MaxHealthLockEffect;
@@ -57,12 +65,16 @@ import com.sharedfate.perk.effect.SwapExplosionEffect;
 import com.sharedfate.perk.effect.PeriodicEffect;
 import com.sharedfate.perk.effect.StatusEffectPerk;
 import com.sharedfate.perk.effect.WeaponDamageEffect;
+import com.sharedfate.perk.effect.ExtraRerollsEffect;
 import com.sharedfate.perk.effect.NoSilverOffersEffect;
+import com.sharedfate.perk.effect.NoDefenseDrawbacksEffect;
+import com.sharedfate.perk.effect.PrismRerollEffect;
 import com.sharedfate.perk.effect.LuckyOreEffect;
 import com.sharedfate.perk.effect.ToolMismatchSlowEffect;
 import com.sharedfate.perk.effect.ShieldFallImmunityEffect;
 import com.sharedfate.perk.effect.DiamondSundialEffect;
 import com.sharedfate.perk.effect.EnchantCostEffect;
+import com.sharedfate.perk.effect.MobSpawnRateEffect;
 import com.sharedfate.perk.effect.MobSpeedEffect;
 import org.jetbrains.annotations.Nullable;
 
@@ -87,6 +99,7 @@ public enum PerkEffectType {
 	MOB_HEALTH("mob_health", MobHealthEffect::fromJson),
 	MOB_DAMAGE("mob_damage", MobDamageEffect::fromJson),
 	MOB_SPEED("mob_speed", MobSpeedEffect::fromJson),
+	MOB_SPAWN_RATE("mob_spawn_rate", MobSpawnRateEffect::fromJson),
 	CONDITIONAL("conditional", ConditionalEffect::fromJson),
 	PERIODIC("periodic", PeriodicEffect::fromJson),
 	ON_KILL("on_kill", OnKillEffect::fromJson),
@@ -113,9 +126,13 @@ public enum PerkEffectType {
 	PROXIMITY("proximity", ProximityEffect::fromJson),
 	ON_CRITICAL("on_critical", OnCriticalEffect::fromJson),
 	LIFESTEAL("lifesteal", LifestealEffect::fromJson),
+	LIFESTEAL_EFFICIENCY("lifesteal_efficiency", LifestealEfficiencyEffect::fromJson),
+	FOOD_HEAL("food_heal", FoodHealEffect::fromJson),
 	HOLDER("holder", HolderEffect::fromJson),
 	NO_NATURAL_REGEN("no_natural_regen", NoNaturalRegenEffect::fromJson),
 	DAMAGE_TAKEN_FROM("damage_taken_from", DamageTakenFromEffect::fromJson),
+	DAMAGE_TAKEN_BLOCKING("damage_taken_blocking", DamageTakenBlockingEffect::fromJson),
+	HUNGER_ON_DAMAGE("hunger_on_damage", HungerOnDamageEffect::fromJson),
 	NO_SLEEP("no_sleep", NoSleepEffect::fromJson),
 	TIME_LOCK("time_lock", TimeLockEffect::fromJson),
 	COMPASS_TARGET("compass_target", CompassTargetEffect::fromJson),
@@ -126,18 +143,25 @@ public enum PerkEffectType {
 	HIDE_HUD("hide_hud", HideHudEffect::fromJson),
 	WEAPON_DAMAGE("weapon_damage", WeaponDamageEffect::fromJson),
 	LOOT_BONUS("loot_bonus", LootBonusEffect::fromJson),
+	ALWAYS_LOOTING("always_looting", AlwaysLootingEffect::fromJson),
 	ECHO_MINING("echo_mining", EchoMiningEffect::fromJson),
 	PAIRED_MINING("paired_mining", PairedMiningEffect::fromJson),
+	SAME_KIND_MINING("same_kind_mining", SameKindMiningEffect::fromJson),
 	RARITY_GRANT("rarity_grant", RarityGrantEffect::fromJson),
 	RARITY_REROLL("rarity_reroll", RarityRerollEffect::fromJson),
 	NO_DAMAGE_BOOST("no_damage_boost", NoDamageBoostEffect::fromJson),
 	ORE_EXCHANGE("ore_exchange", OreExchangeEffect::fromJson),
 	NO_SILVER_OFFERS("no_silver_offers", NoSilverOffersEffect::fromJson),
+	EXTRA_REROLLS("extra_rerolls", ExtraRerollsEffect::fromJson),
+	PRISM_REROLL("prism_reroll", PrismRerollEffect::fromJson),
+	NO_DEFENSE_DRAWBACKS("no_defense_drawbacks", NoDefenseDrawbacksEffect::fromJson),
 	LUCKY_ORE("lucky_ore", LuckyOreEffect::fromJson),
 	TOOL_MISMATCH_SLOW("tool_mismatch_slow", ToolMismatchSlowEffect::fromJson),
 	SHIELD_FALL_IMMUNITY("shield_fall_immunity", ShieldFallImmunityEffect::fromJson),
 	DIAMOND_SUNDIAL("diamond_sundial", DiamondSundialEffect::fromJson),
 	ENCHANT_COST("enchant_cost", EnchantCostEffect::fromJson),
+	EXPERIENCE_BONUS("experience_bonus", ExperienceBonusEffect::fromJson),
+	SUPPLY_DROP("supply_drop", SupplyDropEffect::fromJson),
 	CUSTOM("custom", CustomEffect::fromJson);
 
 	/** 효과 하나를 만드는 팩토리. 정의가 잘못됐으면 {@code null}을 돌려준다. */

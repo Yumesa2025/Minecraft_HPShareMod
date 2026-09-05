@@ -35,8 +35,8 @@ class PerkOfferPayloadTest {
 	private static List<PerkOfferPayload.PerkOption> sampleOptions() {
 		return List.of(
 				new PerkOfferPayload.PerkOption("a", "강골", "최대 체력 +2", "silver",
-						"minecraft:iron_ingot"),
-				new PerkOfferPayload.PerkOption("b", "날렵", "이동 속도 +10%", "gold", ""));
+						"minecraft:iron_ingot", "생존"),
+				new PerkOfferPayload.PerkOption("b", "날렵", "이동 속도 +10%", "gold", "", ""));
 	}
 
 	@Test
@@ -124,6 +124,53 @@ class PerkOfferPayloadTest {
 		assertEquals("", option.icon());
 		assertEquals("", roundTrip(PerkOfferPayload.manual(5, true, List.of(option)))
 				.options().getFirst().icon());
+	}
+
+	// ------------------------------------------------------------------ 세트 유형
+
+	@Test
+	void 세트_유형도_직렬화를_그대로_통과한다() {
+		PerkOfferPayload decoded =
+				roundTrip(new PerkOfferPayload(15, true, true, 400, 1, sampleOptions()));
+
+		assertEquals("생존", decoded.options().getFirst().setTypes());
+		assertTrue(decoded.options().getFirst().hasSetTypes());
+	}
+
+	@Test
+	void 유형이_여럿이면_한_줄로_이어서_온다() {
+		// 카드에 그리는 것은 문자열 한 줄이다. 나누고 다시 잇는 규칙을 양쪽에 두지 않는다.
+		PerkOfferPayload.PerkOption option = new PerkOfferPayload.PerkOption(
+				"c", "암살자", "이동 속도 +10%", "gold", "", "무기·화력");
+
+		assertEquals("무기·화력", roundTrip(PerkOfferPayload.manual(5, true, List.of(option)))
+				.options().getFirst().setTypes());
+	}
+
+	@Test
+	void 무유형_증강은_빈_문자열이다() {
+		// 열여섯 개가 어느 유형에도 안 들어간다. 카드에 그 줄이 아예 안 그려져야 한다.
+		assertFalse(sampleOptions().get(1).hasSetTypes());
+		assertEquals("", sampleOptions().get(1).setTypes());
+	}
+
+	@Test
+	void 유형이_null_이면_빈_문자열로_바뀐다() {
+		PerkOfferPayload.PerkOption option =
+				new PerkOfferPayload.PerkOption("a", "강골", "최대 체력 +2", "silver", "", null);
+
+		assertEquals("", option.setTypes());
+		assertFalse(option.hasSetTypes());
+	}
+
+	@Test
+	void 유형을_안_넘긴_생성자는_무유형이_된다() {
+		// 서버가 아직 유형을 안 싣는 동안에도 카드가 떠야 한다.
+		PerkOfferPayload.PerkOption option =
+				new PerkOfferPayload.PerkOption("a", "강골", "최대 체력 +2", "silver", "");
+
+		assertEquals("", option.setTypes());
+		assertFalse(option.hasSetTypes());
 	}
 
 	@Test

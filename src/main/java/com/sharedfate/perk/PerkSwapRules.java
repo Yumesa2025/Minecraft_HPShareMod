@@ -301,6 +301,9 @@ public final class PerkSwapRules {
 				effects.addAll(perk.effects());
 			}
 		}
+		// 켜진 세트의 효과도 같은 목록에 들어간다. 교환 세트 2단계가 on_swap 을 이 길로 태운다.
+		// 세트가 없으면 빈 목록이라 예전과 비트 하나 다르지 않다.
+		effects.addAll(PerkSetEffects.activeEffectsOf(state));
 		return effects;
 	}
 }

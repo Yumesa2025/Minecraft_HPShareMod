@@ -1,0 +1,642 @@
+{
+  "_comment": [
+    "세트 효과 정의. 같은 세트 유형(Perk.set_types)의 증강을 count 개 이상 모으면 그 단계가 켜진다.",
+    "단계는 누적이다 — 채굴을 4개 모으면 2·3·4 단계가 전부 켜진다.",
+    "effects 의 형식은 증강 정의(sharedfate-perks.json)의 effects 와 완전히 같고, 같은 PerkEffectType 이 읽는다.",
+    "그래서 새 효과 타입을 하나 만들어 PerkEffectType 에 등록해 두면 여기서 곧바로 쓸 수 있다.",
+    "effects 가 빈 배열인 단계는 '아직 안 만들어진 자리'다. 이름과 설명만 정해 두었으니 값만 채우면 켜진다.",
+    "보상 값은 자주 바뀐다. 코드에 박지 말고 이 파일 한 곳만 고칠 것.",
+    "무기는 아직 보상이 정해지지 않아 tiers 가 비어 있다. 항목을 지우지 말 것 — 값만 넣으면 켜진다."
+  ],
+  "sets": [
+    {
+      "type": "mining",
+      "tiers": [
+        {
+          "count": 2,
+          "description": "광물에서 나오는 경험치가 50% 늘어납니다.",
+          "effects": [
+            {
+              "type": "experience_bonus",
+              "source": "ore",
+              "multiplier": 1.5
+            }
+          ]
+        },
+        {
+          "count": 3,
+          "description": "다이아몬드 광석을 캘 때 2개가 더 나옵니다.",
+          "effects": [
+            {
+              "type": "bonus_drop",
+              "chance": 1.0,
+              "extra": 2,
+              "blocks": [
+                "#minecraft:diamond_ores",
+                "minecraft:diamond_ore",
+                "minecraft:deepslate_diamond_ore"
+              ]
+            }
+          ]
+        },
+        {
+          "count": 4,
+          "description": "블록을 캘 때 바로 옆의 같은 블록 2개가 함께 캐집니다.",
+          "effects": [
+            {
+              "type": "same_kind_mining",
+              "extra": 2,
+              "extraDurability": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "supply",
+      "tiers": [
+        {
+          "count": 2,
+          "description": "10분마다 무작위 보급이 옵니다. 아무것도 안 올 때도 있습니다.",
+          "effects": [
+            {
+              "type": "supply_drop",
+              "interval_minutes": 10,
+              "priority": 2,
+              "nothing_chance": 0.3,
+              "rolls": 1,
+              "entries": [
+                {
+                  "id": "minecraft:coal",
+                  "min": 10,
+                  "max": 15,
+                  "weight": 120
+                },
+                {
+                  "id": "minecraft:copper_ingot",
+                  "min": 10,
+                  "max": 15,
+                  "weight": 110
+                },
+                {
+                  "id": "minecraft:oak_log",
+                  "min": 10,
+                  "max": 50,
+                  "weight": 110
+                },
+                {
+                  "id": "minecraft:iron_ingot",
+                  "min": 3,
+                  "max": 5,
+                  "weight": 100
+                },
+                {
+                  "id": "minecraft:arrow",
+                  "min": 6,
+                  "max": 12,
+                  "weight": 95
+                },
+                {
+                  "id": "minecraft:lapis_lazuli",
+                  "min": 5,
+                  "max": 7,
+                  "weight": 85
+                },
+                {
+                  "id": "minecraft:cooked_beef",
+                  "min": 10,
+                  "max": 15,
+                  "weight": 80
+                },
+                {
+                  "id": "minecraft:cooked_chicken",
+                  "min": 10,
+                  "max": 15,
+                  "weight": 80
+                },
+                {
+                  "id": "minecraft:gold_ingot",
+                  "min": 2,
+                  "max": 3,
+                  "weight": 65
+                },
+                {
+                  "id": "minecraft:experience_bottle",
+                  "min": 1,
+                  "max": 2,
+                  "weight": 50
+                },
+                {
+                  "id": "minecraft:diamond",
+                  "min": 1,
+                  "max": 2,
+                  "weight": 40
+                },
+                {
+                  "id": "minecraft:golden_apple",
+                  "count": 1,
+                  "weight": 25
+                },
+                {
+                  "id": "minecraft:potion",
+                  "count": 1,
+                  "weight": 20,
+                  "potion": "minecraft:fire_resistance",
+                  "duration_minutes": 1
+                },
+                {
+                  "id": "minecraft:cake",
+                  "count": 1,
+                  "weight": 15
+                },
+                {
+                  "id": "minecraft:enchanted_golden_apple",
+                  "count": 1,
+                  "weight": 4
+                },
+                {
+                  "id": "minecraft:netherite_ingot",
+                  "count": 1,
+                  "weight": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "count": 3,
+          "description": "보급으로 오는 것이 더 좋아집니다.",
+          "effects": [
+            {
+              "type": "supply_drop",
+              "interval_minutes": 10,
+              "priority": 3,
+              "nothing_chance": 0.12,
+              "rolls": 2,
+              "entries": [
+                {
+                  "id": "minecraft:coal",
+                  "min": 12,
+                  "max": 20,
+                  "weight": 110
+                },
+                {
+                  "id": "minecraft:copper_ingot",
+                  "min": 12,
+                  "max": 20,
+                  "weight": 100
+                },
+                {
+                  "id": "minecraft:oak_log",
+                  "min": 20,
+                  "max": 64,
+                  "weight": 100
+                },
+                {
+                  "id": "minecraft:iron_ingot",
+                  "min": 5,
+                  "max": 8,
+                  "weight": 95
+                },
+                {
+                  "id": "minecraft:arrow",
+                  "min": 12,
+                  "max": 24,
+                  "weight": 85
+                },
+                {
+                  "id": "minecraft:lapis_lazuli",
+                  "min": 8,
+                  "max": 12,
+                  "weight": 75
+                },
+                {
+                  "id": "minecraft:cooked_beef",
+                  "min": 15,
+                  "max": 24,
+                  "weight": 70
+                },
+                {
+                  "id": "minecraft:cooked_chicken",
+                  "min": 15,
+                  "max": 24,
+                  "weight": 70
+                },
+                {
+                  "id": "minecraft:gold_ingot",
+                  "min": 4,
+                  "max": 6,
+                  "weight": 60
+                },
+                {
+                  "id": "minecraft:diamond",
+                  "min": 2,
+                  "max": 4,
+                  "weight": 60
+                },
+                {
+                  "id": "minecraft:experience_bottle",
+                  "min": 3,
+                  "max": 6,
+                  "weight": 55
+                },
+                {
+                  "id": "minecraft:golden_apple",
+                  "min": 1,
+                  "max": 2,
+                  "weight": 45
+                },
+                {
+                  "id": "minecraft:potion",
+                  "count": 1,
+                  "weight": 30,
+                  "potion": "minecraft:fire_resistance",
+                  "duration_minutes": 3
+                },
+                {
+                  "id": "minecraft:enchanted_golden_apple",
+                  "count": 1,
+                  "weight": 20
+                },
+                {
+                  "id": "minecraft:cake",
+                  "count": 1,
+                  "weight": 15
+                },
+                {
+                  "id": "minecraft:netherite_ingot",
+                  "min": 1,
+                  "max": 2,
+                  "weight": 10
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "count": 4,
+          "description": "보급 주기가 5분으로 줄어듭니다.",
+          "effects": [
+            {
+              "type": "supply_drop",
+              "interval_minutes": 5,
+              "priority": 4,
+              "nothing_chance": 0.12,
+              "rolls": 2,
+              "entries": [
+                {
+                  "id": "minecraft:coal",
+                  "min": 12,
+                  "max": 20,
+                  "weight": 110
+                },
+                {
+                  "id": "minecraft:copper_ingot",
+                  "min": 12,
+                  "max": 20,
+                  "weight": 100
+                },
+                {
+                  "id": "minecraft:oak_log",
+                  "min": 20,
+                  "max": 64,
+                  "weight": 100
+                },
+                {
+                  "id": "minecraft:iron_ingot",
+                  "min": 5,
+                  "max": 8,
+                  "weight": 95
+                },
+                {
+                  "id": "minecraft:arrow",
+                  "min": 12,
+                  "max": 24,
+                  "weight": 85
+                },
+                {
+                  "id": "minecraft:lapis_lazuli",
+                  "min": 8,
+                  "max": 12,
+                  "weight": 75
+                },
+                {
+                  "id": "minecraft:cooked_beef",
+                  "min": 15,
+                  "max": 24,
+                  "weight": 70
+                },
+                {
+                  "id": "minecraft:cooked_chicken",
+                  "min": 15,
+                  "max": 24,
+                  "weight": 70
+                },
+                {
+                  "id": "minecraft:gold_ingot",
+                  "min": 4,
+                  "max": 6,
+                  "weight": 60
+                },
+                {
+                  "id": "minecraft:diamond",
+                  "min": 2,
+                  "max": 4,
+                  "weight": 60
+                },
+                {
+                  "id": "minecraft:experience_bottle",
+                  "min": 3,
+                  "max": 6,
+                  "weight": 55
+                },
+                {
+                  "id": "minecraft:golden_apple",
+                  "min": 1,
+                  "max": 2,
+                  "weight": 45
+                },
+                {
+                  "id": "minecraft:potion",
+                  "count": 1,
+                  "weight": 30,
+                  "potion": "minecraft:fire_resistance",
+                  "duration_minutes": 3
+                },
+                {
+                  "id": "minecraft:enchanted_golden_apple",
+                  "count": 1,
+                  "weight": 20
+                },
+                {
+                  "id": "minecraft:cake",
+                  "count": 1,
+                  "weight": 15
+                },
+                {
+                  "id": "minecraft:netherite_ingot",
+                  "min": 1,
+                  "max": 2,
+                  "weight": 10
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "power",
+      "tiers": [
+        {
+          "count": 2,
+          "description": "공격력이 1 늘어납니다.",
+          "effects": [
+            {
+              "type": "attribute",
+              "attribute": "minecraft:attack_damage",
+              "operation": "add_value",
+              "amount": 1.0
+            }
+          ]
+        },
+        {
+          "count": 3,
+          "description": "준 피해의 5% 만큼 팀 체력을 회복합니다.",
+          "effects": [
+            {
+              "type": "lifesteal",
+              "fraction": 0.05
+            }
+          ]
+        },
+        {
+          "count": 4,
+          "description": "흡혈이 15% 로 오르고 공격력이 0.5 더 늘어납니다. 대신 몹이 35% 더 많이 나옵니다.",
+          "effects": [
+            {
+              "type": "lifesteal",
+              "fraction": 0.1
+            },
+            {
+              "type": "attribute",
+              "attribute": "minecraft:attack_damage",
+              "operation": "add_value",
+              "amount": 0.5
+            },
+            {
+              "type": "mob_spawn_rate",
+              "multiplier": 1.35
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "mobility",
+      "tiers": [
+        {
+          "count": 3,
+          "description": "낙하 피해를 80% 덜 받습니다.",
+          "effects": [
+            {
+              "type": "attribute",
+              "attribute": "minecraft:fall_damage_multiplier",
+              "operation": "add_multiplied_total",
+              "amount": -0.8
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "defense",
+      "tiers": [
+        {
+          "count": 2,
+          "description": "방패로 막는 동안 받는 피해가 절반이 됩니다.",
+          "effects": [
+            {
+              "type": "damage_taken_blocking",
+              "multiplier": 0.5
+            }
+          ]
+        },
+        {
+          "count": 3,
+          "description": "가지고 있는 방어 증강들의 대가가 사라집니다.",
+          "effects": [
+            {
+              "type": "no_defense_drawbacks"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "gamble",
+      "tiers": [
+        {
+          "count": 2,
+          "description": "다시 뽑기 횟수를 5회 받습니다.",
+          "effects": [
+            {
+              "type": "extra_rerolls",
+              "amount": 5
+            }
+          ]
+        },
+        {
+          "count": 3,
+          "description": "다시 뽑으면 프리즘 등급만 나옵니다.",
+          "effects": [
+            {
+              "type": "prism_reroll"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "hunt",
+      "tiers": [
+        {
+          "count": 2,
+          "description": "몹을 잡을 때 약탈 I 이 붙고, 몹에게서 나오는 경험치가 50% 늘어납니다.",
+          "effects": [
+            {
+              "type": "always_looting",
+              "levels": 1
+            },
+            {
+              "type": "experience_bonus",
+              "source": "mob",
+              "multiplier": 1.5
+            }
+          ]
+        },
+        {
+          "count": 3,
+          "description": "약탈이 III 으로 오릅니다.",
+          "effects": [
+            {
+              "type": "always_looting",
+              "levels": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "survival",
+      "tiers": [
+        {
+          "count": 2,
+          "description": "팀 최대 체력이 2 늘어납니다.",
+          "effects": [
+            {
+              "type": "max_health_bonus",
+              "amount": 2.0
+            }
+          ]
+        },
+        {
+          "count": 3,
+          "description": "피해를 받으면 그만큼 허기가 찹니다.",
+          "effects": [
+            {
+              "type": "hunger_on_damage",
+              "per_damage": 0.4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "swap",
+      "tiers": [
+        {
+          "count": 2,
+          "description": "팀원 위치가 바뀐 뒤 4초간 신속·재생 II·흡수 II·저항 II 를 얻습니다.",
+          "effects": [
+            {
+              "type": "on_swap",
+              "effects": [
+                {
+                  "type": "status_effect",
+                  "effect": "minecraft:speed",
+                  "amplifier": 0,
+                  "duration": 4
+                },
+                {
+                  "type": "status_effect",
+                  "effect": "minecraft:regeneration",
+                  "amplifier": 1,
+                  "duration": 4
+                },
+                {
+                  "type": "status_effect",
+                  "effect": "minecraft:absorption",
+                  "amplifier": 1,
+                  "duration": 4
+                },
+                {
+                  "type": "status_effect",
+                  "effect": "minecraft:resistance",
+                  "amplifier": 1,
+                  "duration": 4
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "count": 3,
+          "description": "팀원 위치가 바뀐 뒤 4초간 피해를 받지 않습니다.",
+          "effects": [
+            {
+              "type": "on_swap",
+              "effects": [
+                {
+                  "type": "status_effect",
+                  "effect": "minecraft:resistance",
+                  "amplifier": 4,
+                  "duration": 4
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "recovery",
+      "tiers": [
+        {
+          "count": 2,
+          "description": "음식을 먹을 때마다 체력이 2 회복됩니다.",
+          "effects": [
+            {
+              "type": "food_heal",
+              "health": 2.0
+            }
+          ]
+        },
+        {
+          "count": 3,
+          "description": "흡혈로 되돌리는 양이 30% 늘어납니다.",
+          "effects": [
+            {
+              "type": "lifesteal_efficiency",
+              "multiplier": 1.3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "weapon",
+      "tiers": []
+    }
+  ]
+}

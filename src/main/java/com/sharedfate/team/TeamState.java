@@ -128,6 +128,31 @@ public class TeamState {
 	 * 전멸로 팀 상태를 새로 만들면 {@link #rerollAllowance} 로 가득 찬 채 시작한다.
 	 */
 	public int rerollsRemaining;
+	/**
+	 * <b>이번 회차에</b> 세트 보상으로 얹힌 다시 뽑기 횟수. 기본은 0 이다.
+	 *
+	 * <p>세트 「도박 2단계 — 한 판 더」가 5 를 얹는다. 다른 세트 보상과 달리 <b>저장된다.</b>
+	 * 까닭은 {@link com.sharedfate.perk.effect.ExtraRerollsEffect} 에 적어 뒀다 — 다시 뽑기
+	 * 횟수만은 「지금 몇 번 남았는가」를 보유 증강에서 다시 계산할 수 없는 소비값이라, 실제로
+	 * {@link #rerollsRemaining} 을 늘려야 하기 때문이다.
+	 *
+	 * <h2>이 필드가 없으면 5회가 저장 왕복에서 사라진다</h2>
+	 * <p>{@link #sanitize} 와 {@link #applyRerollSection} 두 곳이 「이번 회차에 남은 횟수가
+	 * 회차당 허용치보다 클 수는 없다」로 잘라 왔다. {@link #rerollsRemaining} 만 5 올려 두면
+	 * 서버를 껐다 켜는 순간 그 클램프가 기본 3 으로 되돌린다. 그래서 <b>클램프가 「세트로 얻은
+	 * 몫」을 알아야 한다</b> — 두 클램프의 상한이 {@link #rerollLimit()} 로 바뀐 것이 그것이고,
+	 * 이 필드가 저장에 함께 들어가는 것이 그 상한을 다음 접속까지 살려 두는 유일한 길이다.
+	 *
+	 * <p>값을 직접 대입하지 말고 {@link #syncRerollSetBonus(int)} 를 쓴다. 늘어난 몫을
+	 * {@link #rerollsRemaining} 에 더하는 일과 상한 10 으로 접는 일이 거기 함께 들어 있다.
+	 *
+	 * <h2>회차가 넘어가면 저절로 사라진다</h2>
+	 * <p>회차를 넘기는 두 길이 모두 이 값을 남기지 않는다. 전멸로 팀 상태를 새로 만드는 길
+	 * ({@link TeamManager#restoreFreshRoster} → {@link #fresh})은 0 에서 시작하고, 회차 시작
+	 * 자리({@code GameStartManager} 의 회차 값 초기화)는 {@link #rerollsRemaining} 을 허용치로
+	 * 되돌려 세트로 받은 몫을 통째로 버린다. 「이번 회차만」이라는 약속이 그렇게 지켜진다.
+	 */
+	public int rerollSetBonus;
 	/** 마지막으로 처리한 레벨 구간 (0, 3, 6, …, 36). */
 	public int lastPerkMilestone;
 	/**
@@ -207,6 +232,8 @@ public class TeamState {
 		// 기본값으로 굴러가야 한다. 저장에서 읽어 온 경우에만 CODEC 이 뒤에서 덮어쓴다.
 		this.rerollAllowance = TeamCreationSettings.DEFAULT_REROLL_COUNT;
 		this.rerollsRemaining = TeamCreationSettings.DEFAULT_REROLL_COUNT;
+		// 세트로 얻은 몫은 언제나 0 에서 시작한다. 새 회차의 팀은 아직 아무 세트도 못 모았다.
+		this.rerollSetBonus = 0;
 		// 새로 만들어지는 팀 상태는 언제나 「시작 대기」다. 저장에서 읽어 온 경우에만 CODEC 이
 		// 뒤에서 덮어쓴다. 전멸 뒤 새 월드에 명단을 되살리는 길도 이 생성자를 지나지만, 그쪽은
 		// 바로 뒤에서 GameStartManager.syncRunStart 가 회차 번호를 보고 회차를 켠다 — 사람이
@@ -285,9 +312,12 @@ public class TeamState {
 		legacyGear.removeIf(ItemStack::isEmpty);
 		// 상한은 DifficultyEscalation 이 자기 계산에서 다시 자른다. 여기서는 음수만 막는다.
 		difficultyElapsedTicks = Math.max(0, difficultyElapsedTicks);
-		// 이번 회차에 남은 횟수가 회차당 허용치보다 클 수는 없다. 손상된 저장을 여기서 접는다.
+		// 이번 회차에 남은 횟수가 「회차당 허용치 + 세트로 얻은 몫」보다 클 수는 없다. 손상된
+		// 저장을 여기서 접는다. 순서가 중요하다 — 세트 몫을 접는 데 허용치가 필요하고, 남은
+		// 횟수를 접는 데 그 둘이 다 필요하다.
 		rerollAllowance = TeamCreationSettings.sanitizeRerollCount(rerollAllowance);
-		rerollsRemaining = Math.max(0, Math.min(rerollAllowance, rerollsRemaining));
+		rerollSetBonus = sanitizeRerollSetBonus(rerollSetBonus);
+		rerollsRemaining = Math.max(0, Math.min(rerollLimit(), rerollsRemaining));
 		if (positionSwapIntervalTicks < 0 || positionSwapIntervalTicks > PositionSwapLimits.MAX_INTERVAL_TICKS) {
 			positionSwapIntervalTicks = 0;
 		}
@@ -502,32 +532,103 @@ public class TeamState {
 	 * 기본값 그대로인 팀은 저장할 때 이 묶음이 통째로 빠지고, 이 항목이 없는 기존 월드도
 	 * {@link #DEFAULT} — 3회 전부 남아 있는 상태 — 로 읽힌다.
 	 *
+	 * <p>{@code setBonus} 는 나중에 붙은 항목이라 <b>없으면 0</b> 이다. 세트를 모으지 않은 팀과
+	 * 이 항목을 모르는 예전 월드가 같은 값으로 열리고, 0 이면 저장에도 적히지 않아 형태가
+	 * 예전과 같다. 이 항목이 저장을 왕복해야 하는 까닭은 {@link TeamState#rerollSetBonus} 에
+	 * 적어 뒀다 — 이것이 없으면 세트로 받은 5회가 서버를 껐다 켜는 순간 사라진다.
+	 *
 	 * @param allowance 이 팀이 회차당 쓸 수 있는 횟수
 	 * @param remaining 이번 회차에 아직 남은 횟수
+	 * @param setBonus  이번 회차에 세트 보상으로 얹힌 횟수
 	 */
-	public record RerollSection(int allowance, int remaining) {
+	public record RerollSection(int allowance, int remaining, int setBonus) {
 		/** 팀이 아무것도 안 정했을 때의 값. 기존 월드를 읽을 때도 이 값이다. */
 		public static final RerollSection DEFAULT = new RerollSection(
 				TeamCreationSettings.DEFAULT_REROLL_COUNT,
-				TeamCreationSettings.DEFAULT_REROLL_COUNT);
+				TeamCreationSettings.DEFAULT_REROLL_COUNT,
+				0);
 
 		public static final Codec<RerollSection> CODEC = RecordCodecBuilder.create(instance -> instance.group(
 				Codec.INT.optionalFieldOf("allowance", TeamCreationSettings.DEFAULT_REROLL_COUNT)
 						.forGetter(RerollSection::allowance),
 				Codec.INT.optionalFieldOf("remaining", TeamCreationSettings.DEFAULT_REROLL_COUNT)
-						.forGetter(RerollSection::remaining)
+						.forGetter(RerollSection::remaining),
+				Codec.INT.optionalFieldOf("setBonus", 0).forGetter(RerollSection::setBonus)
 		).apply(instance, RerollSection::new));
 	}
 
 	/** 현재 다시 뽑기 상태를 저장용 묶음으로 뽑아낸다. */
 	public RerollSection rerollSection() {
-		return new RerollSection(rerollAllowance, rerollsRemaining);
+		return new RerollSection(rerollAllowance, rerollsRemaining, rerollSetBonus);
 	}
 
-	/** 저장에서 읽은 다시 뽑기 묶음을 이 상태에 채운다. */
+	/**
+	 * 저장에서 읽은 다시 뽑기 묶음을 이 상태에 채운다.
+	 *
+	 * <p>{@link #sanitize} 와 같은 순서로 접는다 — 허용치, 세트 몫, 그다음 남은 횟수다.
+	 * <b>남은 횟수의 상한은 허용치가 아니라 {@link #rerollLimit()} 다.</b> 여기서 허용치로
+	 * 자르면 세트로 받은 5회가 다음 접속 때마다 사라진다.
+	 */
 	public void applyRerollSection(RerollSection section) {
 		rerollAllowance = TeamCreationSettings.sanitizeRerollCount(section.allowance());
-		rerollsRemaining = Math.max(0, Math.min(rerollAllowance, section.remaining()));
+		rerollSetBonus = sanitizeRerollSetBonus(section.setBonus());
+		rerollsRemaining = Math.max(0, Math.min(rerollLimit(), section.remaining()));
+	}
+
+	/**
+	 * 이번 회차에 남은 횟수가 가질 수 있는 최댓값. {@code 회차당 허용치 + 세트로 얻은 몫} 이다.
+	 *
+	 * <p>{@link #rerollSetBonus} 가 0 인 보통의 팀에서는 회차당 허용치와 똑같은 값이라,
+	 * 세트를 쓰지 않는 서버의 동작은 이 필드가 생기기 전과 다르지 않다.
+	 */
+	public int rerollLimit() {
+		return rerollAllowance + rerollSetBonus;
+	}
+
+	/**
+	 * 세트로 얻은 몫을 지금 있어야 할 값으로 맞춘다. 실제로 바뀌었으면 참.
+	 *
+	 * <p><b>「더한다」가 아니라 「맞춘다」인 것이 핵심이다.</b> 이 메서드는 몇 번을 불러도
+	 * 결과가 같아야 한다 — 부르는 자리({@code PerkGrantChain.run})가 증강을 얻을 때마다 지나가고,
+	 * 「이미 받아 뒀는가」를 따로 기억해 두는 곳이 없기 때문이다. 지금 몫과 목표가 같으면 아무
+	 * 일도 하지 않는 것이 그 답이다.
+	 *
+	 * <ul>
+	 *   <li><b>몫이 늘면</b> 늘어난 만큼만 {@link #rerollsRemaining} 에 더한다. 목표값으로
+	 *       덮어쓰지 않는다 — 이미 몇 번 써 버린 팀의 소비 기록이 지워지면 안 된다.</li>
+	 *   <li><b>몫이 줄면</b>(세트가 풀리면) 남은 횟수를 더하지도 빼지도 않고 새 상한으로 다시
+	 *       자르기만 한다. 아직 안 쓴 5회는 그 자리에서 사라지고, 이미 쓴 만큼은 그대로다.</li>
+	 * </ul>
+	 *
+	 * <p>몫은 {@code 0 ~ (상한 10 - 회차당 허용치)} 로 접힌다. 회차당 10회로 정한 팀은 세트를
+	 * 모아도 더 받지 못한다 — 상한을 넘겨 주는 것보다 안 주는 편이 낫다.
+	 *
+	 * @param bonus 세트와 보유 증강이 요구하는 몫.
+	 *              보통 {@code ExtraRerollsEffect.bonusOf(this)} 를 그대로 넘긴다
+	 */
+	public boolean syncRerollSetBonus(int bonus) {
+		int wanted = sanitizeRerollSetBonus(bonus);
+		if (wanted == rerollSetBonus) {
+			return false;
+		}
+		int gained = wanted - rerollSetBonus;
+		rerollSetBonus = wanted;
+		if (gained > 0) {
+			rerollsRemaining += gained;
+		}
+		rerollsRemaining = Math.max(0, Math.min(rerollLimit(), rerollsRemaining));
+		return true;
+	}
+
+	/**
+	 * 세트로 얻은 몫을 허용 범위로 접는다. 접는 규칙은 반드시 이 한 곳에만 둔다.
+	 *
+	 * <p>상한은 {@link TeamCreationSettings#MAX_REROLL_COUNT} 다. 회차당 허용치와 합쳐 그 값을
+	 * 넘지 않으므로, 세트를 아무리 모아도 한 회차에 10회보다 많이 뽑을 수는 없다.
+	 */
+	private int sanitizeRerollSetBonus(int bonus) {
+		int room = TeamCreationSettings.MAX_REROLL_COUNT - rerollAllowance;
+		return Math.max(0, Math.min(Math.max(0, room), bonus));
 	}
 
 	/** 현재 난이도 상승 상태를 저장용 묶음으로 뽑아낸다. */

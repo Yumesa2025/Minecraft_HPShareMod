@@ -1,9 +1,12 @@
 package com.sharedfate.perk;
 
 import com.sharedfate.SharedFateMod;
+import com.sharedfate.perk.effect.ExtraRerollsEffect;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamState;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import org.jetbrains.annotations.Nullable;
 
@@ -12,6 +15,7 @@ import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * 증강을 고른 순간의 즉시 지급들이 서로를 부르는 연쇄를 처리한다.
@@ -104,6 +108,55 @@ final class PerkGrantChain {
 			for (Perk granted
 					: PerkRarityReroll.rerollOnChoiceDetailed(server, team, state, current, random)) {
 				enqueue(queue, visited, granted);
+			}
+		}
+
+		// 연쇄가 끝난 뒤에 딱 한 번 본다. 도중에 보면 「환골탈태」가 보유 목록을 갈아엎기
+		// 전의 세트 상태를 보게 된다.
+		syncSetRerolls(server, team, state);
+	}
+
+	/**
+	 * 세트 「도박 2단계 — 한 판 더」의 다시 뽑기 몫을 지금 값에 맞춘다.
+	 *
+	 * <h2>왜 하필 여기인가</h2>
+	 * <p>이 자리는 {@code PerkManager.commit} 아래에 있다. 「직접 고름」과 「시간초과 자동선택」이
+	 * 합류하는 유일한 지점이라 <b>증강을 얻는 사건마다 정확히 한 번</b> 지나간다. 세트는
+	 * {@code ownedPerks} 를 다시 세어 만드는 파생 상태이므로, 보유 목록이 바뀌는 모든 경로가
+	 * 결국 여기를 지난다 — 세트가 켜지는 순간을 감시하는 훅이 따로 필요 없다.
+	 *
+	 * <p><b>{@code PerkManager.refreshPlayer} 에 두면 안 된다.</b> 그쪽은 접속·부활·상태이상
+	 * 재적용마다 다시 도는 길이라 접속할 때마다 5씩 불어난다. {@code item_grant} 를 그 자리에
+	 * 두면 안 되는 것과 같은 이유이고, 이 클래스가 애초에 존재하는 이유이기도 하다.
+	 *
+	 * <h2>두 번 불려도 안전하다</h2>
+	 * <p>실제로 더하는 일은 {@link TeamState#syncRerollSetBonus} 가 하는데, 그것은 「더한다」가
+	 * 아니라 「세트로 얻은 몫을 지금 값에 맞춘다」다. 이미 5를 받아 둔 팀은 다시 불러도 아무 일이
+	 * 없고, 연쇄 도중 「환골탈태」로 도박 증강을 잃은 팀은 그 자리에서 몫이 0 으로 내려간다.
+	 */
+	private static void syncSetRerolls(@Nullable MinecraftServer server, @Nullable ShareTeam team,
+			TeamState state) {
+		int before = state.rerollsRemaining;
+		if (!state.syncRerollSetBonus(ExtraRerollsEffect.bonusOf(state))) {
+			return;
+		}
+		int gained = state.rerollsRemaining - before;
+		if (gained <= 0) {
+			// 세트가 풀려 몫이 사라졌거나, 회차당 허용치가 이미 상한이라 더 얹을 자리가 없었다.
+			// 둘 다 알릴 만한 일이 아니다.
+			return;
+		}
+		SharedFateMod.LOGGER.info("[PERK] 세트 보상으로 다시 뽑기 {}회를 더 얻었습니다 (이번 회차 {}회 남음)",
+				gained, state.rerollsRemaining);
+		if (server == null || team == null) {
+			return;
+		}
+		Component message = Component.literal("[증강] 세트 보상으로 다시 뽑기 " + gained
+				+ "회를 더 얻었습니다. 이번 회차에 " + state.rerollsRemaining + "회 남았습니다.");
+		for (UUID member : team.members()) {
+			ServerPlayer online = server.getPlayerList().getPlayer(member);
+			if (online != null) {
+				online.sendSystemMessage(message);
 			}
 		}
 	}

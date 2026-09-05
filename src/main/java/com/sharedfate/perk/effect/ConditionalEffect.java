@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.ConditionalPerkManager;
+import com.sharedfate.perk.PerkDrawbacks;
 import com.sharedfate.perk.PerkEffect;
 import com.sharedfate.perk.PerkEffectType;
 import com.sharedfate.team.TeamLookup;
@@ -243,6 +244,14 @@ public final class ConditionalEffect implements PerkEffect {
 				SharedFateMod.LOGGER.warn("증강 {}: conditional 의 {} 에 알 수 없는 효과 type 입니다 ({})",
 						perkId, key, typeId);
 				return null;
+			}
+			// 하위에 붙은 대가 표시는 읽지 않는다. 여기서 조용히 무시하면 「빌드도 통과하고
+			// 로그도 없이 아무 일도 안 하는」 정의가 되므로 반드시 말해 준다. 자세한 까닭은
+			// PerkDrawbacks 머리말에 적어 뒀다.
+			if (childJson.has(PerkDrawbacks.FIELD)) {
+				SharedFateMod.LOGGER.warn(
+						"증강 {}: conditional 의 {} 하위에는 {} 를 붙일 수 없습니다. "
+								+ "조건부 효과 전체에 붙이십시오.", perkId, key, PerkDrawbacks.FIELD);
 			}
 			PerkEffect child = type.create(perkId, childIndex(index, branchOffset + i), childJson);
 			if (child == null) {

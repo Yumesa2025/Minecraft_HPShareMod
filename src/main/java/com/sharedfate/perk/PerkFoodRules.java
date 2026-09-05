@@ -1,11 +1,14 @@
 package com.sharedfate.perk;
 
+import com.sharedfate.perk.effect.FoodHealEffect;
 import com.sharedfate.perk.effect.FoodNutritionEffect;
 import com.sharedfate.perk.effect.HungerDrainEffect;
 import com.sharedfate.perk.effect.NoFoodHungerEffect;
 import com.sharedfate.perk.effect.NoHungerDrainEffect;
 import com.sharedfate.team.TeamLookup;
+import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.food.FoodData;
@@ -21,17 +24,26 @@ import org.jetbrains.annotations.Nullable;
  * 답에 따라 값을 바꾸거나 건너뛴다. 판정을 mixin 밖에 떼어 둔 이유는 두 가지다. mixin 에는
  * 판단이 아니라 "어디서 끼어드는가"만 남는 편이 읽기 쉽고, 판정을 월드 없이 시험할 수 있다.
  *
- * <p>여기서 답하는 물음은 다섯이다.
+ * <p>여기서 답하는 물음은 여섯이다.
  *
  * <ul>
  *   <li>{@link #blocksFoodHunger} — 음식으로 허기를 얻지 못하는가 ({@code no_food_hunger})</li>
  *   <li>{@link #nutritionMultiplier} — 음식이 채워 주는 양에 곱할 배율 ({@code food_nutrition})</li>
  *   <li>{@link #exhaustionMultiplier} — 허기 소모도에 곱할 배율
  *       ({@code hunger_drain} / {@code no_hunger_drain})</li>
- *   <li>{@link #grantEatingEffects} — 먹는 순간에 얹을 효과가 있는가 ({@code food_nutrition})</li>
+ *   <li>{@link #grantEatingEffects} — 먹는 순간에 무엇이 일어나는가 ({@code food_nutrition} 의
+ *       하위 효과와 {@code food_heal} 의 팀 회복)</li>
+ *   <li>{@link #foodHealFor} — 한 번 먹을 때 팀 공유 체력을 얼마나 채우는가
+ *       ({@code food_heal})</li>
  *   <li>{@link #blocksNaturalRegenExhaustion} — 자연 회복의 대가까지 면제하는가
  *       ({@code no_hunger_drain} 의 {@code includeNaturalRegen})</li>
  * </ul>
+ *
+ * <h2>보유 증강과 세트를 <b>둘 다</b> 훑는다</h2>
+ * <p>이 클래스의 모든 물음은 {@code state.ownedPerks} 를 훑은 <b>뒤에</b>
+ * {@link PerkSetEffects#activeEffectsOf} 도 이어서 훑는다. 그 한 줄을 빠뜨리면 그 물음이
+ * 소비하는 효과 형은 세트에서 아무 일도 하지 않는다 — 빌드도 통과하고 로그도 남지 않는다.
+ * 회복 2단계({@code food_heal})가 그 길로 들어온다.
  *
  * <p>보유 증강이 하나도 없으면 어느 물음도 팀 상태 두 번만 보고 곧바로 "해당 없음"이다. 증강을
  * 쓰지 않는 팀의 먹기·허기 경로에는 사실상 아무 부담도 얹히지 않고, 답이 전부 "해당 없음"일 때
@@ -76,6 +88,11 @@ public final class PerkFoodRules {
 				}
 			}
 		}
+		for (PerkEffect effect : PerkSetEffects.activeEffectsOf(state)) {
+			if (effect instanceof NoFoodHungerEffect) {
+				return true;
+			}
+		}
 		return false;
 	}
 
@@ -108,6 +125,11 @@ public final class PerkFoodRules {
 				}
 			}
 		}
+		for (PerkEffect effect : PerkSetEffects.activeEffectsOf(state)) {
+			if (effect instanceof FoodNutritionEffect nutrition) {
+				total *= nutrition.multiplier();
+			}
+		}
 		return Double.isFinite(total) && total >= 0.0 ? total : 1.0;
 	}
 
@@ -123,9 +145,18 @@ public final class PerkFoodRules {
 	}
 
 	/**
-	 * 먹은 사람에게 {@code food_nutrition} 의 하위 효과를 얹는다.
+	 * 한 번 먹었을 때 일어나는 일을 전부 처리한다.
 	 *
-	 * <p>하위 효과가 없는 정의가 대부분이라 이 순회는 대개 아무 일도 하지 않는다.
+	 * <p>{@code food_nutrition} 의 하위 효과를 먹은 사람에게 얹고, {@code food_heal} 이 있으면
+	 * 팀 공유 체력을 채운다. {@link com.sharedfate.mixin.FoodPropertiesMixin} 이
+	 * {@code onConsume} 의 끝에서 <b>먹은 사람 한 명에 대해 한 번</b> 부르므로, 여기서 하는 일도
+	 * 한 번분이다.
+	 *
+	 * <p>{@code no_food_hunger} 로 허기가 막혔든 아니든 그대로 걸린다. 여기 있는 것들은
+	 * "회복량"의 대가가 아니라 "먹는 행위"에 붙는 것이라, 허기가 막혔다고 면제될 이유가 없다.
+	 *
+	 * <p>하위 효과도 {@code food_heal} 도 없는 정의가 대부분이라 이 순회는 대개 아무 일도 하지
+	 * 않는다.
 	 */
 	public static void grantEatingEffects(@Nullable LivingEntity entity) {
 		if (!(entity instanceof ServerPlayer player)) {
@@ -145,6 +176,94 @@ public final class PerkFoodRules {
 					nutrition.grantOnEat(player);
 				}
 			}
+		}
+		for (PerkEffect effect : PerkSetEffects.activeEffectsOf(state)) {
+			if (effect instanceof FoodNutritionEffect nutrition) {
+				nutrition.grantOnEat(player);
+			}
+		}
+		healTeamOnEat(player, state);
+	}
+
+	// -------------------------------------------------------------- 먹을 때의 팀 회복
+
+	/**
+	 * 한 번 먹을 때 팀 공유 체력을 얼마나 채우는가. 해당 없으면 0.
+	 *
+	 * <p>{@code food_heal} 을 여러 개 가졌으면 전부 더한다. 서로 다른 증강·세트가 각각 약속한
+	 * 회복이라 하나만 골라 줄 이유가 없다. {@code on_kill} 보상을 모으는 규칙과 같다.
+	 *
+	 * <p>여기서 나오는 값은 <b>팀 한 번분</b>이다. 팀 인원수는 어디에도 곱해지지 않는다.
+	 */
+	public static float foodHealFor(@Nullable TeamState state) {
+		if (state == null || state.ownedPerks.isEmpty()) {
+			return 0.0F;
+		}
+		float health = 0.0F;
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
+			if (perk == null) {
+				continue;
+			}
+			for (PerkEffect effect : perk.effects()) {
+				if (effect instanceof FoodHealEffect heal) {
+					health += heal.healthFor();
+				}
+			}
+		}
+		// 세트가 준 것도 같은 규칙으로 더한다. 회복 2단계가 이 길을 탄다.
+		for (PerkEffect effect : PerkSetEffects.activeEffectsOf(state)) {
+			if (effect instanceof FoodHealEffect heal) {
+				health += heal.healthFor();
+			}
+		}
+		return Float.isFinite(health) ? Math.max(0.0F, health) : 0.0F;
+	}
+
+	/**
+	 * 먹은 만큼의 회복을 팀 공유 풀에 넣는다.
+	 *
+	 * <p><b>{@code player.heal(..)} 을 부르면 안 된다.</b> 이 모드는 체력을 팀이 공유하고
+	 * {@code StatMirror} 는 매 틱 팀원 개인의 체력이 <em>얼마나 움직였는지</em>를 보고 그 변화량을
+	 * 공유 풀에 합산한다. 개인을 회복시키면 그 변화가 다시 관측돼 공유 풀에 <b>한 번 더</b>
+	 * 들어간다. 까닭은 {@link PerkKillRewards} 머리말에 자세히 적혀 있고, 여기는 그 길을 그대로
+	 * 따른다 — 공유 값만 올리고 개인에게는 손대지 않는다.
+	 */
+	private static void healTeamOnEat(ServerPlayer eater, TeamState state) {
+		float health = foodHealFor(state);
+		if (!(health > 0.0F)) {
+			return;
+		}
+		// 공유 체력이 이미 0 이면 전멸 처리가 도는 중이다. 그 위에 회복을 얹지 않는다.
+		if (!(state.health > 0.0F)) {
+			return;
+		}
+		applyToPool(state, health);
+		markDirty(eater);
+	}
+
+	/**
+	 * 회복량을 공유 풀에 더한다.
+	 *
+	 * <p>{@code StatMirror.applyDeltas} 와 같은 규칙으로 자른다. 팀 최대 체력을 넘지 않는다.
+	 * {@link PerkKillRewards#applyToPool} · {@link PerkLifesteal#applyToPool} 과 같은 자리다.
+	 */
+	static void applyToPool(TeamState state, float health) {
+		if (state == null || !(health > 0.0F)) {
+			return;
+		}
+		float combined = state.health + health;
+		if (!Float.isFinite(combined)) {
+			combined = state.maxHealth;
+		}
+		state.health = Math.max(0.0F, Math.min(state.maxHealth, combined));
+	}
+
+	/** 바뀐 공유 값이 저장되게 표시한다. 서버를 못 찾으면 조용히 지나간다. */
+	private static void markDirty(ServerPlayer player) {
+		MinecraftServer server = player.level().getServer();
+		if (server != null) {
+			TeamManager.get(server).setDirty();
 		}
 	}
 
@@ -173,6 +292,14 @@ public final class PerkFoodRules {
 				if (effect instanceof HungerDrainEffect drain) {
 					total *= drain.multiplier();
 				}
+			}
+		}
+		for (PerkEffect effect : PerkSetEffects.activeEffectsOf(state)) {
+			if (effect instanceof NoHungerDrainEffect) {
+				return 0.0;
+			}
+			if (effect instanceof HungerDrainEffect drain) {
+				total *= drain.multiplier();
 			}
 		}
 		return Double.isFinite(total) && total >= 0.0 ? total : 1.0;
@@ -240,6 +367,12 @@ public final class PerkFoodRules {
 						&& noHungerDrain.includeNaturalRegen()) {
 					return true;
 				}
+			}
+		}
+		for (PerkEffect effect : PerkSetEffects.activeEffectsOf(state)) {
+			if (effect instanceof NoHungerDrainEffect noHungerDrain
+					&& noHungerDrain.includeNaturalRegen()) {
+				return true;
 			}
 		}
 		return false;
