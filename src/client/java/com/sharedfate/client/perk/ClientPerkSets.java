@@ -28,6 +28,7 @@ import java.util.List;
  */
 public final class ClientPerkSets {
 	private static List<PerkSetLines.Entry> sets = List.of();
+	private static List<PerkSetTooltip.TierEntry> tiers = List.of();
 	private static List<PerkSetTooltip.Entry> catalog = List.of();
 
 	private ClientPerkSets() {
@@ -50,12 +51,18 @@ public final class ClientPerkSets {
 			nextSets.add(new PerkSetLines.Entry(line.typeId(), line.displayName(),
 					line.owned(), line.nextThreshold(), line.activeTier()));
 		}
+		List<PerkSetTooltip.TierEntry> nextTiers = new ArrayList<>(payload.tiers().size());
+		for (PerkSetSyncPayload.TierLine line : payload.tiers()) {
+			nextTiers.add(new PerkSetTooltip.TierEntry(line.typeId(), line.count(),
+					line.description(), line.active()));
+		}
 		List<PerkSetTooltip.Entry> nextCatalog = new ArrayList<>(payload.catalog().size());
 		for (PerkSetSyncPayload.CatalogEntry entry : payload.catalog()) {
 			nextCatalog.add(new PerkSetTooltip.Entry(entry.typeId(), entry.perkName(),
 					entry.rarity(), entry.owned()));
 		}
 		sets = List.copyOf(nextSets);
+		tiers = List.copyOf(nextTiers);
 		catalog = List.copyOf(nextCatalog);
 	}
 
@@ -77,6 +84,45 @@ public final class ClientPerkSets {
 	/** 이 유형에서 아직 안 가진 증강들. 툴팁이 쓴다. */
 	public static List<PerkSetTooltip.Missing> missing(String typeId) {
 		return PerkSetTooltip.missingOf(catalog, typeId);
+	}
+
+	/**
+	 * 서버가 보낸 이름표 전부. 가진 것도 들어 있다.
+	 *
+	 * <p>팀 화면의 <b>보유 증강 줄</b>이 「이 증강은 어느 유형인가」를 이름으로 되짚는 데 쓴다
+	 * ({@link com.sharedfate.ui.PerkOwnedTypes}). 보유 목록({@code PerkSyncPayload.Owned})이
+	 * 유형 id 를 싣지 않아서 생긴 우회로이고, 그쪽이 유형을 실어 오면 이 쓰임은 없어진다.
+	 */
+	public static List<PerkSetTooltip.Entry> catalog() {
+		return catalog;
+	}
+
+	/**
+	 * 유형 하나의 툴팁 본문. <b>선택 카드와 팀 화면이 함께 쓴다.</b>
+	 *
+	 * <p>진행도 줄과 단계 설명과 「아직 없는 것」이 한 덩어리로 들어 있다. 화면은 색만 입혀
+	 * 그리면 된다.
+	 *
+	 * @param typeId 유형 id. 모르는 값이면 빈 덩어리가 나온다
+	 */
+	public static PerkSetTooltip.Body tooltip(String typeId) {
+		PerkSetLines.Entry found = null;
+		for (PerkSetLines.Entry entry : sets) {
+			if (entry != null && entry.typeId().equals(typeId)) {
+				found = entry;
+				break;
+			}
+		}
+		if (found == null) {
+			return new PerkSetTooltip.Body("", List.of(), new PerkSetTooltip.Trimmed(List.of(), 0));
+		}
+		return PerkSetTooltip.describe(typeId, found.displayName(), found.owned(),
+				found.nextThreshold(), tiers, catalog, PerkSetTooltip.MAX_ROWS);
+	}
+
+	/** 서버가 보낸 단계 전부. 유형을 안 가려서 쓸 일은 드물다. */
+	public static List<PerkSetTooltip.TierEntry> allTiers() {
+		return tiers;
 	}
 
 	/** 이 유형의 한국어 이름. 모르는 유형이면 id 를 그대로 돌려준다. */
@@ -112,6 +158,7 @@ public final class ClientPerkSets {
 	/** 월드에서 나갈 때 부른다. */
 	public static void clear() {
 		sets = List.of();
+		tiers = List.of();
 		catalog = List.of();
 	}
 }

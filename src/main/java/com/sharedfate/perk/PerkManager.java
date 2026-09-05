@@ -396,6 +396,11 @@ public final class PerkManager {
 					perk.icon() == null ? "" : perk.icon().toString(),
 					perk.setTypes().stream().map(PerkSetType::displayName)
 							.collect(java.util.stream.Collectors.joining(
+									PerkOfferPayload.PerkOption.SET_TYPE_JOINER)),
+					// id 도 같은 차례로 함께 보낸다. 화면이 사람이 읽는 이름으로 툴팁을 찾으면
+					// 세트 동기화가 늦은 순간에 툴팁이 통째로 사라진다.
+					perk.setTypes().stream().map(PerkSetType::id)
+							.collect(java.util.stream.Collectors.joining(
 									PerkOfferPayload.PerkOption.SET_TYPE_JOINER))));
 		}
 		return options;

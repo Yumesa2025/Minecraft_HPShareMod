@@ -34,7 +34,8 @@ import java.util.List;
  * @param sets    유형별 진행 상황. 유형마다 최대 한 줄이다
  * @param catalog 유형에 속한 증강의 이름표. 툴팁이 「아직 없는 것」을 고르는 데 쓴다
  */
-public record PerkSetSyncPayload(List<SetLine> sets, List<CatalogEntry> catalog)
+public record PerkSetSyncPayload(List<SetLine> sets, List<TierLine> tiers,
+		List<CatalogEntry> catalog)
 		implements CustomPacketPayload {
 
 	/**
@@ -56,20 +57,74 @@ public record PerkSetSyncPayload(List<SetLine> sets, List<CatalogEntry> catalog)
 	 */
 	public static final int MAX_CATALOG = 160;
 
+	/**
+	 * 실을 수 있는 단계 줄의 개수 상한.
+	 *
+	 * <p>지금 22 단계인데 넉넉히 잡았다. 단계는 유형마다 둘에서 넷이고, 유형이 열하나라
+	 * 한 유형이 모든 단계를 다 가져도 이 값을 넘지 못한다.
+	 *
+	 * <p>넘칠 때는 <b>뒤에서부터</b> 버린다. {@link #MAX_CATALOG} 와 같은 이유로 서버는 이
+	 * 목록도 <b>유형별로 모아서</b> 실어야 한다.
+	 */
+	public static final int MAX_TIERS = 64;
+
 	/** 세트가 하나도 없는 상태. 팀이 없거나 증강을 쓰지 않는 팀에 보낸다. */
-	public static final PerkSetSyncPayload EMPTY = new PerkSetSyncPayload(List.of(), List.of());
+	public static final PerkSetSyncPayload EMPTY =
+			new PerkSetSyncPayload(List.of(), List.of(), List.of());
 
 	public static final Type<PerkSetSyncPayload> TYPE = new Type<>(SharedFateMod.id("perk_sets"));
 	public static final StreamCodec<RegistryFriendlyByteBuf, PerkSetSyncPayload> CODEC =
 			StreamCodec.composite(
 					SetLine.CODEC.apply(ByteBufCodecs.list(MAX_SETS)), PerkSetSyncPayload::sets,
+					TierLine.CODEC.apply(ByteBufCodecs.list(MAX_TIERS)), PerkSetSyncPayload::tiers,
 					CatalogEntry.CODEC.apply(ByteBufCodecs.list(MAX_CATALOG)),
 					PerkSetSyncPayload::catalog,
 					PerkSetSyncPayload::new);
 
 	public PerkSetSyncPayload {
 		sets = trim(sets, MAX_SETS);
+		tiers = trim(tiers, MAX_TIERS);
 		catalog = trim(catalog, MAX_CATALOG);
+	}
+
+	/**
+	 * 단계 설명 없이 만든다. <b>「단계를 안 보낸다」는 뜻이지 「단계가 없다」가 아니다.</b>
+	 *
+	 * <p>실제 송신 경로({@code PerkSetBroadcaster})는 언제나 세 인자짜리를 쓴다. 이 생성자는
+	 * 단계와 무관한 것을 보는 시험을 짧게 쓰기 위한 것이다 — 이걸로 보낸 값을 화면이 받으면
+	 * 툴팁에 단계 줄이 한 줄도 안 뜬다.
+	 */
+	public PerkSetSyncPayload(List<SetLine> sets, List<CatalogEntry> catalog) {
+		this(sets, List.of(), catalog);
+	}
+
+	/**
+	 * 세트 단계 하나. 툴팁이 「2: 광물에서 나오는 경험치가 50% 늘어납니다」로 그린다.
+	 *
+	 * <p><b>설명을 서버가 보낸다.</b> 클라이언트는 세트 정의 파일을 읽지 않으므로
+	 * ({@code PerkSetRegistry} 는 서버 전용) 스스로는 단계가 무엇을 하는지 알 방법이 없다.
+	 * 설정 파일에서 값을 고친 서버에 접속해도 툴팁이 그 서버의 설명을 그대로 보여 준다.
+	 *
+	 * @param typeId      {@link PerkSetType#id()}. {@link SetLine#typeId()} 와 맞물린다
+	 * @param count       이 단계가 열리는 데 필요한 개수
+	 * @param description 무엇을 하는 단계인가
+	 * @param active      지금 켜져 있는가
+	 */
+	public record TierLine(String typeId, int count, String description, boolean active) {
+
+		public TierLine {
+			typeId = text(typeId);
+			description = text(description);
+			count = Math.max(0, count);
+		}
+
+		public static final StreamCodec<RegistryFriendlyByteBuf, TierLine> CODEC =
+				StreamCodec.composite(
+						ByteBufCodecs.STRING_UTF8, TierLine::typeId,
+						ByteBufCodecs.VAR_INT, TierLine::count,
+						ByteBufCodecs.STRING_UTF8, TierLine::description,
+						ByteBufCodecs.BOOL, TierLine::active,
+						TierLine::new);
 	}
 
 	/**

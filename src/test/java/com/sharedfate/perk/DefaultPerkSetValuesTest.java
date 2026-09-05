@@ -260,12 +260,23 @@ class DefaultPerkSetValuesTest {
 		}
 	}
 
-	/** 무기는 아직 보상이 없다. 항목만 남아 있고 단계는 하나도 없다. */
+	/**
+	 * 무기에도 보상이 있다.
+	 *
+	 * <p>한동안 이 유형만 자리를 비워 두었는데, 그러면 여섯을 다 모아도 아무 일이 안 일어나고
+	 * 화면에는 「무기 2/2」만 뜬다 — 켜졌는데 보상이 없는 것과 구별되지 않는다. 그래서
+	 * <b>단계가 하나라도 있는지</b>를 여기서 못박는다.
+	 */
 	@Test
-	void 무기는_아직_단계가_없다(@TempDir Path dir) throws IOException {
+	void 무기에도_보상이_있다(@TempDir Path dir) throws IOException {
 		load(dir);
 
-		assertTrue(PerkSetRegistry.tiersOf(PerkSetType.WEAPON).isEmpty());
+		List<PerkSets.Tier> tiers = PerkSetRegistry.tiersOf(PerkSetType.WEAPON);
+		assertFalse(tiers.isEmpty(), "무기에 단계가 하나도 없으면 여섯을 모아도 아무 일이 없다");
+		for (PerkSets.Tier tier : tiers) {
+			assertFalse(tier.isPlaceholder(),
+					"무기 " + tier.count() + "단계에 효과가 없다 — 켜져도 아무 일이 안 일어난다");
+		}
 	}
 
 	// ------------------------------------------------------------------ 도우미

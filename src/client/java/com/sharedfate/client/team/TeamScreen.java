@@ -8,8 +8,11 @@ import com.sharedfate.net.PerkSyncPayload;
 import com.sharedfate.team.TeamCreationSettings;
 import com.sharedfate.ui.GameStartButton;
 import com.sharedfate.ui.PanelScroll;
+import com.sharedfate.ui.PerkListHover;
+import com.sharedfate.ui.PerkOwnedTypes;
 import com.sharedfate.ui.PerkSetLines;
 import com.sharedfate.ui.PerkSetTooltip;
+import com.sharedfate.ui.PerkSetTooltipLines;
 import com.sharedfate.ui.StatRow;
 import com.sharedfate.ui.TeamNameInput;
 import com.sharedfate.ui.TeamCreationCycle;
@@ -74,6 +77,28 @@ public class TeamScreen extends Screen {
 	private static final int TEXT_GOOD = StatRow.COLOR_GOOD;
 	private static final int TEXT_WARN = 0xFFFFD24A;
 	private static final int PANEL_BG = 0xC0101018;
+
+	/**
+	 * 세트 툴팁 줄에 쓸 색.
+	 *
+	 * <p>줄을 만드는 계산({@link PerkSetTooltipLines})은 이 화면의 색 상수를 몰라야 해서 색을
+	 * 밖에서 받는다. 등급색은 {@link #rarityColor} 를 그대로 불러 채운다 — 숫자를 여기에 다시
+	 * 적으면 목록의 이름 색과 툴팁의 이름 색이 언젠가 갈라진다.
+	 *
+	 * <p>켜진 단계는 능력치가 오른 줄과 같은 초록(밝게), 안 켜진 단계는 설명 줄과 같은
+	 * 회색(흐리게)이다.
+	 */
+	private static final PerkSetTooltipLines.Palette TOOLTIP_PALETTE =
+			new PerkSetTooltipLines.Palette(TEXT_MAIN, TEXT_GOOD, TEXT_DIM, TEXT_MAIN,
+					rarityColor("silver"), rarityColor("gold"), rarityColor("prism"), TEXT_DIM);
+
+	/**
+	 * 유형이 둘 이상인 증강의 툴팁에서 「아직 없는 것」을 몇 줄까지 적을지.
+	 *
+	 * <p>덩어리가 둘이면 줄 수도 두 배가 된다. 여섯 줄씩 두 벌이면 팀 화면을 통째로 덮으므로
+	 * 이때만 더 줄인다. 접힌 것은 「… 외 N개」가 말해 준다.
+	 */
+	private static final int MULTI_TYPE_MISSING_ROWS = 3;
 	private static final int SCROLL_TRACK = 0x40FFFFFF;
 	private static final int SCROLL_THUMB = 0xC0C0C6CC;
 
@@ -159,6 +184,22 @@ public class TeamScreen extends Screen {
 	 * 내려가는데, 그리는 쪽이 다른 길이를 쓰면 세트가 증강 목록 위에 겹쳐 찍힌다.
 	 */
 	private List<PerkSetLines.Line> setLines = List.of();
+	/**
+	 * 보유 증강 하나가 <b>목록 좌표</b>에서 차지하는 자리.
+	 *
+	 * <p>마우스가 어느 증강 위에 있는지를 이걸로 잰다({@link PerkListHover}). 한 증강이 이름 한
+	 * 줄과 접힌 설명 몇 줄을 함께 쓰므로 {@link #perkLines} 의 차례와는 다르다 — 그쪽은 줄
+	 * 하나씩이고 이쪽은 증강 하나씩이다.
+	 */
+	private List<PerkListHover.Span> perkSpans = List.of();
+	/**
+	 * {@link #perkSpans} 와 <b>차례가 같은</b> 증강 이름.
+	 *
+	 * <p>툴팁이 「이 증강은 어느 유형인가」를 되짚는 열쇠다. 접을 때 붙잡아 두는 이유는, 마우스
+	 * 판정을 하는 프레임에 보유 목록을 다시 읽으면 그사이 목록이 바뀌었을 때 <b>차례가 어긋나
+	 * 엉뚱한 증강의 툴팁</b>이 뜨기 때문이다.
+	 */
+	private List<String> perkNames = List.of();
 	/** 증강 목록 전체의 세로 길이(px). 스크롤 범위의 분모다. */
 	private int perkContentHeight;
 	/** 증강 목록이 보이는 창의 세로 길이(px). */
@@ -510,8 +551,13 @@ public class TeamScreen extends Screen {
 		perkViewHeight = Math.max(ROW_HEIGHT, perkListBottom() - top);
 
 		int height = 0;
+		// 증강 하나가 차지하는 세로 길이. 그리면서 세어 두었다가 마우스 판정에 그대로 쓴다 —
+		// 여기서 따로 계산하면 그리는 높이와 어긋나 툴팁이 한 칸 밀린다.
+		List<Integer> itemHeights = new ArrayList<>();
+		List<String> names = new ArrayList<>();
 		List<PerkSyncPayload.Owned> owned = PerkClientState.owned();
 		for (PerkSyncPayload.Owned perk : owned) {
+			int itemTop = height;
 			perkLines.add(new PerkLine(
 					Component.literal("· " + perk.name()).getVisualOrderText(),
 					0, rarityColor(perk.rarity()), ROW_HEIGHT));
@@ -527,7 +573,11 @@ public class TeamScreen extends Screen {
 				perkLines.add(new PerkLine(wrapped.get(index), 8, TEXT_DIM, lineHeight));
 				height += lineHeight;
 			}
+			itemHeights.add(height - itemTop);
+			names.add(perk.name());
 		}
+		perkSpans = PerkListHover.stack(itemHeights);
+		perkNames = List.copyOf(names);
 		perkContentHeight = height;
 		perkScroll = PanelScroll.clamp(perkScroll, perkContentHeight, perkViewHeight);
 	}
@@ -839,7 +889,7 @@ public class TeamScreen extends Screen {
 		}
 
 		// 툴팁은 맨 마지막이다. 잘라내기가 풀린 뒤라야 목록 창 밖까지 뻗을 수 있다.
-		renderSetTooltip(graphics, left, mouseX, mouseY);
+		renderPerkTooltip(graphics, left, mouseX, mouseY);
 	}
 
 	/**
@@ -859,18 +909,35 @@ public class TeamScreen extends Screen {
 	}
 
 	/**
-	 * 세트 줄에 마우스를 올렸을 때 「아직 없는 것」을 띄운다.
+	 * 세트 줄이나 보유 증강 줄에 마우스를 올렸을 때 <b>그 유형 세트의 단계 설명</b>을 띄운다.
 	 *
-	 * <p>클라이언트는 증강 풀을 읽지 않으므로 이 목록은 통째로 서버가 보내 준 것이다
-	 * ({@code PerkSetSyncPayload.catalog}). 등급은 글자색으로 가른다 — 「(골드)」처럼 괄호로
-	 * 적으면 이름보다 등급이 길어져 무엇을 노려야 할지가 되레 안 읽힌다.
+	 * <p>두 자리가 같은 툴팁을 쓴다. 「채굴 2/3」이 무엇을 뜻하는지는 세트 줄에서만 궁금한 것이
+	 * 아니다 — 방금 고른 증강이 어느 세트에 얹혔고 다음 단계가 무엇인지는 <b>보유 목록에서
+	 * 그 증강을 보는 순간</b>이 가장 궁금하다. 내용은 {@code ClientPerkSets.tooltip} 한 곳에서
+	 * 나오고 줄로 펴는 것은 {@link PerkSetTooltipLines} 가 한다.
 	 *
-	 * <p>목록이 길면 자른다. 채굴에는 증강이 열 개 있어 툴팁이 팀 화면 절반을 덮을 수 있다.
-	 * 자를 때는 「… 외 N개」를 반드시 붙인다 — 말없이 자르면 「이게 전부구나」로 읽힌다.
+	 * <p>둘 중 하나만 뜬다. 세트 덩어리와 증강 목록은 세로로 갈려 있어 겹칠 일이 없지만, 먼저
+	 * 본 쪽이 이기게 해 두면 자리 계산이 어긋나는 날에도 툴팁 둘이 겹쳐 뜨지는 않는다.
+	 *
+	 * <p>클라이언트는 증강 풀도 세트 정의도 읽지 않으므로 단계 설명과 이름표는 통째로 서버가
+	 * 보내 준 것이다({@code PerkSetSyncPayload}). 등급은 글자색으로 가른다 — 「(골드)」처럼
+	 * 괄호로 적으면 이름보다 등급이 길어져 무엇을 노려야 할지가 되레 안 읽힌다.
 	 */
-	private void renderSetTooltip(GuiGraphicsExtractor graphics, int left, int mouseX, int mouseY) {
-		if (setLines.isEmpty()) {
+	private void renderPerkTooltip(GuiGraphicsExtractor graphics, int left, int mouseX, int mouseY) {
+		List<Component> tooltip = setBlockTooltip(left, mouseX, mouseY);
+		if (tooltip.isEmpty()) {
+			tooltip = ownedRowTooltip(left, mouseX, mouseY);
+		}
+		if (tooltip.isEmpty()) {
 			return;
+		}
+		graphics.setComponentTooltipForNextFrame(this.font, tooltip, mouseX, mouseY);
+	}
+
+	/** 세트 덩어리 위의 마우스. 어느 줄에도 없으면 빈 목록이다. */
+	private List<Component> setBlockTooltip(int left, int mouseX, int mouseY) {
+		if (setLines.isEmpty()) {
+			return List.of();
 		}
 		// 마우스를 받는 가로 폭은 글자 폭이다. 판 오른쪽 빈자리까지 받으면 마우스를 어디에
 		// 두어도 툴팁이 떠 다른 것을 읽을 수 없다.
@@ -878,25 +945,64 @@ public class TeamScreen extends Screen {
 		int row = PerkSetLines.rowAt(mouseX, mouseY, left, width, setBlockTop(), ROW_HEIGHT,
 				setLines.size());
 		if (row < 0) {
-			return;
+			return List.of();
 		}
-		PerkSetLines.Line line = setLines.get(row);
-		List<PerkSetTooltip.Missing> missing = ClientPerkSets.missing(line.typeId());
-		PerkSetTooltip.Trimmed trimmed = PerkSetTooltip.trim(missing, PerkSetTooltip.MAX_ROWS);
+		return typeTooltip(List.of(setLines.get(row).typeId()));
+	}
 
+	/**
+	 * 보유 증강 줄 위의 마우스.
+	 *
+	 * <p>목록은 스크롤되므로 <b>화면 좌표를 그대로 줄 번호로 나눌 수 없다.</b> 옮기는 식과
+	 * 창 밖을 떨어뜨리는 규칙은 {@link PerkListHover} 에 있고, 그리는 쪽과 <b>같은 값</b>
+	 * ({@link #perkListTop()}·{@code perkViewHeight}·{@code perkScroll})을 넘긴다.
+	 *
+	 * <p>여기서 받는 가로 폭은 판 전체다. 세트 줄과 달리 이 자리는 목록 말고 아무것도 없어
+	 * 넓게 받아도 다른 것을 가리지 않고, 설명 줄이 짧은 증강에서도 줄 오른쪽 끝까지 마우스가
+	 * 먹힌다.
+	 *
+	 * <p>유형을 되짚지 못하면 빈 목록이다({@link PerkOwnedTypes}). 세트 유형이 아예 없는
+	 * 증강이 그렇고, 그 줄에는 툴팁이 안 뜬다.
+	 */
+	private List<Component> ownedRowTooltip(int left, int mouseX, int mouseY) {
+		int index = PerkListHover.indexAt(perkSpans, mouseX, mouseY, left, PANEL_WIDTH,
+				perkListTop(), perkViewHeight, perkScroll);
+		if (index < 0 || index >= perkNames.size()) {
+			return List.of();
+		}
+		return typeTooltip(PerkOwnedTypes.typeIdsOf(ClientPerkSets.catalog(), perkNames.get(index)));
+	}
+
+	/**
+	 * 유형 몇 개의 툴팁을 이어 붙인다.
+	 *
+	 * <p>증강 하나가 유형을 여럿 가질 수 있다. 하나만 골라 보여 주면 나머지 유형의 진행도를
+	 * 영영 못 보는데, 그 증강을 고른 이유가 그쪽이었을 수 있다. 사이에는 빈 줄을 둔다.
+	 */
+	private List<Component> typeTooltip(List<String> typeIds) {
+		if (typeIds.isEmpty()) {
+			return List.of();
+		}
+		int missingLimit = typeIds.size() > 1 ? MULTI_TYPE_MISSING_ROWS : PerkSetTooltip.MAX_ROWS;
 		List<Component> tooltip = new ArrayList<>();
-		tooltip.add(Component.literal(
-				PerkSetTooltip.header(ClientPerkSets.displayName(line.typeId()), missing.size()))
-				.withColor(rgb(TEXT_MAIN)));
-		for (PerkSetTooltip.Missing entry : trimmed.shown()) {
-			tooltip.add(Component.literal("· " + entry.perkName())
-					.withColor(rgb(rarityColor(entry.rarity()))));
+		for (String typeId : typeIds) {
+			List<PerkSetTooltipLines.Row> rows = PerkSetTooltipLines.build(
+					ClientPerkSets.tooltip(typeId), ClientPerkSets.displayName(typeId),
+					missingLimit, TOOLTIP_PALETTE);
+			if (rows.isEmpty()) {
+				continue;
+			}
+			if (!tooltip.isEmpty()) {
+				tooltip.add(Component.empty());
+			}
+			for (PerkSetTooltipLines.Row row : rows) {
+				// 빈 줄에 색을 입히면 알파가 섞여 아무것도 아닌 자리에 얇은 띠가 뜬다.
+				tooltip.add(row.blank()
+						? Component.empty()
+						: Component.literal(row.text()).withColor(rgb(row.color())));
+			}
 		}
-		if (trimmed.truncated()) {
-			tooltip.add(Component.literal(PerkSetTooltip.overflowLine(trimmed.hidden()))
-					.withColor(rgb(TEXT_DIM)));
-		}
-		graphics.setComponentTooltipForNextFrame(this.font, tooltip, mouseX, mouseY);
+		return tooltip;
 	}
 
 	/**

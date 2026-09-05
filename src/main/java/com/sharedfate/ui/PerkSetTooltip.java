@@ -116,4 +116,80 @@ public final class PerkSetTooltip {
 		String name = displayName == null ? "" : displayName;
 		return missingCount <= 0 ? name + " — 전부 모았습니다" : name + " — 아직 없는 것";
 	}
+
+	// ------------------------------------------------------------------ 단계 설명
+
+	/**
+	 * 세트 단계 하나. {@code net.PerkSetSyncPayload.TierLine} 에서 그대로 옮겨 담는다.
+	 *
+	 * <p>{@link Entry} 와 같은 이유로 여기 따로 둔다 — 패킷 레코드를 받으면 마인크래프트
+	 * 네트워크 클래스가 이 파일까지 따라 들어와 시험이 게임을 요구하게 된다.
+	 *
+	 * @param count       이 단계가 열리는 데 필요한 개수
+	 * @param description 무엇을 하는 단계인가. <b>서버가 보낸 글이다</b>
+	 * @param active      지금 켜져 있는가. 화면이 켜진 줄을 밝게 그린다
+	 */
+	public record TierEntry(String typeId, int count, String description, boolean active) {
+	}
+
+	/**
+	 * 유형 하나의 툴팁 한 덩어리. 화면이 색을 입혀 그린다.
+	 *
+	 * <p>선택 카드와 팀 화면이 <b>같은 것</b>을 쓴다. 두 곳에서 따로 만들면 한쪽만 고쳐지는
+	 * 사고가 난다.
+	 *
+	 * @param progress 「채굴 2/3」 같은 진행도 줄
+	 * @param tiers    단계 줄들. 개수 오름차순이고, 켜진 것은 {@link TierEntry#active()} 가 참
+	 * @param missing  아직 안 가진 증강. 이미 잘려 있다
+	 */
+	public record Body(String progress, List<TierEntry> tiers, Trimmed missing) {
+
+		public Body {
+			tiers = List.copyOf(tiers);
+		}
+	}
+
+	/**
+	 * 이 유형의 단계만 골라 <b>열리는 개수 오름차순</b>으로 돌려준다.
+	 *
+	 * <p>차례를 여기서 한 번만 정한다. 서버가 보낸 차례에 기대면 정의 파일에 단계를 거꾸로
+	 * 적은 서버에서 툴팁이 거꾸로 뜬다.
+	 */
+	public static List<TierEntry> tiersOf(List<TierEntry> all, String typeId) {
+		if (all == null || typeId == null || typeId.isEmpty()) {
+			return List.of();
+		}
+		List<TierEntry> picked = new ArrayList<>();
+		for (TierEntry tier : all) {
+			if (tier != null && typeId.equals(tier.typeId())) {
+				picked.add(tier);
+			}
+		}
+		picked.sort(java.util.Comparator.comparingInt(TierEntry::count));
+		return List.copyOf(picked);
+	}
+
+	/**
+	 * 「채굴 2/3」 같은 진행도 줄.
+	 *
+	 * <p>더 열 것이 없으면 분모를 가진 개수로 적는다 — 「채굴 4/4」. 「4/0」 이 되면 안 된다.
+	 */
+	public static String progress(String displayName, int owned, int nextThreshold) {
+		String name = displayName == null ? "" : displayName;
+		int goal = nextThreshold > 0 ? nextThreshold : Math.max(owned, 1);
+		return name + " " + owned + "/" + goal;
+	}
+
+	/**
+	 * 툴팁 본문을 한 번에 만든다. 화면은 이것을 받아 그리기만 하면 된다.
+	 *
+	 * @param maxRows 「아직 없는 것」을 몇 줄까지 적을지. 단계 줄은 자르지 않는다 —
+	 *                넷을 넘는 유형이 없고, 단계는 이 툴팁의 본론이라 접으면 뜻이 없다
+	 */
+	public static Body describe(String typeId, String displayName, int owned, int nextThreshold,
+			List<TierEntry> allTiers, List<Entry> catalog, int maxRows) {
+		return new Body(progress(displayName, owned, nextThreshold),
+				tiersOf(allTiers, typeId),
+				trim(missingOf(catalog, typeId), maxRows));
+	}
 }

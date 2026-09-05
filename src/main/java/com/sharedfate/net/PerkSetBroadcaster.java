@@ -3,6 +3,7 @@ package com.sharedfate.net;
 import com.sharedfate.perk.Perk;
 import com.sharedfate.perk.PerkRegistry;
 import com.sharedfate.perk.PerkSetEffects;
+import com.sharedfate.perk.PerkSetRegistry;
 import com.sharedfate.perk.PerkSetType;
 import com.sharedfate.perk.PerkSets;
 import com.sharedfate.team.TeamLookup;
@@ -114,11 +115,24 @@ public final class PerkSetBroadcaster {
 		}
 
 		// 가진 것이 0인 유형도 그대로 싣는다. 무엇을 감출지는 화면이 정한다.
+		//
+		// 단계 설명도 함께 싣는다. 클라이언트는 세트 정의 파일을 안 읽으므로 「2 단계가 무엇을
+		// 하는가」를 스스로 알 방법이 없고, 그래서 툴팁을 서버가 말해 주지 않으면 만들 수 없다.
 		List<PerkSetSyncPayload.SetLine> sets = new ArrayList<>();
+		List<PerkSetSyncPayload.TierLine> tiers = new ArrayList<>();
 		for (PerkSets.Status status : PerkSetEffects.statusesOf(state)) {
 			sets.add(new PerkSetSyncPayload.SetLine(
 					status.type().id(), status.type().displayName(),
 					status.owned(), status.nextCount(), highestTier(status)));
+			// 켜진 단계는 개수로 판별한다. 단계가 열리는 개수는 유형 안에서 겹치지 않는다.
+			Set<Integer> activeCounts = new HashSet<>();
+			for (PerkSets.Tier tier : status.activeTiers()) {
+				activeCounts.add(tier.count());
+			}
+			for (PerkSets.Tier tier : PerkSetRegistry.tiersOf(status.type())) {
+				tiers.add(new PerkSetSyncPayload.TierLine(status.type().id(), tier.count(),
+						tier.description(), activeCounts.contains(tier.count())));
+			}
 		}
 
 		// 유형이 붙은 증강 전부. 유형별로 모아서 실어야 상한에 잘려도 한 유형이 통째로
@@ -142,7 +156,7 @@ public final class PerkSetBroadcaster {
 						type.id(), perk.name(), perk.rarity().id(), owned.contains(perk.id())));
 			}
 		}
-		return new PerkSetSyncPayload(sets, catalog);
+		return new PerkSetSyncPayload(sets, tiers, catalog);
 	}
 
 	/**

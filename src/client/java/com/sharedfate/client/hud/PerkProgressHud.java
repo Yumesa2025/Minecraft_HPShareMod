@@ -8,9 +8,11 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.DebugScreenOverlay;
+import net.minecraft.world.entity.player.Player;
 
 /**
- * 바닐라 경험치 레벨 숫자 <b>위</b>에 다음 증강 구간까지의 진행도를 막대로 그린다.
+ * 화면 아래 가운데, 핫바 위 바닐라 표시들 <b>위</b>에 다음 증강 구간까지의 진행도를 막대로
+ * 그린다.
  *
  * <h2>왜 필요한가</h2>
  * <p>이 모드의 경험치는 팀 공유이고 증강은 정해진 레벨 구간에 <b>처음</b> 닿을 때 나온다.
@@ -18,10 +20,16 @@ import net.minecraft.client.gui.components.DebugScreenOverlay;
  * 얼마나 남았는지 눈으로 알 수 없다. 그 진행도를 따로 그리는 것이 이 요소다.
  *
  * <h2>왜 여기인가</h2>
- * <p>레벨을 확인할 때 눈이 가는 곳은 화면 아래 가운데의 경험치 바다. 그 바로 위, 레벨 숫자
- * 위에 같은 폭·같은 두께로 두면 "경험치 바를 하나 더 얹은 것"으로 읽혀 설명이 필요 없다.
- * 좌표는 바닐라의 {@code ContextualBar}(폭 182, 높이 5, 아래 여백 24)와 레벨 숫자 자리에서
- * 그대로 따왔다.
+ * <p>레벨을 확인할 때 눈이 가는 곳은 화면 아래 가운데의 경험치 바다. 그 위에 같은 폭·같은
+ * 두께로 두면 "경험치 바를 하나 더 얹은 것"으로 읽혀 설명이 필요 없다. 폭과 두께는 바닐라의
+ * {@code ContextualBar}(폭 182, 높이 5)에서 그대로 따왔다.
+ *
+ * <h2>높이는 상수가 아니다</h2>
+ * <p>이 게이지는 폭이 핫바와 같아 <b>왼쪽 하트·방어구와 오른쪽 배고픔·공기 방울을 모두
+ * 가로지른다.</b> 레벨 숫자에 딱 붙여 두면 하트 윗줄과 3픽셀 겹치는데, 이 모드는 최대 체력이
+ * 증강으로 늘어 하트가 두 줄·세 줄이 되므로 겹치는 정도가 상황마다 달라진다. 그래서 자리를
+ * 상수로 박지 않고, 바닐라가 실제로 쓰는 높이를 {@link com.sharedfate.ui.BottomBarMetrics}
+ * 로 다시 계산해 그 위에 올린다.
  *
  * <h2>숫자를 함께 적지 않는 이유</h2>
  * <p>정확히 몇 레벨 남았는지는 {@link TeamLevelHud} 가 좌하단에 「다음 증강까지 N」으로 이미
@@ -40,14 +48,11 @@ public class PerkProgressHud implements HudElement {
 	/** 게이지 높이. 바닐라 경험치 바({@code ContextualBar.HEIGHT})와 같다. */
 	private static final int HEIGHT = 5;
 	/**
-	 * 경험치 레벨 숫자의 윗변이 화면 아래에서 떨어진 거리.
+	 * 게이지 아랫변과 바닐라 표시 윗변 사이의 거리.
 	 *
-	 * <p>바닐라 {@code ContextualBar.extractExperienceLevel} 이 쓰는
-	 * {@code guiHeight - MARGIN_BOTTOM(24) - 글꼴 높이(9) - 2} 와 같은 값이다.
+	 * <p>테두리가 게이지 밖으로 1픽셀 나가므로, 눈에 보이는 여백은 이 값에서 1을 뺀 만큼이다.
 	 */
-	private static final int LEVEL_TEXT_OFFSET = 35;
-	/** 게이지와 레벨 숫자 사이 여백. */
-	private static final int GAP_TO_LEVEL = 2;
+	private static final int GAP_TO_BARS = 3;
 	/** 게이지 위로 남겨 둘 여백. 좌하단 글줄이 이 위에서 시작한다. */
 	private static final int MARGIN_TOP = 3;
 
@@ -75,14 +80,17 @@ public class PerkProgressHud implements HudElement {
 	/**
 	 * 게이지가 차지하는 자리의 윗변. 좌하단 글줄은 이 위에서 시작해야 겹치지 않는다.
 	 *
-	 * <p>안 그리는 상황이면 화면 아래끝을 돌려주어 아무것도 밀어내지 않는다.
+	 * <p>안 그리는 상황이면 바닐라 표시 윗변을 그대로 돌려주어 자리를 차지하지 않는다.
+	 *
+	 * @param barsHeight 핫바 위 바닐라 표시가 차지하는 높이.
+	 *                   {@link BottomLeftStack#vanillaBarsHeight} 가 재 준 값
 	 */
-	public static int clearanceTop(int guiHeight) {
-		return visible() ? barTop(guiHeight) - MARGIN_TOP : guiHeight;
+	public static int clearanceTop(int guiHeight, int barsHeight) {
+		return visible() ? barTop(guiHeight, barsHeight) - MARGIN_TOP : guiHeight - barsHeight;
 	}
 
-	private static int barTop(int guiHeight) {
-		return guiHeight - LEVEL_TEXT_OFFSET - GAP_TO_LEVEL - HEIGHT;
+	private static int barTop(int guiHeight, int barsHeight) {
+		return guiHeight - barsHeight - GAP_TO_BARS - HEIGHT;
 	}
 
 	@Override
@@ -91,7 +99,8 @@ public class PerkProgressHud implements HudElement {
 			return;
 		}
 		Minecraft client = Minecraft.getInstance();
-		if (client.player == null) {
+		Player player = client.player;
+		if (player == null) {
 			return;
 		}
 		// F1 로 HUD 를 껐거나 F3 디버그 화면이 켜져 있으면 그리지 않는다.
@@ -100,7 +109,7 @@ public class PerkProgressHud implements HudElement {
 		}
 
 		int left = (graphics.guiWidth() - WIDTH) / 2;
-		int top = barTop(graphics.guiHeight());
+		int top = barTop(graphics.guiHeight(), BottomLeftStack.vanillaBarsHeight(player));
 		int right = left + WIDTH;
 		int bottom = top + HEIGHT;
 

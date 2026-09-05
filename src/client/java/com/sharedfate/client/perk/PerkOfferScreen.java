@@ -7,7 +7,12 @@ import com.sharedfate.perk.PerkRarity;
 import com.sharedfate.ui.PerkCardDismiss;
 import com.sharedfate.ui.PerkCardFocus;
 import com.sharedfate.ui.PerkCardMetrics;
+import com.sharedfate.ui.PerkCardSetTypes;
 import com.sharedfate.ui.PerkRerollButton;
+import com.sharedfate.ui.PerkSetLines;
+import com.sharedfate.ui.PerkSetPanelLayout;
+import com.sharedfate.ui.PerkSetTooltip;
+import com.sharedfate.ui.PerkSetTooltipLines;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
@@ -52,6 +57,20 @@ import java.util.Optional;
  * <p>세트 유형 줄은 어느 유형에도 안 들어가는 증강에는 아예 없다. 그 줄이 늘어나면
  * {@link PerkCardMetrics} 가 재는 카드 높이도 함께 늘어야 한다 — 카드 안쪽은 잘려 그려지므로
  * 높이를 덜 세면 설명 마지막 줄이 소리 없이 사라진다.
+ *
+ * <h2>화면 왼쪽의 세트 판</h2>
+ * <p>고르는 동안 <b>내가 무슨 세트를 모으고 있는지</b>가 보여야 판단이 된다. 그래서 왼쪽에
+ * 「지금 켜진 세트」를 세로로 세운다. 자리는 {@link PerkSetPanelLayout} 이 정하는데,
+ * <b>카드 자리를 먼저 잡고 남은 폭만</b> 넘기므로 판이 카드를 가리는 일은 없다.
+ *
+ * <h2>흐림 위에 그린다</h2>
+ * <p>선택 화면은 뒤의 게임 화면을 흐리게 깐다. 그 흐림은 {@code Screen.extractBackground} 안의
+ * {@code extractBlurredBackground} 가 {@code GuiGraphicsExtractor.blurBeforeThisStratum()} 을
+ * 불러서 걸리고, 그 이름대로 <b>지금 층(stratum)보다 앞서 그려진 것</b>만 흐려진다. 바닐라는
+ * 배경 층을 그린 뒤 {@code nextStratum()} 으로 층을 한 칸 올리고 나서 이 화면의
+ * {@link #extractRenderState} 를 부른다. 그러니 <b>여기서 그리는 것은 모두 흐림 뒤에 온다</b> —
+ * 세트 판도 카드도 또렷하다. 반대로 {@code extractBackground} 를 덮어써서 그 안에 무언가
+ * 그리면 그것만 흐려진다. <b>세트 판을 그 쪽으로 옮기지 말 것.</b>
  */
 public class PerkOfferScreen extends Screen {
 	private static final int COLOR_SILVER = 0xFFC0C6CC;
@@ -185,6 +204,46 @@ public class PerkOfferScreen extends Screen {
 	/** 카드마다 등장 시작을 조금씩 미뤄 왼쪽부터 차례로 올라오게 한다(ms). */
 	private static final long ENTRY_STAGGER_MILLIS = 45L;
 
+	/** 왼쪽 세트 판의 머리글. */
+	private static final String PANEL_TITLE = "지금 켜진 세트";
+	/**
+	 * 세트 판에 그릴 줄 수의 상한.
+	 *
+	 * <p>유형이 열한 가지지만 <b>가진 것이 0인 유형은 {@link PerkSetLines#visible} 이 이미
+	 * 빼고 준다.</b> 여덟이면 한 회차에 흩어질 수 있는 유형을 거의 다 담는다. 이보다 많아도
+	 * 어차피 카드 높이가 세로를 막는다.
+	 */
+	private static final int PANEL_MAX_ROWS = 8;
+	/** 세트 판 오른쪽 변과 첫 카드 사이에 반드시 남길 틈. */
+	private static final int PANEL_CARD_GAP = 10;
+	/** 세트 판 테두리와 글자 사이 여백. */
+	private static final int PANEL_PADDING = 5;
+	/** 머리글과 첫 세트 줄 사이의 틈. */
+	private static final int PANEL_HEADER_GAP = 3;
+	private static final int PANEL_BACKGROUND = 0xC00C0C13;
+	private static final int PANEL_BORDER = 0x40FFFFFF;
+	/** 켜진 세트 줄. 아직인 줄과 <b>색으로 갈린다</b>. */
+	private static final int PANEL_ACTIVE = 0xFF7FE07F;
+	/** 아직 안 켜진 세트 줄. */
+	private static final int PANEL_IDLE = 0xFF98A0AC;
+
+	/**
+	 * 툴팁 줄에 쓸 색.
+	 *
+	 * <p>등급 세 색은 카드가 쓰는 것과 같은 값이다. 툴팁의 「종결곡」과 카드의 프리즘 띠가 다른
+	 * 색이면 같은 등급으로 안 읽힌다.
+	 */
+	private static final PerkSetTooltipLines.Palette TOOLTIP_PALETTE =
+			new PerkSetTooltipLines.Palette(0xFFFFFFFF, PANEL_ACTIVE, 0xFF7A828E, TEXT_SUB,
+					COLOR_SILVER, COLOR_GOLD, COLOR_PRISM, TEXT_HINT);
+	/**
+	 * 유형이 둘인 증강의 툴팁에서 「아직 없는 것」을 몇 줄까지 적을지.
+	 *
+	 * <p>유형이 둘이면 툴팁이 두 덩어리가 된다. 양쪽 다 여섯 줄씩 적으면 스무 줄이 넘어
+	 * 카드를 통째로 덮는다. 둘인 증강은 여든두 개 중 둘뿐이라 이 자리만 짧게 줄인다.
+	 */
+	private static final int MULTI_TYPE_MISSING_ROWS = 3;
+
 	/** 「다시 뽑기」 단추의 크기와 카드 아래 여백. */
 	private static final int REROLL_HEIGHT = 16;
 	private static final int REROLL_WIDTH = 140;
@@ -270,6 +329,19 @@ public class PerkOfferScreen extends Screen {
 	private int iconSize;
 	/** 등장 애니메이션을 돌릴지. 화면이 빠듯하면 아래 문구를 침범하므로 끈다. */
 	private boolean entryAnimated;
+
+	/** 왼쪽 판에 그릴 세트 줄들. 켜진 것이 위다. */
+	private List<PerkSetLines.Line> panelLines = List.of();
+	/** 왼쪽 판의 자리. 폭이 모자라면 {@link PerkSetPanelLayout#visible()} 이 거짓이다. */
+	private PerkSetPanelLayout panel = PerkSetPanelLayout.hidden();
+	/**
+	 * 판을 마지막으로 다시 잰 시점의 세트 상태.
+	 *
+	 * <p>{@code TeamScreen.signature()} 와 같은 뜻이다 — 세트가 그대로면 줄을 다시 고르지도,
+	 * 글자 폭을 다시 재지도 않는다. {@code null} 이면 아직 한 번도 안 쟀다는 뜻이라
+	 * {@link #init()} 이 여기에 {@code null} 을 넣어 다음 프레임에 다시 재게 한다.
+	 */
+	private @Nullable String panelSignature;
 
 	public PerkOfferScreen(PerkOfferPayload payload) {
 		super(Component.literal("증강 선택"));
@@ -389,7 +461,7 @@ public class PerkOfferScreen extends Screen {
 
 		int innerWidth = Math.max(8, cardWidth - CARD_PADDING * 2);
 		for (PerkOfferPayload.PerkOption option : options) {
-			cards.add(Card.of(this.font, option, innerWidth));
+			cards.add(Card.of(this.font, option, innerWidth, ClientPerkSets.all()));
 		}
 
 		int footerTop = Math.max(headerBottom + 46, this.height - 22);
@@ -437,6 +509,53 @@ public class PerkOfferScreen extends Screen {
 			addRenderableWidget(rerollButton);
 			refreshRerollButton();
 		}
+
+		// 카드 자리가 다 정해진 뒤라야 왼쪽에 남은 폭을 잴 수 있다. 여기서 바로 재지 않고
+		// 표시를 지워 두는 이유는, 창이 열린 뒤에 세트 패킷이 도착하는 경우가 있어서다.
+		panelSignature = null;
+	}
+
+	/**
+	 * 왼쪽 세트 판을 다시 잰다. 세트가 그대로면 아무것도 하지 않는다.
+	 *
+	 * <p>매 프레임 불러도 되게 만들어 두었다. 세트는 이 창이 떠 있는 동안 거의 안 바뀌지만,
+	 * <b>바로 앞 회차의 증강이 적용된 직후에 창이 뜨는 경로</b>가 있어 한 번은 늦게 온다.
+	 * 그때 판이 빈 채로 남으면 정작 필요한 순간에 아무것도 안 보인다.
+	 */
+	private void refreshSetPanel() {
+		String signature = ClientPerkSets.signature();
+		if (signature.equals(panelSignature)) {
+			return;
+		}
+		panelSignature = signature;
+		panelLines = ClientPerkSets.lines(PANEL_MAX_ROWS);
+		panel = fitSetPanel();
+	}
+
+	/**
+	 * 왼쪽 판이 들어갈 자리를 잰다.
+	 *
+	 * <p>오른쪽 한계는 <b>첫 카드에서 틈만큼 물러난 자리</b>고, 세로는 <b>카드가 서 있는 띠</b>
+	 * 안이다. 카드 띠를 벗어나지 않게 잡으면 안내 문구를 덮을 수 없다.
+	 *
+	 * <p>「다시 뽑기」 단추 위에서 한 번 더 끊는다. 화면이 아주 낮으면 카드가 제 자리를 넘어서
+	 * 단추 아래까지 내려가는데({@code cardHeight} 의 최소값 40), 후보가 한 장뿐인 회차에서는
+	 * 단추가 판 바로 위까지 넓어져 겹칠 수 있다.
+	 */
+	private PerkSetPanelLayout fitSetPanel() {
+		if (panelLines.isEmpty()) {
+			return PerkSetPanelLayout.hidden();
+		}
+		int bottom = cardTop + cardHeight;
+		if (rerollButton != null) {
+			bottom = Math.min(bottom, rerollButton.getY() - 2);
+		}
+		PerkSetPanelLayout.Room room = new PerkSetPanelLayout.Room(SCREEN_MARGIN,
+				firstCardLeft - PANEL_CARD_GAP, cardTop, bottom,
+				this.font.lineHeight, PANEL_PADDING, PANEL_HEADER_GAP);
+		return PerkSetPanelLayout.fit(room, panelLines.size(),
+				PerkSetLines.blockWidth(panelLines, this.font::width, 0),
+				this.font.width(PANEL_TITLE));
 	}
 
 	/**
@@ -515,7 +634,132 @@ public class PerkOfferScreen extends Screen {
 
 		graphics.centeredText(this.font, footerHint(), centerX, this.height - 14, TEXT_HINT);
 
+		// 왼쪽 세트 판과 툴팁은 결과를 보여 주는 동안 접는다. 그때는 고른 카드 하나만 남기는
+		// 화면이라, 어둠 위에 밝은 판이 남으면 눈이 그리로 끌려간다.
+		if (!showingResult()) {
+			refreshSetPanel();
+			renderSetPanel(graphics);
+			renderSetTooltip(graphics, mouseX, mouseY);
+		}
+
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+	}
+
+	/**
+	 * 화면 왼쪽의 「지금 켜진 세트」 판.
+	 *
+	 * <p>여기는 {@link #extractRenderState} 안이므로 <b>배경 흐림보다 뒤에 그려진다</b> —
+	 * 판은 또렷하다. 자세한 것은 이 클래스 머리글에 적어 두었다.
+	 *
+	 * <p>켜진 줄과 아직인 줄을 색으로 가르되, 마름모 표({@link PerkSetLines#ACTIVE_MARK})가
+	 * 이미 글자 앞에 붙어 있다. 색을 못 가리는 사람에게도 뜻이 남아야 한다.
+	 */
+	private void renderSetPanel(GuiGraphicsExtractor graphics) {
+		if (!panel.visible()) {
+			return;
+		}
+		graphics.fill(panel.left(), panel.top(), panel.right(), panel.bottom(), PANEL_BACKGROUND);
+		graphics.outline(panel.left(), panel.top(), panel.right() - panel.left(),
+				panel.bottom() - panel.top(), PANEL_BORDER);
+		if (panel.header()) {
+			graphics.text(this.font, PANEL_TITLE, panel.contentLeft(), panel.headerY(), TEXT_HINT);
+		}
+		for (int index = 0; index < panel.rowCount() && index < panelLines.size(); index++) {
+			PerkSetLines.Line line = panelLines.get(index);
+			graphics.text(this.font, line.text(), panel.contentLeft(), panel.rowY(index),
+					line.active() ? PANEL_ACTIVE : PANEL_IDLE);
+		}
+	}
+
+	/**
+	 * 마우스가 올라간 세트의 단계 설명을 띄운다.
+	 *
+	 * <p>뜨는 자리가 둘이다 — <b>왼쪽 판의 세트 줄</b>과 <b>카드의 세트 유형 줄</b>. 판을 먼저
+	 * 보는 이유는 둘이 겹치지 않기 때문이 아니라, 겹칠 수 없게 자리를 잡아 두었으니 먼저
+	 * 맞는 쪽에서 끝내면 된다는 뜻이다.
+	 */
+	private void renderSetTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+		int row = panel.rowAt(mouseX, mouseY);
+		if (row >= 0 && row < panelLines.size()) {
+			showSetTooltip(graphics, List.of(panelLines.get(row).typeId()), mouseX, mouseY);
+			return;
+		}
+		renderCardSetTypeTooltip(graphics, mouseX, mouseY);
+	}
+
+	/**
+	 * 카드의 세트 유형 줄에 마우스를 올렸는지 본다.
+	 *
+	 * <p>판정은 <b>움직이지 않는 자리</b>(cardTop 기준)로 한다. 카드를 클릭할 때와 같은 이유다 —
+	 * 떠오른 위치로 재면 카드가 올라가는 순간 마우스가 밖으로 빠져 툴팁이 깜빡인다. 그래서
+	 * 호버로 카드가 2픽셀 뜨는 동안에는 글자와 판정 자리가 그만큼 어긋나 있는데, 줄 높이가
+	 * 아홉이라 눈에 잡히지 않는다.
+	 *
+	 * <p>유형 줄까지의 거리는 {@link PerkCardSetTypes#rowsTop} 이 잰다. <b>카드에 그리는 차례를
+	 * 바꾸면 그 계산도 함께 고쳐야 한다.</b>
+	 */
+	private void renderCardSetTypeTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+		int lineHeight = this.font.lineHeight;
+		PerkCardMetrics cardMetrics = metrics(lineHeight);
+		for (int index = 0; index < cards.size(); index++) {
+			Card card = cards.get(index);
+			if (card.setTypeLines().isEmpty() || card.setTypeIds().isEmpty()) {
+				continue;
+			}
+			int left = cardLeft(index);
+			int top = cardTop
+					+ PerkCardSetTypes.rowsTop(cardMetrics, iconSize, card.nameLines().size());
+			if (!PerkCardSetTypes.hovered(mouseX, mouseY, left + cardWidth / 2,
+					card.setTypeWidth(), top, lineHeight, card.setTypeLines().size())) {
+				continue;
+			}
+			showSetTooltip(graphics, card.setTypeIds(), mouseX, mouseY);
+			return;
+		}
+	}
+
+	/**
+	 * 유형 하나(또는 둘)의 단계 설명을 툴팁으로 띄운다.
+	 *
+	 * <p>담기는 내용은 {@link PerkSetTooltipLines} 가 정한다. 여기서는 색을 붙여
+	 * {@code Component} 로 옮기기만 한다 — 그래야 팀 화면과 이 화면이 같은 말을 한다.
+	 *
+	 * <p>줄이 하나도 안 나오면 아무것도 띄우지 않는다. 세트 패킷이 아직 안 왔거나 서버가 모르는
+	 * 유형을 보낸 때인데, 빈 툴팁이 뜨면 고장으로 읽힌다.
+	 */
+	private void showSetTooltip(GuiGraphicsExtractor graphics, List<String> typeIds, int mouseX,
+			int mouseY) {
+		int limit = typeIds.size() > 1 ? MULTI_TYPE_MISSING_ROWS : PerkSetTooltip.MAX_ROWS;
+		List<Component> tooltip = new ArrayList<>();
+		for (String typeId : typeIds) {
+			List<PerkSetTooltipLines.Row> rows = PerkSetTooltipLines.build(
+					ClientPerkSets.tooltip(typeId), ClientPerkSets.displayName(typeId), limit,
+					TOOLTIP_PALETTE);
+			if (rows.isEmpty()) {
+				continue;
+			}
+			if (!tooltip.isEmpty()) {
+				tooltip.add(Component.empty());
+			}
+			for (PerkSetTooltipLines.Row line : rows) {
+				tooltip.add(line.blank() ? Component.empty()
+						: Component.literal(line.text()).withColor(rgb(line.color())));
+			}
+		}
+		if (tooltip.isEmpty()) {
+			return;
+		}
+		graphics.setComponentTooltipForNextFrame(this.font, tooltip, mouseX, mouseY);
+	}
+
+	/**
+	 * 0xAARRGGBB 색에서 알파를 뗀다.
+	 *
+	 * <p>{@code MutableComponent.withColor} 는 24비트 색만 받는다. 알파를 남긴 채 넘기면
+	 * 상위 바이트가 색값에 섞여 <b>엉뚱한 색으로 뜬다.</b>
+	 */
+	private static int rgb(int argb) {
+		return argb & 0xFFFFFF;
 	}
 
 	/**
@@ -1084,16 +1328,25 @@ public class PerkOfferScreen extends Screen {
 		return (alpha & 0xFF) << 24 | color & 0x00FFFFFF;
 	}
 
-	/** 화면 폭이 정해진 뒤 한 번 계산해 두는 카드 한 장의 표시 내용. */
+	/**
+	 * 화면 폭이 정해진 뒤 한 번 계산해 두는 카드 한 장의 표시 내용.
+	 *
+	 * @param setTypeIds   유형 줄에 적힌 이름을 되돌린 유형 id. <b>툴팁을 물을 때 쓰는 열쇠다.</b>
+	 *                     되돌리지 못한 이름은 빠지므로 유형 줄이 있어도 비어 있을 수 있다
+	 * @param setTypeWidth 가장 긴 유형 줄의 글자 폭. 마우스를 받는 가로 범위다
+	 */
 	private record Card(List<FormattedCharSequence> nameLines,
 			List<FormattedCharSequence> setTypeLines,
+			List<String> setTypeIds,
+			int setTypeWidth,
 			Component rarityLabel,
 			PerkRarity rarity,
 			int rarityColor,
 			ItemStack icon,
 			List<FormattedCharSequence> descriptionLines) {
 
-		static Card of(Font font, PerkOfferPayload.PerkOption option, int innerWidth) {
+		static Card of(Font font, PerkOfferPayload.PerkOption option, int innerWidth,
+				List<PerkSetLines.Entry> sets) {
 			PerkRarity parsed = PerkRarity.fromId(option.rarity());
 			// 등급을 못 읽어도 화면은 떠야 하므로 실버로 본다.
 			PerkRarity rarity = parsed == null ? PerkRarity.SILVER : parsed;
@@ -1106,9 +1359,19 @@ public class PerkOfferScreen extends Screen {
 			List<FormattedCharSequence> setTypeLines = setTypes.isEmpty()
 					? List.of()
 					: font.split(Component.literal(setTypes), innerWidth);
+			int setTypeWidth = 0;
+			for (FormattedCharSequence line : setTypeLines) {
+				setTypeWidth = Math.max(setTypeWidth, font.width(line));
+			}
+			// 유형 id 는 서버가 이름과 같은 차례로 실어 준다. 이름으로 되짚지 않는 이유는
+			// 세트 동기화 패킷이 아직 안 온 순간에는 되짚을 표가 없어 툴팁이 통째로 사라지기
+			// 때문이다. 옛 서버가 id 를 안 보내면 빈 문자열이 와서 툴팁만 안 뜬다.
 			return new Card(
 					font.split(name, innerWidth),
 					setTypeLines,
+					PerkCardSetTypes.split(option.setTypeIds(),
+							PerkOfferPayload.PerkOption.SET_TYPE_JOINER),
+					setTypeWidth,
 					Component.literal(PerkOfferScreen.rarityLabel(rarity)),
 					rarity,
 					PerkOfferScreen.rarityColor(rarity),
