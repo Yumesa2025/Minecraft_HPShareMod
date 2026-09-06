@@ -21,7 +21,7 @@ import java.util.List;
  *
  * <h2>{@code bonus_drop} 과 무엇이 다른가</h2>
  * <p>{@link BonusDropEffect}는 "확률로 정해진 개수"다. 이쪽은 <b>캘 때마다 반드시 굴리되 나오는
- * 개수가 매번 다르다</b>. 0이 나올 수 있어야 한다는 것이 요구사항이라 확률 하한을 두는
+ * 개수가 매번 다르다</b>. <b>0이 나올 수 있어야</b> 하므로 확률 하한을 두는
  * {@code bonus_drop}({@code MIN_CHANCE})으로는 표현할 수 없다. 대신 기댓값을 정확히 1.0 으로
  * 맞춰 놓아, 평균으로 보면 {@code chance: 1.0, extra: 1} 과 같은 값어치가 되게 했다.
  *

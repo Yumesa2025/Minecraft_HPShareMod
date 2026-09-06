@@ -25,7 +25,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * {@code Block.destroy(...)} 호출 <b>직전</b>이고, 전리품을 실제로 떨어뜨리는
  * {@code Block.playerDestroy} 는 그보다 <b>뒤</b>에 불린다. 즉 그 자리에서는 「앞으로 떨어질
  * 것」에 손을 댈 방법이 없다. 덤을 얹는 {@code bonus_drop} 은 그래서 그 자리로 충분하지만,
- * 「밀 대신」처럼 원래 것이 사라져야 하는 요구는 전리품을 만드는 자리를 잡아야 한다.
+ * 「밀 대신」처럼 원래 것이 사라져야 하는 경우는 전리품을 만드는 자리를 잡아야 한다.
  *
  * <h2>대상을 어떻게 확인했는가</h2>
  * <p>{@code sharedfate.mixins.json} 에는 refmap 이 없어 <b>대상 서술자가 틀려도 빌드는
