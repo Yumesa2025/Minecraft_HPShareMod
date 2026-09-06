@@ -25,9 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>이 저장소는 refmap 을 만들지 않아 {@code @Inject} 의 대상 서술자가 틀려도 <b>빌드가 그냥
  * 통과</b>하고, 서버가 뜬 뒤 스폰이 처음 도는 순간에야 터진다. 스폰은 월드에 들어가야 도는
  * 자리라 그 사고를 늦게 알아차리게 된다. 그래서 대상 서술자만이라도 여기서 붙들어 둔다.
- *
- * <p>서술자는 26.2 공통 jar 을 {@code javap -p -c} 로 읽어 확인했고, 그 결과는
- * {@code NaturalSpawnerRateMixin} 의 주석에 그대로 적어 두었다.
  */
 class NaturalSpawnerTargetTest {
 

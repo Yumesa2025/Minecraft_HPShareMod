@@ -15,7 +15,6 @@ import java.util.function.Function;
  * <p>보유 증강 목록과 세트 정의를 인자로 받아 「유형별로 몇 개인가」·「어느 단계가 켜졌는가」·
  * 「켜진 단계의 효과는 무엇인가」를 돌려준다. {@link PerkRegistry}·{@link PerkSetRegistry} 같은
  * 전역 상태에는 손을 뻗지 않으므로 살아 있는 서버 없이 그대로 시험할 수 있다.
- * {@link PerkDraft} 가 추첨을 그렇게 떼어 둔 것과 같은 이유다.
  *
  * <h2>세트는 증강이 아니다</h2>
  * <p>세트 보너스는 {@code TeamState.ownedPerks} 에 <b>절대 들어가지 않는다.</b> 「환골탈태」
@@ -23,7 +22,6 @@ import java.util.function.Function;
  * 갈아 끼우기 때문에, 세트를 목록에 넣으면 개수가 부풀고 갈아엎을 때 세트가 지워진다.
  * 세트는 언제나 {@code ownedPerks} 를 다시 세어 만드는 <b>파생 상태</b>이고 저장하지도 않는다.
  *
- * <h2>왜 {@code perkOwners} 가 아니라 {@code ownedPerks} 인가</h2>
  * <p>「요행」·「숨은 재능」·「하늘의 은총」이 덤으로 준 증강에는 주인이 없다(설계 의도).
  * 주인 기록으로 세면 그것들이 세트에서 통째로 빠진다.
  *
@@ -56,8 +54,7 @@ public final class PerkSets {
 		 * 아직 아무 효과도 붙지 않은 자리인가.
 		 *
 		 * <p>설명만 정해 두고 값을 나중에 채우는 단계가 있다. 화면은 이런 단계를
-		 * 「예정」으로 흐리게 보여 주면 된다 — 켜졌다고 표시해 놓고 아무 일도 안 일어나면
-		 * 플레이어를 속이는 셈이 된다.
+		 * 「예정」으로 흐리게 보여 주면 된다.
 		 */
 		public boolean isPlaceholder() {
 			return effects.isEmpty();
@@ -94,11 +91,9 @@ public final class PerkSets {
 	 * 보유 증강을 유형별로 센다.
 	 *
 	 * <p>한 증강이 유형을 <b>둘 이상</b> 가질 수 있고, 그때는 <b>양쪽에 다 세어진다.</b>
-	 * 「원정 준비물」은 보급이자 도박이고 「피의 대가」는 화력이자 회복이다. 어느 한쪽으로만
-	 * 세면 그 증강을 집은 사람이 손해를 본다.
+	 * 「원정 준비물」은 보급이자 도박이고 「피의 대가」는 화력이자 회복이다.
 	 *
 	 * <p>돌려주는 표에는 <b>유형 열한 개가 모두</b> 들어 있다. 하나도 없는 유형은 0 이다.
-	 * 화면이 「채굴 0/3」을 그리려면 없는 유형도 알아야 한다.
 	 *
 	 * @param ownedPerkIds {@code TeamState.ownedPerks} 그대로. null 이면 전부 0
 	 * @param lookup       id 로 증강을 찾는 수단. 보통 {@code id -> PerkRegistry.byId(id).orElse(null)}
@@ -248,8 +243,7 @@ public final class PerkSets {
 	/**
 	 * 한 유형의 단계들을 {@code count} 오름차순으로 정렬한다.
 	 *
-	 * <p>정의 파일에 순서를 거꾸로 적어도 판정과 화면이 흔들리지 않게 하려는 것이다.
-	 * 이미 정렬돼 있으면 새로 만들지 않는다.
+	 * <p>이미 정렬돼 있으면 새로 만들지 않는다.
 	 */
 	private static List<Tier> sortedTiers(@Nullable List<Tier> tiers) {
 		if (tiers == null || tiers.isEmpty()) {

@@ -97,8 +97,7 @@ public final class PerkItemGrants {
 	/**
 	 * 공유 목록에 밀어 넣는다.
 	 *
-	 * <p>일단 넘침 목록에 얹고 {@link TeamState#restoreOverflow}를 부른다. 빈 칸 찾기와
-	 * 같은 아이템 합치기 규칙을 이 모드가 이미 한 곳에 갖고 있으므로 그대로 쓴다.
+	 * <p>일단 넘침 목록에 얹고 {@link TeamState#restoreOverflow}를 부른다.
 	 *
 	 * @return 이번에 준 것 중 자리가 없어 넘침 목록에 남은 묶음 수
 	 */

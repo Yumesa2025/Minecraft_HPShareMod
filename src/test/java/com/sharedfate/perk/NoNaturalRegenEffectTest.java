@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>실제로 회복을 건너뛰는 자리는 {@code FoodDataNaturalRegenMixin} 이고 그건 살아 있는
  * 서버가 있어야 확인할 수 있다. 여기서는 그 mixin 이 물어보는 질문
- * ({@link PerkRegenRules#blocks})만 확인한다. {@code no_food_hunger} 와 완전히 같은 구도다.
+ * ({@link PerkRegenRules#blocks})만 확인한다.
  */
 class NoNaturalRegenEffectTest {
 

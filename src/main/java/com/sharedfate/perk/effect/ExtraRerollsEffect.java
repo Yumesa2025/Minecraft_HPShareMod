@@ -45,14 +45,12 @@ import org.jetbrains.annotations.Nullable;
  *
  * <h2>저장 왕복에서 살아남는 법</h2>
  * <p>{@code TeamState} 의 저장 클램프 두 곳이 {@code rerollsRemaining} 을 <b>회차당 허용치</b>로
- * 잘라 왔다({@code sanitize}·{@code applyRerollSection}). 남은 횟수만 5 올려 두면 서버를 껐다
+ * 자른다({@code sanitize}·{@code applyRerollSection}). 남은 횟수만 5 올려 두면 서버를 껐다
  * 켜는 순간 3 으로 되돌아간다. 그래서 「세트로 얻은 몫」이 {@code TeamState.rerollSetBonus} 로
- * 함께 저장되고, 두 클램프의 상한이 {@code 허용치 + 세트 몫} 으로 바뀌었다. 자세한 것은 그
- * 필드에 적어 뒀다.
+ * 함께 저장되고, 두 클램프의 상한은 {@code 허용치 + 세트 몫} 이다. 자세한 것은 그 필드에 있다.
  *
  * <h2>붙였다 떼는 효과가 아니다</h2>
- * <p>{@link NoSilverOffersEffect}·{@link StaggeredSwapEffect} 와 같은 결이다.
- * {@link PerkEffect#apply} 로 플레이어에게 붙일 것이 없다. 「이 팀이 세트로 몇 회를 받아야
+ * <p>{@link PerkEffect#apply} 로 플레이어에게 붙일 것이 없다. 「이 팀이 세트로 몇 회를 받아야
  * 하는가」라는 물음에 답하기 위한 자료 그릇일 뿐이고, 그 답이 {@link #bonusOf(TeamState)} 다.
  */
 public final class ExtraRerollsEffect implements PerkEffect {
@@ -81,9 +79,7 @@ public final class ExtraRerollsEffect implements PerkEffect {
 	 * 이 팀이 <b>세트와 보유 증강을 합쳐</b> 이번 회차에 더 받아야 할 횟수. 없으면 0.
 	 *
 	 * <p>같은 형이 여럿이면 <b>더한다.</b> {@link AlwaysLootingEffect} 가 「가장 높은 하나만」인
-	 * 것과 반대인데, 그쪽은 「약탈이 III 으로 오릅니다」처럼 <b>덮어쓰는</b> 약속이고 이쪽은
-	 * 「5회를 받습니다」처럼 <b>받는</b> 약속이기 때문이다. 지금은 도박 2단계 하나뿐이라 실제로
-	 * 겹치지 않는다.
+	 * 것과 반대다.
 	 *
 	 * <p>돌려주는 값에는 상한을 걸지 않는다. 회차당 허용치와 합쳐 10 을 넘지 않도록 접는 일은
 	 * {@link TeamState#syncRerollSetBonus} 한 곳에서만 한다 — 접는 규칙이 두 군데 있으면 반드시

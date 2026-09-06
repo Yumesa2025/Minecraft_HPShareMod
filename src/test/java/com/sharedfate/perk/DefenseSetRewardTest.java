@@ -52,8 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>속성 수정자를 실제로 붙였다 떼는 {@code PerkManager.refreshPlayer} 와, 잠깐 얹는
  * {@code TemporaryPerkGrants.grant} 는 {@code ServerPlayer} 가 있어야 부를 수 있다. 그래서 그
  * 자리들이 <b>실제로 보고 갈라지는 판정</b>인 {@link PerkDrawbacks.Waiver#waives} 를 직접
- * 시험한다. {@code GambleSetRewardTest} 가 {@code PerkManager.applyReroll} 대신
- * {@code PrismRerollEffect.heldBy} 와 {@code PerkManager.onlyPrism} 을 확인하는 것과 같은 방식이다.
+ * 시험한다.
  *
  * <p>피해원을 가리는 {@code damage_taken_from} 만은 순수 계산
  * ({@link PerkDamage#takenSourceMultiplier})이라 끝에서 끝까지 그대로 확인한다.
@@ -131,7 +130,7 @@ class DefenseSetRewardTest {
 	 */
 	private static final String PERKS_WITHOUT_MARKS = PERKS.replace(", \"drawback\": true", "");
 
-	/** 세트 JSON 에 넣을 내용과 같은 모양. 3단계가 이 작업의 결과물이다. */
+	/** 세트 JSON 에 넣을 내용과 같은 모양. */
 	private static final String SETS = """
 			{ "sets": [
 			  { "type": "defense", "tiers": [
@@ -162,7 +161,6 @@ class DefenseSetRewardTest {
 	 * 효과 타입이 {@link PerkEffectType} 에 등록되어 있다.
 	 *
 	 * <p>등록을 빠뜨리면 <b>빌드도 통과하고 서버도 뜨는데</b> 방어 3단계만 조용히 사라진다.
-	 * 아래 시험들이 전부 알 수 없는 이유로 깨지는 것보다 여기서 한 번에 잡히는 편이 낫다.
 	 */
 	@Test
 	void 효과_타입이_등록되어_있다() {
@@ -174,9 +172,7 @@ class DefenseSetRewardTest {
 	// ------------------------------------------------------------------ 표시가 없으면 그대로
 
 	/**
-	 * <b>이 파일에서 가장 중요한 시험이다.</b>
-	 *
-	 * <p>표시를 안 적은 효과는 표에 오르지 않는다. 표에 없으면 {@link PerkDrawbacks.Waiver} 가
+	 * 표시를 안 적은 효과는 표에 오르지 않는다. 표에 없으면 {@link PerkDrawbacks.Waiver} 가
 	 * 첫 줄에서 거짓을 돌려주므로, 세트가 켜져 있든 말든 예전과 완전히 같은 길을 지난다.
 	 */
 	@Test
@@ -513,7 +509,7 @@ class DefenseSetRewardTest {
 	 *
 	 * <p>몹 체력은 팀이 아니라 <b>월드에 걸리는</b> 값이라 다른 대가와 성격이 다르다. 이미 스폰된
 	 * 몹까지 되돌리면 체력 표시가 튀고, 두 증강을 함께 가진 팀에서는 세트를 켜는 순간 월드의 모든
-	 * 몹이 1.725 배에서 1 배로 내려앉는다. 나중에 더 없애기는 쉬우니 지금은 남겨 둔다.
+	 * 몹이 1.725 배에서 1 배로 내려앉는다.
 	 */
 	@Test
 	void 몹_체력은_대가로_표시하지_않았다(@TempDir Path dir) throws IOException {
@@ -529,7 +525,7 @@ class DefenseSetRewardTest {
 		}
 	}
 
-	/** 「철벽」의 이속 감소는 오늘 따로 삭제됐다. 대가로 남은 것은 몹 체력뿐이다. */
+	/** 「철벽」에 대가로 남은 것은 몹 체력뿐이다. */
 	@Test
 	void 철벽에_남은_대가는_몹_체력뿐이다(@TempDir Path dir) throws IOException {
 		loadBundled(dir);

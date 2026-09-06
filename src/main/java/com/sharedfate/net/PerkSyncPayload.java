@@ -13,9 +13,6 @@ import java.util.List;
  *
  * <p>중첩이 없으므로 한 증강은 한 줄이다.
  *
- * <p>이름과 설명을 따로 담는다. {@code /shareteam} 창의 증강 탭이 이름만 보여 주면 무엇을
- * 들고 있는지 알 수 없어서, 고를 때 읽었던 설명을 그대로 다시 볼 수 있어야 한다.
- *
  * @param owned        보유 증강. 없으면 빈 목록
  * @param pendingCount 아직 고르지 않은 선택권 수
  * @param chooserName  지금 고를 차례인 팀원 이름. 선택자가 없거나 미정이면 빈 문자열

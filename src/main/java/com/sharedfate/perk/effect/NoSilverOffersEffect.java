@@ -14,24 +14,14 @@ import org.jetbrains.annotations.Nullable;
  * 쓴다. 실버 하나를 즉시 지급형 이득으로 받는 대신 <b>남은 회차 내내 실버를 포기한다</b>는
  * 맞바꿈이므로, 실버 안에서 가장 큰 대가를 지불하는 항목이 된다.
  *
- * <h2>왜 표시 클래스인가</h2>
- * <p>{@link StaggeredSwapEffect}·{@link LegacyGearEffect}와 같은 이유다. {@link PerkEffect#apply}
- * 로 팀원에게 붙일 것이 없다. 후보를 뽑는 한가운데서 "이 팀에 실버가 막혀 있는가"만 물어보면
- * 되므로, 이 클래스는 그 물음에 답하기 위한 표시로만 존재한다.
+ * <p>{@link PerkEffect#apply} 로 팀원에게 붙일 것이 없다. 후보를 뽑는 한가운데서 "이 팀에
+ * 실버가 막혀 있는가"만 물어본다.
  *
  * <h2>실제로 실버를 걸러 내는 곳</h2>
  * <p>{@link com.sharedfate.perk.PerkDraft}가 후보를 뽑을 때 쓰는 {@code silverBlocked} 플래그다.
  * 추첨기는 {@code PerkRegistry}에 붙지 않고 <b>호출자가 넘긴 값</b>만 보도록 되어 있어(그래야
  * 게임 없이 순수 단위 시험으로 검증할 수 있다), 팀 상태를 읽어 그 플래그를 만드는 일은 추첨을
  * 시작하는 쪽의 몫이다. 그 한 줄이 {@link #heldBy(TeamState)}다.
- *
- * <h2>조회를 왜 규칙 클래스가 아니라 여기에 두었는가</h2>
- * <p>보유 효과를 훑는 조회는 보통 갈래별 규칙 클래스({@code PerkGearRules},
- * {@code PerkSwapRules})에 모여 있다. 그런데 <b>증강 추첨에는 그런 규칙 클래스가 없다</b> —
- * 추첨기 자신이 팀 상태를 전혀 보지 않는 순수 함수이기 때문이다. 이 하나를 위해 규칙 클래스를
- * 새로 만들면 그 안에 메서드가 영영 하나뿐이므로, {@code ConditionalEffect}가 자기 판정
- * ({@code matches})을 스스로 들고 있는 것처럼 표시 클래스가 자기 조회를 들고 있게 했다.
- * 훑는 방식 자체는 {@code PerkSwapRules.staggered} 와 똑같다.
  */
 public final class NoSilverOffersEffect implements PerkEffect {
 	/** 상태가 없으므로 하나만 만들어 돌려쓴다. */

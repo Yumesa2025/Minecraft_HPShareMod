@@ -62,9 +62,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * <h2>매 틱 바뀌는 조건이므로 다시 본다</h2>
  * <p>손에 든 것은 수시로 바뀌므로 {@link #apply} 한 번으로 끝나지 않는다.
  * {@link ConditionalPerkManager}가 주기적으로 {@link #refresh}를 불러 준다. 판정이 지난번과
- * 같으면 아무 일도 하지 않는다 — {@link ConditionalEffect}가 조건을 다시 볼 때와 같은 규칙이고,
- * 같은 이유(수정자를 뗐다 붙이면 속성 갱신 꾸러미가 매번 나간다)에서다. 그래서 이 효과를 위해
- * 새 폴링 루프를 만들지 않았다.
+ * 같으면 아무 일도 하지 않는다 — {@link ConditionalEffect}가 조건을 다시 볼 때와 같은 규칙이다.
+ * 수정자를 뗐다 붙이면 속성 갱신 꾸러미가 매번 나간다.
  */
 public final class ToolMismatchSlowEffect implements PerkEffect {
 	/** 속도를 깎는 폭의 하한. {@code -1.0} 이하면 발이 아예 묶여 버린다. */
@@ -74,7 +73,7 @@ public final class ToolMismatchSlowEffect implements PerkEffect {
 	static final double MAX_MULTIPLIER = -0.001;
 
 	/**
-	 * 도구·무기로 치는 아이템 태그. 26.2 에 실재함을 확인했다.
+	 * 도구·무기로 치는 아이템 태그. 26.2 에 실재하는 바닐라 태그다.
 	 *
 	 * <p>앞머리 {@code #} 없이 적는다. {@link PerkItemMatcher} 는 둘 다 받아 주지만 여기서는
 	 * 이름만 담아 두는 목록이라 한 가지 모양으로 통일한다.

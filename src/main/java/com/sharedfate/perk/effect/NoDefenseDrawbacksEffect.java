@@ -15,11 +15,9 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>정의는 {@code { "type": "no_defense_drawbacks" }} 하나뿐이고 필드가 없다.
  *
- * <h2>왜 표시 클래스인가</h2>
- * <p>{@link NoSilverOffersEffect}·{@link PrismRerollEffect} 와 같은 이유다.
- * {@link PerkEffect#apply} 로 팀원에게 붙일 것이 없다. 「효과를 붙인다」가 아니라 「이미 있는
+ * <p>{@link PerkEffect#apply} 로 팀원에게 붙일 것이 없다. 「효과를 붙인다」가 아니라 「이미 있는
  * 효과 중 일부를 건너뛰게 한다」는 보상이라, 이 클래스는 「이 팀에 그 규칙이 켜졌는가」라는
- * 물음에 답하기 위한 표시로만 존재한다.
+ * 물음에만 답한다.
  *
  * <h2>실제로 대가를 건너뛰는 곳</h2>
  * <p>{@link PerkDrawbacks.Waiver} 를 쓰는 자리들이다. 지금은 다섯 곳이고, 각각 다섯 대가가
@@ -40,8 +38,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <h2>몹 체력은 건드리지 않는다</h2>
  * <p>「버티는 방패」의 몹 체력 ×1.15 와 「철벽」의 ×1.5 에는 {@code drawback} 표시를 붙이지
- * 않았다. 그 둘은 팀이 아니라 <b>월드에 걸리는</b> 값이라 성격이 다르다. 자세한 까닭은
- * 정의 파일과 함께 남긴 보고에 적어 두었다.
+ * 않았다. 그 둘은 팀이 아니라 <b>월드에 걸리는</b> 값이라 성격이 다르다.
  */
 public final class NoDefenseDrawbacksEffect implements PerkEffect {
 	/** 상태가 없으므로 하나만 만들어 돌려쓴다. */

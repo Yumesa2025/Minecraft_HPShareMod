@@ -30,11 +30,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>실제 자세({@code ServerPlayer.isBlocking})는 살아 있는 월드가 있어야 읽을 수 있다. 그래서
  * 그 값을 읽는 일은 {@link PerkDamage} 의 비공개 자리에 두고, 여기서는 읽어 온 값으로 답을 내는
  * 순수 판정({@link PerkDamage#blockingMultiplier}·{@link PerkDamage#blockingMultiplierOf})을 본다.
- * {@link ShieldFallImmunityEffectTest} 가 같은 방식이다.
  *
- * <p>정의 읽기는 {@code PerkEffectType} 을 거치지 않고 팩토리를 직접 부른다. 그 열거형에 새 줄을
- * 넣는 일은 다른 사람 몫이라, 여기서 열거형 상수를 참조하면 순서에 따라 빌드가 깨진다. 등록이
- * 끝나면 {@code DefaultPerkSetValuesTest} 가 「기본 정의가 조용히 사라지지 않았는가」를 잡는다.
+ * <p>정의 읽기는 {@code PerkEffectType} 을 거치지 않고 팩토리를 직접 부른다. 등록 여부는
+ * {@code DefaultPerkSetValuesTest} 가 「기본 정의가 조용히 사라지지 않았는가」로 잡는다.
  */
 class DamageTakenBlockingEffectTest {
 
@@ -88,7 +86,7 @@ class DamageTakenBlockingEffectTest {
 	 * 하위 효과로 들어가면 버린다.
 	 *
 	 * <p>{@code PerkDamage} 는 최상위 효과만 훑으므로, {@code periodic}·{@code conditional} 안에
-	 * 넣으면 조용히 아무 일도 하지 않는다. {@code damage_taken_from} 과 같은 기준이다.
+	 * 넣으면 조용히 아무 일도 하지 않는다.
 	 */
 	@Test
 	void 하위_효과로_들어가면_버린다() {
@@ -195,8 +193,8 @@ class DamageTakenBlockingEffectTest {
 	/**
 	 * 「버티는 방패」(낙하 면역)는 그대로다.
 	 *
-	 * <p>둘 다 「막는 중인가」를 보지만 하는 일이 다르다. 새 배율을 넣으면서 낙하 면역의 판정이
-	 * 흔들리지 않았는지 여기서 한 번 더 못박는다.
+	 * <p>둘 다 「막는 중인가」를 보지만 하는 일이 다르다. 낙하 면역의 판정이 흔들리지 않았는지
+	 * 여기서 한 번 더 못박는다.
 	 */
 	@Test
 	void 방패_낙하_면역은_그대로다(@TempDir Path dir) throws IOException {

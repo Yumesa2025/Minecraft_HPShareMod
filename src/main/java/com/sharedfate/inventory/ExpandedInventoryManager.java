@@ -24,22 +24,22 @@ public final class ExpandedInventoryManager {
 	public static final int EXTRA_ROWS = EXTRA_SIZE / EXTRA_COLUMNS;
 	/** 칸 하나의 간격. */
 	public static final int SLOT_PITCH = 18;
-	/** 추가 세 줄이 잡아먹는 높이. 창도 이만큼 커집니다. */
+	/** 추가 세 줄이 잡아먹는 높이. 창도 이만큼 커진다. */
 	public static final int EXTRA_PANEL_HEIGHT = EXTRA_ROWS * SLOT_PITCH;
 
 	/**
 	 * 인벤토리 첫 줄에서 <b>추가 첫 줄</b>까지의 거리.
 	 *
-	 * <p>바닐라 세 줄이 {@code y}, {@code y+18}, {@code y+36} 이므로 그 바로 아래입니다.
+	 * <p>바닐라 세 줄이 {@code y}, {@code y+18}, {@code y+36} 이므로 그 바로 아래다.
 	 */
 	public static final int EXTRA_TOP_OFFSET = EXTRA_ROWS * SLOT_PITCH;
 
-	/** 인벤토리 첫 줄에서 핫바까지의 거리. 바닐라 {@code addStandardInventorySlots} 값입니다. */
+	/** 인벤토리 첫 줄에서 핫바까지의 거리. 바닐라 {@code addStandardInventorySlots} 값이다. */
 	public static final int HOTBAR_OFFSET = 58;
 	/** 추가 세 줄이 끼어들었을 때의 핫바 거리. */
 	public static final int EXPANDED_HOTBAR_OFFSET = HOTBAR_OFFSET + EXTRA_PANEL_HEIGHT;
 
-	/** 숨긴 칸을 치워 두는 y. 화면 밖이라 그려지지도, 눌리지도 않습니다. */
+	/** 숨긴 칸을 치워 두는 y. 화면 밖이라 그려지지도, 눌리지도 않는다. */
 	public static final int HIDDEN_Y = -1000;
 
 	private static final Map<Player, ExpandedInventoryContainer> PLAYER_CONTAINERS =
@@ -126,15 +126,13 @@ public final class ExpandedInventoryManager {
 	}
 
 	/**
-	 * 메뉴 하나의 <b>핫바와 추가 27칸</b> 좌표를 다시 잡습니다.
+	 * 메뉴 하나의 <b>핫바와 추가 27칸</b> 좌표를 다시 잡는다.
 	 *
-	 * <p>추가 칸은 인벤토리 세 줄 <b>바로 아래</b>로 들어가고 핫바가 그만큼 내려갑니다.
-	 * 그래서 여섯 줄이 끊김 없이 이어져 보이고, 창 안쪽이라 바닐라 칸과 똑같이 눌립니다.
-	 * 예전에는 창 <b>오른쪽 바깥</b>에 붙어 있어서 바닐라가 「창 밖을 눌렀다」로 읽고
-	 * 들고 있던 아이템을 바닥에 버렸습니다.
+	 * <p>추가 칸은 인벤토리 세 줄 <b>바로 아래</b>로 들어가고 핫바가 그만큼 내려간다.
+	 * 그래서 여섯 줄이 끊김 없이 이어져 보이고, 창 안쪽이라 바닐라 칸과 똑같이 눌린다.
 	 *
 	 * <p>팀에 속하지 않으면 추가 칸을 화면 밖({@link #HIDDEN_Y})으로 치우고 핫바를
-	 * 바닐라 자리로 되돌립니다.
+	 * 바닐라 자리로 되돌린다.
 	 */
 	public static void updateMenuLayout(AbstractContainerMenu menu, boolean expandedActive) {
 		if (menu == null || !enabled() || !(menu instanceof ExpandedMenuLayout layout)) {

@@ -4,19 +4,6 @@ import java.util.Locale;
 
 /**
  * 팀 만들기 화면의 숫자 설정 셋을 「누를 때마다 다음 값」으로 굴리는 계산.
- *
- * <p>{@link PanelScroll}·{@link PerkGauge} 와 같은 이유로 여기 있다 — 단추를 그리는 일은
- * 클라이언트 소스셋의 {@code TeamScreen} 이 하지만, 시험 소스셋이 그쪽을 보지 못하므로
- * <b>순수 계산만</b> 공용 소스셋으로 내려 두었다.
- *
- * <h2>왜 −/+ 두 단추가 아니라 굴림인가</h2>
- * <p>팀 만들기 탭에 정할 것이 일곱 가지로 늘었다. 숫자마다 −/+ 를 두면 단추만 열넷이라
- * 창 높이를 넘긴다. 한 단추가 값을 품고 굴러가면 줄 수가 그대로다.
- *
- * <h2>여기서 정한 값은 결국 명령 한 줄이 된다</h2>
- * <p>{@link #createCommand} 가 그 한 줄을 만든다. 서버의 {@code /shareteam create} 가 읽는
- * 순서와 낱말이 <b>정확히</b> 같아야 하므로, 그 형식을 화면 코드가 아니라 시험할 수 있는
- * 이 자리에 둔다.
  */
 public final class TeamCreationCycle {
 	/** 위치 교환 「끔」. 서버의 {@code TeamCreationSettings.SWAP_DISABLED} 와 같은 뜻이다. */
@@ -25,8 +12,7 @@ public final class TeamCreationCycle {
 	/**
 	 * 위치 교환 주기가 굴러가는 자리들(분).
 	 *
-	 * <p>1~120 을 1분씩 굴리면 120번을 눌러야 한다. 실제로 쓰는 값만 골라 뒀고, 명령은
-	 * 여전히 1~120 아무 값이나 받으므로 여기 없는 주기를 원하면 명령으로 적으면 된다.
+	 * <p>명령은 1~120 아무 값이나 받는다.
 	 */
 	private static final int[] SWAP_STEPS = {SWAP_OFF, 1, 5, 10, 15, 20, 30, 45, 60, 90, 120};
 

@@ -48,8 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>서버가 필요한 자리({@code PerkManager.applyReroll})는 여기서 부를 수 없다. 그래서 3단계는
  * 판정({@link PrismRerollEffect#heldBy})과 「프리즘이 모자라면 적게 준다」는 결정
- * ({@link PerkManager#onlyPrism})을 따로 확인한다. {@link PerkGrantChainTest} 가
- * {@code server}·{@code team} 을 {@code null} 로 넘기는 것과 같은 방식이다.
+ * ({@link PerkManager#onlyPrism})을 따로 확인한다.
  */
 class GambleSetRewardTest {
 	/** 세트가 켜지는 데 필요한 도박 증강 두 개. 둘 다 효과는 없고 유형만 있다. */
@@ -95,7 +94,6 @@ class GambleSetRewardTest {
 	 * 두 효과 타입이 {@link PerkEffectType} 에 등록되어 있다.
 	 *
 	 * <p>등록을 빠뜨리면 <b>빌드도 통과하고 서버도 뜨는데</b> 그 단계만 조용히 사라진다.
-	 * 아래 시험들이 전부 알 수 없는 이유로 깨지는 것보다 여기서 한 번에 잡히는 편이 낫다.
 	 */
 	@Test
 	void 두_효과_타입이_등록되어_있다() {

@@ -12,8 +12,8 @@ import com.sharedfate.perk.PerkEffectType;
  * <p>예: {@code { "type": "mob_spawn_rate", "multiplier": 1.35 }} 는 적대 몹이 자연스럽게
  * 생겨나는 시도를 1.35배로 늘린다. 「세트 효과」 화력 4단계 보상이 쓰는 값이 이것이다.
  *
- * <p>{@link MobHealthEffect}·{@link MobDamageEffect} 와 같은 구도다. 이 효과는 팀원에게 붙이는
- * 것이 아니므로 {@link #apply}/{@link #remove} 는 아무 일도 하지 않고, 값만 들고 있는다.
+ * <p>이 효과는 팀원에게 붙이는 것이 아니므로 {@link #apply}/{@link #remove} 는 아무 일도 하지
+ * 않고, 값만 들고 있는다.
  * 실제로 스폰 경로에 끼어드는 일은 {@link MobPerkModifiers} 와
  * {@code NaturalSpawnerRateMixin} 이 맡는다.
  *
@@ -28,8 +28,8 @@ import com.sharedfate.perk.PerkEffectType;
  *
  * <h2>값 범위</h2>
  * <p>{@value #MIN_MULTIPLIER} ~ {@value #MAX_MULTIPLIER}. 0 은 「적대 몹이 자연스럽게 전혀
- * 생기지 않는다」는 뜻이라 판이 성립하지 않으므로 받지 않는다(스폰 방 · 스포너 · 요새 같은
- * 다른 경로는 그대로 남지만, 밤에 몹이 안 나오는 마인크래프트는 다른 게임이다). 위쪽은
+ * 생기지 않는다」는 뜻이라 받지 않는다(스폰 방 · 스포너 · 요새 같은 다른 경로는 그대로
+ * 남는다). 위쪽은
  * <b>성능</b> 때문에 막는다 — 배율이 곧 스폰 경로를 다시 도는 횟수라, 큰 값은 매 틱 비용을
  * 그대로 곱한다. 실제로 쓰는 값은 ×0.8 ~ ×1.5 언저리다.
  */

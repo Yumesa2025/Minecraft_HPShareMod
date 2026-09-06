@@ -28,22 +28,12 @@ import java.nio.file.StandardOpenOption;
  *       ({@code sharedfate-server-loop.ps1}). 이 모드는 월드를 직접 지우지 않는다.</li>
  * </ol>
  *
- * <p>3·4 단계는 이 기능이 생기기 전부터 있던 절차 그대로다. 카운트다운은 그 앞에 붙은
- * 연출일 뿐이므로, 5초가 지나면 예전과 똑같이 표식을 쓰고 {@code halt} 한다. 그래야 다음
- * 회차가 정상적으로 열린다.
+ * <p>5초가 지나면 표식을 쓰고 {@code halt} 한다. 그래야 다음 회차가 정상적으로 열린다.
  *
- * <h2>숫자는 왜 서버가 그리지 않는가</h2>
- * <p>바닐라 타이틀·부제로 보내는 길을 먼저 재 봤는데 <b>사망 화면 단추에 가린다.</b> 바닐라는
- * 부제를 화면 세로 한가운데({@code h/2 + 10})에 그리고 사망 화면 단추는
- * {@code h/4 + 72}·{@code h/4 + 96} 에 있어서, 흔히 쓰는 GUI 크기(화면 높이 270·360)에서 둘이
- * 겹친다. HUD 는 화면보다 <b>먼저</b> 그려지므로({@code Gui.extractRenderState}) 가리는 쪽은
- * 늘 단추다. 하필 가려지는 것이 카운트다운 숫자다.
- *
- * <p>그래서 숫자는 <b>클라이언트가 자기 자리에 직접 그린다</b> — {@code GameOverHud} 가
+ * <p>카운트다운 숫자는 <b>클라이언트가 자기 자리에 직접 그린다</b> — {@code GameOverHud} 가
  * 사망 화면의 제목(y=30)과 사인 줄(y=85) 사이의 빈 자리에 그리므로 어떤 GUI 크기에서도
- * 가려지지 않는다. 서버는 남은 길이를 {@code WorldResetPayload} 로 한 번 보내고
- * ({@link #request} 가 이미 그러고 있었다) 클라이언트가 그 길이를 스스로 세어 내려간다.
- * <b>새로 주고받는 값이 없으므로 통신 규약도 그대로다.</b>
+ * 가려지지 않는다. 서버는 남은 길이를 {@code WorldResetPayload} 로 한 번 보내고 클라이언트가
+ * 그 길이를 스스로 세어 내려간다.
  *
  * <h2>카운트다운 동안 멈추는 것</h2>
  * <ul>
@@ -53,8 +43,7 @@ import java.nio.file.StandardOpenOption;
  *       월드를 지우는 서버에서는 뜻이 없고, 지우지 않는 서버에서는 벽 속에 박힌 채 저장된다.</li>
  *   <li><b>난이도 상승 시간</b> — 세지 않는다. 회차는 이미 끝났다.</li>
  * </ul>
- * <p><b>이동은 막지 않는다.</b> 전멸한 팀원은 이미 사망 화면에 갇혀 움직일 수 없고, 팀에 속하지
- * 않은 접속자까지 세우려면 새 mixin 이 필요한데 5초 동안의 걸음이 그만한 값을 하지 않는다.
+ * <p><b>이동은 막지 않는다.</b> 전멸한 팀원은 이미 사망 화면에 갇혀 움직일 수 없다.
  */
 public final class WorldResetCoordinator {
 	public static final String MARKER_FILE_NAME = ".sharedfate-world-reset.pending";

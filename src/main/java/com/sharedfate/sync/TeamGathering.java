@@ -27,16 +27,14 @@ import java.util.random.RandomGenerator;
  * {@code gather} 증강의 실행부. 흩어진 팀을 한곳으로 끌어모은다.
  *
  * <p>{@link GatherEffect} 는 "얼마나 멀면, 얼마나 쉬고, 무엇을 얹는가"만 알고, "지금 실제로
- * 얼마나 떨어져 있는가"와 "어디로 모을 것인가"는 여기서 정한다. {@code on_kill} 과
- * {@code PerkKillRewards} 의 관계와 같은 구도다.
+ * 얼마나 떨어져 있는가"와 "어디로 모을 것인가"는 여기서 정한다.
  *
  * <h2>1초에 한 번만 잰다</h2>
  * <p>거리 재기는 팀원 수의 제곱만큼 돈다. 매 틱 돌 이유가 없다. 사람이 1초 만에 기준 거리를
  * 넘어 도망칠 수도 없으므로 {@link #CHECK_INTERVAL_TICKS} 마다 한 번이면 충분하다.
  *
  * <h2>시각의 기준</h2>
- * <p>{@link com.sharedfate.perk.TimedPerkEffects} 와 같은 이유로 오버월드 게임 시간이 아니라
- * {@link #tick} 이 불릴 때마다 1씩 올리는 자체 카운터를 쓴다. 재우는 시간이 얼마 남았는지는
+ * <p>오버월드 게임 시간이 아니라 {@link #tick} 이 불릴 때마다 1씩 올리는 자체 카운터를 쓴다. 재우는 시간이 얼마 남았는지는
  * 저장할 값이 아니므로 서버를 껐다 켜면 0 에서 다시 시작한다. {@link #reset} 이 남은 기억을
  * 함께 비우므로 어긋날 여지가 없다.
  *
@@ -46,9 +44,7 @@ import java.util.random.RandomGenerator;
  * 동안에는 카운터조차 세우고 지나간다. {@link PositionSwapManager#tick} 과 같은 정책이다.
  *
  * <h2>모이는 지점</h2>
- * <p>팀원 중 <b>무작위 한 명의 현재 위치</b>다. 그 사람은 움직이지 않는다. 특정한 사람을
- * 기준으로 삼으면(예: 팀장) 그 사람이 늘 유리해지고, 무게중심으로 삼으면 아무도 없던 허공이나
- * 용암 한가운데가 될 수 있다. 누군가 실제로 서 있던 자리는 적어도 설 수 있는 자리다.
+ * <p>팀원 중 <b>무작위 한 명의 현재 위치</b>다. 그 사람은 움직이지 않는다.
  */
 public final class TeamGathering {
 	/** 거리를 재는 주기. 1초다. */
@@ -150,11 +146,10 @@ public final class TeamGathering {
 	 * 팀원 전원이 붙어 있으면 {@code proximity} 효과를 다시 얹는다.
 	 *
 	 * <p>혼자면 붙어 있는 것으로 본다. 조건을 "전원이 가깝다"로 읽으면 비교할 상대가 없는
-	 * 한 명짜리 팀은 언제나 참이다. 접속자가 한 명뿐이라고 보상을 끊으면, 팀원이 나갔다는
-	 * 이유로 효과가 사라지는 셈이라 오히려 이상하다.
+	 * 한 명짜리 팀은 언제나 참이다.
 	 *
 	 * <p>조건이 깨졌을 때 걷어내지 않는다. 얹는 효과의 지속시간이 판정 주기보다 조금 길
-	 * 뿐이라 저절로 사라진다. 자세한 까닭은 {@link ProximityEffect} 에 적어 뒀다.
+	 * 뿐이라 저절로 사라진다.
 	 */
 	private static void tickProximity(MinecraftServer server, ShareTeam team,
 			List<ProximityEffect> proximities) {
@@ -184,7 +179,7 @@ public final class TeamGathering {
 	}
 
 	/**
-	 * 아무 두 사람 사이가 기준을 넘는가. 월드 없이 시험하려고 순수 계산으로 떼어 놓았다.
+	 * 아무 두 사람 사이가 기준을 넘는가.
 	 *
 	 * <p><b>차원이 다르면 거리와 무관하게 참이다.</b> 좌표만 보면 네더의 (0,0) 과 오버월드의
 	 * (0,0) 이 붙어 있는 것으로 보이는데, 실제로는 서로 닿을 수 없는 자리다.
@@ -218,8 +213,7 @@ public final class TeamGathering {
 	 * 무작위 한 명의 자리로 나머지를 끌어온다.
 	 *
 	 * <p>옮기다 한 명이라도 실패하면 이미 옮긴 사람들을 제자리로 되돌리고 아무 효과도 얹지
-	 * 않는다. {@code swapTeamPositions} 의 롤백 정책 그대로다. 절반만 모인 팀은 모이지 않은
-	 * 것보다 나쁘다.
+	 * 않는다. {@code swapTeamPositions} 의 롤백 정책 그대로다.
 	 */
 	private static void gatherTeam(List<ServerPlayer> players, GatherEffect gather,
 			RandomGenerator random) {
@@ -241,7 +235,7 @@ public final class TeamGathering {
 		}
 
 		announce(players, players.get(anchor).getPlainTextName());
-		// 이미 그 자리에 있던 기준점에게도 얹는다. 이유는 GatherEffect 에 적어 뒀다.
+		// 이미 그 자리에 있던 기준점에게도 얹는다.
 		for (ServerPlayer player : players) {
 			gather.grantTo(player);
 		}

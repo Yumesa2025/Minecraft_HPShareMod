@@ -17,7 +17,7 @@ import java.util.UUID;
  * <p>{@code chooser}는 비어 있을 수 있다. 발동 시점에 팀원이 아무도 접속해 있지 않으면
  * 선정을 미루고, 누군가 들어올 때 그때 뽑는다.
  *
- * @param milestone 이 선택권을 만든 레벨 구간 (3, 6, …, 36)
+ * @param milestone 이 선택권을 만든 레벨 구간 (5, 10, …, 40)
  * @param chooser   고를 사람. 비어 있으면 아직 미정
  * @param optionIds 확정된 후보 증강 식별자들
  */

@@ -52,9 +52,7 @@ public final class PerkRarityReroll {
 	 *
 	 * <p>{@link PerkGrantChain}이 이 목록을 받아 그중에도 다른 즉시 지급 효과가 있으면 마저
 	 * 처리한다. 다시 채운 것들은 이 개편이 끝난 <b>뒤의</b> {@code ownedPerks} 이므로, 연쇄
-	 * 도중 더 앞서 받았던 증강의 id 가 이 개편으로 함께 지워졌더라도 이상하지 않다 —
-	 * 「환골탈태」는 "가진 증강 전부"를 바꾸는 증강이고, 방금 연쇄로 받은 것도 지금 가진
-	 * 것이기 때문이다.
+	 * 도중 더 앞서 받았던 증강의 id 가 이 개편으로 함께 지워졌더라도 이상하지 않다.
 	 */
 	static List<Perk> rerollOnChoiceDetailed(@Nullable MinecraftServer server, @Nullable ShareTeam team,
 			@Nullable TeamState state, @Nullable Perk perk, @Nullable RandomSource random) {

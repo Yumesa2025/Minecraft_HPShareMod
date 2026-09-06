@@ -43,12 +43,9 @@ import java.util.UUID;
  * 올리면 그 유형에서 <b>아직 안 가진 증강</b>이 툴팁으로 뜬다 — 클라이언트는 증강 풀을 읽지
  * 않으므로 그 목록도 서버가 보내 준 것이다({@code PerkSetSyncPayload}).
  *
- * <h2>왜 새 패킷을 만들지 않았나</h2>
  * <p>이 화면이 하는 일은 전부 이미 있는 {@code /shareteam ...} 명령으로 표현된다. 그래서 단추를
  * 누르면 {@link net.minecraft.client.multiplayer.ClientPacketListener#sendCommand(String)} 로
- * 그 명령을 보낸다. 조작마다 C2S 패킷을 새로 만들면 <b>권한 검사와 실패 문구를 서버 명령 쪽과
- * 두 벌로 관리</b>하게 되는데, 그러면 한쪽만 고쳐지는 사고가 난다. 명령을 그대로 태우면 검사는
- * 언제나 한 곳이다.
+ * 그 명령을 보낸다. 권한 검사와 실패 문구는 <b>서버 명령 쪽 한 곳에만</b> 있다.
  *
  * <p>보여 줄 값은 이미 계속 오고 있는 {@code TeamSyncPayload}·{@code PerkSyncPayload} 가 채운
  * {@link ClientTeamState}·{@link PerkClientState} 에서 읽는다. 창을 열 때 서버에 따로 묻지 않는다.
@@ -60,9 +57,9 @@ import java.util.UUID;
  *
  * <p>「팀 만들기」도 같은 길을 탄다 — 명령만 보내고 창은 열어 둔 채 기다리다가, 팀이 생겼다는
  * 동기화가 오면 그 자리에서 팀원 목록과 「게임 시작」이 있는 화면으로 바뀐다
- * ({@link com.sharedfate.ui.TeamCreationFlow}). 서버가 이 창을 닫지 않는 것이 전제인데,
- * 예전에는 팀에 들어갈 때 서버가 부르던 {@code closeContainer()} 의 닫기 패킷이 컨테이너와
- * 아무 상관 없는 이 창까지 함께 없앴다({@code InventorySwapper.prepareJoin} 참고).
+ * ({@link com.sharedfate.ui.TeamCreationFlow}). <b>서버가 이 창을 닫지 않는 것이 전제다</b> —
+ * {@code closeContainer()} 의 닫기 패킷은 컨테이너와 아무 상관 없는 이 창까지 함께 없앤다
+ * ({@code InventorySwapper.prepareJoin} 참고).
  */
 public class TeamScreen extends Screen {
 	private static final int PANEL_TOP = 40;
@@ -116,10 +113,8 @@ public class TeamScreen extends Screen {
 	/**
 	 * 세트 줄을 몇 줄까지 보여 줄지.
 	 *
-	 * <p>한 줄이 늘 때마다 아래 증강 목록이 그만큼 좁아진다. 한 회차에 고르는 증강이 여덟 개
-	 * 남짓이라 유형이 여섯 가지를 넘게 흩어지는 일은 드물고, 그렇게까지 흩어졌다면 어차피
-	 * 켜진 세트가 없어 급히 볼 줄도 없다. 잘릴 때 없어지는 것은 가장 덜 모은 유형이다
-	 * ({@link PerkSetLines#visible}).
+	 * <p>한 줄이 늘 때마다 아래 증강 목록이 그만큼 좁아진다. 잘릴 때 없어지는 것은 가장 덜
+	 * 모은 유형이다({@link PerkSetLines#visible}).
 	 */
 	private static final int MAX_SET_ROWS = 6;
 	/** 세트 덩어리와 그 아래 증강 목록 사이의 틈. */
@@ -150,10 +145,6 @@ public class TeamScreen extends Screen {
 		PERKS("증강"),
 		/**
 		 * 증강이 능력치를 얼마나 바꿨는지.
-		 *
-		 * <p>「증강」 탭 바로 뒤다. 저쪽이 <b>무엇을 가졌는지</b>라면 이쪽은 <b>그래서 얼마나
-		 * 세졌는지</b>라 이어 읽힌다. 「현황」에 넣지 않은 것은 그 탭이 이미 아홉 줄이고, 창이
-		 * 낮으면 아래 단추와 겹치기 때문이다.
 		 */
 		STATS("능력치");
 
@@ -516,9 +507,8 @@ public class TeamScreen extends Screen {
 	/**
 	 * 설정 탭에는 단추가 하나도 없다.
 	 *
-	 * <p>최대 체력·위치 교환·증강 사용 여부는 <b>팀을 만들 때만</b> 정하는 값이 되어, 누르면
-	 * 서버가 거부만 하는 단추가 셋 남아 있었다. 없는 기능을 있는 것처럼 보여 주는 쪽이 더
-	 * 나쁘므로 단추를 걷어내고 {@link #renderSettings} 가 글자로만 보여 준다.
+	 * <p>최대 체력·위치 교환·증강 사용 여부는 <b>팀을 만들 때만</b> 정하는 값이라 바꿀 수 없다.
+	 * {@link #renderSettings} 가 글자로만 보여 준다.
 	 */
 	private void initSettings(int left) {
 		// 그릴 위젯이 없다. 값 표시는 renderSettings 가 맡는다.
@@ -538,9 +528,7 @@ public class TeamScreen extends Screen {
 	/**
 	 * 증강 목록을 미리 접어 두고 스크롤 범위를 다시 잰다.
 	 *
-	 * <p>증강을 여럿 가지면 목록이 창을 넘쳐 아래쪽이 보이지 않던 자리다. 예전에는 넘치는
-	 * 만큼을 「…」 한 줄로 잘라 버려서 <b>나중에 고른 증강일수록 확인할 길이 없었다.</b>
-	 * 이제는 넘치면 자르지 않고 스크롤로 내려 본다.
+	 * <p>목록이 창을 넘치면 자르지 않고 스크롤로 내려 본다.
 	 */
 	private void layoutPerkList() {
 		perkLines.clear();
@@ -700,8 +688,7 @@ public class TeamScreen extends Screen {
 			int noteY = formRowY(4) + 4 + FORM_BUTTON_HEIGHT + 6;
 			graphics.text(this.font, "일곱 가지 모두 팀을 만들 때만 정합니다. 바꾸려면 팀을 해체하세요.",
 					left, noteY, TEXT_WARN);
-			// 단추가 꺼져 있으면 왜 꺼져 있는지가 먼저다. 툴팁이 아니라 늘 보이는 한 줄로
-			// 적는 이유는, 마우스를 올려 보기 전에는 툴팁이 있는지조차 알 수 없기 때문이다.
+			// 단추가 꺼져 있으면 왜 꺼져 있는지를 늘 보이는 한 줄로 적는다.
 			boolean nameReady = TeamNameInput.valid(newTeamName);
 			graphics.text(this.font,
 					nameReady ? "숫자 단추는 누를 때마다 다음 값으로 바뀝니다." : TeamNameInput.EMPTY_HINT,
@@ -742,8 +729,7 @@ public class TeamScreen extends Screen {
 	/**
 	 * 설정 탭. <b>보여 주기만 한다.</b>
 	 *
-	 * <p>아무도 값을 바꿀 수 없지만 <b>보는 것은 리더만</b>이다. 그래서 안내 문구도
-	 * 「리더만 바꿀 수 있습니다」가 아니라 못 바꾼다는 사실만 적는다.
+	 * <p>아무도 값을 바꿀 수 없고, <b>보는 것은 리더만</b>이다.
 	 */
 	private void renderSettings(GuiGraphicsExtractor graphics, int left) {
 		int y = PANEL_TOP;
@@ -788,11 +774,10 @@ public class TeamScreen extends Screen {
 	/**
 	 * 능력치 탭. <b>증강이 무엇을 얼마나 바꿨는지</b>를 바닐라 기본값과 나란히 보여 준다.
 	 *
-	 * <h2>인벤토리 화면에도 같은 줄이 뜨는데 왜 탭을 남겼나</h2>
-	 * <p>인벤토리 화면(E) 왼쪽에 늘 보이게 되었지만, 그쪽은 <b>창 왼쪽에 남는 자리만큼만</b>
+	 * <p>같은 줄이 인벤토리 화면(E) 왼쪽에도 뜨지만, 그쪽은 <b>창 왼쪽에 남는 자리만큼만</b>
 	 * 그린다. GUI 배율이 크거나 조합법 책을 펼치면 이름이 줄고, 더 좁으면 아예 감춘다
-	 * ({@link com.sharedfate.ui.InventoryStatPanel}). 어떤 배율에서도 <b>온전한 이름과 증감,
-	 * 그리고 아래의 설명 줄까지</b> 볼 수 있는 자리가 하나는 있어야 한다.
+	 * ({@link com.sharedfate.ui.InventoryStatPanel}). 이 탭은 어떤 배율에서도 <b>온전한 이름과
+	 * 증감, 그리고 아래의 설명 줄까지</b> 보여 준다.
 	 *
 	 * <p>대신 <b>두 곳이 같은 코드로 줄을 만든다</b> — {@link ClientStatRows} 가 유일한
 	 * 출처이고, 글자 모양은 {@link StatRow} 가 정한다. 형식이 두 곳에서 갈라질 자리가 없다.
@@ -911,17 +896,14 @@ public class TeamScreen extends Screen {
 	/**
 	 * 세트 줄이나 보유 증강 줄에 마우스를 올렸을 때 <b>그 유형 세트의 단계 설명</b>을 띄운다.
 	 *
-	 * <p>두 자리가 같은 툴팁을 쓴다. 「채굴 2/3」이 무엇을 뜻하는지는 세트 줄에서만 궁금한 것이
-	 * 아니다 — 방금 고른 증강이 어느 세트에 얹혔고 다음 단계가 무엇인지는 <b>보유 목록에서
-	 * 그 증강을 보는 순간</b>이 가장 궁금하다. 내용은 {@code ClientPerkSets.tooltip} 한 곳에서
-	 * 나오고 줄로 펴는 것은 {@link PerkSetTooltipLines} 가 한다.
+	 * <p>두 자리가 같은 툴팁을 쓴다. 내용은 {@code ClientPerkSets.tooltip} 한 곳에서 나오고
+	 * 줄로 펴는 것은 {@link PerkSetTooltipLines} 가 한다.
 	 *
 	 * <p>둘 중 하나만 뜬다. 세트 덩어리와 증강 목록은 세로로 갈려 있어 겹칠 일이 없지만, 먼저
 	 * 본 쪽이 이기게 해 두면 자리 계산이 어긋나는 날에도 툴팁 둘이 겹쳐 뜨지는 않는다.
 	 *
 	 * <p>클라이언트는 증강 풀도 세트 정의도 읽지 않으므로 단계 설명과 이름표는 통째로 서버가
-	 * 보내 준 것이다({@code PerkSetSyncPayload}). 등급은 글자색으로 가른다 — 「(골드)」처럼
-	 * 괄호로 적으면 이름보다 등급이 길어져 무엇을 노려야 할지가 되레 안 읽힌다.
+	 * 보내 준 것이다({@code PerkSetSyncPayload}). 등급은 글자색으로 가른다.
 	 */
 	private void renderPerkTooltip(GuiGraphicsExtractor graphics, int left, int mouseX, int mouseY) {
 		List<Component> tooltip = setBlockTooltip(left, mouseX, mouseY);
@@ -976,8 +958,7 @@ public class TeamScreen extends Screen {
 	/**
 	 * 유형 몇 개의 툴팁을 이어 붙인다.
 	 *
-	 * <p>증강 하나가 유형을 여럿 가질 수 있다. 하나만 골라 보여 주면 나머지 유형의 진행도를
-	 * 영영 못 보는데, 그 증강을 고른 이유가 그쪽이었을 수 있다. 사이에는 빈 줄을 둔다.
+	 * <p>증강 하나가 유형을 여럿 가질 수 있다. 사이에는 빈 줄을 둔다.
 	 */
 	private List<Component> typeTooltip(List<String> typeIds) {
 		if (typeIds.isEmpty()) {
@@ -1092,10 +1073,8 @@ public class TeamScreen extends Screen {
 			// 성공했을 때만 이름 칸을 비운다. 실패는 여기까지 오지 않으므로 적던 이름이 남는다.
 			newTeamName = TeamCreationFlow.nameAfterResult(awaitingCreate, inTeam, newTeamName);
 			awaitingCreate = false;
-			// 팀을 만든 직후가 곧 「게임 시작」을 누를 자리다. 그 단추는 「팀」 탭에 있고, 방금까지
-			// 만들기 양식이 있던 바로 그 자리에 팀원 목록과 함께 그려진다. 누르는 사람이 이미
-			// 이 탭을 보고 있는 것이 보통이지만, 결과를 기다리는 사이에 다른 탭으로 옮겨 갔다면
-			// 여기서 되돌린다 — 팀을 만들고 나서 단추를 찾아 헤매게 두지 않는다.
+			// 팀을 만든 직후가 곧 「게임 시작」을 누를 자리다. 그 단추는 「팀」 탭에 있으므로,
+			// 결과를 기다리는 사이에 다른 탭으로 옮겨 갔다면 여기서 되돌린다.
 			tab = Tab.TEAM;
 			perkScroll = 0;
 			// 새로 그려질 단추가 확인 단계로 시작하면 한 번만 눌러도 회차가 시작된다.

@@ -1,0 +1,14 @@
+{
+  "_comment": "금기의 광석(durability_multiplier)이 가리키는 네더라이트 장비. 바닐라에는 '네더라이트 장비 전부'에 해당하는 태그가 없어서 이 모드가 직접 싣는다. 이름이 비슷한 minecraft:netherite_tool_materials 는 도구가 아니라 수리 재료(네더라이트 주괴 한 개)를 담은 태그라 쓸 수 없다. 서버 주인은 데이터팩으로 이 태그만 덮어써서 대상을 바꿀 수 있다.",
+  "values": [
+    "minecraft:netherite_sword",
+    "minecraft:netherite_pickaxe",
+    "minecraft:netherite_axe",
+    "minecraft:netherite_shovel",
+    "minecraft:netherite_hoe",
+    "minecraft:netherite_helmet",
+    "minecraft:netherite_chestplate",
+    "minecraft:netherite_leggings",
+    "minecraft:netherite_boots"
+  ]
+}

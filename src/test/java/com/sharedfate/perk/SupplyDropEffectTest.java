@@ -248,12 +248,7 @@ class SupplyDropEffectTest {
 				"""));
 	}
 
-	/**
-	 * 항목 하나가 잘못돼도 나머지는 살아남는다.
-	 *
-	 * <p>{@code item_grant} 와 같은 규칙이다. 오타 하나로 보급 전체가 사라지는 것보다 그 한 줄만
-	 * 빠지는 편이 낫다.
-	 */
+	/** 항목 하나가 잘못돼도 나머지는 살아남는다. */
 	@Test
 	void 잘못된_항목만_빠지고_나머지는_산다() {
 		SupplyDropEffect effect = supply("""
@@ -461,8 +456,8 @@ class SupplyDropEffectTest {
 	/**
 	 * {@code apply}/{@code remove} 는 아무 일도 하지 않는다.
 	 *
-	 * <p>{@code item_grant} 와 같은 이유다. 두 메서드는 접속·부활·효과 갱신마다 다시 불리므로
-	 * 여기서 아이템을 주면 접속할 때마다 보급이 쏟아진다.
+	 * <p>두 메서드는 접속·부활·효과 갱신마다 다시 불리므로 여기서 아이템을 주면 접속할 때마다
+	 * 보급이 쏟아진다.
 	 */
 	@Test
 	void 붙였다_떼는_일은_하지_않는다() {
@@ -477,9 +472,7 @@ class SupplyDropEffectTest {
 	// ------------------------------------------------------------------ ⚠ 한 번만 돈다
 
 	/**
-	 * <b>이번 작업에서 가장 깨지기 쉬운 자리.</b>
-	 *
-	 * <p>「보급」을 넷 모으면 2·3·4 단계가 <b>전부</b> 켜지고 효과 목록에 {@code supply_drop} 이
+	 * 「보급」을 넷 모으면 2·3·4 단계가 <b>전부</b> 켜지고 효과 목록에 {@code supply_drop} 이
 	 * 셋 들어온다. 그것을 그대로 돌리면 보급이 세 번 온다. 실제로 도는 것은 언제나 하나다.
 	 */
 	@Test
@@ -557,9 +550,9 @@ class SupplyDropEffectTest {
 	/**
 	 * 주기의 경계는 게임 시간의 배수라는 <b>절대적인 자리</b>다.
 	 *
-	 * <p>서버를 껐다 켜도 이 계산은 달라지지 않는다. 만약 {@code MinecraftServer#getTickCount()}
-	 * 처럼 켤 때마다 0 부터 세는 값을 썼다면 재시작 시각이 곧 새 기준이 되어 경계가 통째로
-	 * 옮겨졌을 것이다.
+	 * <p>서버를 껐다 켜도 이 계산은 달라지지 않는다. {@code MinecraftServer#getTickCount()}
+	 * 처럼 켤 때마다 0 부터 세는 값을 쓰면 재시작 시각이 곧 새 기준이 되어 경계가 통째로
+	 * 옮겨진다.
 	 */
 	@Test
 	void 주기_경계는_게임_시간만으로_정해진다() {
@@ -674,7 +667,7 @@ class SupplyDropEffectTest {
 	 *
 	 * <p>⚠ 이 시험은 {@code PerkEffectType} 에 {@code SUPPLY_DROP("supply_drop", ...)} 한 줄이
 	 * 들어가야 통과한다. 그 줄이 없으면 {@link PerkSetRegistry} 가 세 단계를 모두 조용히
-	 * 버리므로(빌드도 통과하고 서버도 뜬다) 여기서 잡힌다. 그것이 이 시험의 목적이다.
+	 * 버리므로(빌드도 통과하고 서버도 뜬다) 여기서 잡힌다.
 	 */
 	@Test
 	void 세트_정의를_읽으면_세_단계가_켜지고_하나만_돈다(@TempDir Path dir) throws IOException {

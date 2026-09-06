@@ -40,13 +40,6 @@ import org.jetbrains.annotations.Nullable;
  * 변화량이 0 이라 공유 풀에 아무것도 더해지지 않고, 같은 틱 끝의 {@code writeBack} 이 우리가
  * 올려 둔 공유 값을 팀 전원에게 그대로 써 준다. 결과는 "팀 전체의 체력·허기가 찼다"이고
  * 움직인 양은 정확히 한 번분이다.
- *
- * <p>최근에 고친 "공유 상태이상이 팀 인원수만큼 배수로 들어가던" 버그와는 원인이 다르다.
- * 그건 <em>하나의 원인</em>이 공유 때문에 팀원 수만큼 복제돼 여러 번 관측되던 문제라
- * {@code SharedEffectDamage} 가 대표 한 명만 남기는 방식으로 걸렀다. 처치 보상은 애초에
- * 팀원 한 명이 만든 한 번의 사건이고 공유 풀을 직접 한 번만 건드리므로, 팀 인원수와 무관하게
- * 언제나 1인분이다. 두 명이 같은 틱에 각각 몹을 죽였다면 그건 진짜로 두 번이라 두 번 들어가는
- * 것이 맞다.
  */
 public final class PerkKillRewards {
 	/** 허기 상한. {@code FoodData} 와 {@code TeamState.sanitize} 가 쓰는 값과 같다. */
@@ -119,8 +112,7 @@ public final class PerkKillRewards {
 	/**
 	 * 이 팀이 가진 {@code on_kill} 들이 한 번의 처치로 주는 회복량의 합.
 	 *
-	 * <p>같은 팀이 {@code on_kill} 증강을 여러 개 가졌으면 전부 더한다. 서로 다른 증강이 각각
-	 * 약속한 보상이라 하나만 골라 줄 이유가 없다.
+	 * <p>같은 팀이 {@code on_kill} 증강을 여러 개 가졌으면 전부 더한다.
 	 */
 	public static Reward rewardFor(@Nullable TeamState state) {
 		if (state == null || state.ownedPerks.isEmpty()) {
@@ -167,8 +159,7 @@ public final class PerkKillRewards {
 	/**
 	 * 처치한 팀원에게 {@code on_kill} 의 하위 효과를 얹는다.
 	 *
-	 * <p>회복량 계산과 따로 도는 이유는 계산 쪽을 살아 있는 플레이어 없이 시험할 수 있게 하기
-	 * 위해서다. 하위 효과가 없는 정의가 대부분이라 이 순회는 대개 아무 일도 하지 않는다.
+	 * <p>하위 효과가 없는 정의가 대부분이라 이 순회는 대개 아무 일도 하지 않는다.
 	 */
 	private static void grantTemporaryEffects(ServerPlayer killer, TeamState state) {
 		for (String perkId : state.ownedPerks) {

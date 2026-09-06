@@ -12,10 +12,9 @@ import java.util.List;
  * 클라이언트가 보관하는 "지금 세트가 어디까지 왔는가".
  *
  * <p>{@link PerkSetSyncPayload} 로 갱신되며, 월드에서 나가면 {@link #clear()} 로 비운다.
- * {@link ClientPerkFeatures} 와 나눠 둔 이유는 그 파일 머리에 적힌 것과 같다 — 저쪽은
- * <b>동작을 가르는 판단값</b>이고 이쪽은 <b>화면에 뿌릴 표시용</b>이다. 이 캐시를 보고
- * 무엇이 켜졌는지 판단해 클라이언트가 무엇을 하는 일은 없다. 세트 효과를 실제로 거는 것은
- * 언제나 서버다.
+ * {@link ClientPerkFeatures} 는 <b>동작을 가르는 판단값</b>이고 이쪽은 <b>화면에 뿌릴
+ * 표시용</b>이다. 이 캐시를 보고 무엇이 켜졌는지 판단해 클라이언트가 무엇을 하는 일은 없다.
+ * 세트 효과를 실제로 거는 것은 언제나 서버다.
  *
  * <h2>서버가 말해 주기 전에는 비어 있다</h2>
  * <p>기본값은 빈 목록이다. 서버가 이 모드를 안 쓰거나 증강을 안 쓰는 팀이면 패킷이 오지 않고,
@@ -38,8 +37,7 @@ public final class ClientPerkSets {
 	 * {@link PerkSetSyncPayload} 를 받았을 때 부른다.
 	 *
 	 * <p>패킷 레코드를 그대로 들고 있지 않고 {@code com.sharedfate.ui} 의 레코드로 옮겨 담는다.
-	 * 화면 계산을 하는 자리가 마인크래프트 네트워크 클래스를 몰라도 되게 하려는 것이고,
-	 * 그래야 그 계산을 게임 없이 시험할 수 있다.
+	 * 화면 계산을 하는 자리가 마인크래프트 네트워크 클래스를 몰라도 되게 하려는 것이다.
 	 */
 	public static void update(@Nullable PerkSetSyncPayload payload) {
 		if (payload == null) {
@@ -49,7 +47,7 @@ public final class ClientPerkSets {
 		List<PerkSetLines.Entry> nextSets = new ArrayList<>(payload.sets().size());
 		for (PerkSetSyncPayload.SetLine line : payload.sets()) {
 			nextSets.add(new PerkSetLines.Entry(line.typeId(), line.displayName(),
-					line.owned(), line.nextThreshold(), line.activeTier()));
+					line.owned(), line.nextThreshold(), line.activeTier(), line.intervalTicks()));
 		}
 		List<PerkSetTooltip.TierEntry> nextTiers = new ArrayList<>(payload.tiers().size());
 		for (PerkSetSyncPayload.TierLine line : payload.tiers()) {
@@ -76,6 +74,18 @@ public final class ClientPerkSets {
 		return PerkSetLines.visible(sets, limit);
 	}
 
+	/**
+	 * HUD 가 그릴 줄들. 「보급」 줄에는 다음 보급까지 남은 시간이 붙는다.
+	 *
+	 * <p>팀 화면·선택창 곁판은 시계가 붙지 않는 {@link #lines(int)} 를 쓴다. 줄 폭이 매초
+	 * 흔들리면 마우스가 어느 줄 위인지 재는 계산까지 함께 흔들린다.
+	 *
+	 * @param gameTime 지금 게임 시간. 바닐라가 초마다 서버 값으로 맞춰 준다
+	 */
+	public static List<PerkSetLines.Line> hudLines(int limit, long gameTime) {
+		return PerkSetLines.visible(sets, limit, gameTime);
+	}
+
 	/** 그릴 줄이 하나라도 있는가. 없으면 화면은 세트 자리를 아예 비워 둔다. */
 	public static boolean hasLines() {
 		return !lines(PerkSetLines.MAX_HUD_LINES).isEmpty();
@@ -90,8 +100,8 @@ public final class ClientPerkSets {
 	 * 서버가 보낸 이름표 전부. 가진 것도 들어 있다.
 	 *
 	 * <p>팀 화면의 <b>보유 증강 줄</b>이 「이 증강은 어느 유형인가」를 이름으로 되짚는 데 쓴다
-	 * ({@link com.sharedfate.ui.PerkOwnedTypes}). 보유 목록({@code PerkSyncPayload.Owned})이
-	 * 유형 id 를 싣지 않아서 생긴 우회로이고, 그쪽이 유형을 실어 오면 이 쓰임은 없어진다.
+	 * ({@link com.sharedfate.ui.PerkOwnedTypes}). 보유 목록({@code PerkSyncPayload.Owned})은
+	 * 유형 id 를 싣지 않는다.
 	 */
 	public static List<PerkSetTooltip.Entry> catalog() {
 		return catalog;

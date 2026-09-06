@@ -30,10 +30,7 @@ import java.util.List;
 /**
  * 증강을 하나씩 시험해 보기 위한 운영자 전용 명령({@code /shareteam perktest ...}).
  *
- * <h2>왜 필요한가</h2>
- * <p>증강을 고르는 구간은 한 회차에 여덟 번(5·10·15·20·25·30·35·40레벨)뿐이다. 풀에는 그보다
- * 훨씬 많은 증강이 있어서 정상 플레이만으로는 하나하나 확인할 방법이 없다. 이 명령은
- * <b>구간과 레벨을 완전히 건너뛰고</b> 증강을 직접 넣고 뺀다.
+ * <p>이 명령은 <b>구간과 레벨을 완전히 건너뛰고</b> 증강을 직접 넣고 뺀다.
  *
  * <h2>이중 잠금</h2>
  * <p>둘이 <b>모두</b> 있어야 동작한다.
@@ -45,24 +42,17 @@ import java.util.List;
  *       기본값은 꺼짐이다.</li>
  * </ol>
  *
- * <p>권한만으로 가리지 않고 플래그를 따로 둔 이유는, 실제로 플레이하는 서버에서는 운영자도
- * 이 명령을 못 쓰게 하고 싶기 때문이다. 반대로 플래그만으로 가리지 않는 이유는, 설정 파일이
- * 실수로 복사돼 켜지더라도 아무나 증강을 뽑을 수는 없어야 하기 때문이다.
- *
  * <p>플래그가 꺼져 있을 때 <b>운영자에게는</b> 왜 안 되는지와 켜는 방법을 알려 준다.
- * 「알 수 없는 명령」만 뜨면 켤 방법을 찾을 수 없기 때문이다.
  *
  * <h2>시끄럽게 알린다</h2>
  * <p>플래그가 켜져 있으면 서버가 뜰 때 {@code WARN} 로그가 남고, 접속하는 사람마다 채팅으로
- * 경고를 받는다({@link #warnOnServerStarted}, {@link #warnOnJoin}). 조용히 켜져 있는 상태가
- * 이 기능에서 가장 위험하다.
+ * 경고를 받는다({@link #warnOnServerStarted}, {@link #warnOnJoin}).
  *
  * <h2>어떻게 반영하는가</h2>
  * <p>보유 목록을 고친 뒤 이미 붙어 있는 효과를 다시 맞춰야 한다. 그 일은
  * {@link PerkManager#setPerksEnabled} 가 이미 정확히 하고 있으므로 <b>껐다 켜는 것</b>으로
  * 재사용한다 — 끌 때 모든 효과가 걷히고, 켤 때 지금 보유 목록으로 다시 붙으며 동기화까지
  * 나간다. 몹에게 걸린 배율만 {@link MobPerkModifiers#invalidateNow} 로 따로 깨운다.
- * 그래서 {@code perk} 패키지를 한 줄도 고치지 않는다.
  *
  * <p><b>한 번만 일어나는 효과는 재현되지 않는다.</b> 즉시 지급({@code item_grant})이나
  * 「유산」의 몰수는 증강을 <b>고르는 순간</b>에만 일어나고 {@code apply}/{@code remove} 에서는
@@ -111,11 +101,7 @@ public final class PerkTestCommand {
 		return Commands.argument("perkId", IdentifierArgument.id()).suggests(suggestions);
 	}
 
-	/**
-	 * 등록된 증강 id 전체.
-	 *
-	 * <p>손으로 {@code sharedfate:...} 를 일흔 몇 번 치게 하면 시험 수단으로 쓸모가 없다.
-	 */
+	/** 등록된 증강 id 전체. */
 	private static final SuggestionProvider<CommandSourceStack> ALL_PERK_IDS =
 			(context, builder) -> SharedSuggestionProvider.suggest(
 					PerkRegistry.all().stream().map(Perk::id).sorted().toList(), builder);
@@ -123,7 +109,7 @@ public final class PerkTestCommand {
 	/**
 	 * 지금 이 팀이 들고 있는 증강 id 만.
 	 *
-	 * <p>뺄 수 없는 것을 제안해 봐야 헛손질이다. 팀이 없으면 아무것도 제안하지 않는다.
+	 * <p>팀이 없으면 아무것도 제안하지 않는다.
 	 */
 	private static final SuggestionProvider<CommandSourceStack> OWNED_PERK_IDS =
 			(context, builder) -> {
@@ -159,7 +145,7 @@ public final class PerkTestCommand {
 
 	// ------------------------------------------------------------------ 경고
 
-	/** 서버가 뜰 때 한 번. 로그를 나중에 뒤져도 이 회차가 시험 모드였는지 알 수 있어야 한다. */
+	/** 서버가 뜰 때 한 번. */
 	public static void warnOnServerStarted(MinecraftServer server) {
 		if (!enabled()) {
 			return;
@@ -171,7 +157,7 @@ public final class PerkTestCommand {
 						+ " perkTestCommands 를 false 로 두십시오.");
 	}
 
-	/** 접속할 때마다. 켜 둔 채로 지인들과 놀기 시작하는 일을 막는 것이 목적이다. */
+	/** 접속할 때마다. */
 	public static void warnOnJoin(ServerPlayer player) {
 		if (!enabled()) {
 			return;
@@ -211,7 +197,7 @@ public final class PerkTestCommand {
 	/**
 	 * 플래그가 꺼져 있을 때의 안내.
 	 *
-	 * <p>여기까지 왔다는 것은 이미 운영자라는 뜻이다. 그러니 켜는 방법을 그대로 알려 준다.
+	 * <p>여기까지 왔다는 것은 이미 운영자라는 뜻이다.
 	 */
 	private static int disabledNotice(CommandContext<CommandSourceStack> context) {
 		context.getSource().sendFailure(Component.literal(

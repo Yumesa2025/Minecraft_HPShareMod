@@ -16,10 +16,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 /**
  * 공유된 상태이상의 <em>회복</em>과 <em>배고픔</em>이 팀 인원수만큼 배수로 적용되던 문제를 본다.
  *
- * <p>피해 쪽 짝은 {@link SharedEffectDamageTest} 다. 규칙은 셋 다 같은
- * {@code SharedEffectDamage.isDuplicateSharedEffectTick} 이지만, 공유 풀에 닿는 경로가 서로
- * 달라 결과를 따로 확인한다.
- *
  * <p>실제 게임에서는 {@code MobEffectInstanceSharedTickMixin} 이 상태이상 틱 구간을 열고,
  * {@code LivingEntitySharedHealMixin} 이 {@code LivingEntity.heal} 에서 중복 회복을,
  * {@code PlayerSharedExhaustionMixin} 이 {@code Player.causeFoodExhaustion} 에서 중복 허기
@@ -60,7 +56,6 @@ class SharedEffectHealAndHungerTest {
 
 		TeamState state = woundedTeam();
 		StatMirror.applyDeltas(state, SHARED_MAX_HEALTH, 0.0F, folded, true);
-		// 고치기 전에는 4인분이 차서 34.0 이었다.
 		assertEquals(31.0F, state.health, 1.0e-6F);
 	}
 
@@ -72,7 +67,6 @@ class SharedEffectHealAndHungerTest {
 
 		TeamState state = fedTeam();
 		StatMirror.applyDeltas(state, SHARED_MAX_HEALTH, 0.0F, folded, true);
-		// 고치기 전에는 4인분이 깎여 16 이었다.
 		assertEquals(19, state.foodLevel);
 	}
 

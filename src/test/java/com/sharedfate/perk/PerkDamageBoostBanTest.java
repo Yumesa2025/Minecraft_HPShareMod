@@ -18,8 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * {@code no_damage_boost}의 상쇄 계산({@link PerkDamageBoostBan#compute})을 본다.
  *
  * <p>플레이어를 읽지 않는 순수 계산이라 살아 있는 서버 없이 확인할 수 있다. 실제로 수정자를
- * 붙이고 떼는 자리({@link PerkDamageBoostBan#refresh})는 {@code PerkWeaponDamageTest}와 같은
- * 이유로 여기서 다루지 않는다.
+ * 붙이고 떼는 자리({@link PerkDamageBoostBan#refresh})는 여기서 다루지 않는다.
  */
 class PerkDamageBoostBanTest {
 	private static final Identifier STRENGTH = Identifier.fromNamespaceAndPath("minecraft", "effect.strength");

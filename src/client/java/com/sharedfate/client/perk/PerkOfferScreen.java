@@ -165,9 +165,7 @@ public class PerkOfferScreen extends Screen {
 	/**
 	 * 카드 높이 계산에 넘길 치수.
 	 *
-	 * <p>계산 자체는 {@link PerkCardMetrics} 에 있다. 여기서 상수만 모아 넘기는 이유는 그 계산을
-	 * 게임 없이 시험하기 위해서다 — 이 화면은 {@code src/client} 에 있어 시험 소스셋이 보지
-	 * 못한다.
+	 * <p>계산 자체는 {@link PerkCardMetrics} 에 있다. 여기서는 상수만 모아 넘긴다.
 	 */
 	private static PerkCardMetrics metrics(int lineHeight) {
 		return new PerkCardMetrics(BAND_HEIGHT, ICON_GAP_TOP, ICON_GAP_BOTTOM, SET_TYPE_GAP,
@@ -385,8 +383,7 @@ public class PerkOfferScreen extends Screen {
 	 * 건드리는 일을 막는다.
 	 *
 	 * <p>{@code holdTicks} 는 서버가 시간을 더 멈춰 둘 길이({@code RESULT_TICKS})와 같은 값이
-	 * 실려 온 것이다. 그래서 이 시간을 그대로 <b>재개 카운트다운</b>으로 쓴다. 뒤에 카운트다운을
-	 * 따로 더 붙이지 않는 이유는 {@link #renderResumeCountdown} 에 적어 두었다.
+	 * 실려 온 것이다. 그래서 이 시간을 그대로 <b>재개 카운트다운</b>으로 쓴다.
 	 */
 	public void showResult(String perkId, String chooserName, int holdTicks) {
 		for (int index = 0; index < options.size(); index++) {
@@ -674,9 +671,8 @@ public class PerkOfferScreen extends Screen {
 	/**
 	 * 마우스가 올라간 세트의 단계 설명을 띄운다.
 	 *
-	 * <p>뜨는 자리가 둘이다 — <b>왼쪽 판의 세트 줄</b>과 <b>카드의 세트 유형 줄</b>. 판을 먼저
-	 * 보는 이유는 둘이 겹치지 않기 때문이 아니라, 겹칠 수 없게 자리를 잡아 두었으니 먼저
-	 * 맞는 쪽에서 끝내면 된다는 뜻이다.
+	 * <p>뜨는 자리가 둘이다 — <b>왼쪽 판의 세트 줄</b>과 <b>카드의 세트 유형 줄</b>. 둘은 겹칠
+	 * 수 없게 자리를 잡아 두었으므로 먼저 맞는 쪽에서 끝낸다.
 	 */
 	private void renderSetTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
 		int row = panel.rowAt(mouseX, mouseY);
@@ -690,7 +686,7 @@ public class PerkOfferScreen extends Screen {
 	/**
 	 * 카드의 세트 유형 줄에 마우스를 올렸는지 본다.
 	 *
-	 * <p>판정은 <b>움직이지 않는 자리</b>(cardTop 기준)로 한다. 카드를 클릭할 때와 같은 이유다 —
+	 * <p>판정은 <b>움직이지 않는 자리</b>(cardTop 기준)로 한다. 카드를 클릭할 때와 같다 —
 	 * 떠오른 위치로 재면 카드가 올라가는 순간 마우스가 밖으로 빠져 툴팁이 깜빡인다. 그래서
 	 * 호버로 카드가 2픽셀 뜨는 동안에는 글자와 판정 자리가 그만큼 어긋나 있는데, 줄 높이가
 	 * 아홉이라 눈에 잡히지 않는다.
@@ -789,15 +785,8 @@ public class PerkOfferScreen extends Screen {
 	/**
 	 * 게임이 다시 시작되기까지 남은 초를 크게 그린다.
 	 *
-	 * <h2>왜 뒤에 따로 더 붙이지 않았나</h2>
-	 * <p>고른 카드를 보여 주는 시간은 <b>이미 시간이 멈춰 있는 시간</b>이다. 그 뒤에 카운트다운을
-	 * 따로 붙이면 {@code RESULT_TICKS} 를 두 배로 잡는 것과 같고, 무적도 그만큼 길어진다.
-	 * 회차마다 여덟 번 겪는 연출이라 두 배는 길다.
-	 *
-	 * <p>그래서 <b>같은 시간을 카운트다운으로 바꿨다.</b> 원래도 그 시간 뒤에 게임이 돌아왔지만
-	 * 그 사실을 화면이 말해 주지 않아 갑자기 튕겨 나가는 느낌이었다. 숫자를 보여 주면 같은
-	 * 시간이 "기다리는 시간"이 아니라 "준비하는 시간"이 된다. 시간 정지와 무적이 도는 길이는
-	 * 하나도 바뀌지 않는다.
+	 * <p>고른 카드를 보여 주는 시간은 <b>이미 시간이 멈춰 있는 시간</b>이고, 그 시간을 그대로
+	 * 카운트다운으로 보여 준다. 시간 정지와 무적이 도는 길이는 하나도 바뀌지 않는다.
 	 *
 	 * <p>글자에 숫자를 박아 두지 않는다. 서버가 보낸 {@code holdTicks} 를 초로 바꿔 세므로
 	 * {@code RESULT_TICKS} 를 고치면 이 문구가 저절로 따라간다.
@@ -835,11 +824,9 @@ public class PerkOfferScreen extends Screen {
 	/**
 	 * 안 고른 카드를 아래로 미끄러뜨린다.
 	 *
-	 * <p>예전에는 결과가 정해지는 순간 이 카드들을 <b>그리지 않는 것</b>으로 끝냈다. 한 프레임
-	 * 만에 두 장이 없어지니 눈이 따라가지 못했다. 이제는 제자리에서 출발해 화면 아래끝을 지날
-	 * 때까지 가속하며 내려가고, 내려가는 동안 어둠에 가라앉는다. 걸리는 시간과 곡선은
-	 * {@link PerkCardDismiss} 에 적어 두었다 — 결과 시간의 앞머리에서 끝나므로 뒤에는 고른
-	 * 카드만 남은 화면이 충분히 남는다.
+	 * <p>제자리에서 출발해 화면 아래끝을 지날 때까지 가속하며 내려가고, 내려가는 동안 어둠에
+	 * 가라앉는다. 걸리는 시간과 곡선은 {@link PerkCardDismiss} 에 있다 — 결과 시간의 앞머리에서
+	 * 끝나므로 뒤에는 고른 카드만 남은 화면이 충분히 남는다.
 	 *
 	 * <p>결과 화면이 아니면 아무것도 하지 않는다.
 	 */
@@ -880,7 +867,7 @@ public class PerkOfferScreen extends Screen {
 			int slide, float shade) {
 		Card card = cards.get(index);
 		// 정해진 카드는 혼자 남으므로 제자리에 두면 세 칸 중 한쪽에 치우쳐 보인다. 가운데로
-		// 옮기되 순간이동시키지 않고 미끄러뜨린다. 이유는 PerkCardFocus 에 적어 두었다.
+		// 옮기되 순간이동시키지 않고 미끄러뜨린다(PerkCardFocus).
 		boolean highlighted = showingResult() && index == resultIndex;
 		int left = highlighted
 				? PerkCardFocus.left(resultElapsedMillis(), cardLeft(index),
@@ -975,8 +962,7 @@ public class PerkOfferScreen extends Screen {
 	 * <p>테두리를 한 겹씩 바깥으로 넓혀 가며 투명도를 낮춰 그린다. 진짜 번짐 효과는 셰이더가
 	 * 있어야 하지만, 겹을 넷만 쌓아도 카드가 화면에서 떠오르는 것처럼 보인다.
 	 *
-	 * <p>세기를 천천히 오르내리게 해서 <b>지금 이 카드를 보라</b>는 신호로 만든다. 멈춰 있는
-	 * 테두리는 그냥 장식으로 읽힌다.
+	 * <p>세기는 천천히 오르내린다.
 	 *
 	 * <p>카드가 가운데로 오는 동안에는 빛도 함께 짙어진다. 옮겨 오는 첫 프레임부터 다 켜 두면
 	 * 빛만 먼저 튀어 카드가 어디서 왔는지 가린다.
@@ -1017,9 +1003,7 @@ public class PerkOfferScreen extends Screen {
 	/**
 	 * 창이 열린 직후 카드를 아래로 밀어 둘 거리. 시간이 지나면서 0으로 줄어든다.
 	 *
-	 * <p>카드가 세 장 줄줄이 튀어나오면 어느 것을 보라는 건지 알기 어렵다. 왼쪽부터 짧게
-	 * 시차를 두고 올라오게 해서 눈이 왼쪽에서 오른쪽으로 흐르게 한다. 0.2초대라 급할 때
-	 * 방해가 되지 않는다.
+	 * <p>왼쪽부터 짧게 시차를 두고 올라온다.
 	 */
 	private int entryOffset(int index) {
 		if (!entryAnimated) {

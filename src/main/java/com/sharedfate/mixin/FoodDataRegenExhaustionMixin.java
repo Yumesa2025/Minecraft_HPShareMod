@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  * 그 자리에서 소모도를 치르므로, 그 대가까지 0 이 되면 체력이 공짜로 무한히 차오른다.
  * 그래서 이 경로의 소모도는 기본적으로 배율을 타지 않는다는 표시를 달고 지나간다.
  * 고행자처럼 {@code includeNaturalRegen: true} 를 든 팀만 예외로 이 경로도 함께 면제된다.
- * 판정과 그 까닭은 {@link PerkFoodRules#addNaturalRegenExhaustion} 에 적어 뒀다.
+ * 판정과 그 까닭은 {@link PerkFoodRules#addNaturalRegenExhaustion} 에 있다.
  *
  * <h2>26.2 의 실제 갈래</h2>
  * <p>javap 로 확인한 {@code FoodData.tick} 의 자연 회복 두 갈래는 이렇다.

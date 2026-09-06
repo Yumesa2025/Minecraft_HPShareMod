@@ -3,9 +3,6 @@ package com.sharedfate.ui;
 /**
  * 증강 선택창의 「다시 뽑기」 단추가 무엇을 보여 주고 언제 눌리는지.
  *
- * <p>화면({@code PerkOfferScreen})은 {@code src/client} 에 있어 시험 소스셋이 볼 수 없다.
- * 그래서 <b>순수 계산만</b> 여기로 내려 둔다. 화면은 이 결과를 위젯에 옮겨 담기만 한다.
- *
  * <p>여기서 정하는 것은 <b>보여 주기</b>뿐이다. 실제로 다시 뽑아도 되는지는 서버가
  * {@code PerkManager.applyReroll} 에서 처음부터 다시 따진다. 이 클래스가 참을 돌려준다고
  * 해서 서버가 요청을 받아 준다는 뜻이 아니다.
@@ -18,8 +15,7 @@ public final class PerkRerollButton {
 	/**
 	 * 단추에 적을 글자. 남은 횟수가 늘 보여야 한다.
 	 *
-	 * <p>0 일 때도 「0회 남음」이 아니라 못 쓴다는 뜻이 드러나게 적는다. 단추가 회색으로
-	 * 잠긴 이유가 글자에 있어야 한다.
+	 * <p>0 일 때도 「0회 남음」이 아니라 못 쓴다는 뜻이 드러나게 적는다.
 	 */
 	public static String label(int remaining) {
 		return remaining > 0
@@ -34,7 +30,7 @@ public final class PerkRerollButton {
 	 * 눌러도 서버가 버리는 단추가 되고, {@code /shareteam perk} 로 직접 연 창에서는 시간이
 	 * 멈춰 있지 않아 다시 뽑기 자체가 성립하지 않는다.
 	 *
-	 * <p>남은 횟수가 0 이어도 <b>그리기는 한다.</b> 사라지면 「원래 없는 기능」처럼 보인다.
+	 * <p>남은 횟수가 0 이어도 <b>그리기는 한다.</b>
 	 */
 	public static boolean visible(boolean forced, boolean canChoose) {
 		return forced && canChoose;

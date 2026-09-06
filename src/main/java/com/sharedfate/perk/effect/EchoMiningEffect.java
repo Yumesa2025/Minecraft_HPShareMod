@@ -4,15 +4,16 @@ import com.google.gson.JsonObject;
 import com.sharedfate.perk.PerkEffect;
 
 /**
- * 블록을 캐면 그 주변 블록이 {@value #EXTRA_BLOCKS}개 더 캐진다. 대신 쓰는 도구의 내구도가
- * 2배로 닳는다(원래 소모 + 추가 1점).
+ * 블록을 캐면 그 주변의 <b>같은 블록</b>이 {@value #EXTRA_BLOCKS}개 더 캐진다. 대신 쓰는 도구의
+ * 내구도가 2배로 닳는다(원래 소모 + 추가 1점).
  *
  * <p>정의는 {@code { "type": "echo_mining" }} 하나뿐이고 필드가 없다. 골드 「메아리 채굴」이 쓴다.
  *
  * <h2>세부 규칙</h2>
  * <ul>
- *   <li><b>방금 캔 자리를 둘러싼 26칸 중에서 고른다.</b> 캔 것과 같은 종류인지는 따지지 않는다 —
- *       "메아리"는 행동이 반복된다는 뜻이지 같은 자원이 나온다는 약속이 아니다.</li>
+ *   <li><b>방금 캔 자리를 둘러싼 26칸 중에서 고른다.</b> 그중 <b>방금 캔 것과 같은 종류만</b>
+ *       고른다. 돌 사이의 다이아를 캐면 돌은 그대로 있고 붙어 있는 다이아만 함께 캐진다.
+ *       「같은 종류」의 뜻은 {@link SameKindMiningEffect#isSameKind} 한 곳에만 있다.</li>
  *   <li><b>팀원(자신 포함)의 발밑 블록은 절대 캐지 않는다.</b> 아래에 따로 적었다.</li>
  *   <li><b>로드되지 않은 청크의 블록은 후보에서 빠진다.</b> 청크를 억지로 불러오지 않는다.</li>
  *   <li><b>내 도구로 그 블록을 캘 자격이 없으면 후보에서 빠진다.</b>
@@ -39,16 +40,17 @@ import com.sharedfate.perk.PerkEffect;
  * <p>판정은 {@link com.sharedfate.perk.PerkBlockBreaks#isUnderFoot}에 좌표 계산만으로 떼어 두었다.
  * 이 규칙은 살아 있는 서버 없이도 반드시 시험할 수 있어야 하기 때문이다.
  *
- * <h2>「같은 종류만」이 필요하면 이 클래스가 아니다</h2>
- * <p>{@link SameKindMiningEffect}({@code same_kind_mining}) 가 따로 있다. 같은 26칸을 같은
- * 규칙으로 훑되 <b>방금 캔 것과 같은 종류만</b> 고른다. 이 클래스에 「같은 종류만」 옵션을
- * 더하지 않은 이유는, 여기가 필드 없는 홑 인스턴스({@link #INSTANCE})라서 옵션을 하나라도
- * 넣는 순간 그 구조가 깨지고, 「메아리 채굴」이 예전 그대로라는 보장이 <b>기본값 하나에만</b>
- * 걸리기 때문이다. 두 효과가 공유하는 것은 이웃을 훑는 계산뿐이고, 그쪽은
- * {@link com.sharedfate.perk.PerkBlockBreaks#neighborCandidates} 한 함수로 이미 합쳐져 있다.
+ * <h2>{@code same_kind_mining} 과의 관계</h2>
+ * <p>「같은 종류」의 뜻은 {@link SameKindMiningEffect#isSameKind} 에, 후보를 훑고 거르는 일은
+ * {@link com.sharedfate.perk.PerkBlockBreaks#neighborCandidates} 에 있고 <b>이쪽이 그것을 같이
+ * 쓴다.</b> 규칙을 두 벌로 적으면 한쪽만 고쳐져 조용히 갈라진다. 남은 차이는 개수뿐이다 —
+ * 이쪽은 언제나 {@value #EXTRA_BLOCKS}개로 고정이고, 저쪽은 세트 정의에서 개수와 추가 내구도를
+ * 조절할 수 있다.
  *
- * <p><b>둘을 같이 가지면 둘 다 발동한다.</b> 이쪽이 먼저 2칸을 캐고 그 뒤에 저쪽이 남은 칸을
- * 다시 훑는다. 자세한 것은 {@code PerkBlockBreaks.trySameKindMining} 에 적어 뒀다.
+ * <p><b>둘을 같이 가지면 둘 다 발동한다.</b> 이쪽이 먼저 2칸을 캐고 그 뒤에 저쪽이
+ * 남은 칸을 다시 훑어 합쳐서 최대 4칸이다. 다만 둘이 <b>같은 후보를 나눠 갖는다</b> —
+ * 이웃에 같은 종류가 넷 이상 있어야 4칸이 다 찬다. 자세한 것은
+ * {@code PerkBlockBreaks.trySameKindMining} 에 있다.
  *
  * <h2>무한 연쇄를 막는 방법</h2>
  * <p>메아리로 캐는 블록은 {@code ServerLevel.removeBlock}로 지운다. {@code destroyBlock}이
@@ -57,13 +59,12 @@ import com.sharedfate.perk.PerkEffect;
  * {@code removeBlock}은 그 경로를 지나지 않으므로 이 사건이 자기 자신을 다시 부르는 고리가
  * 애초에 생기지 않는다.
  *
- * <h2>왜 표시 클래스인가</h2>
- * <p>{@link SwapBlockEffect}와 같은 이유다. {@link PerkEffect#apply}로 팀원에게 붙일 것이
- * 없다. 실제로 메아리를 일으키고 도구를 추가로 닳게 하는 일은
+ * <p>{@link PerkEffect#apply}/{@link PerkEffect#remove} 는 아무 일도 하지 않는다. 실제로
+ * 메아리를 일으키고 도구를 추가로 닳게 하는 일은
  * {@link com.sharedfate.perk.PerkBlockBreaks}가 맡는다.
  */
 public final class EchoMiningEffect implements PerkEffect {
-	/** 한 번 캘 때 덤으로 더 캐지는 블록 수. 후보가 모자라면 있는 만큼만 캔다. */
+	/** 한 번 캘 때 덤으로 더 캐지는 블록 수. 이웃에 같은 종류가 모자라면 있는 만큼만 캔다. */
 	public static final int EXTRA_BLOCKS = 2;
 
 	/** 상태가 없으므로 하나만 만들어 돌려쓴다. */

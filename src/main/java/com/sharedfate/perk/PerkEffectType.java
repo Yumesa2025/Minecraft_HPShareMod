@@ -46,6 +46,7 @@ import com.sharedfate.perk.effect.NoHungerDrainEffect;
 import com.sharedfate.perk.effect.NoNaturalRegenEffect;
 import com.sharedfate.perk.effect.OffhandLockEffect;
 import com.sharedfate.perk.effect.DoubleJumpEffect;
+import com.sharedfate.perk.effect.DurabilityMultiplierEffect;
 import com.sharedfate.perk.effect.HideHudEffect;
 import com.sharedfate.perk.effect.OnBreakEffect;
 import com.sharedfate.perk.effect.OnCriticalEffect;
@@ -67,6 +68,7 @@ import com.sharedfate.perk.effect.StatusEffectPerk;
 import com.sharedfate.perk.effect.WeaponDamageEffect;
 import com.sharedfate.perk.effect.ExtraRerollsEffect;
 import com.sharedfate.perk.effect.NoSilverOffersEffect;
+import com.sharedfate.perk.effect.NoAttackDamageLossEffect;
 import com.sharedfate.perk.effect.NoDefenseDrawbacksEffect;
 import com.sharedfate.perk.effect.PrismRerollEffect;
 import com.sharedfate.perk.effect.LuckyOreEffect;
@@ -142,6 +144,7 @@ public enum PerkEffectType {
 	DOUBLE_JUMP("double_jump", DoubleJumpEffect::fromJson),
 	HIDE_HUD("hide_hud", HideHudEffect::fromJson),
 	WEAPON_DAMAGE("weapon_damage", WeaponDamageEffect::fromJson),
+	DURABILITY_MULTIPLIER("durability_multiplier", DurabilityMultiplierEffect::fromJson),
 	LOOT_BONUS("loot_bonus", LootBonusEffect::fromJson),
 	ALWAYS_LOOTING("always_looting", AlwaysLootingEffect::fromJson),
 	ECHO_MINING("echo_mining", EchoMiningEffect::fromJson),
@@ -155,6 +158,7 @@ public enum PerkEffectType {
 	EXTRA_REROLLS("extra_rerolls", ExtraRerollsEffect::fromJson),
 	PRISM_REROLL("prism_reroll", PrismRerollEffect::fromJson),
 	NO_DEFENSE_DRAWBACKS("no_defense_drawbacks", NoDefenseDrawbacksEffect::fromJson),
+	NO_ATTACK_DAMAGE_LOSS("no_attack_damage_loss", NoAttackDamageLossEffect::fromJson),
 	LUCKY_ORE("lucky_ore", LuckyOreEffect::fromJson),
 	TOOL_MISMATCH_SLOW("tool_mismatch_slow", ToolMismatchSlowEffect::fromJson),
 	SHIELD_FALL_IMMUNITY("shield_fall_immunity", ShieldFallImmunityEffect::fromJson),

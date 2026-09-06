@@ -196,8 +196,6 @@ public final class VictoryCelebration {
 
 	/**
 	 * 연출 단계를 틱 단위로 넘기는 순수 로직.
-	 *
-	 * <p>마인크래프트 클래스에 전혀 기대지 않아 단위 테스트로 타이밍을 검증할 수 있다.
 	 */
 	public static final class Schedule {
 		/** {@link #advance()}가 이번 틱에 할 일. */

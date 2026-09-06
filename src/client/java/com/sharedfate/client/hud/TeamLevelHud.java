@@ -12,12 +12,6 @@ import net.minecraft.world.entity.player.Player;
 /**
  * 화면 아래 왼쪽, 핫바 왼쪽 끝에 맞춰 팀 공유 레벨과 다음 증강까지 남은 레벨을 표시한다.
  *
- * <p>인챈트 등으로 경험치를 쓰면 바닐라 경험치 바의 숫자가 내려가기 때문에, 다음 증강이
- * 언제 나오는지 알 수 없다. 그 값을 따로 보여주는 것이 이 HUD 의 목적이다.
- *
- * <p>자리가 경험치 바 옆인 이유는, 레벨을 확인할 때 눈이 가는 곳이 거기이기 때문이다.
- * 오른쪽 위(상태이상 아이콘 아래)는 있다는 것을 모르면 아무도 보지 않는 자리다.
- *
  * <p>좌표 계산과 다른 표시와의 겹침 정리는 {@link BottomLeftStack} 이 맡는다.
  */
 public class TeamLevelHud implements HudElement {

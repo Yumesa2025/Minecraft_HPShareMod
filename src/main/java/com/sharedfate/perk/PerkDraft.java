@@ -17,25 +17,16 @@ import java.util.Set;
  * 나오는 3개는 전부 같은 등급이다. 이미 보유한 증강은 어떤 경우에도 후보에서 빠지고,
  * 한 번의 추첨 안에서 같은 증강이 두 번 나오지 않는다.
  *
- * <p>후보 풀은 호출자가 넘긴다. {@code PerkRegistry}에 직접 붙지 않아야 게임 실행 없이
- * 순수 단위 테스트로 검증할 수 있기 때문이다. 난수도 주입받으므로 고정 시드를 주면
- * 결과가 항상 같다.
+ * <p>후보 풀은 호출자가 넘긴다. 난수도 주입받으므로 고정 시드를 주면 결과가 항상 같다.
  */
 public final class PerkDraft {
 	/** 한 번에 제시하는 기본 후보 수. */
 	public static final int DEFAULT_OPTIONS = 3;
 
 	/**
-	 * 프리즘 라운드로 <b>고정된</b> 구간들. 2026-09-02부터 15 하나뿐이다.
+	 * 프리즘 라운드로 <b>고정된</b> 구간들. 15 하나뿐이다.
 	 *
-	 * <p>예전에는 {@code PRISM_MILESTONE}(단수, {@code int} 하나)이었다가, 30 이 함께 고정되면서
-	 * 집합이 됐다. 지금은 다시 15 하나만 남았지만 이름과 자료형은 집합 그대로 둔다 — 고정
-	 * 구간이 몇 개인지는 밸런스를 보며 또 바뀔 값이고, 부르는 쪽({@code PerkMilestonesTest} 처럼
-	 * 「고정 구간 전부」를 도는 코드)이 개수에 상관없이 돌아가야 하기 때문이다.
-	 *
-	 * <p>30 이 여기서 빠진 것은 <b>프리즘을 줄이려는 것이 아니라 자리를 옮긴 것</b>이다. 고정을
-	 * 풀어 나머지 일곱 구간과 같은 확률표({@link #ODDS_BY_EXTRA_PRISM})로 굴린다. 그래서 한
-	 * 회차에 나오는 프리즘 라운드는 <b>고정 1회 + 확률로 최대 {@link #MAX_EXTRA_PRISM}회</b>다.
+	 * <p>한 회차에 나오는 프리즘 라운드는 <b>고정 1회 + 확률로 최대 {@link #MAX_EXTRA_PRISM}회</b>다.
 	 */
 	public static final Set<Integer> PRISM_MILESTONES = Set.of(15);
 
@@ -56,10 +47,6 @@ public final class PerkDraft {
 	 * 하나도 안 나온 상태, 마지막 줄이 한도({@link #MAX_EXTRA_PRISM})에 닿아 프리즘가 더는 나오지
 	 * 않는 상태다. <b>15 구간의 고정 프리즘은 이 수에 넣지 않는다.</b> 고정은 확률과 무관하게
 	 * 언제나 한 번 나오는 것이라, 그것까지 세면 확률로 얻을 수 있는 프리즘가 하나 줄어든다.
-	 *
-	 * <p>매직 넘버로 흩뿌리지 않고 표 하나로 모아 둔 이유는 하나다 — <b>이 값들은 자주 바뀐다.</b>
-	 * 밸런스를 손볼 때 고쳐야 할 자리가 여기 한 곳이면 되고, 세 값의 합이 100 인지도 한눈에
-	 * 확인된다.
 	 */
 	public static final List<RarityOdds> ODDS_BY_EXTRA_PRISM = List.of(
 			new RarityOdds(45, 45, 10),
@@ -70,8 +57,7 @@ public final class PerkDraft {
 	 * 한 회차에 <b>확률로</b> 추가로 나올 수 있는 프리즘 라운드의 최대 수.
 	 *
 	 * <p>{@link #ODDS_BY_EXTRA_PRISM} 의 마지막 줄 번호와 같은 값이다. 이 수에 닿으면 그 줄의
-	 * 프리즘 확률이 0 이라 더 나오지 않고, {@link #PRISM_BOOST_PERCENT} 보너스도 붙지 않는다 —
-	 * 보너스가 한도를 뚫으면 한도라고 부를 이유가 없다.
+	 * 프리즘 확률이 0 이라 더 나오지 않고, {@link #PRISM_BOOST_PERCENT} 보너스도 붙지 않는다.
 	 *
 	 * <p>15 구간의 고정 프리즘을 더하면 한 회차의 프리즘 라운드는 최대 세 번이다.
 	 */
@@ -80,9 +66,7 @@ public final class PerkDraft {
 	/**
 	 * 「원정 준비물」({@code sharedfate:expedition_kit})을 가진 팀이 얹어 받는 프리즘 확률(%p).
 	 *
-	 * <p>얹는 만큼 <b>골드에서 뺀다.</b> 실버에서 빼지 않는 이유는 그 증강이 이미 실버 후보를
-	 * 통째로 막고 있어({@code no_silver_offers}) 실버 몫이 그대로 골드로 넘어가 있기 때문이다.
-	 * 거기서 또 실버를 깎아 봐야 아무 일도 일어나지 않는다.
+	 * <p>얹는 만큼 <b>골드에서 뺀다.</b>
 	 */
 	public static final int PRISM_BOOST_PERCENT = 3;
 
@@ -98,8 +82,7 @@ public final class PerkDraft {
 	 *       손상된 저장에서 음수나 큰 값이 흘러들어와도 표 밖을 짚지 않는다.</li>
 	 *   <li>프리즘 보너스는 <b>그 줄의 프리즘 확률이 0 보다 클 때만</b> 붙는다. 한도에 닿은 줄에
 	 *       붙이면 「2개까지」라는 한도가 3%씩 새어 나간다.</li>
-	 *   <li>실버가 막혔으면 실버 몫을 <b>전부 골드로</b> 넘긴다. 프리즘 몫은 건드리지 않는다 —
-	 *       실버가 막혔다고 프리즘가 잘 나와야 할 이유는 없고, 그 몫은 이미 2번에서 얹었다.</li>
+	 *   <li>실버가 막혔으면 실버 몫을 <b>전부 골드로</b> 넘긴다. 프리즘 몫은 건드리지 않는다.</li>
 	 * </ol>
 	 *
 	 * @param extraPrismCount 이번 회차에 확률로 이미 나온 프리즘 라운드 수. 15 의 고정은 빼고 센다
@@ -126,9 +109,7 @@ public final class PerkDraft {
 	 * 구간은 {@link #oddsFor} 가 만든 확률표 한 줄로 굴린다.
 	 *
 	 * <p><b>회차 상태를 여기서 읽지 않는다.</b> 「이번 회차에 프리즘가 몇 번 나왔는가」도
-	 * 「실버가 막혔는가」도 전부 인자로 받는다. {@code TeamState} 나 {@code PerkRegistry} 에
-	 * 손을 뻗는 순간 이 클래스는 게임을 띄우지 않고는 검증할 수 없는 물건이 된다 — 파일 맨 위에
-	 * 적어 둔 설계 원칙 그대로다. 실버 차단 판정은 호출자({@code PerkManager})가 한다.
+	 * 「실버가 막혔는가」도 전부 인자로 받는다. 실버 차단 판정은 호출자({@code PerkManager})가 한다.
 	 *
 	 * @param milestone       레벨 구간 (5, 10, …, 40)
 	 * @param extraPrismCount 이번 회차에 확률로 이미 나온 프리즘 라운드 수. 15 의 고정은 빼고 센다
@@ -189,8 +170,7 @@ public final class PerkDraft {
 	 * <p><b>회차 상태를 모르는 길이다.</b> 등급을 옛 {@link #rarityFor(int, RandomSource)} 로
 	 * 정하므로 프리즘 한도도 실버 차단도 걸리지 않는다. 실제 게임의 구간 추첨은
 	 * {@code PerkManager} 가 등급을 먼저 정한 뒤 {@link #draw(PerkRarity, int, List, List,
-	 * RandomSource, int)} 를 부르는 길로 지나간다 — 프리즘가 나왔는지를 <b>세어 두어야</b> 하는데,
-	 * 여기서는 뽑힌 후보만 돌려주므로 폴백으로 섞인 프리즘와 구분할 방법이 없기 때문이다.
+	 * RandomSource, int)} 를 부르는 길로 지나간다.
 	 *
 	 * @param milestone 이 추첨이 속한 레벨 구간 (5, 10, …, 40)
 	 * @param pool      전체 증강 목록
@@ -217,9 +197,9 @@ public final class PerkDraft {
 	 * {@link Perk#minLevel} 로 거르지 않는다 — {@code min_level} 이 설정된 증강도 그대로 뽑힐
 	 * 수 있다.
 	 *
-	 * <p>구간 배정을 거치지 않으므로 폴백 동작을 그 자체로 검증할 수 있다. 도박꾼처럼 "이 구간은
-	 * 무조건 이 등급"인 경로가 여기로 들어온다. 구간을 안다면 {@link #draw(PerkRarity, int,
-	 * List, List, RandomSource, int)} 를 대신 써야 {@code min_level} 이 지켜진다.
+	 * <p>도박꾼처럼 "이 구간은 무조건 이 등급"인 경로가 여기로 들어온다. 구간을 안다면
+	 * {@link #draw(PerkRarity, int, List, List, RandomSource, int)} 를 대신 써야
+	 * {@code min_level} 이 지켜진다.
 	 *
 	 * @param rarity 뽑을 등급
 	 */
@@ -248,13 +228,12 @@ public final class PerkDraft {
 	 * 등급·구간에 더해 <b>이번에는 피하고 싶은 후보</b>까지 지정해 뽑는다. 「다시 뽑기」가 쓴다.
 	 *
 	 * <p>{@code owned} 와 {@code avoid} 는 성격이 다르다. 보유 증강은 <b>절대</b> 나오면 안 되지만,
-	 * 피하고 싶은 후보는 <b>되도록</b> 나오지 않으면 되는 것이다. 후보가 세 장 미만으로 뜨는
-	 * 것보다는 한 장 겹치는 편이 낫다.
+	 * 피하고 싶은 후보는 <b>되도록</b> 나오지 않으면 되는 것이다.
 	 *
-	 * <p>그래서 우선순위가 <b>등급이 먼저, 회피가 나중</b>이다. 한 등급 안에서 회피 대상이 아닌
+	 * <p>우선순위는 <b>등급이 먼저, 회피가 나중</b>이다. 한 등급 안에서 회피 대상이 아닌
 	 * 것을 먼저 다 쓰고, 모자라면 <b>같은 등급의 회피 대상</b>을 꺼낸다. 그것마저 바닥나야
 	 * {@link #fallbackOrder} 의 다음 등급으로 내려간다. 반대로 하면 「실버 라운드에서 다시
-	 * 뽑았더니 골드가 나왔다」가 되는데, 그건 겹쳐 보이는 것보다 훨씬 나쁘다.
+	 * 뽑았더니 골드가 나왔다」가 된다.
 	 *
 	 * <p>다시 뽑기는 이 방식으로 <b>직전에 보여 준 3장</b>을 넘긴다. 등급이 실버(30개)라면 거의
 	 * 언제나 회피 대상이 아닌 쪽에서 다 채워져 방금 본 카드가 돌아오지 않는다.
@@ -273,7 +252,7 @@ public final class PerkDraft {
 		for (PerkRarity bucketRarity : fallbackOrder(rarity)) {
 			// 한 등급 안에서 회피 대상이 아닌 것을 먼저 다 쓰고, 모자랄 때만 회피 대상을 꺼낸다.
 			// 등급을 내려가기 전에 반드시 이 순서를 지켜야 한다 — 남은 실버가 회피 대상뿐인데
-			// 골드를 끌어오면 다시 뽑기가 등급을 바꾸는 셈이 되고, 그건 회피보다 훨씬 나쁘다.
+			// 골드를 끌어오면 다시 뽑기가 등급을 바꾸는 셈이 된다.
 			takeFrom(drawn, remaining.get(bucketRarity), random, count);
 			takeFrom(drawn, avoided.get(bucketRarity), random, count);
 			if (drawn.size() >= count) {
@@ -293,7 +272,7 @@ public final class PerkDraft {
 
 	/**
 	 * {@code buckets} 에서 {@code ids} 에 해당하는 것들을 <b>덜어내</b> 같은 모양의 통으로 돌려준다.
-	 * 원본은 그만큼 줄어든다. 예비 통이라 순서를 지킬 이유가 없다.
+	 * 원본은 그만큼 줄어든다.
 	 */
 	private static Map<PerkRarity, List<Perk>> extract(Map<PerkRarity, List<Perk>> buckets,
 			Set<String> ids) {

@@ -36,13 +36,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 「같은 종류만 캔다」·「연쇄가 연쇄를 부르지 않는다」 규칙을 본다.
  *
  * <p>실제로 블록이 사라지고 도구가 닳는 순간은 살아 있는 서버·{@code ServerLevel}·
- * {@code ServerPlayer} 가 있어야 확인할 수 있어({@link EchoMiningEffectTest} 와 같은 이유)
- * 여기서 다루지 않는다. 대신 그 코드가 부르는 판단 셋을 직접 두들긴다.
+ * {@code ServerPlayer} 가 있어야 확인할 수 있어 여기서 다루지 않는다. 대신 그 코드가 부르는
+ * 판단 셋을 직접 두들긴다.
  *
  * <ul>
  *   <li>{@link SameKindMiningEffect#isSameKind} — 무엇을 「같은 종류」로 보는가</li>
  *   <li>{@link PerkBlockBreaks#neighborCandidates} — 26칸에서 무엇을 골라내는가.
- *       「메아리 채굴」과 <b>같은 함수</b>라, 같은 자리에서 두 규칙을 나란히 확인한다</li>
+ *       「메아리 채굴」과 <b>같은 함수를 같은 규칙으로</b> 쓴다</li>
+ *   <li>{@link PerkBlockBreaks#kindFilterOf} — 두 효과가 무엇을 기준으로 삼는가</li>
  *   <li>{@link PerkBlockBreaks#beginChain()} — 연쇄가 자기 자신을 다시 부르지 않는가</li>
  * </ul>
  */
@@ -115,8 +116,7 @@ class SameKindMiningEffectTest {
 	 * {@link PerkEffectType} 에 등록되어 있는가.
 	 *
 	 * <p><b>이 시험이 지키는 것은 조용한 실패다.</b> 등록 줄을 빠뜨리면 빌드도 통과하고 서버도
-	 * 뜨는데 채굴 4단계만 아무 일도 하지 않는다({@link DefaultPerkSetValuesTest} 첫 시험의
-	 * 설명과 같다).
+	 * 뜨는데 채굴 4단계만 아무 일도 하지 않는다.
 	 */
 	@Test
 	void 효과_타입_문자열로_찾을_수_있다() {
@@ -163,9 +163,6 @@ class SameKindMiningEffectTest {
 
 	/**
 	 * <b>딥슬레이트 변종은 다른 종류다.</b> 정한 규칙이고, 여기서 못박는다.
-	 *
-	 * <p>둘을 묶으려면 「이것과 이것은 사실 같다」는 표를 들고 있어야 하는데 그 표는 광석 여덟
-	 * 종에서 끝나지 않는다. 표가 없는 규칙 하나가 설명하기도 쉽고 틀릴 구석도 없다.
 	 */
 	@Test
 	void 딥슬레이트_변종은_다른_종류다() {
@@ -238,15 +235,17 @@ class SameKindMiningEffectTest {
 		assertEquals(List.of(origin.east()), picked, "딥슬레이트 쪽은 다른 종류라 빠진다");
 	}
 
-	// ------------------------------------------------------------------ 「메아리 채굴」은 그대로
+	// ------------------------------------------------------------------ 「메아리 채굴」과 같은 길
 
 	/**
-	 * <b>「메아리 채굴」은 종류를 따지지 않는다.</b> 같은 함수를 쓰지만 마지막 인자가 없다.
+	 * <b>기준 블록을 안 넘기면 종류를 안 가린다.</b> 지금 이 갈래로 들어오는 효과는 없다.
 	 *
-	 * <p>이 시험이 깨지면 새 효과를 만들면서 기존 골드 증강의 약속을 함께 바꾼 것이다.
+	 * <p>두 효과 모두 방금 캔 블록을 넘기고, {@link PerkBlockBreaks#kindFilterOf} 가
+	 * {@code null} 을 주면 부르는 쪽이 아예 돌아간다. 누군가 여기에 {@code null} 을 넘기는 순간
+	 * 주변 아무 블록이나 캐지는 예전 동작이 소리 없이 돌아온다.
 	 */
 	@Test
-	void 메아리_채굴은_종류를_따지지_않는다() {
+	void 기준_블록이_없으면_종류를_안_가린다() {
 		BlockPos origin = new BlockPos(0, -50, 0);
 		Map<BlockPos, BlockState> world = filledNeighbors(origin, state(Blocks.DEEPSLATE));
 		world.put(origin.east(), state(Blocks.DEEPSLATE_DIAMOND_ORE));
@@ -259,7 +258,7 @@ class SameKindMiningEffectTest {
 	}
 
 	@Test
-	void 두_규칙이_같은_거르기를_지난다() {
+	void 종류와_상관없는_거르기는_따로_지난다() {
 		BlockPos origin = new BlockPos(0, 5, 0);
 		BlockState stone = state(Blocks.STONE);
 		Map<BlockPos, BlockState> world = filledNeighbors(origin, stone);
@@ -270,10 +269,28 @@ class SameKindMiningEffectTest {
 
 		BiPredicate<BlockPos, BlockState> guarded = (pos, ignored) -> !pos.equals(underFoot);
 
-		assertEquals(23, PerkBlockBreaks.neighborCandidates(origin, world::get, guarded, null).size(),
-				"메아리 채굴도 셋을 뺀다");
 		assertEquals(23, PerkBlockBreaks.neighborCandidates(origin, world::get, guarded, stone).size(),
-				"같은 종류 채굴도 똑같이 뺀다 — 돌밭이라 종류로는 하나도 안 빠진다");
+				"두 효과가 함께 쓰는 길이다 — 돌밭이라 종류로는 하나도 안 빠지고 셋만 빠진다");
+		assertEquals(23, PerkBlockBreaks.neighborCandidates(origin, world::get, guarded, null).size(),
+				"발밑·미로드·공기 제외는 종류 거르기와 상관없이 언제나 지난다");
+	}
+
+	/**
+	 * 두 효과가 <b>같은 기준</b>으로 이웃을 거른다.
+	 *
+	 * <p>기준을 잡는 자리가 {@link PerkBlockBreaks#kindFilterOf} 한 곳뿐이라, 한쪽만 조용히
+	 * 갈라질 자리가 없다. 캔 자리가 이미 공기인 경우를 여기서 못박는 것이 중요하다 — 그때
+	 * {@code null} 이 그대로 {@code neighborCandidates} 로 흘러가면 뜻이 뒤집혀 주변 아무
+	 * 블록이나 캐진다.
+	 */
+	@Test
+	void 두_효과가_같은_기준_블록을_쓴다() {
+		BlockState diamond = state(Blocks.DEEPSLATE_DIAMOND_ORE);
+
+		assertEquals(diamond, PerkBlockBreaks.kindFilterOf(diamond), "방금 캔 블록 그대로다");
+		assertNull(PerkBlockBreaks.kindFilterOf(state(Blocks.AIR)),
+				"이미 공기인 자리를 기준으로 삼으면 아무것과도 같은 종류가 아니다");
+		assertNull(PerkBlockBreaks.kindFilterOf(null));
 	}
 
 	@Test

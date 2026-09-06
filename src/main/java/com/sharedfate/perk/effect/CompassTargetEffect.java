@@ -35,8 +35,7 @@ import java.util.List;
  * <p>{@code data/minecraft/tags/worldgen/structure/} 를 열어 보면 {@code village},
  * {@code mineshaft}, {@code ruined_portal} 같은 태그만 있고 요새 태그는 없다. 그래서 요새는
  * 태그가 아니라 구조물 이름 {@code minecraft:fortress} 로 직접 적어야 한다
- * ({@code data/minecraft/worldgen/structure/fortress.json} 에 실재한다). 태그 형식도 그대로
- * 받아 두는 이유는 마을처럼 여러 변종을 한꺼번에 가리켜야 하는 구조물이 있기 때문이다.
+ * ({@code data/minecraft/worldgen/structure/fortress.json} 에 실재한다).
  *
  * <h2>여기서는 아무것도 찾지 않는다</h2>
  * <p>이 클래스는 "무엇을 어디서 얼마나 넓게 찾을 것인가"만 들고 있다. 실제 탐색과 나침반

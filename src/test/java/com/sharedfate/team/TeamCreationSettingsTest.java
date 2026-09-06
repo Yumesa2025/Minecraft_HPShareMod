@@ -53,12 +53,7 @@ class TeamCreationSettingsTest {
 		assertEquals(20.0F, settings.maxHealth());
 	}
 
-	/**
-	 * 위치 교환은 <b>켠 채로</b> 시작한다.
-	 *
-	 * <p>체력과 경험치만 나누면 팀원이 각자 제 갈 길을 가도 아무 일이 없다. 자리가 섞여야
-	 * 서로를 신경 쓰게 되므로, 이 모드에서는 켜고 시작하는 쪽이 기본이다.
-	 */
+	/** 위치 교환은 <b>켠 채로</b> 시작한다. */
 	@Test
 	void 기본값에서_위치_교환은_5분_주기로_켜져_있다() {
 		TeamCreationSettings settings = TeamCreationSettings.defaults(20.0F);

@@ -10,12 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 카드의 세트 유형 줄 — 어디에 놓이고, 마우스가 그 위에 있는지, 이름을 id 로 되돌리는 일.
- *
- * <h2>왜 되돌려야 하는가</h2>
- * <p>선택 화면의 카드가 들고 있는 것은 <b>화면용 이름</b>이다({@code "무기·화력"}). 그런데
- * 툴팁은 <b>id</b> 로 묻는다({@code power}). 이름을 그대로 넘기면 언제나 빈 툴팁이 나오는데,
- * 화면에는 아무 오류도 안 뜬다 — 그냥 마우스를 올려도 아무 일이 안 일어난다. 그 사고를 여기서
- * 막는다.
  */
 class PerkCardSetTypesTest {
 	/** 서버와 화면이 함께 쓰는 이음쇠. {@code PerkOfferPayload.PerkOption.SET_TYPE_JOINER}. */

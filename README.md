@@ -5,23 +5,25 @@ Minecraft Java Edition 26.2 / Fabric용 협동 모드입니다. 최대 4명이 �
 팀 공유 레벨이 오르면 팀 전체에 적용되는 **증강**을 함께 고르고, 팀 전멸 뒤에는 다음 회차의
 새 월드를 시작하며, 엔더 드래곤을 처치하면 그 회차가 승리로 끝납니다.
 
-> 현재 버전은 **`0.13.0-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
+> 현재 버전은 **`0.21.0-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
 > SharedFate 버전을 사용해야 합니다.
 >
-> **0.12.0-dev 이하에서 올라오는 경우 서버와 모든 클라이언트를 함께 갱신하세요.** 통신 규약이
-> 16으로 바뀌어 예전 클라이언트로는 접속할 수 없습니다.
+> **0.20.0-dev 이하에서 올라오는 경우 서버와 모든 클라이언트를 함께 갱신하세요.** 통신 규약이
+> 21로 바뀌어 예전 클라이언트로는 접속할 수 없습니다.
 > (참고: 0.4.0-dev 는 5, 0.5.x 는 10, 0.6.0-dev 는 11, 0.7.0-dev 는 12,
-> 0.8.0-dev~0.10.0-dev 는 13, 0.11.0-dev 는 14, 0.12.0-dev 는 15입니다.)
+> 0.8.0-dev~0.10.0-dev 는 13, 0.11.0-dev 는 14, 0.12.0-dev 는 15,
+> 0.13.0-dev~0.13.1-dev 는 16, 0.14.0-dev 는 17, 0.15.0-dev~0.18.0-dev 는 18,
+> 0.19.0-dev 는 19, 0.20.0-dev 는 20입니다.)
 
 ## 다운로드
 
 | 파일 | 용도 |
 |---|---|
-| [SharedFate-0.13.0-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.13.0-dev/SharedFate-0.13.0-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
-| [sharedfate-0.13.0-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.13.0-dev/sharedfate-0.13.0-dev.jar) | 서버 운영자·수동 설치용 모드 JAR |
-| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.13.0-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
+| [SharedFate-0.21.0-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.21.0-dev/SharedFate-0.21.0-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
+| [sharedfate-0.21.0-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.21.0-dev/sharedfate-0.21.0-dev.jar) | 서버 운영자·수동 설치용 모드 JAR |
+| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.21.0-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
 
-[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.13.0-dev)
+[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.21.0-dev)
 
 ### 클라이언트 설치
 
@@ -62,7 +64,9 @@ Java 25가 필요합니다. SharedFate JAR만 받았다면 Fabric API
 - 주기적 무작위 위치 교환과 음식 초과 영양 버퍼
 - 팀 전멸 시 안전한 다음 회차 시작, 드래곤 승리와 피해 통계 책
 - **팀 증강**: 공유 레벨 5·10·15·20·25·30·35·40 구간마다 팀원 한 명이 3개 중 하나를 고르고
-  효과는 팀 전체에 적용됩니다. 등급은 실버·골드·프리즘이며 15렙과 30렙은 프리즘 고정입니다
+  효과는 팀 전체에 적용됩니다. 등급은 실버·골드·프리즘이며 15렙만 프리즘 고정입니다
+- **세트 효과**: 증강에는 채굴·화력·기동 같은 **유형**이 붙어 있고, 같은 유형을 임계값만큼
+  모으면 추가 보상이 켜집니다. 진행 상황은 화면 왼쪽 위에 늘 보입니다
 
 주손 선택 슬롯과 위치는 기본적으로 개인별입니다. 팀 가입 시 개인 아이템은 현재 위치에
 드랍되고 개인 경험치는 팀 공유 풀에 합쳐집니다. 일반 탈퇴자는 빈 인벤토리와 경험치 0으로

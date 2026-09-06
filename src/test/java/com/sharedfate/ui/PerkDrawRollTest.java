@@ -13,9 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 굴림 연출이 <b>어떤 길이로 돌려도</b> 고장 나지 않는지 확인한다.
  *
- * <p>여기 있는 시험 둘은 실제로 났던 고장에서 나왔다. 하나는 확정 소리가 영영 나지 않던 것,
- * 하나는 뽑힌 이름이 한두 틱 만에 사라지던 것이다. 둘 다 <b>70틱이라는 특정 길이에서만</b>
- * 드러났고 시험이 없어 아무도 몰랐다. 그래서 길이를 여럿 넣어 돌린다.
+ * <p>고장이 <b>70틱 같은 특정 길이에서만</b> 드러나므로 길이를 여럿 넣어 돌린다.
  */
 class PerkDrawRollTest {
 
@@ -51,8 +49,8 @@ class PerkDrawRollTest {
 
 	@Test
 	void 끝나는_순간_확정이_정확히_한_번_난다() {
-		// 예전에는 끝나는 틱이 이름 교체 틱과 겹칠 때만 소리가 났다. 70틱에서는 한 번도
-		// 겹치지 않아 확정 소리가 영영 나지 않았다. 어떤 길이로도 다시는 그러면 안 된다.
+		// 끝나는 틱이 이름 교체 틱과 겹칠 때만 소리가 나면, 그 둘이 한 번도 겹치지 않는
+		// 길이에서는 확정 소리가 영영 나지 않는다.
 		for (int total : LENGTHS) {
 			assertEquals(1, count(run(total), PerkDrawRoll.Event.REVEAL),
 					total + "틱 연출에서 확정이 한 번이 아니다");
@@ -61,7 +59,7 @@ class PerkDrawRollTest {
 
 	@Test
 	void 실제로_쓰는_길이에서도_확정이_난다() {
-		// 서버가 보내는 값 그대로. 이 한 줄이 실제로 났던 고장을 정면으로 막는다.
+		// 서버가 보내는 값 그대로.
 		assertEquals(1, count(run(PerkChoiceSession.DRAW_TICKS), PerkDrawRoll.Event.REVEAL));
 	}
 
@@ -88,8 +86,8 @@ class PerkDrawRollTest {
 
 	@Test
 	void 뽑힌_이름을_붙잡아_둘_틱이_남는다() {
-		// 이것이 두 번째 고장이었다. 굴림이 총 길이를 다 써서 뽑힌 이름이 뜨는 그 틱에
-		// 서버의 선택창이 도착했다. 이제는 굴림이 반드시 먼저 끝난다.
+		// 굴림이 총 길이를 다 쓰면 뽑힌 이름이 뜨는 그 틱에 서버의 선택창이 도착한다.
+		// 굴림이 반드시 먼저 끝나야 한다.
 		for (int total : LENGTHS) {
 			int hold = total - PerkDrawRoll.rollTicks(total);
 			assertTrue(hold >= 0, total + "틱 연출의 굴림이 총 길이를 넘는다");

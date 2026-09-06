@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 세트 유형이 문자열에서 enum 으로, JSON 에서 {@link Perk} 로 제대로 넘어오는지 본다.
  *
- * <p>세트 판정과 효과 적용은 아직 없다. 여기서 지키는 것은 <b>데이터가 들어오는 길</b>뿐이다.
+ * <p>여기서 지키는 것은 <b>데이터가 들어오는 길</b>뿐이다.
  */
 class PerkSetTypeTest {
 
@@ -150,8 +150,7 @@ class PerkSetTypeTest {
 	/**
 	 * 유형에 오타가 나도 <b>증강은 살아남는다.</b>
 	 *
-	 * <p>{@link PerkRegistry} 는 효과가 잘못되면 증강을 통째로 버린다. 유형은 그러면 안 된다 —
-	 * 세트 판정에만 쓰는 덧붙임 때문에 증강 하나가 풀에서 조용히 사라지는 편이 훨씬 나쁘다.
+	 * <p>{@link PerkRegistry} 는 효과가 잘못되면 증강을 통째로 버린다. 유형은 그러면 안 된다.
 	 */
 	@Test
 	void 모르는_유형은_그_항목만_건너뛰고_증강은_남는다(@TempDir Path dir) throws IOException {

@@ -20,27 +20,20 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * 추가 27칸을 <b>모든 창에서 플레이어 인벤토리 바로 아래</b>에 그립니다.
+ * 추가 27칸을 <b>모든 창에서 플레이어 인벤토리 바로 아래</b>에 그린다.
  *
- * <h2>왜 창 안으로 들여왔는가</h2>
+ * <h2>칸은 창 안에 있어야 한다</h2>
  *
- * <p>예전에는 창 <b>오른쪽 바깥</b>에 세로로 붙였습니다. 바닐라
- * {@code AbstractContainerScreen.mouseClicked} 는 누른 자리가 창 넓이·높이 밖이면
- * <b>가리키는 칸이 있어도 무시하고</b> 슬롯 번호를 -999(= 버리기)로 덮어씁니다. 그래서
- * 추가 칸을 누르면 들고 있던 아이템이 바닥에 떨어졌습니다.
+ * <p>바닐라 {@code AbstractContainerScreen.mouseClicked} 는 누른 자리가 창 넓이·높이 밖이면
+ * <b>가리키는 칸이 있어도 무시하고</b> 슬롯 번호를 -999(= 버리기)로 덮어쓴다. 칸이 창
+ * <b>안</b>에 있고 창 높이도 그만큼 커져 있으면 바닐라가 스스로 「창 안」이라고 판정하므로
+ * 따로 막을 것이 없다.
  *
- * <p>{@code hasClickedOutside} 를 가로채 막아 두었지만 그것으로는 부족했습니다 —
- * 화로·제작대처럼 {@code AbstractRecipeBookScreen} 을 물려받은 화면은 그 메서드를
- * <b>덮어쓰기</b> 때문에 위 클래스에 넣은 가로채기가 아예 돌지 않습니다.
+ * <h2>배경은 바닐라 인벤토리 그림을 잘라 쓴다</h2>
  *
- * <p>지금은 칸이 창 <b>안</b>에 있고 창 높이도 그만큼 커졌으므로, 바닐라가 스스로
- * 「창 안」이라고 판정합니다. 막을 것이 없어졌습니다.
- *
- * <h2>배경은 바닐라 인벤토리 그림을 잘라 씁니다</h2>
- *
- * <p>창마다 배경 그림이 다르지만 <b>아래쪽 인벤토리 부분은 모두 같은 모양</b>입니다.
+ * <p>창마다 배경 그림이 다르지만 <b>아래쪽 인벤토리 부분은 모두 같은 모양</b>이다.
  * 그래서 창이 제 배경을 다 그린 뒤에 {@code inventory.png} 에서 「세 줄」과 「칸막이 +
- * 핫바」를 잘라 덮습니다. 창마다 코드를 따로 둘 필요가 없습니다.
+ * 핫바」를 잘라 덮는다. 창마다 코드를 따로 둘 필요가 없다.
  */
 @Mixin(AbstractContainerScreen.class)
 public abstract class ContainerScreenMixin {
@@ -48,8 +41,7 @@ public abstract class ContainerScreenMixin {
 	/**
 	 * 추가 슬롯 칸 색. 바닐라 인벤토리 칸과 같아야 한다.
 	 *
-	 * <p>바닐라 텍스처의 슬롯은 <b>테두리가 어둡고 안쪽이 밝은 회색</b>이다. 예전에는 이 둘이
-	 * 뒤집혀 있어서 추가 칸만 유독 어둡게 보였고, 같은 공유 인벤토리인데 두 종류처럼 읽혔다.
+	 * <p>바닐라 텍스처의 슬롯은 <b>테두리가 어둡고 안쪽이 밝은 회색</b>이다.
 	 */
 	private static final int EXTRA_SLOT_BORDER = 0xFF373737;
 	private static final int EXTRA_SLOT_INNER = 0xFF8B8B8B;
@@ -90,7 +82,7 @@ public abstract class ContainerScreenMixin {
 		sharedfate$applyImageHeight();
 	}
 
-	/** 회차 중에 팀에 들어가거나 나가면 창 높이가 곧바로 따라가야 합니다. */
+	/** 회차 중에 팀에 들어가거나 나가면 창 높이가 곧바로 따라가야 한다. */
 	@Inject(method = "containerTick", at = @At("HEAD"))
 	private void sharedfate$followTeamChanges(CallbackInfo ci) {
 		if (sharedfate$applyImageHeight()) {
@@ -106,8 +98,8 @@ public abstract class ContainerScreenMixin {
 		if (inventoryTop < 0) {
 			return;
 		}
-		// 인벤토리가 창 왼쪽에 붙어 있지 않은 창도 있습니다(주민 거래 등). 추가 첫 칸의
-		// x 에서 되짚어 인벤토리 그림의 왼쪽 끝을 구합니다.
+		// 인벤토리가 창 왼쪽에 붙어 있지 않은 창도 있다(주민 거래 등). 추가 첫 칸의
+		// x 에서 되짚어 인벤토리 그림의 왼쪽 끝을 구한다.
 		int panelLeft = sharedfate$extraSlot().x - 8;
 		int bandTop = inventoryTop + BAND_OFFSET;
 		for (int row = 0; row < ExpandedInventoryManager.EXTRA_ROWS; row++) {
@@ -126,7 +118,7 @@ public abstract class ContainerScreenMixin {
 				PANEL_WIDTH, HOTBAR_HEIGHT, TEXTURE_SIZE, TEXTURE_SIZE);
 	}
 
-	/** 추가 첫 칸. {@link #sharedfate$expandedInventoryTop()} 가 0 이상일 때만 부릅니다. */
+	/** 추가 첫 칸. {@link #sharedfate$expandedInventoryTop()} 가 0 이상일 때만 부른다. */
 	@Unique
 	private Slot sharedfate$extraSlot() {
 		AbstractContainerMenu menu = ((AbstractContainerScreen<?>) (Object) this).getMenu();
@@ -136,7 +128,7 @@ public abstract class ContainerScreenMixin {
 	@Inject(method = "extractSlot", at = @At("HEAD"))
 	private void sharedfate$drawExtraSlotBackground(GuiGraphicsExtractor graphics, Slot slot,
 			int mouseX, int mouseY, CallbackInfo ci) {
-		// 크리에이티브 화면은 슬롯을 SlotWrapper 로 한 겹 감싸므로 그릇으로도 알아봅니다.
+		// 크리에이티브 화면은 슬롯을 SlotWrapper 로 한 겹 감싸므로 그릇으로도 알아본다.
 		boolean painted = slot instanceof SelfPaintedSlot
 				|| slot.container instanceof ExpandedInventoryContainer;
 		if (painted && slot.isActive()) {
@@ -165,7 +157,7 @@ public abstract class ContainerScreenMixin {
 	}
 
 	/**
-	 * 창 높이를 지금 상태에 맞춥니다.
+	 * 창 높이를 지금 상태에 맞춘다.
 	 *
 	 * @return 높이가 바뀌었으면 참
 	 */
@@ -187,9 +179,9 @@ public abstract class ContainerScreenMixin {
 	}
 
 	/**
-	 * 추가 칸이 지금 보이고 있으면 인벤토리 첫 줄의 y 를, 아니면 -1 을 돌려줍니다.
+	 * 추가 칸이 지금 보이고 있으면 인벤토리 첫 줄의 y 를, 아니면 -1 을 돌려준다.
 	 *
-	 * <p>크리에이티브 화면은 탭 구조가 달라 옆에 따로 붙이므로 여기서 뺍니다.
+	 * <p>크리에이티브 화면은 탭 구조가 달라 옆에 따로 붙이므로 여기서 뺀다.
 	 */
 	@Unique
 	private int sharedfate$expandedInventoryTop() {

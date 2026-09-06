@@ -26,13 +26,10 @@ import java.util.random.RandomGenerator;
  *
  * <h2>목적지</h2>
  * <p>매 교환마다 새로 무작위로 뽑는다({@link PositionSwapManager.Position#gather}). 목적지가
- * 된 사람은 애초에 안 움직이므로 복귀 대상도 아니다. {@link TeamGathering}이 "무작위 한 명,
- * 매번 다시 뽑음"을 쓰는 것과 같은 이유다 — 고정하면 그 사람이 늘 유리해지고, 무게중심으로
- * 잡으면 아무도 없던 허공이나 용암 위가 될 수 있다.
+ * 된 사람은 애초에 안 움직이므로 복귀 대상도 아니다.
  *
  * <h2>복귀에는 안전성 검사가 없다</h2>
  * <p>15초 사이에 원래 자리가 용암·몹·블록으로 막혔거나 폭발로 파여 있어도 그대로 보낸다.
- * 검사하지 않는 것이 확정된 설계다 — 그 위험 자체가 이 증강의 대가다.
  *
  * <h2>복귀에는 폭발이 붙지 않는다</h2>
  * <p>모이는 순간에는 {@code swap_explosion}이 각자의 옛 자리에서 한 번씩 터지지만(폭발
@@ -143,7 +140,7 @@ public final class RallyPointManager {
 
 	/**
 	 * 원래 자리로 그대로 돌려보낸다. <b>안전성 검사는 하지 않는다.</b> 15초 사이에 그 자리가
-	 * 용암·구덩이·블록으로 막혔어도 검사 없이 보낸다 — 그 위험 자체가 대가로 확정된 설계다.
+	 * 용암·구덩이·블록으로 막혔어도 검사 없이 보낸다.
 	 */
 	private static void returnHome(MinecraftServer server, PendingReturn pending) {
 		for (int i = 0; i < pending.moverIds.size(); i++) {

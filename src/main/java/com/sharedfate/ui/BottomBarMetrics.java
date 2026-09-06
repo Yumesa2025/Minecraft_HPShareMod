@@ -23,7 +23,7 @@ package com.sharedfate.ui;
  * </ul>
  *
  * <p>여기서 돌려주는 값은 모두 <b>화면 아래끝에서 위로 잰 거리</b>다. 화면 높이를 몰라도
- * 되고, 시험에서 화면을 띄울 필요도 없다. 실제 y 는 {@code guiHeight - 여기서_받은_값} 이다.
+ * 된다. 실제 y 는 {@code guiHeight - 여기서_받은_값} 이다.
  */
 public final class BottomBarMetrics {
 	/** 핫바 왼쪽 끝은 화면 가운데에서 이만큼 왼쪽이다. */
@@ -160,7 +160,7 @@ public final class BottomBarMetrics {
 		return guiHeight - height(maxHealth, absorption, hasArmor, vehicleHearts, showAir);
 	}
 
-	/** {@code Mth.ceil(float)} 과 같다. 시험 소스셋에서 마인크래프트를 부르지 않으려고 옮겼다. */
+	/** {@code Mth.ceil(float)} 과 같다. */
 	private static int ceil(float value) {
 		int truncated = (int) value;
 		return value > truncated ? truncated + 1 : truncated;

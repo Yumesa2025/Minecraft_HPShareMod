@@ -70,8 +70,7 @@ class BiomeNamesTest {
 	 *
 	 * <p>{@code Biomes} 에 등록된 것을 반사로 훑어 표와 맞춰 본다. 손으로 옮겨 적은 표라
 	 * 판올림에서 바이옴이 늘면 조용히 빠지는데, 그러면 그 바이옴에서만 영어 path 가 나오고
-	 * 아무도 눈치채지 못한다. 26.2 에 {@code sulfur_caves} 가 새로 들어온 것처럼 바이옴은
-	 * 실제로 늘어난다. 이 시험이 그때 알려 준다.
+	 * 아무도 눈치채지 못한다. 이 시험이 그때 알려 준다.
 	 */
 	@Test
 	void 바닐라_바이옴은_하나도_빠지지_않았다() throws IllegalAccessException {

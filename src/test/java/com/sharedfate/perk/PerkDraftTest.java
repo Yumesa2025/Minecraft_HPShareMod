@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PerkDraftTest {
 	private static final long SEED = 20260829L;
 
-	/** 등급이 고정되지 않아 확률표로 굴리는 일곱 구간. 30 은 2026-09-02부터 이쪽이다. */
+	/** 등급이 고정되지 않아 확률표로 굴리는 일곱 구간. */
 	private static final int[] RANDOM_MILESTONES = {5, 10, 20, 25, 30, 35, 40};
 
 	@BeforeAll
@@ -76,8 +76,8 @@ class PerkDraftTest {
 
 	@Test
 	void 삼십렙은_더는_고정이_아니라_확률표를_따른다() {
-		// 고정에서 풀렸을 뿐 프리즘가 사라진 것은 아니다. 시드를 바꿔 가며 굴리면 세 등급이
-		// 모두 나와야 한다 — 하나라도 안 나오면 30 이 다른 값으로 고정됐다는 뜻이다.
+		// 30 에서 프리즘가 사라진 것은 아니다. 시드를 바꿔 가며 굴리면 세 등급이 모두 나와야
+		// 한다 — 하나라도 안 나오면 30 이 다른 값으로 고정됐다는 뜻이다.
 		assertFalse(PerkDraft.PRISM_MILESTONES.contains(30), "30 은 고정 프리즘 구간이 아니다");
 		assertEquals(1, PerkDraft.PRISM_MILESTONES.size(), "고정 프리즘 구간은 15 하나뿐이다");
 
@@ -144,7 +144,7 @@ class PerkDraftTest {
 				}
 			}
 		}
-		// 난수원이 없어 굴리지 못하는 길도 차단을 뚫지 않는다. 예전에는 여기가 무조건 실버였다.
+		// 난수원이 없어 굴리지 못하는 길도 차단을 뚫지 않는다.
 		assertEquals(PerkRarity.GOLD, PerkDraft.rarityFor(20, 0, true, false, null));
 		assertEquals(PerkRarity.SILVER, PerkDraft.rarityFor(20, 0, false, false, null));
 	}

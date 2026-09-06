@@ -27,16 +27,16 @@ import org.jetbrains.annotations.Nullable;
  * 여기 달지 않는다. 무엇을 들었든 언제나 걸려야 하는 자리(세트 보상 같은 것)는
  * {@code always_looting} 을 쓴다. 겹쳤을 때의 규칙도 서로 다르다 — 이쪽은 <b>더하고</b>,
  * 그쪽은 <b>가장 높은 하나만</b> 센다. 자세한 것은 {@link com.sharedfate.perk.PerkLootRules} 에
- * 적어 뒀다.
+ * 있다.
  *
  * <h2>바닐라 약탈에 더한다, 덮어쓰지 않는다</h2>
- * <p>약탈 III 이 붙은 다이아 호미를 들었으면 결과는 3 + {@code levels} 다. 인챈트를 무의미하게
- * 만들지 않으려는 것이고, {@code max_health_bonus} 가 팀 상한에 <b>더하는</b> 것과 같은 규칙이다.
+ * <p>약탈 III 이 붙은 다이아 호미를 들었으면 결과는 3 + {@code levels} 다.
+ * {@code max_health_bonus} 가 팀 상한에 <b>더하는</b> 것과 같은 규칙이다.
  *
  * <h2>이 클래스가 하지 않는 일</h2>
  * <p>여기는 "몇 등급을, 무엇을 들었을 때" 만 들고 있는 자료 그릇이다.
  * {@link #apply}/{@link #remove} 는 아무 일도 하지 않는다. 붙였다 뗄 수 있는 것이 아니라
- * 전리품을 굴리는 순간에 조회하는 값이기 때문이다. {@code mining_speed} 와 같은 구도다.
+ * 전리품을 굴리는 순간에 조회하는 값이기 때문이다.
  *
  * <p>실제로 등급을 얹는 자리는 {@link com.sharedfate.mixin.EnchantmentHelperLootingMixin} 이고,
  * "지금 이 사람이 조건을 채웠는가"를 판단하는 것은

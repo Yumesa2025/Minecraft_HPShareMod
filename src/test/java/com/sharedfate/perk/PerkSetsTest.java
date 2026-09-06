@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>여기서 쓰는 증강과 단계는 전부 이 파일 안에서 만든 것이다. {@link PerkRegistry} 나
  * {@link PerkSetRegistry} 에 손을 대지 않으므로 정의 파일이 바뀌어도 이 시험은 흔들리지 않는다.
- * {@link PerkDraftTest} 가 추첨을 시험하는 방식과 같다.
  */
 class PerkSetsTest {
 

@@ -22,13 +22,9 @@ import java.util.Map;
  * <p>{@code config/sharedfate-sets.json} 을 읽어 유형별 단계 목록으로 들고 있는다. 판정과 적용은
  * 하지 않는다 — 판정은 {@link PerkSets}(순수 계산), 적용은 {@link PerkSetEffects} 가 맡는다.
  *
- * <p>{@link PerkRegistry} 와 완전히 같은 규칙으로 만들었다. 설정 폴더에 파일이 없으면 모드에
- * 들어 있는 기본 정의를 꺼내 놓고, 읽을 수 없는 항목은 그것만 건너뛰며 경고를 남기고, 어떤
- * 경우에도 예외를 위로 던지지 않는다. 세트 정의 하나가 잘못돼 서버가 멈추면 안 된다.
- *
- * <h2>보상 값을 코드에 박지 않는 이유</h2>
- * <p>세트 보상은 밸런스를 잡으며 자주 바뀐다. 파일 한 곳에 모아 두면 서버 운영자가 코드를 다시
- * 빌드하지 않고 고칠 수 있고, 새 보상을 얹는 사람도 Java 를 건드릴 필요가 없다.
+ * <p>설정 폴더에 파일이 없으면 모드에 들어 있는 기본 정의를 꺼내 놓고, 읽을 수 없는 항목은
+ * 그것만 건너뛰며 경고를 남기고, 어떤 경우에도 예외를 위로 던지지 않는다. 세트 정의 하나가
+ * 잘못돼 서버가 멈추면 안 된다.
  *
  * <h2>새 보상을 얹는 법</h2>
  * <ol>
@@ -262,8 +258,7 @@ public final class PerkSetRegistry {
 			// 여기서 걸러 내면 설계대로 적은 단계가 조용히 사라진다.
 
 			// 단계에는 따로 이름을 붙이지 않는다. 「보급 2」·「보급 3」처럼 유형 이름과 열리는
-			// 개수만 보여 주는 것이 규칙이라, 기본 정의에는 name 이 아예 없다. 그래도 읽기는
-			// 하는 이유는 설정 파일에서 이름을 붙이고 싶은 사람을 막을 이유가 없어서다.
+			// 개수만 보여 주는 것이 규칙이라, 기본 정의에는 name 이 아예 없다.
 			String name = PerkEffectType.readString(json, "name");
 			if (name == null || name.isBlank()) {
 				name = type.displayName() + " " + count;
@@ -291,11 +286,8 @@ public final class PerkSetRegistry {
 	 * <p>증강과 다른 점이 둘 있다.
 	 *
 	 * <ul>
-	 *   <li><b>비어 있어도 된다.</b> 이름과 설명만 정해 두고 값을 나중에 채우는 단계가 있다.
-	 *       증강이라면 「설명만 있고 아무 일도 안 하는」 정의라 버려야 하지만, 세트는 보상 24개를
-	 *       여럿이 나눠 붙이는 중이라 빈 자리가 먼저 생긴다.</li>
-	 *   <li>효과 하나라도 잘못되면 <b>그 단계 전체</b>를 버린다(null). 설명은 그대로인데 효과
-	 *       일부만 빠지면 플레이어를 속이는 셈이라는 이유는 증강과 같다.</li>
+	 *   <li><b>비어 있어도 된다.</b> 이름과 설명만 정해 두고 값을 나중에 채우는 단계가 있다.</li>
+	 *   <li>효과 하나라도 잘못되면 <b>그 단계 전체</b>를 버린다(null).</li>
 	 * </ul>
 	 *
 	 * @return 읽어 낸 효과들. 하나라도 잘못됐으면 null
@@ -310,7 +302,7 @@ public final class PerkSetRegistry {
 			return null;
 		}
 
-		// 수정자 이름을 증강과 갈라 두는 자리. 까닭은 effectOwnerId 에 적어 뒀다.
+		// 수정자 이름을 증강과 갈라 두는 자리.
 		String owner = effectOwnerId(type, count);
 		JsonArray array = element.getAsJsonArray();
 		List<PerkEffect> effects = new ArrayList<>(array.size());

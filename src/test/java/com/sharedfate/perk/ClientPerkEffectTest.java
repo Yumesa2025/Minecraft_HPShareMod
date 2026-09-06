@@ -63,8 +63,7 @@ class ClientPerkEffectTest {
 
 	@Test
 	void 세기가_범위를_벗어나면_정의를_버린다() {
-		// 너무 약하면 뛴 티가 안 나고, 너무 세면 낙하 피해로 죽는다. 값을 몰래 깎아 주기보다
-		// 증강 하나가 통째로 빠지는 편이 알아채기 쉽다.
+		// 너무 약하면 뛴 티가 안 나고, 너무 세면 낙하 피해로 죽는다.
 		assertNull(create("double_jump", "{ \"type\": \"double_jump\", \"power\": 0.05 }"));
 		assertNull(create("double_jump", "{ \"type\": \"double_jump\", \"power\": 2.5 }"));
 		assertNull(create("double_jump", "{ \"type\": \"double_jump\", \"power\": -0.42 }"));
@@ -215,8 +214,8 @@ class ClientPerkEffectTest {
 
 	@Test
 	void 낙하_피해_배율_속성이_26_2_에_실제로_있다() {
-		// 「허공답보」의 대가는 새 효과 타입이 아니라 기존 attribute 로 건다. 그 속성이
-		// 정말 있는지 확인해 두지 않으면 증강이 조용히 반쪽만 걸린다.
+		// 「허공답보」의 대가는 기존 attribute 로 건다. 그 속성이 정말 있는지 확인해 두지
+		// 않으면 증강이 조용히 반쪽만 걸린다.
 		assertTrue(BuiltInRegistries.ATTRIBUTE
 						.get(Identifier.fromNamespaceAndPath("minecraft", "fall_damage_multiplier"))
 						.isPresent(),

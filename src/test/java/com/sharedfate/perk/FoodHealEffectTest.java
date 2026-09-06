@@ -28,8 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  * 있는 서버와 월드가 있어야 하므로 여기서는 다루지 않는다. 대신 그 코드가 부르는 계산
  * ({@link PerkFoodRules#foodHealFor}, {@link PerkFoodRules#applyToPool})을 모두 확인한다.
  *
- * <p><b>가장 중요한 시험은 「팀 공유 풀에 한 번만 더해지는가」다.</b> 이 저장소에서 개인에게
- * 회복을 준 탓에 인원수만큼 곱해진 사고가 여러 번 있었다.
+ * <p><b>가장 중요한 시험은 「팀 공유 풀에 한 번만 더해지는가」다.</b>
  */
 class FoodHealEffectTest {
 
@@ -50,7 +49,6 @@ class FoodHealEffectTest {
 	 * {@code food_heal} 이 {@link PerkEffectType} 에 등록돼 있다.
 	 *
 	 * <p>등록 줄을 빠뜨리면 <b>빌드는 통과하는데</b> 이 타입을 쓴 세트 단계만 조용히 버려진다.
-	 * 그 조용한 실패를 여기서 먼저 잡는다.
 	 */
 	@Test
 	void 효과_타입으로_등록돼_있다() {

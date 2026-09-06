@@ -24,7 +24,7 @@ import java.util.UUID;
  * {@code supply_drop} 의 주기를 재고 실제로 보급을 내려 주는 곳.
  *
  * <p>{@link SupplyDropEffect} 는 "얼마나 자주 · 무엇을 · 어떤 확률로"만 알고, "지금 몇 시인가"와
- * "누구에게 넣을 것인가"는 여기서 정한다. {@link PeriodicPerkManager} 와 같은 구도다.
+ * "누구에게 넣을 것인가"는 여기서 정한다.
  *
  * <h2>이 매니저가 없으면 효과는 완전 무동작이다</h2>
  * <p>{@link PerkEffectType} 을 {@code switch} 로 소비하는 곳이 한 군데도 없어서, 효과 타입만
@@ -37,12 +37,11 @@ import java.util.UUID;
  * 그것을 그대로 돌리면 <b>보급이 세 번 온다.</b>
  *
  * <p>그래서 {@link #select} 가 후보 중 <b>정확히 하나</b>를 고르고, 한 팀은 한 주기에 그 하나만
- * 돈다. 고르는 규칙은 {@link #select} 에 적어 뒀다. 상위 단계 정의가 하위 단계의 내용을 모두
- * 품고 있어야 하는 까닭도 여기에 있다 — 4단계가 이기면 3단계 정의는 아예 돌지 않는다.
+ * 돈다. 고르는 규칙은 {@link #select} 에 적어 뒀다. 상위 단계 정의는 하위 단계의 내용을 모두
+ * 품고 있어야 한다 — 4단계가 이기면 3단계 정의는 아예 돌지 않는다.
  *
  * <h2>기준 시각</h2>
- * <p>{@link PeriodicPerkManager} 와 같은 이유로 오버월드의 게임 시간
- * ({@code ServerLevel#getGameTime()})을 쓴다. 세 가지가 모두 필요해서다.
+ * <p>오버월드의 게임 시간({@code ServerLevel#getGameTime()})을 쓴다.
  *
  * <ul>
  *   <li><b>팀 단위</b> — 월드에 하나뿐인 값이라 다른 차원에 있는 팀원도 같은 값을 본다.</li>
@@ -63,14 +62,13 @@ import java.util.UUID;
  * {@code InventorySwapper.finishJoin} 이 팀원의 인벤토리를 통째로 팀 공유 목록
  * ({@link TeamState#mainItems})으로 바꿔 끼운다. 즉 공유 목록 하나가 곧 팀원 모두의
  * 인벤토리이므로, 한 벌만 넣어도 접속 중인 팀원 전원의 화면에 똑같이 보인다. 사람 수만큼
- * 넣으면 인원수 배로 불어난다. {@link PerkItemGrants} 가 {@code item_grant} 를 나눠 주는 방식을
- * 그대로 따랐다.
+ * 넣으면 인원수 배로 불어난다.
  *
  * <h2>인벤토리가 꽉 찼을 때</h2>
  * <p><b>바닥에 떨어뜨리지 않는다.</b> 자리가 없는 만큼은 {@link TeamState#overflowItems}(대기열)에
  * 남는다. 대기열은 월드와 함께 저장되고 {@code TeamManager.markDirtyIfActive} 가 공유 칸이 빌
  * 때마다 다시 밀어 넣어 주므로, 인벤토리를 정리하기만 하면 잃어버리지 않고 그대로 받는다.
- * 대기열로 간 것이 있으면 접속 중인 팀원에게 알린다. 이 역시 {@code item_grant} 와 같은 규칙이다.
+ * 대기열로 간 것이 있으면 접속 중인 팀원에게 알린다.
  *
  * <h2>접속 안 한 사람</h2>
  * <p>두 가지를 갈라 둔다.
@@ -78,10 +76,19 @@ import java.util.UUID;
  * <ul>
  *   <li><b>일부만 접속 중</b> — 보급은 공유 목록에 들어가므로 접속 안 한 팀원도 <b>나중에 들어와
  *       그대로 받는다.</b> 접속한 사람 수는 보급의 양에 아무 영향이 없다.</li>
- *   <li><b>한 명도 접속 안 함</b> — 그 회는 <b>건너뛴다.</b> 놓친 회를 쌓아 두지 않는다.
- *       비워 둔 서버가 밤새 도는 것만으로 대기열이 수십 벌 부풀면 다음 접속이 정리로 시작되고,
- *       보급은 함께 노는 동안 오는 보상이라는 뜻과도 어긋난다.</li>
+ *   <li><b>한 명도 접속 안 함</b> — 그 회는 <b>건너뛴다.</b> 놓친 회를 쌓아 두지 않는다.</li>
  * </ul>
+ *
+ * <h2>무엇이 왔는지 알린다</h2>
+ * <p>보급은 <b>공유 인벤토리에 조용히 얹히는</b> 것이라 받은 것을 전부 채팅으로 알리고,
+ * <b>빈손이었다는 것도 알린다.</b> 문구를 만드는 일은 {@link SupplyDropAnnouncement} 가
+ * 맡는다 — 거기에는 「넣기 전에 만들어야 한다」는 함정이 하나 적혀 있다.
+ *
+ * <h2>다음 보급까지 남은 시간</h2>
+ * <p>HUD 가 「보급」 줄 옆에 남은 시간을 띄운다. 그런데 <b>남은 시간을 보내지 않는다.</b>
+ * 세트 동기화 패킷에 싣는 것은 {@link #intervalTicksFor} 가 내놓는 <b>주기</b> 하나뿐이고,
+ * 남은 시간은 클라이언트가 게임 시간으로 스스로 센다. 그 계산은
+ * {@link com.sharedfate.ui.SupplyCountdown} 에 있다.
  */
 public final class PerkSupplyDrops {
 
@@ -106,7 +113,7 @@ public final class PerkSupplyDrops {
 	private PerkSupplyDrops() {
 	}
 
-	/** 서버가 멈출 때 기억을 비운다. 다음 월드의 주기를 물려받지 않기 위해서다. */
+	/** 서버가 멈출 때 기억을 비운다. */
 	public static synchronized void reset() {
 		SCHEDULES.clear();
 		warned = false;
@@ -118,8 +125,8 @@ public final class PerkSupplyDrops {
 	 * 이 시각이 몇 번째 주기인가. <b>순수 함수다.</b>
 	 *
 	 * <p>게임 시간만으로 정해지므로 서버를 껐다 켜도, 다른 차원에 있어도, 나중에 이 값을 다시
-	 * 계산해도 같은 답이 나온다. 「다음 보급이 언제인가」를 어디에도 저장하지 않아도 되는 근거가
-	 * 이것이다. 경계는 언제나 {@code intervalTicks} 의 배수라 10분 주기면 12000·24000·36000틱이다.
+	 * 계산해도 같은 답이 나온다. 경계는 언제나 {@code intervalTicks} 의 배수라 10분 주기면
+	 * 12000·24000·36000틱이다.
 	 *
 	 * <p>{@code Math.floorDiv} 를 쓴다. 게임 시간이 음수가 되는 일은 없지만, {@code /} 는 음수에서
 	 * 0 쪽으로 자르므로 경계가 한 칸 어긋난다.
@@ -182,8 +189,7 @@ public final class PerkSupplyDrops {
 	/**
 	 * 이 팀에서 후보가 되는 효과 전부.
 	 *
-	 * <p>보유 증강의 효과와 세트 효과를 <b>모두</b> 훑는다. 지금은 세트만 이 타입을 쓰지만,
-	 * 나중에 「보급」 계열 증강이 생겨도 이 매니저를 고칠 필요가 없게 해 둔 것이다.
+	 * <p>보유 증강의 효과와 세트 효과를 <b>모두</b> 훑는다.
 	 * {@link PerkSetEffects#activeEffectsOf} 를 이어 붙이는 자리가 바로 여기다 — 빠뜨리면 세트가
 	 * 아무 일도 안 한다.
 	 */
@@ -214,6 +220,23 @@ public final class PerkSupplyDrops {
 	/** 이 팀에서 지금 실제로 도는 보급. 없으면 null. */
 	public static @Nullable SupplyDropEffect activeFor(@Nullable TeamState state) {
 		return select(candidatesOf(state));
+	}
+
+	/**
+	 * 이 팀에서 지금 도는 보급의 주기(틱). 도는 것이 없으면 <b>0</b>.
+	 *
+	 * <p>화면에 「다음 보급까지 04:12」를 띄우려고 세트 동기화 패킷에 실어 보내는 값이다.
+	 * <b>남은 시간이 아니라 주기</b>를 보내는 것이 핵심이다 — 경계는 게임 시간의 배수라
+	 * ({@link #cycleAt}) 주기 하나만 알면 클라이언트가 스스로 남은 시간을 셀 수 있고, 게임
+	 * 시간은 바닐라가 이미 초마다 내려보내고 있다. 남은 시간을 실으면 값이 초마다 달라져
+	 * {@code PerkSetBroadcaster} 가 0.5초마다 패킷을 한 장씩 내보내게 된다.
+	 *
+	 * <p>0 이 「보급 세트가 없다」와 「도는 것이 없다」를 함께 뜻한다. 화면이 할 일은 둘 다
+	 * 같다 — 시계를 안 그린다.
+	 */
+	public static int intervalTicksFor(@Nullable TeamState state) {
+		SupplyDropEffect effect = activeFor(state);
+		return effect == null ? 0 : effect.intervalTicks();
 	}
 
 	// ------------------------------------------------------------------ 매 틱
@@ -259,7 +282,7 @@ public final class PerkSupplyDrops {
 
 		List<ServerPlayer> online = onlineMembers(server, team);
 		if (online.isEmpty()) {
-			// 아무도 없으면 그 회는 건너뛴다. 까닭은 이 클래스 머리 주석에 적어 뒀다.
+			// 아무도 없으면 그 회는 건너뛴다.
 			return;
 		}
 		deliver(server, state, effect, online);
@@ -305,29 +328,30 @@ public final class PerkSupplyDrops {
 		RandomSource random = server.overworld().getRandom();
 		List<ItemStack> drawn = effect.roll(random, server.registryAccess());
 		if (drawn.isEmpty()) {
-			// 꽝이다. 조용히 넘기면 「보급이 고장 났나」로 읽히므로 알리기는 한다.
-			announce(online, Component.literal("[보급] 이번 보급은 빈손입니다."));
+			// 꽝이다. 조용히 넘기면 「보급이 고장 났나」로 읽히므로 반드시 알린다.
+			announce(online, SupplyDropAnnouncement.nothing());
 			return;
 		}
+
+		// ⚠ 문구를 먼저 만든다. 아래 insert 가 묶음의 개수를 제자리에서 0 까지 깎으므로,
+		// 넣은 뒤에 이름과 개수를 읽으면 「공기 0개」가 적힌다.
+		Component received = SupplyDropAnnouncement.receivedFrom(drawn);
 
 		int leftover = insert(state, drawn);
 		SharedFateMod.LOGGER.info("[SET] 보급 지급 묶음={} 넘침={} 주기={}분",
 				drawn.size(), leftover, effect.intervalMinutes());
 
 		refreshScreens(online);
-		announce(online, summary(drawn));
+		announce(online, received);
 		if (leftover > 0) {
-			announce(online, Component.literal(
-					"[보급] 공유 인벤토리에 자리가 없어 " + leftover
-							+ "묶음이 대기열로 갔습니다. 칸을 비우면 자동으로 들어옵니다."));
+			announce(online, SupplyDropAnnouncement.overflow(leftover));
 		}
 	}
 
 	/**
 	 * 공유 목록에 밀어 넣는다.
 	 *
-	 * <p>일단 대기열에 얹고 {@link TeamState#restoreOverflow} 를 부른다. 빈 칸 찾기와 같은
-	 * 아이템 합치기 규칙을 이 모드가 이미 한 곳에 갖고 있으므로 그대로 쓴다. 한 칸 최대치를
+	 * <p>일단 대기열에 얹고 {@link TeamState#restoreOverflow} 를 부른다. 한 칸 최대치를
 	 * 넘는 묶음도 그쪽이 칸 단위로 나눠 넣는다.
 	 *
 	 * @return 이번에 준 것 중 자리가 없어 대기열에 남은 묶음 수
@@ -349,19 +373,6 @@ public final class PerkSupplyDrops {
 			}
 		}
 		return leftover;
-	}
-
-	/** 무엇이 왔는지 한 줄로 적는다. 같은 아이템이 두 번 뽑혔으면 그대로 두 번 적힌다. */
-	private static Component summary(List<ItemStack> drawn) {
-		StringBuilder line = new StringBuilder("[보급] ");
-		for (int i = 0; i < drawn.size(); i++) {
-			if (i > 0) {
-				line.append(", ");
-			}
-			ItemStack stack = drawn.get(i);
-			line.append(stack.getHoverName().getString()).append(" x").append(stack.getCount());
-		}
-		return Component.literal(line.append(" 이(가) 도착했습니다.").toString());
 	}
 
 	/** 공유 목록을 직접 고쳤으니 접속 중인 팀원의 화면을 맞춰 준다. */

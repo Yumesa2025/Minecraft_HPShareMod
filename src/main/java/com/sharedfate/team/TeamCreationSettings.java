@@ -3,7 +3,7 @@ package com.sharedfate.team;
 /**
  * 팀을 만들 때 한 번만 정하는 설정.
  *
- * <p>0.8.0-dev 의 피격·사망 알림이 그랬듯, <b>증강 사용 여부·공유 최대 체력·위치 교환
+ * <p><b>증강 사용 여부·공유 최대 체력·위치 교환
  * 주기·난이도 상승·증강 다시 뽑기 횟수</b>도 팀을 만드는 순간에만 정한다. 회차가 이미
  * 굴러가는 중에 이것들이 바뀌면 같은 회차의 앞뒤가 다른 규칙으로 흘러간다. 특히 증강은
  * 껐다 켜는 것이 이미 받은 효과를 잠깐 벗어 두는 길이 되어 회차 자체가 뜻을 잃는다.
@@ -28,17 +28,11 @@ public record TeamCreationSettings(boolean perksEnabled, boolean damageAlertEnab
 	/**
 	 * 증강은 <b>켠 채로</b> 시작한다.
 	 *
-	 * <p>이 모드에서 회차를 회차답게 만드는 것이 증강이라, 끄고 시작하는 쪽이 예외다.
-	 * {@code /shareteam create} 에 {@code perks} 를 적지 않으면 이 값이 쓰인다.
+	 * <p>{@code /shareteam create} 에 {@code perks} 를 적지 않으면 이 값이 쓰인다.
 	 */
 	public static final boolean DEFAULT_PERKS_ENABLED = true;
 
-	/**
-	 * 난이도 상승은 <b>끈 채로</b> 시작한다.
-	 *
-	 * <p>회차를 통째로 어렵게 만드는 설정이라, {@code /shareteam create} 에 안 적었을 때
-	 * 조용히 켜지는 쪽이 더 나쁘다. 손으로 켜게 둔다.
-	 */
+	/** 난이도 상승은 <b>끈 채로</b> 시작한다. */
 	public static final boolean DEFAULT_DIFFICULTY_ESCALATION = false;
 
 	/** 위치 교환 「끔」. 주기 0분은 없으므로 0 을 끔으로 쓴다. */
@@ -47,13 +41,7 @@ public record TeamCreationSettings(boolean perksEnabled, boolean damageAlertEnab
 	/**
 	 * 위치 교환은 <b>켠 채로</b> 시작하고, 주기는 5분이다.
 	 *
-	 * <p>이 모드의 이름이 「운명 공유」인 이유가 이것이다 — 체력과 경험치를 나누는 것만으로는
-	 * 팀원이 각자 제 갈 길을 가도 아무 일이 없다. 자리가 주기적으로 섞여야 서로가 어디서
-	 * 무엇을 하는지 신경 쓰게 된다. 끄고 시작하는 쪽이 예외다.
-	 *
-	 * <p>5분인 까닭은 <b>한 가지 일을 끝낼 만한 시간</b>이기 때문이다. 1분이면 광질 한 번,
-	 * 이동 한 번을 못 끝내고 끌려다니기만 하고, 10분이 넘으면 교환이 있다는 사실을 잊는다.
-	 * {@code /shareteam create} 에 {@code swap} 을 적지 않으면 이 값이 쓰인다.
+	 * <p>{@code /shareteam create} 에 {@code swap} 을 적지 않으면 이 값이 쓰인다.
 	 */
 	public static final int DEFAULT_SWAP_MINUTES = 5;
 
@@ -65,7 +53,6 @@ public record TeamCreationSettings(boolean perksEnabled, boolean damageAlertEnab
 	 * 다시 뽑기의 기본 횟수. <b>회차당</b> 세 번이다.
 	 *
 	 * <p>{@code /shareteam create} 에 {@code reroll} 을 적지 않으면 이 값이 쓰인다.
-	 * 한 회차에 증강을 여덟 번 고르므로, 셋이면 「정말 마음에 안 드는 판」만 다시 굴리게 된다.
 	 */
 	public static final int DEFAULT_REROLL_COUNT = 3;
 
@@ -198,14 +185,7 @@ public record TeamCreationSettings(boolean perksEnabled, boolean damageAlertEnab
 				: String.format(java.util.Locale.ROOT, "%.1f", value);
 	}
 
-	/**
-	 * 만든 뒤에 바꾸려 할 때 돌려주는 안내.
-	 *
-	 * <p>문구는 피격·사망 알림의 선례와 같은 결로 맞춘다 — 왜 막혔는지 한 줄, 그래도
-	 * 바꾸고 싶으면 무엇을 해야 하는지 한 줄. 명령을 아예 없애 「알 수 없는 명령」이 뜨게
-	 * 하지 않는 이유가 이것이다. 예전 판에서 쓰던 명령을 그대로 쳤을 때 왜 안 되는지가
-	 * 보여야 한다.
-	 */
+	/** 만든 뒤에 바꾸려 할 때 돌려주는 안내. */
 	public enum Locked {
 		PERKS("증강 사용 여부는"),
 		MAX_HEALTH("팀 공유 최대 체력은"),

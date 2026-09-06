@@ -29,12 +29,12 @@ public final class SharedFateNetworking {
 	//     자체가 바뀌었으므로 예전 클라이언트는 읽지 못한다.
 	// 14: 증강 후보 다시 뽑기 — PerkRerollC2SPayload(C2S) 를 신설하고 PerkOfferPayload 에
 	//     이번 회차에 남은 다시 뽑기 횟수를 실었다. PerkOfferPayload 의 형식 자체가 바뀌었으므로
-	//     예전 클라이언트는 선택창을 아예 읽지 못한다. 이 판은 클라이언트를 함께 배포한다.
+	//     예전 클라이언트는 선택창을 아예 읽지 못한다.
 	// 15: 「게임 시작」 — 회차가 팀에 붙었다. TeamSyncPayload 의 Options 묶음에
 	//     runStarted 를 더해 클라이언트가 「시작 대기」인지 알 수 있게 했다. 팀 화면의
 	//     「게임 시작」 단추를 그릴지 정하는 값이라 이것 없이는 화면을 만들 수 없다.
 	//     TeamSyncPayload 의 형식 자체가 바뀌었으므로 예전 클라이언트는 팀 동기화를
-	//     아예 읽지 못한다. 이 판도 클라이언트를 함께 배포한다.
+	//     아예 읽지 못한다.
 	// 16: 인챈트 다이아몬드 칸 — EnchantmentMenu 에 칸이 하나 늘었고, 확장 27칸이 창
 	//     오른쪽 바깥에서 플레이어 인벤토리 아래로 옮겨졌다. 묶음 형식은 그대로지만
 	//     서버와 클라이언트의 슬롯 수가 다르면 클라이언트가
@@ -61,7 +61,12 @@ public final class SharedFateNetworking {
 	//     아예 읽지 않아(PerkRegistry.load 는 서버 전용) 「어느 유형을 몇 개 가졌나」도
 	//     「그 유형에 무엇이 더 있나」도 스스로 셀 수 없다. 게다가 PerkOfferPayload.PerkOption
 	//     에 유형 칸이 하나 늘어 형식 자체가 바뀌었다 — 옛 클라이언트는 선택창 패킷을 못 읽는다.
-	public static final int PROTOCOL_VERSION = 20;
+	// 21: 세트 줄에 「주기」 칸이 하나 늘었다(PerkSetSyncPayload.SetLine). HUD 의 「보급」 줄이
+	//     다음 보급까지 남은 시간을 그리는 데 쓴다. 남은 시간을 싣지 않고 주기만 싣는 이유는
+	//     com.sharedfate.ui.SupplyCountdown 에 적어 두었다 — 남은 시간은 초마다 달라져
+	//     이름표 백 몇 줄이 함께 재전송된다. 칸이 하나 늘어 형식이 바뀌었으므로 옛 클라이언트는
+	//     이 패킷을 못 읽는다.
+	public static final int PROTOCOL_VERSION = 21;
 
 	private SharedFateNetworking() {
 	}

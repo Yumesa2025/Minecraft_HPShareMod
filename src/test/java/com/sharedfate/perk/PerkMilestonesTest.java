@@ -117,9 +117,8 @@ class PerkMilestonesTest {
 		assertEquals(5, PerkMilestones.clampMilestone(9));
 		assertEquals(10, PerkMilestones.clampMilestone(12));
 		assertEquals(30, PerkMilestones.clampMilestone(33));
-		// 36 은 MAX(40) 보다 작으므로 더는 "최고 구간"으로 잘리지 않고 그 아래 5의 배수(35)로
-		// 내려간다. MAX 가 35 이던 시절에는 36 이 곧바로 35(=MAX)로 잘렸지만, 지금은 35까지
-		// 내려간 뒤에도 그 위에 40 구간이 남아 있다.
+		// 36 은 MAX(40) 보다 작으므로 "최고 구간"으로 잘리지 않고 그 아래 5의 배수(35)로
+		// 내려간다.
 		assertEquals(35, PerkMilestones.clampMilestone(36));
 
 		// 12까지 처리한 구 데이터가 20렙으로 넘어오면 15·20 두 개만 나온다

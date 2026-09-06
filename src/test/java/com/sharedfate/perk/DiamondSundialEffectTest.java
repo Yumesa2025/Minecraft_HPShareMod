@@ -31,8 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 반경·상한 계산을 본다.
  *
  * <p>우클릭을 잡고 청크를 훑고 파티클을 보내는 부분은 살아 있는 서버와 월드가 있어야 하므로
- * {@link OreExchangeEffectTest} 와 같은 이유로 여기서 다루지 않는다. 대신 그 계산에서 실제로
- * 판단을 내리는 조각({@link PerkDiamondSundial.Found}, {@link DiamondSundialEffect#isDiamondOre},
+ * 여기서 다루지 않는다. 대신 그 계산에서 실제로 판단을 내리는 조각
+ * ({@link PerkDiamondSundial.Found}, {@link DiamondSundialEffect#isDiamondOre},
  * {@link DiamondSundialEffect#isSundial})은 월드를 읽지 않게 떼어 두었으므로 전부 여기서 확인한다.
  */
 class DiamondSundialEffectTest {

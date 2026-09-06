@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * 로그도 남지 않는데 「채굴 2단계」·「사냥 2단계」만 통째로 무동작이 된다.
  *
  * <p>증강과 세트 정의는 임시 폴더에 직접 적어 쓴다. 번들 정의가 바뀌어도 이 시험은 흔들리지
- * 않는다 — {@code DefaultPerkSetValuesTest} 와 달리 여기서 보는 것은 값이 아니라 배선이다.
+ * 않는다.
  */
 class ExperienceSourceBonusTest {
 

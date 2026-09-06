@@ -22,7 +22,6 @@ import net.minecraft.server.level.ServerPlayer;
  *
  * <p>그래서 이 타입은 속성 수정자를 직접 걸지 않는다. "팀의 상한을 얼마나 올릴 것인가"라는
  * 숫자만 들고 있고, 그 숫자를 실제 상한으로 바꾸는 일은 전부 {@link PerkHealthRules} 가 한다.
- * {@code max_health_lock} 과 {@link MaxHealthLockEffect} 의 관계와 같은 구도다.
  *
  * <h2>기본값과 보너스를 어떻게 구분하는가</h2>
  * <p>{@code TeamState.baseMaxHealth} 가 "팀이 정한 값"({@code /shareteam health} 또는 설정
@@ -79,7 +78,7 @@ public final class MaxHealthBonusEffect implements PerkEffect {
 	 * 돌아온다. 여기서 상한을 직접 빼지 않는 것이 중요하다. "얼마를 뺄 것인가"를 짐작하는 순간
 	 * {@code /shareteam health} 로 정해 둔 값이 어긋나기 시작한다.
 	 *
-	 * <p>상한이 줄어든 뒤 공유 체력을 손대지 않는 이유는 {@link PerkHealthRules} 에 적어 뒀다.
+	 * <p>상한이 줄어든 뒤 공유 체력을 손대지 않는 이유는 {@link PerkHealthRules} 에 있다.
 	 */
 	@Override
 	public void remove(ServerPlayer player) {

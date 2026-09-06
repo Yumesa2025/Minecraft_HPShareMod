@@ -25,9 +25,6 @@ import net.minecraft.network.chat.Component;
  * <h2>서버 종료까지 남은 초</h2>
  * <p>전멸하면 {@code WorldResetPayload} 에 <b>서버가 종료되기까지 남은 틱</b>이 함께 온다.
  * 여기서 그 틱을 받아 매 틱 하나씩 줄이고, 실제로 숫자를 그리는 것은 {@code GameOverHud} 다.
- * 숫자를 <b>클라이언트가 세는</b> 이유는 {@code WorldResetCoordinator} 에 적어 뒀다 — 짧게
- * 말하면 바닐라 타이틀 자리가 사망 화면 단추에 가리기 때문이고, 남은 길이는 이미 이 묶음에
- * 실려 오던 값이라 <b>새로 주고받는 것이 없다.</b>
  */
 public final class GameOverClientDisplay {
 	/** 사망 화면이 뜨기를 기다리는 최소 시간(틱). 5초면 충분히 넉넉하다. */

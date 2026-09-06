@@ -28,8 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>실버 「숨은 재능」이 뽑은 골드가 하필 「하늘의 은총」이고, 그게 뽑은 프리즘이 하필
  * 「도박꾼」인 경우처럼, 무작위로 받은 증강이 <b>또</b> 즉시 지급 효과를 가지면 그것도 마저
  * 발동해야 한다는 요구를 확인한다. 서버 없이 시험하려고 {@code server}·{@code team} 은 전부
- * {@code null} 로 넘긴다 — {@link PerkGambler}·{@link PerkRarityGrant} 등이 이미 그렇게
- * 시험되고 있다.
+ * {@code null} 로 넘긴다.
  */
 class PerkGrantChainTest {
 

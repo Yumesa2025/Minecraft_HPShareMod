@@ -23,14 +23,12 @@ import com.sharedfate.perk.PerkEffectType;
  * {@link EnchantmentDiamondCost} 에 있다. 여기서는 "몇 개인가"만 들고 있다.
  *
  * <h2>0 을 허용한다</h2>
- * <p>0 이면 다이아몬드 없이 인챈트할 수 있다. 프리즘 등급이 「인챈트가 공짜가 된다」를 대가와
- * 짝지어 쓸 수 있어야 해서 막지 않았다. 상한은 한 묶음({@value #MAX_DIAMONDS})이다. 그보다 큰
- * 값은 다이아몬드 칸 한 칸에 담기지 않아 어떤 팀도 인챈트할 수 없게 된다.
+ * <p>0 이면 다이아몬드 없이 인챈트할 수 있다. 상한은 한 묶음({@value #MAX_DIAMONDS})이다.
+ * 그보다 큰 값은 다이아몬드 칸 한 칸에 담기지 않아 어떤 팀도 인챈트할 수 없게 된다.
  *
  * <h2>여러 개를 가졌을 때</h2>
  * <p>가장 작은 값이 이긴다. {@link com.sharedfate.perk.PerkWorldRules#lockedDayTime} 과 같은
- * 규칙이다. 어느 쪽을 골라도 자의적이지만, 답이 보유 순서에 따라 달라지면 같은 증강을 가진
- * 팀이 회차마다 다른 값을 보게 된다.
+ * 규칙이다.
  */
 public final class EnchantCostEffect implements PerkEffect {
 	/** 적을 수 있는 가장 작은 값. 0 은 「공짜」다. */

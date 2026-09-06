@@ -7,11 +7,6 @@ import java.util.List;
 /**
  * 세트 효과를 <b>몇 줄로, 어떤 글자로, 어느 차례로</b> 보여 줄지 정하는 계산.
  *
- * <p>{@link PanelScroll}·{@link StatSummary} 와 같은 이유로 공용 소스셋에 있다 — 이 줄들을
- * 그리는 자리가 셋이나 되는데({@code client/hud/CoordinateHud},
- * {@code client/team/TeamScreen}, 그리고 그 위의 툴팁) 전부 {@code src/client} 라 시험
- * 소스셋이 보지 못한다. 마인크래프트 클래스가 하나도 들어오지 않으므로 게임 없이 시험한다.
- *
  * <h2>가진 것이 0인 유형은 뺀다</h2>
  * <p>유형이 열한 개다. 전부 그리면 <b>「기동 0/2」 같은 줄 여덟 개가 화면을 덮는다.</b> 아직
  * 한 발도 딛지 않은 유형은 알려 줄 것이 없다 — 그 유형에 무엇이 있는지는 팀 화면의 툴팁에서
@@ -21,6 +16,20 @@ import java.util.List;
  * <p>지금 몸에 붙어 있는 효과가 먼저고, 그 다음이 「조금만 더 모으면 되는 것」이다. 눈이
  * 위에서 아래로 흐르는 동안 <b>사실 → 계획</b> 순서로 읽힌다. 서버가 보낸 차례를 그대로
  * 쓰면 켜진 세트가 목록 한가운데 끼어 눈에 띄지 않는다.
+ *
+ * <h2>「보급」 줄에만 시계가 붙는다</h2>
+ * <p>「◆ 04:12 보급 4/4」처럼 다음 보급까지 남은 시간을 이름 앞에 적는다. <b>어느 유형에 붙일지를
+ * 여기서 판단하지 않는다</b> — {@link Entry#intervalTicks()} 가 0 보다 큰 줄에만 붙고, 그 값을
+ * 채우는 것은 서버({@code PerkSetBroadcaster})다. 「보급 옆에만」이라는 규칙을 화면과 서버 두
+ * 곳에 적어 두면 한쪽만 고쳤을 때 채굴 줄에 시계가 뜬다.
+ *
+ * <p>마름모는 자리를 지킨다. 시계를 마름모보다 앞에 두면 줄마다 마름모의 가로 자리가 달라져
+ * 「켜졌나」를 세로로 훑을 수 없다. 시계는 마름모와 이름 사이에 들어간다.
+ *
+ * <p>시계를 그리려면 <b>지금 게임 시간</b>이 있어야 하므로 {@link #visible(List, int, long)} 을
+ * 쓴다. 시간을 모르는 자리(팀 화면·선택창 곁판)는 {@link #visible(List, int)} 를 그대로 써서
+ * 시계 없는 줄을 받는다 — 그 두 화면은 늘 떠 있는 것이 아니라 초를 세어 봐야 소용이 없고,
+ * 줄 폭이 매초 흔들리면 마우스가 어느 줄 위인지 재는 계산까지 함께 흔들린다.
  */
 public final class PerkSetLines {
 	/** 켜진 세트 앞에 붙는 표. 속이 찬 마름모다. */
@@ -43,21 +52,43 @@ public final class PerkSetLines {
 	/**
 	 * 유형 하나의 진행 상황. {@code net.PerkSetSyncPayload.SetLine} 에서 그대로 옮겨 담는다.
 	 *
-	 * <p>패킷 레코드를 여기서 바로 받지 않는 이유는 그것이 마인크래프트 네트워크 클래스를
-	 * 끌고 오기 때문이다. 옮겨 담는 한 줄이 시험을 게임에서 떼어 놓는 값을 한다.
-	 *
 	 * @param typeId        유형 id. 툴팁이 이름표를 고를 때 쓰는 열쇠다
 	 * @param displayName   화면에 적을 한국어 이름
 	 * @param owned         지금 가진 개수
 	 * @param nextThreshold 다음 단계에 필요한 개수. 더 오를 곳이 없으면 0
 	 * @param activeTier    켜진 단계. 안 켜졌으면 0
+	 * @param intervalTicks 이 유형이 되풀이하는 일의 주기(틱). 지금은 「보급」만 0 보다 크다.
+	 *                      0 이면 시계를 안 그린다
 	 */
 	public record Entry(String typeId, String displayName, int owned, int nextThreshold,
-			int activeTier) {
+			int activeTier, int intervalTicks) {
+
+		/**
+		 * 주기를 모르는 자리에서 쓰는 짧은 생성자.
+		 *
+		 * <p>주기를 싣지 않는 옛 서버에 붙었을 때와, 시계와 상관없는 것을 보는 시험을 위한
+		 * 것이다. 주기가 0 이면 시계가 안 뜰 뿐 나머지는 그대로다.
+		 */
+		public Entry(String typeId, String displayName, int owned, int nextThreshold,
+				int activeTier) {
+			this(typeId, displayName, owned, nextThreshold, activeTier, 0);
+		}
 
 		/** 세트 효과가 이미 켜져 있는가. */
 		public boolean active() {
 			return activeTier > 0;
+		}
+
+		/**
+		 * 이 줄에 남은 시간을 적어야 하는가.
+		 *
+		 * <p>{@link #active()} 를 함께 보지 않는다. 세트가 아니라 증강 하나가
+		 * {@code supply_drop} 을 들고 도는 경우가 있을 수 있고({@code PerkSupplyDrops.candidatesOf}
+		 * 가 보유 증강도 훑는다), 그때는 단계가 안 켜져 있어도 보급은 실제로 온다. <b>도는데
+		 * 안 보이는 것</b>이 <b>안 도는데 보이는 것</b>보다 나쁘다.
+		 */
+		public boolean hasTimer() {
+			return intervalTicks > 0;
 		}
 
 		/** 화면에 뜰 만한 것이 있는가. 한 개도 없는 유형은 알려 줄 것이 없다. */
@@ -82,13 +113,24 @@ public final class PerkSetLines {
 	}
 
 	/**
-	 * 「◆ 채굴 3/3」 한 줄의 글자.
-	 *
-	 * <p>표를 앞에 두는 이유는 <b>색만으로 켜짐을 나타내면 색을 못 가리는 사람에게 아무것도
-	 * 전해지지 않기</b> 때문이다. 색은 거들 뿐이고 뜻은 마름모가 진다.
+	 * 「◆ 채굴 3/3」 한 줄의 글자. 시계는 붙지 않는다.
 	 */
 	public static String label(Entry entry) {
-		return (entry.active() ? ACTIVE_MARK : PROGRESS_MARK) + " " + entry.displayName()
+		return label(entry, "");
+	}
+
+	/**
+	 * 「◆ 04:12 보급 4/4」 한 줄의 글자.
+	 *
+	 * <p>시계가 필요 없는 줄에는 {@code timer} 가 빈 문자열이고, 그러면 {@link #label(Entry)} 와
+	 * 글자 하나까지 똑같다. 빈 시계에 자리를 남겨 두지 않는다 — 한 줄만 시계를 다는데 나머지
+	 * 열 줄이 그만큼 오른쪽으로 밀리면 무엇을 위해 밀렸는지 읽히지 않는다.
+	 *
+	 * @param timer 「04:12」 같은 남은 시간. 비어 있으면 아무것도 붙지 않는다
+	 */
+	public static String label(Entry entry, String timer) {
+		String clock = timer == null || timer.isEmpty() ? "" : timer + " ";
+		return (entry.active() ? ACTIVE_MARK : PROGRESS_MARK) + " " + clock + entry.displayName()
 				+ " " + entry.owned() + "/" + entry.goal();
 	}
 
@@ -102,6 +144,29 @@ public final class PerkSetLines {
 	 * @param limit   남길 줄 수의 상한. 0 이하면 빈 목록
 	 */
 	public static List<Line> visible(List<Entry> entries, int limit) {
+		return build(entries, limit, false, 0L);
+	}
+
+	/**
+	 * {@link #visible(List, int)} 과 같되 <b>「보급」 줄에 남은 시간을 붙인다.</b>
+	 *
+	 * <p>HUD 만 이것을 쓴다. 시계가 붙는 줄은 {@link Entry#hasTimer()} 인 줄뿐이고, 그 값을
+	 * 채우는 것은 서버다 — 화면은 유형 이름을 보고 판단하지 않는다.
+	 *
+	 * @param gameTime 지금 게임 시간. 클라이언트는 {@code level.getGameTime()} 으로 얻는다.
+	 *                 바닐라가 초마다 서버 값으로 맞춰 주므로 서버가 재는 주기와 어긋나지 않는다
+	 */
+	public static List<Line> visible(List<Entry> entries, int limit, long gameTime) {
+		return build(entries, limit, true, gameTime);
+	}
+
+	/**
+	 * 두 {@code visible} 의 알맹이.
+	 *
+	 * @param withTimer 시계를 붙일 것인가. {@code gameTime} 을 아는 자리만 참이다
+	 */
+	private static List<Line> build(List<Entry> entries, int limit, boolean withTimer,
+			long gameTime) {
 		if (entries == null || limit <= 0) {
 			return List.of();
 		}
@@ -124,7 +189,10 @@ public final class PerkSetLines {
 		List<Line> lines = new ArrayList<>(Math.min(limit, kept.size()));
 		for (int index = 0; index < kept.size() && index < limit; index++) {
 			Entry entry = kept.get(index);
-			lines.add(new Line(entry.typeId(), label(entry), entry.active()));
+			String timer = withTimer && entry.hasTimer()
+					? SupplyCountdown.text(gameTime, entry.intervalTicks())
+					: "";
+			lines.add(new Line(entry.typeId(), label(entry, timer), entry.active()));
 		}
 		return List.copyOf(lines);
 	}
@@ -135,8 +203,9 @@ public final class PerkSetLines {
 	 * <p>세트 줄 위에 긋는 구분선의 길이가 이 값이다. 짧은 줄에 맞추면 선이 글자를 덜 덮고,
 	 * 화면 폭에 맞추면 왼쪽 위를 가로지르는 큰 선이 되어 좌표보다 눈에 먼저 든다.
 	 *
-	 * <p>글자 폭은 폰트가 안다. {@link InventoryStatPanel} 과 같은 이유로 <b>재는 일을 밖에서
-	 * 받는다</b> — 화면은 {@code font::width} 를 넘기고 시험은 가짜 자를 넘긴다.
+	 * <p>매 프레임 다시 재기 때문에 <b>보급 줄의 글자 수가 흔들리면 선의 길이도 함께
+	 * 흔들린다.</b> {@link SupplyCountdown#format(int)} 가 분까지 두 자리로 채우는 것이 그
+	 * 흔들림을 막는 자리다.
 	 *
 	 * @param minimum 줄이 아무리 짧아도 이만큼은 긋는다. 줄이 없으면 0 이다
 	 */

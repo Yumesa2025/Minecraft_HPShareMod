@@ -6,6 +6,7 @@ import com.sharedfate.perk.PerkSetEffects;
 import com.sharedfate.perk.PerkSetRegistry;
 import com.sharedfate.perk.PerkSetType;
 import com.sharedfate.perk.PerkSets;
+import com.sharedfate.perk.PerkSupplyDrops;
 import com.sharedfate.team.TeamLookup;
 import com.sharedfate.team.TeamState;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -25,9 +26,8 @@ import java.util.UUID;
 /**
  * 접속 중인 사람에게 <b>세트 효과의 지금 상태</b>를 알려 주는 자리.
  *
- * <p>무엇을 왜 보내야 하는지는 {@link PerkSetSyncPayload} 에 적었다. 여기는 그것을 언제 어떻게
- * 보낼지만 맡는다. 방식은 {@link StatSnapshotBroadcaster} 와 같다 — 주기마다 훑고, <b>값이
- * 달라진 사람에게만</b> 보내고, 접속이 끊기면 「이미 보냈다」는 기록을 버린다.
+ * <p>주기마다 훑고, <b>값이 달라진 사람에게만</b> 보내고, 접속이 끊기면 「이미 보냈다」는
+ * 기록을 버린다.
  *
  * <h2>무엇을 싣는가</h2>
  *
@@ -45,19 +45,13 @@ import java.util.UUID;
  *
  * <p>판정은 반드시 {@code ownedPerks} 기준이어야 한다. {@code perkOwners}(주인 기록) 기준으로
  * 하면 요행·은총이 덤으로 준 증강이 세트에서 빠진다 — 그것들은 주인이 없다.
- *
- * <h2>왜 사건마다 보내지 않고 훑는가</h2>
- * <p>보유 목록이 바뀌는 자리가 넷이다({@code PerkManager.commit}, {@code setPerksEnabled},
- * {@code TeamState.applyPerkSection}, {@code PerkTestCommand.reapply}). 하나만 빠뜨려도 그
- * 경우에만 화면이 옛 값을 그대로 든다. 결과값을 견주면 <b>무엇이 바꿨든</b> 걸린다.
  */
 public final class PerkSetBroadcaster {
 	/**
 	 * 값이 달라졌는지 확인하는 주기.
 	 *
 	 * <p>0.5초다. 세트는 증강을 얻거나 잃을 때만 바뀌는 드문 값이라 {@code StatSnapshot} 처럼
-	 * 촘촘히 볼 필요가 없다. 그래도 「골랐는데 화면이 그대로」로 보일 만큼 길면 안 되므로,
-	 * 선택창이 닫히고 눈이 HUD 로 옮겨 가기 전에는 끝나는 길이로 잡았다.
+	 * 촘촘히 볼 필요가 없다.
 	 */
 	private static final int SCAN_INTERVAL_TICKS = 10;
 
@@ -118,12 +112,19 @@ public final class PerkSetBroadcaster {
 		//
 		// 단계 설명도 함께 싣는다. 클라이언트는 세트 정의 파일을 안 읽으므로 「2 단계가 무엇을
 		// 하는가」를 스스로 알 방법이 없고, 그래서 툴팁을 서버가 말해 주지 않으면 만들 수 없다.
+		// 「보급」 줄에 붙는 시계의 근거. 남은 시간이 아니라 주기를 싣는다 — 이 값은 단계가
+		// 바뀔 때만 달라지므로 아래 「달라졌을 때만 보낸다」가 그대로 살아 있다. 남은 시간을
+		// 실으면 값이 초마다 달라져 이름표 백 몇 줄이 0.5초마다 함께 나간다.
+		int supplyIntervalTicks = PerkSupplyDrops.intervalTicksFor(state);
+
 		List<PerkSetSyncPayload.SetLine> sets = new ArrayList<>();
 		List<PerkSetSyncPayload.TierLine> tiers = new ArrayList<>();
 		for (PerkSets.Status status : PerkSetEffects.statusesOf(state)) {
+			// 시계가 어느 유형에 붙는지는 여기서 정한다. 화면은 주기가 실렸는지만 본다.
+			int intervalTicks = status.type() == PerkSetType.SUPPLY ? supplyIntervalTicks : 0;
 			sets.add(new PerkSetSyncPayload.SetLine(
 					status.type().id(), status.type().displayName(),
-					status.owned(), status.nextCount(), highestTier(status)));
+					status.owned(), status.nextCount(), highestTier(status), intervalTicks));
 			// 켜진 단계는 개수로 판별한다. 단계가 열리는 개수는 유형 안에서 겹치지 않는다.
 			Set<Integer> activeCounts = new HashSet<>();
 			for (PerkSets.Tier tier : status.activeTiers()) {

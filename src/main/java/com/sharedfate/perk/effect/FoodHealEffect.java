@@ -11,14 +11,11 @@ import com.sharedfate.perk.PerkEffectType;
  * <p>정의는 {@code { "type": "food_heal", "health": 2.0 }} 다. 회복 2단계 「먹는 게 남는 거다」가
  * 이 타입 하나로 만들어진다.
  *
- * <h2>왜 {@code food_nutrition} 의 하위 「즉시 회복 I」이 아닌가</h2>
- * <p>상태이상 「즉시 회복」은 <b>먹은 사람 개인</b>의 체력을 올린다. 이 모드에서 개인 체력이
- * 움직이면 {@code StatMirror} 가 그 변화량을 관측해 공유 풀에 더하는데, 그 관측은 팀원 전원을
- * 대상으로 돌기 때문에 회복이 인원수만큼 불어나거나 최소한 양이 정확하지 않다. 게다가 즉시
- * 회복이 실제로 채우는 양은 {@code 4 × 2^증폭} 이라 「정확히 2」를 만들 수도 없다.
+ * <p>이 효과는 개인의 체력을 건드리지 않는다. 개인 체력이 움직이면 {@code StatMirror} 가 그
+ * 변화량을 관측해 공유 풀에 더하는데, 그 관측은 팀원 전원을 대상으로 돌기 때문에 회복이
+ * 인원수만큼 불어나거나 최소한 양이 정확하지 않다.
  *
- * <p>그래서 이 효과는 개인에게 아무것도 하지 않는다. {@link #apply}/{@link #remove} 를
- * 재정의하지 않는 것이 그 뜻이다. 실제로 공유 풀에 더하는 일은
+ * <p>{@link #apply}/{@link #remove} 를 재정의하지 않는 것이 그 뜻이다. 실제로 공유 풀에 더하는 일은
  * {@link com.sharedfate.perk.PerkFoodRules} 가 맡는다 — 왜 개인이 아니라 풀에 더하는지는
  * {@link com.sharedfate.perk.PerkKillRewards} 머리말에 자세히 적혀 있다.
  *

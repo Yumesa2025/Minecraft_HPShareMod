@@ -16,8 +16,7 @@ import org.jetbrains.annotations.Nullable;
  * </pre>
  *
  * <p>{@code power} 는 공중 점프가 실을 위쪽 속도다. 적지 않으면 {@link #DEFAULT_POWER}를 쓴다.
- * 적었는데 {@link #MIN_POWER}~{@link #MAX_POWER} 밖이면 정의 자체를 버린다. 값을 몰래 깎아
- * 주는 것보다 증강 하나가 빠지는 편이 알아채기 쉽다.
+ * 적었는데 {@link #MIN_POWER}~{@link #MAX_POWER} 밖이면 정의 자체를 버린다.
  *
  * <h2>왜 서버 혼자서는 못 하는가</h2>
  * <p>서버는 "공중에서 점프 키를 눌렀다"는 사실을 알 수 없다. 바닐라는 땅에서 뛴 결과만
@@ -39,9 +38,8 @@ public final class DoubleJumpEffect implements PerkEffect {
 	 * {@code power} 를 적지 않았을 때 쓰는 값.
 	 *
 	 * <p>바닐라 점프 힘 {@code LivingEntity.BASE_JUMP_POWER} 0.42 의 1.5배다. 지금 이 타입을
-	 * 쓰는 유일한 증강인 「허공답보」의 값과 맞춰 뒀다 — 생략했을 때의 기본값이 실제로 쓰이는
-	 * 값과 어긋나면 다음에 새 증강을 적을 때 헷갈리기 쉽다. 그래서 「허공답보」의 값을 바꿀
-	 * 때는 이 상수도 함께 바꾼다({@code DefaultPerkPoolValuesTest} 가 둘이 같은지 지킨다).
+	 * 쓰는 유일한 증강인 「허공답보」의 값과 같아야 한다. 「허공답보」의 값을 바꿀 때는 이 상수도
+	 * 함께 바꾼다({@code DefaultPerkPoolValuesTest} 가 둘이 같은지 지킨다).
 	 */
 	public static final double DEFAULT_POWER = 0.63;
 	/** 이보다 약하면 뛴 티가 나지 않아 버그로 오해받는다. */

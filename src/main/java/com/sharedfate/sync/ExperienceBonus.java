@@ -32,12 +32,6 @@ import java.util.UUID;
  * 나오는 경험치에만 추가 배율을 받는다. 세트 보상 「채굴 2단계」·「사냥 2단계」가 이것을 쓴다.
  * 이쪽 배율은 <b>상시 규칙과 곱해진다</b> — 설정 1.2 배에 세트 1.5 배면 결과는 1.8 배다.
  *
- * <h2>왜 「줍는 순간」이 아니라 「떨어지는 순간」인가</h2>
- * <p>경험치 오브는 바닥에 있는 동안 서로 <b>합쳐진다</b>({@code ExperienceOrb.scanForMerges}).
- * 줍는 자리({@code playerTouch})에서 배율을 먹이면 이미 합쳐진 덩어리에 곱하게 되어, 같은 양을
- * 캐도 오브가 몇 개로 뭉쳤느냐에 따라 결과가 달라지고 반올림 오차도 덩어리 수만큼 달라진다.
- * 떨어지는 자리에서 한 번만 곱하면 그런 흔들림이 없다.
- *
  * <h2>상시 규칙은 어디를 잡는가</h2>
  * <p>26.2 에서 경험치 오브가 월드에 생기는 길은 {@code ExperienceOrb.awardWithDirection(
  * ServerLevel, Vec3, Vec3, int)} 하나로 모인다. {@code ExperienceOrb.award(ServerLevel, Vec3,
@@ -47,7 +41,7 @@ import java.util.UUID;
  * 하나만 고치면 모든 경로가 같은 배율을 받는다. 자세한 확인 근거는
  * {@code ExperienceOrbAwardMixin} 에 적어 뒀다.
  *
- * <h2>출처별 규칙은 왜 그 한 자리를 쓰지 않는가</h2>
+ * <h2>출처별 규칙은 어디를 잡는가</h2>
  * <p>{@code awardWithDirection} 에는 <b>출처도 사람도 남아 있지 않다.</b> 인자는 월드·좌표·양
  * 뿐이다. 그래서 출처별 배율은 「누가·무엇에서」를 아직 알고 있는 <b>더 위쪽</b>에서 곱한다.
  *
@@ -79,8 +73,7 @@ import java.util.UUID;
  * 안 나온다」로 보이는 것을 막기 위해서다.
  *
  * <p>출처별 배율과 상시 배율은 <b>서로 다른 자리에서</b> 곱하므로 반올림도 두 번 일어난다.
- * 한 번에 곱했을 때와 최대 1점까지 다를 수 있다. 정수 경험치에서 1점 차이는 눈에 띄지 않고,
- * 대신 상시 배율이 걸리는 자리를 하나로 유지할 수 있어 이쪽을 골랐다.
+ * 한 번에 곱했을 때와 최대 1점까지 다를 수 있다.
  */
 public final class ExperienceBonus {
 	/**
@@ -88,7 +81,6 @@ public final class ExperienceBonus {
 	 *
 	 * <p>서버 스레드에서만 오간다. 그래도 다른 스레드가 읽을 때 반쯤 쓰인 값을 보지 않도록
 	 * {@code volatile} 로 두고, 통째로 갈아 끼우는 불변 기록만 담는다.
-	 * {@code ConditionalPerkManager.beginMultiplierLookup} 과 같은 방식이다.
 	 */
 	private static volatile @Nullable BlockContext blockContext;
 
@@ -117,7 +109,7 @@ public final class ExperienceBonus {
 	}
 
 	/**
-	 * 경험치 양에 배율을 먹인다. 설정을 읽지 않는 순수 계산이라 서버 없이 시험할 수 있다.
+	 * 경험치 양에 배율을 먹인다.
 	 *
 	 * @param amount     바닐라가 주려던 양
 	 * @param multiplier 곱할 배율
@@ -140,7 +132,7 @@ public final class ExperienceBonus {
 	 * 효과 목록에서 이 출처에 걸리는 배율을 <b>전부 곱한</b> 값.
 	 *
 	 * <p>{@code experience_bonus} 가 아닌 효과와 출처가 다른 효과는 그냥 지나간다. 하나도 없으면
-	 * 1.0 이다. 게임 상태를 보지 않는 순수 계산이라 서버 없이 시험할 수 있다.
+	 * 1.0 이다.
 	 */
 	public static double sourceMultiplier(@Nullable Iterable<PerkEffect> effects,
 			@Nullable Source source) {

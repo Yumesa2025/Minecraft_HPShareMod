@@ -34,8 +34,7 @@ public final class StatMirror {
 	/**
 	 * 한 팀원이 이번 틱에 만들어 낸 변화량.
 	 *
-	 * <p>{@link #fold} 가 이걸 팀 단위 {@link StatDelta} 로 접는다. 합산 규칙만 떼어 놔야
-	 * 월드 없이 시험할 수 있어서 나눠 뒀다.
+	 * <p>{@link #fold} 가 이걸 팀 단위 {@link StatDelta} 로 접는다.
 	 *
 	 * @param health              체력 변화량. 음수면 피해, 양수면 회복
 	 * @param absorptionDelta     흡수량의 순변화. 양수면 새 보호막을 받은 것이다
@@ -152,8 +151,7 @@ public final class StatMirror {
 
 	/**
 	 * @param damageAlert 이 팀이 피격 알림을 쓰는가. 꺼져 있으면 <b>서버가 패킷을 아예 보내지
-	 *                    않는다.</b> 클라이언트에서 걸러도 되지만 그러면 표시 여부를 판단하는
-	 *                    자리가 둘로 갈라진다
+	 *                    않는다.</b>
 	 */
 	private static StatDelta collectDeltas(ShareTeam team, List<ServerPlayer> online,
 			boolean damageAlert) {
@@ -194,8 +192,7 @@ public final class StatMirror {
 	 * <p>합산하면 안 되는 경우 — 공유된 상태이상 하나가 팀 전원에게 똑같이 일으키는 피해·회복·
 	 * 허기 소모 — 는 여기까지 오지 않는다. {@link SharedEffectDamage} 가 변화가 발생하는
 	 * 자리에서 대표 한 명 것만 남기고 나머지를 막으므로, 막힌 팀원의 체력과 허기는 애초에
-	 * 움직이지 않아 변화량이 0 이다. 원인을 아는 자리에서 걸러야 여기서 "이 변화가 같은
-	 * 원인인지"를 추측하지 않아도 된다.
+	 * 움직이지 않아 변화량이 0 이다.
 	 *
 	 * <p>허기는 한 가지가 더 얽힌다. 허기 효과는 그 자리에서 배를 깎지 않고 소모도만 쌓고,
 	 * 실제 감소는 소모도가 4.0 을 넘는 한참 뒤 {@code FoodData.tick} 에서 일어난다. 그래서
@@ -273,7 +270,7 @@ public final class StatMirror {
 	 * {@link #fold} 는 그 자름을 사람 수만큼 <b>합산</b>한다. 3인 팀이 체력 18 에서 상한을
 	 * 잃으면 8 이 세 번 빠져 공유 체력이 18 − 24 = 0 이 된다. 한 번의 자름이 인원수만큼
 	 * 곱해지는 것이라, 팀이 건강할수록 확실하게 죽는다 — 3인은 15 이상, 2인은 20 에서
-	 * 그렇게 된다. 프리즘 「고행자」(최대 체력 10 고정)로 실제로 겪었다.
+	 * 그렇게 된다.
 	 *
 	 * <p>같은 틱에 진짜 피해도 받았다면 그 몫은 그대로 남는다. 상한이 20 → 10 이 된 틱에 3 을
 	 * 맞아 체력이 7 이 됐다면 답은 −3 이다. 반대로 상한이 오를 때는 아무 일도 하지 않는다 —

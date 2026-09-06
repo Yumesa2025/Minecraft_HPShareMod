@@ -53,9 +53,8 @@ public final class PerkListHover {
 	/**
 	 * 높이 목록을 위에서부터 쌓아 자리로 바꾼다.
 	 *
-	 * <p>목록을 접을 때 항목마다 몇 px 을 썼는지 세어 두었다가 그대로 넘기면 된다. <b>그리기와
-	 * 마우스 판정이 같은 숫자를 봐야</b> 하므로, 여기에 넣는 높이는 그릴 때 더한 높이와 한
-	 * 글자도 다르면 안 된다.
+	 * <p><b>그리기와 마우스 판정이 같은 숫자를 봐야</b> 하므로, 여기에 넣는 높이는 그릴 때 더한
+	 * 높이와 한 글자도 다르면 안 된다.
 	 */
 	public static List<Span> stack(List<Integer> heights) {
 		if (heights == null || heights.isEmpty()) {

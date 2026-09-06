@@ -17,7 +17,6 @@ import java.util.UUID;
  *
  * <p>{@link PerkSets} 는 순수 계산만, {@link PerkSetRegistry} 는 정의 보관만 한다. 그 둘과
  * 살아 있는 게임 상태({@code TeamState}·{@code ServerPlayer})를 잇는 자리가 여기다.
- * {@code on_kill} 과 {@link PerkKillRewards} 의 관계와 같은 구도다.
  *
  * <h2>세트를 소비하는 곳이 알아야 할 것은 한 줄뿐이다</h2>
  * <p>보유 증강의 효과를 훑는 코드는 이 저장소 곳곳에 있고 모양이 전부 같다.

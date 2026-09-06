@@ -40,10 +40,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 번들 기본 세트 정의({@code sharedfate-sets-default.json})가 그대로 읽히는지, 값이 정한 대로
  * 들어갔는지 본다.
  *
- * <p>{@link DefaultPerkPoolValuesTest} 와 같은 자리다. 특히 첫 시험이 지키는 것은 개수가 아니라
- * <b>조용한 실패</b>다 — {@link PerkSetRegistry} 는 읽을 수 없는 단계를 만나면 그것 하나만
- * 건너뛰므로, 새 효과 타입을 만들고 {@link PerkEffectType} 에 등록하는 줄을 빠뜨리면 빌드도
- * 통과하고 서버도 뜨는데 그 단계만 사라진다.
+ * <p>첫 시험이 지키는 것은 개수가 아니라 <b>조용한 실패</b>다 — {@link PerkSetRegistry} 는
+ * 읽을 수 없는 단계를 만나면 그것 하나만 건너뛰므로, 새 효과 타입을 만들고
+ * {@link PerkEffectType} 에 등록하는 줄을 빠뜨리면 빌드도 통과하고 서버도 뜨는데 그 단계만
+ * 사라진다.
  */
 class DefaultPerkSetValuesTest {
 
@@ -165,12 +165,7 @@ class DefaultPerkSetValuesTest {
 
 	// ------------------------------------------------------------------ 유형별 개수
 
-	/**
-	 * 유형이 둘인 증강은 실제 풀에서도 양쪽에 세어진다.
-	 *
-	 * <p>{@link PerkSetsTest} 가 같은 규칙을 만들어 낸 증강으로 시험한다면, 여기서는 정의 파일에
-	 * 실제로 그렇게 적혀 있는지를 함께 본다.
-	 */
+	/** 유형이 둘인 증강은 실제 풀에서도 양쪽에 세어진다. */
 	@Test
 	void 원정_준비물과_피의_대가는_두_유형에_다_세어진다(@TempDir Path dir) throws IOException {
 		load(dir);
@@ -263,9 +258,9 @@ class DefaultPerkSetValuesTest {
 	/**
 	 * 무기에도 보상이 있다.
 	 *
-	 * <p>한동안 이 유형만 자리를 비워 두었는데, 그러면 여섯을 다 모아도 아무 일이 안 일어나고
-	 * 화면에는 「무기 2/2」만 뜬다 — 켜졌는데 보상이 없는 것과 구별되지 않는다. 그래서
-	 * <b>단계가 하나라도 있는지</b>를 여기서 못박는다.
+	 * <p>단계가 하나도 없으면 여섯을 다 모아도 아무 일이 안 일어나고 화면에는 「무기 2/2」만
+	 * 뜬다 — 켜졌는데 보상이 없는 것과 구별되지 않는다. 그래서 <b>단계가 하나라도 있는지</b>를
+	 * 여기서 못박는다.
 	 */
 	@Test
 	void 무기에도_보상이_있다(@TempDir Path dir) throws IOException {

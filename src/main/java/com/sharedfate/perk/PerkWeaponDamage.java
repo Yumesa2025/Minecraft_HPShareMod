@@ -1,6 +1,7 @@
 package com.sharedfate.perk;
 
 import com.sharedfate.SharedFateMod;
+import com.sharedfate.perk.effect.NoAttackDamageLossEffect;
 import com.sharedfate.perk.effect.WeaponDamageEffect;
 import com.sharedfate.team.TeamState;
 import net.minecraft.core.Holder;
@@ -21,10 +22,8 @@ import org.jetbrains.annotations.Nullable;
  * "지금 든 것이 무엇이냐"에 따라 근접 공격력을 바꾸는 규칙이고, 한 칸에 수정자 하나만 붙일 수
  * 있으므로 결론도 한 곳에서 내야 한다.
  *
- * <h2>왜 피해 계산이 아니라 속성인가</h2>
  * <p>{@code Player.attack} 은 {@code getAttributeValue(ATTACK_DAMAGE)} 로 기본 피해를 읽는다.
  * 그 값을 바꾸면 근접 공격에만 반영되고 화살·물약처럼 무기와 상관없는 피해는 건드리지 않는다.
- * 피해 계산 한가운데({@code hurtServer})를 잡으면 모든 피해가 함께 휘므로 그쪽은 쓰지 않았다.
  *
  * <h2>수정자를 어떻게 만드는가</h2>
  * <ul>
@@ -140,7 +139,19 @@ public final class PerkWeaponDamage {
 			return multiply(rule.multiplier());
 		}
 		Double others = rule.othersDamage();
-		return others == null ? null : flatten(mainHand, baseValue, others);
+		if (others == null) {
+			return null;
+		}
+		AttributeModifier flattened = flatten(mainHand, baseValue, others);
+		// 세트 「무기 3단계」를 켠 팀에서는 othersDamage 가 공격력을 끌어내리는 경우만 버린다.
+		// 같은 필드로 끌어올리는 경우(무기가 원래 주는 값보다 목표가 높은 경우)는 감소가 아니므로
+		// 그대로 둔다 — 「증가분까지 같이 지워지면 안 된다」를 지키는 자리다. 우대 무기의
+		// 배수(위 multiply)는 애초에 감소가 아니라 여기까지 내려오지 않는다.
+		if (flattened != null && flattened.amount() < 0.0
+				&& NoAttackDamageLossEffect.heldBy(active)) {
+			return null;
+		}
+		return flattened;
 	}
 
 	/** 우대 무기에 배수를 건다. 배수가 1이면 붙일 것이 없다. */

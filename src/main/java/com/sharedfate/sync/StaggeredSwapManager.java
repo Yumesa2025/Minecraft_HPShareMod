@@ -33,8 +33,7 @@ import java.util.random.RandomGenerator;
  *
  * <h2>간격은 시퀀스 하나에 한 번만 굴린다</h2>
  * <p>매 걸음마다 다시 굴리지 않는다. 시퀀스를 시작할 때 5~10초(100~200틱) 사이에서 한 번
- * 뽑아 모든 걸음에 그대로 쓴다. 상태가 더 단순해지고, 그래도 회차마다 체감이 달라지는
- * 데는 지장이 없다.
+ * 뽑아 모든 걸음에 그대로 쓴다.
  *
  * <h2>진행 중에는 다음 교환 주기가 얼어붙는다</h2>
  * <p>{@link PositionSwapManager#tick}이 이 팀에 {@link #hasActiveSequence}가 참이면

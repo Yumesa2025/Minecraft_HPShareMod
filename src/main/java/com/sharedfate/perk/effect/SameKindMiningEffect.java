@@ -29,24 +29,25 @@ import org.jetbrains.annotations.Nullable;
  *       "같은 블록"은 언제나 종류이지 상태가 아니다.</li>
  *   <li><b>딥슬레이트 변종은 다른 종류다.</b> {@code minecraft:diamond_ore} 와
  *       {@code minecraft:deepslate_diamond_ore} 는 서로 다른 {@code Block} 이므로 함께 캐지지
- *       않는다. 둘을 묶으려면 "이것과 이것은 사실 같다"는 표를 코드에 들고 있어야 하는데,
- *       그 표는 광석 여덟 종에서 끝나지 않는다 — 돌/화강암, 구리 블록의 산화 4단계, 다른
- *       모드가 넣은 블록까지 누군가 계속 손으로 채워야 하고, 빠뜨린 항목은 아무 경고 없이
- *       "안 걸리는 블록"이 된다. <b>표가 없는 규칙 하나</b>가 표가 있는 규칙보다 설명하기도
- *       쉽고 틀릴 구석도 없다. 실제로도 다이아 광석은 전부 딥슬레이트 층에서 나므로 두 변종이
- *       한 광맥에 섞이는 일 자체가 드물다.</li>
+ *       않는다. 실제로도 다이아 광석은 전부 딥슬레이트 층에서 나므로 두 변종이 한 광맥에
+ *       섞이는 일 자체가 드물다.</li>
  *   <li><b>전리품이 같은지도 보지 않는다.</b> 원석 구리와 구리 광석은 같은 것을 떨어뜨리지만
- *       같은 종류가 아니다. 위와 같은 이유다.</li>
+ *       같은 종류가 아니다.</li>
  * </ul>
  *
  * <h2>「메아리 채굴」과 무엇이 다른가</h2>
- * <p>{@link EchoMiningEffect} 는 이웃 26칸에서 <b>종류를 가리지 않고</b> 2개를 더 캔다. 이쪽은
- * 같은 26칸에서 <b>같은 종류만</b> 고른다. 훑는 범위와 지켜야 할 규칙(발밑·미로드 청크·도구
- * 등급)은 완전히 같고, 후보를 거르는 마지막 조건 하나만 다르다.
+ * <p><b>고르는 규칙은 같다.</b> {@link EchoMiningEffect} 도 이웃 26칸에서 방금 캔 것과
+ * 같은 종류만 고른다. 훑는 범위와 지켜야 할 규칙(발밑·미로드 청크·도구 등급)까지 완전히
+ * 같으므로, 두 효과는 같은
+ * {@link com.sharedfate.perk.PerkBlockBreaks#neighborCandidates} 를 같은 인자 모양으로 쓴다.
+ *
+ * <p>남는 차이는 <b>값을 어디서 정하는가</b> 하나다. 저쪽은 필드 없는 홑 인스턴스라 2칸·내구도
+ * 1로 고정이고, 이쪽은 세트 정의에서 {@code extra} 와 {@code extraDurability} 를 조절할 수
+ * 있다.
  *
  * <p>둘을 <b>같이 가지고 있으면 둘 다 발동한다.</b> 합쳐서 최대 4칸이고 내구도도 각각 문다.
- * 한쪽을 죽이지 않는 이유와 겹칠 때의 순서는
- * {@link com.sharedfate.perk.PerkBlockBreaks#trySameKindMining} 에 적어 뒀다.
+ * 다만 둘이 <b>같은 후보를 나눠 갖는다</b> — 이웃에 같은 종류가 넷 이상 있어야 4칸이 다 찬다.
+ * 겹칠 때의 순서는 {@link com.sharedfate.perk.PerkBlockBreaks#trySameKindMining} 에 있다.
  *
  * <h2>무한 연쇄를 막는 방법</h2>
  * <p>{@link EchoMiningEffect} 와 똑같이 {@code ServerLevel.removeBlock} 으로 지운다. 이 메서드는
@@ -58,9 +59,8 @@ import org.jetbrains.annotations.Nullable;
  * <h2>이 클래스가 하지 않는 일</h2>
  * <p>여기는 "몇 개를, 도구를 얼마나 더 닳게 하며, 무엇을 같은 종류로 볼 것인가"만 들고 있는
  * 자료 그릇이다. 실제로 이웃을 훑고 블록을 지우는 일은
- * {@link com.sharedfate.perk.PerkBlockBreaks} 가 맡는다. {@code bonus_drop} 과 같은 구도이며,
- * 그래서 새 mixin 이 필요 없다 — 이미 쓰고 있는 {@code PlayerBlockBreakEvents.AFTER} 한 자리를
- * 그대로 쓴다.
+ * {@link com.sharedfate.perk.PerkBlockBreaks} 가 맡고, 그 자리는 이미 쓰고 있는
+ * {@code PlayerBlockBreakEvents.AFTER} 다.
  */
 public final class SameKindMiningEffect implements PerkEffect {
 	/** {@code extra} 를 안 적었을 때 더 캐는 블록 수. 후보가 모자라면 있는 만큼만 캔다. */
@@ -70,8 +70,7 @@ public final class SameKindMiningEffect implements PerkEffect {
 	 * {@code extraDurability} 를 안 적었을 때 추가로 닳는 내구도.
 	 *
 	 * <p>1 이다. 원래 소모 1점은 바닐라가 뒤이어 처리하므로 합계가 정확히 2배가 된다.
-	 * 「메아리 채굴」과 같은 값을 골랐다 — 두 효과가 하는 일(추가 2칸 파괴)이 같은데 한쪽만
-	 * 공짜면, 골드 증강을 주고 산 「메아리 채굴」쪽이 손해를 본다.
+	 * 「메아리 채굴」과 같은 값이다.
 	 */
 	public static final int DEFAULT_EXTRA_DURABILITY = 1;
 
@@ -92,9 +91,7 @@ public final class SameKindMiningEffect implements PerkEffect {
 	/**
 	 * JSON에서 만든다. 정의가 잘못됐으면 경고를 남기고 {@code null}.
 	 *
-	 * <p>필수 필드가 없어 {@code { "type": "same_kind_mining" }} 만으로도 만들어진다. 값을
-	 * 코드가 아니라 정의 파일에서 조절할 수 있게 두 필드를 열어 두었다 — 세트 보상 값은 자주
-	 * 바뀌고, 그때마다 이 파일을 고치게 하면 안 된다.
+	 * <p>필수 필드가 없어 {@code { "type": "same_kind_mining" }} 만으로도 만들어진다.
 	 */
 	public static @Nullable PerkEffect fromJson(String perkId, int index, JsonObject json) {
 		int extraBlocks = PerkEffectType.readInt(json, "extra", DEFAULT_EXTRA_BLOCKS);
@@ -130,9 +127,8 @@ public final class SameKindMiningEffect implements PerkEffect {
 	/**
 	 * 두 블록이 「같은 종류」인가. <b>이 효과의 정의 그 자체이므로 여기 한 곳에만 둔다.</b>
 	 *
-	 * <p>{@code BlockState} 를 통째로 비교하지 않고 {@code getBlock()} 만 본다. 왜 그렇게
-	 * 정했는지는 이 클래스 맨 위에 적어 뒀다. 요약하면 <b>블록 상태가 달라도 같은 종류이고,
-	 * 딥슬레이트 변종은 다른 종류</b>다.
+	 * <p>{@code BlockState} 를 통째로 비교하지 않고 {@code getBlock()} 만 본다. <b>블록 상태가
+	 * 달라도 같은 종류이고, 딥슬레이트 변종은 다른 종류</b>다.
 	 *
 	 * <p>레지스트리만 읽는 순수 판정이라 살아 있는 서버 없이 그대로 시험할 수 있다.
 	 *

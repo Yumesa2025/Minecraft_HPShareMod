@@ -35,10 +35,6 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 몹에게 걸리는 증강 효과({@code mob_health}, {@code mob_damage}, {@code mob_speed})의 실행부.
  *
- * <p>다른 효과들은 {@link PerkEffect#apply}로 팀원 한 명에게 붙였다 떼면 끝나지만, 이 셋은
- * 대상이 팀원이 아니라 월드의 몹이다. 그래서 효과 객체는 "무엇을 얼마나" 만 들고 있고,
- * "언제 누구에게" 는 이 클래스가 전부 맡는다.
- *
  * <ul>
  *   <li>{@code mob_health} 는 몹이 월드에 올라올 때({@code ServerEntityEvents.ENTITY_LOAD})
  *       최대 체력 속성에 임시 수정자를 붙인다. 임시 수정자는 저장되지 않으므로 서버를 껐다
@@ -102,9 +98,6 @@ public final class MobPerkModifiers {
 
 	/**
 	 * 어느 속성의 배율을 묻는지.
-	 *
-	 * <p>세 갈래가 캐시·기본값·정리 규칙만 다르고 나머지는 같아서, 계산 경로를 하나로 두고
-	 * 이 값으로 갈라 준다.
 	 */
 	private enum Kind {
 		HEALTH,
@@ -113,7 +106,7 @@ public final class MobPerkModifiers {
 	}
 
 	/**
-	 * 계산해 둔 적대 몹 스폰율 배율. 몹 종류와 무관한 값 하나뿐이라 표가 아니라 밭 하나로 둔다.
+	 * 계산해 둔 적대 몹 스폰율 배율. 몹 종류와 무관한 값 하나뿐이다.
 	 *
 	 * <p>{@code spawnRateKnown} 이 켜져 있을 때만 {@code spawnRateValue} 를 믿는다. 증강
 	 * 구성이 바뀌면 {@link #tick} 이 이 깃발을 내려 다음 물음에서 다시 계산하게 한다.
@@ -175,8 +168,7 @@ public final class MobPerkModifiers {
 	/**
 	 * 다음 틱을 기다리지 않고 곧바로 다시 계산한다.
 	 *
-	 * <p>증강을 고른 직후처럼 구성이 바뀐 시점을 이미 아는 곳에서 부른다. 지문 감시만으로도
-	 * 결국 따라잡지만 최대 1초가 걸리므로, 고르자마자 몹이 달라지는 편이 자연스럽다.
+	 * <p>증강을 고른 직후처럼 구성이 바뀐 시점을 이미 아는 곳에서 부른다.
 	 */
 	public static void invalidateNow(@Nullable MinecraftServer server) {
 		if (server == null) {
@@ -187,7 +179,7 @@ public final class MobPerkModifiers {
 		tick(server);
 	}
 
-	/** 서버가 멈출 때 캐시와 지문을 비운다. 다음 월드의 증강 구성을 물려받지 않기 위해서다. */
+	/** 서버가 멈출 때 캐시와 지문을 비운다. */
 	public static void reset() {
 		HEALTH_CACHE.clear();
 		DAMAGE_CACHE.clear();
@@ -270,8 +262,6 @@ public final class MobPerkModifiers {
 	 * 설정에서 이 효과를 켜 두었는지. 설정을 아직 읽지 않았으면(시험·초기화 전) 켜진 것으로 본다.
 	 *
 	 * <p>조회 쪽({@link #spawnRateMultiplier})과 합성 쪽({@link #spawnRateOf}) 두 곳에서 본다.
-	 * 조회 쪽에 있어야 설정을 끈 순간 캐시가 비워지기를 기다리지 않고 바로 멈추고, 합성 쪽에
-	 * 있어야 「끄면 1.0」이 규칙 자체의 성질이 되어 서버 없이 시험할 수 있다.
 	 */
 	static boolean spawnRatePerksEnabled() {
 		SharedFateConfig config = SharedFateMod.config;
@@ -284,7 +274,7 @@ public final class MobPerkModifiers {
 	 * <p>한 팀 안에서는 곱하고, 팀이 여럿이면 {@link #stronger} 로 <b>1.0 에서 가장 멀리
 	 * 떨어진 하나</b>만 고른다. 체력·공격력과 똑같은 규칙이다.
 	 *
-	 * <p>서버 상태를 보지 않는 순수 계산이라 시험에서 그대로 부를 수 있다.
+	 * <p>서버 상태를 보지 않는 순수 계산이다.
 	 */
 	static double spawnRateOf(Iterable<? extends Collection<String>> teamOwnedPerks) {
 		if (!spawnRatePerksEnabled()) {
@@ -300,11 +290,10 @@ public final class MobPerkModifiers {
 	/**
 	 * 한 팀의 스폰율 배율. <b>보유 증강과 켜진 세트를 함께 곱한다.</b>
 	 *
-	 * <p>세트 몫이 곱셈인 이유는 같은 팀 안에서 더해지는 값이기 때문이다. 팀끼리 고를 때만
-	 * {@link #stronger} 로 1.0 에서 가장 먼 하나를 고른다.
+	 * <p>팀끼리 고를 때만 {@link #stronger} 로 1.0 에서 가장 먼 하나를 고른다.
 	 *
 	 * <p>지금 {@code mob_spawn_rate} 를 쓰는 정의는 <b>세트 「화력 4」 하나뿐</b>이라, 이 줄이
-	 * 빠지면 그 효과 타입이 통째로 무동작이 된다. 실제로 한 번 그 상태로 있었다.
+	 * 빠지면 그 효과 타입이 통째로 무동작이 된다.
 	 *
 	 * @param owned      그 팀의 보유 증강 id
 	 * @param setEffects 그 팀에 켜져 있는 세트 효과. 세트를 안 보는 자리는 빈 목록을 넘긴다
@@ -325,8 +314,7 @@ public final class MobPerkModifiers {
 	/**
 	 * 효과 목록에서 스폰율 몫만 골라 모두 곱한다. {@code mob_spawn_rate} 가 아닌 효과는 1.0.
 	 *
-	 * <p>레지스트리도 팀도 보지 않는 순수 계산이다. 증강 하나 안의 효과들에도, 한 팀이 보유한
-	 * 증강 전체에도 같은 곱셈이 걸리므로 시험은 이 하나로 둘 다 확인할 수 있다.
+	 * <p>레지스트리도 팀도 보지 않는 순수 계산이다.
 	 */
 	static double productOfSpawnRates(Iterable<? extends PerkEffect> effects) {
 		double total = 1.0;
@@ -341,8 +329,7 @@ public final class MobPerkModifiers {
 	/**
 	 * 팀별로 구한 스폰율 배율을 하나로 합친다.
 	 *
-	 * <p>{@link #spawnRateOf} 가 쓰는 규칙과 같다. 팀 목록을 만들지 않고도 시험할 수 있게
-	 * 따로 떼 두었다.
+	 * <p>{@link #spawnRateOf} 가 쓰는 규칙과 같다.
 	 */
 	static double combineSpawnRates(double... teamRates) {
 		if (!spawnRatePerksEnabled()) {
@@ -375,8 +362,6 @@ public final class MobPerkModifiers {
 	 * <p>바닐라는 청크마다 정확히 한 번 돈다. 배율 1.35 를 「1.35번」 돌 수는 없으므로
 	 * <b>정수 부분만큼 돌고 소수 부분은 확률로</b> 돈다. 1.35 면 65% 확률로 1번, 35% 확률로
 	 * 2번이라 기댓값이 정확히 1.35 가 된다. 0.5 면 절반은 아예 건너뛴다.
-	 *
-	 * <p>주사위를 밖에서 받는 것은 시험에서 결과를 못박기 위해서다.
 	 *
 	 * @param multiplier 합성된 스폰율 배율
 	 * @param roll       0 이상 1 미만의 난수

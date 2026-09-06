@@ -26,11 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 최대 체력을 올리는 증강({@code max_health_bonus})이 실제로 붙는지 본다.
  *
- * <p>예전에는 이 증강을 {@code attribute} + {@code minecraft:max_health} 로 적었는데,
- * {@code MaxHealthAttribute} 가 팀원의 최대 체력을 팀 공유 상한과 똑같아지도록 덮어써 버려서
- * 그 보너스가 매번 정확히 상쇄됐다. 그래서 보너스를 "속성에 더하는 값"이 아니라 "팀 상한을
- * 계산할 때 더하는 값"으로 옮겼다.
- *
  * <p>속성 수정자를 실제로 거는 자리는 {@code MaxHealthAttribute} 이고 그건 살아 있는
  * 플레이어가 있어야 확인할 수 있다. 여기서는 그 자리에 넘겨줄 목표값을 정하는 계산
  * ({@link PerkHealthRules#effectiveMaxHealth})만 확인한다.
@@ -102,8 +97,7 @@ class MaxHealthBonusEffectTest {
 		PerkRegistry.load(pool(dir));
 
 		// max_health_bonus 가 생기기 전의 정의다. 이렇게 적힌 설정 파일이 이미 깔려 있으므로
-		// 그대로 돌아가야 한다. 예전에는 상한이 그대로여서 MaxHealthAttribute 가 이 수정자를
-		// 정확히 상쇄했고, 그래서 증강이 아무 일도 하지 않았다.
+		// 그대로 돌아가야 한다.
 		assertEquals(6.0, PerkHealthRules.bonusMaxHealth(perkTeam("sharedfate:예전피통")));
 		assertEquals(26.0F, PerkHealthRules.effectiveMaxHealth(perkTeam("sharedfate:예전피통")));
 	}

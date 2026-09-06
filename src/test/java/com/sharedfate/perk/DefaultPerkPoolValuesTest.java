@@ -33,11 +33,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 번들 기본 증강 풀({@code sharedfate-perks-default.json})에 2026-09-01에 고친 값들이
- * 실제로 그 값 그대로 들어갔는지 본다.
+ * 번들 기본 증강 풀({@code sharedfate-perks-default.json})의 값들이 실제로 그 값 그대로
+ * 들어갔는지 본다.
  *
- * <p>{@code MaxHealthBonusEffectTest}의 "기본 풀" 절과 같은 방식이다 — JSON 을 다시 읽어
- * 숫자 하나를 눈으로 확인하는 대신, 여기 넣어 두면 다음에 또 조정할 때 회귀를 잡는다.
+ * <p>값을 다시 조정할 때 회귀를 잡는다.
  */
 class DefaultPerkPoolValuesTest {
 
@@ -60,8 +59,8 @@ class DefaultPerkPoolValuesTest {
 		// amount 가 양수면 modifier > 1 이 되어 오히려 안 미끄러워진다 — 반드시 음수여야 한다.
 		//
 		// amount=-1.0 은 modifier=0 을 만들어 어느 블록에서든 결과가 clamp 상한인 1 로
-		// 못박힌다 — "2배 더 미끄럽게" 요청에 맞춰 -0.5(보통 땅 0.6→0.8, 기준보다 +0.2)에서
-		// 미끄러움 증가분(1-modifier)을 두 배로 올린 값이자, 이 공식이 낼 수 있는 최댓값이다.
+		// 못박힌다 — -0.5(보통 땅 0.6→0.8, 기준보다 +0.2)에서 미끄러움 증가분(1-modifier)을
+		// 두 배로 올린 값이자, 이 공식이 낼 수 있는 최댓값이다.
 		assertTrue(friction.amount() < 0.0, "부호가 양수면 오히려 덜 미끄러워진다");
 		assertEquals(-1.0, friction.amount(), 1.0e-9);
 	}
@@ -139,10 +138,9 @@ class DefaultPerkPoolValuesTest {
 	}
 
 	/**
-	 * 두 번째 점프는 바닐라 기본 점프의 1.7배다.
+	 * 두 번째 점프는 바닐라 기본 점프의 1.5배다.
 	 *
-	 * <p>{@code LivingEntity.BASE_JUMP_POWER} 가 0.42 이므로 0.42 × 1.7 = 0.714 다. 첫 점프에
-	 * 붙는 점프력 +50%(0.63)와 값을 맞추던 예전과 달리, 이제 <b>두 번째가 첫 번째보다 세다.</b>
+	 * <p>{@code LivingEntity.BASE_JUMP_POWER} 가 0.42 이므로 0.42 × 1.5 = 0.63 이다.
 	 */
 	@Test
 	void 허공답보의_두_번째_점프는_기본의_1_5배다(@TempDir Path dir) throws IOException {
@@ -174,9 +172,8 @@ class DefaultPerkPoolValuesTest {
 
 	@Test
 	void 굴착기는_속성으로_3배_빨라지고_공격력_15퍼센트를_잃는다(@TempDir Path dir) throws IOException {
-		// 예전에는 mining_speed ×3 이었는데 그 길로는 절대 빨라지지 않는다 — 그 타입은 서버에서만
-		// 계산되고, 26.2 에서 블록이 부서지는 시점은 클라이언트의 STOP_DESTROY_BLOCK 이 정한다.
-		// 그래서 이득이 0인 채로 광석 페널티만 물고 있었다(2026-09-02 확인).
+		// mining_speed 로는 절대 빨라지지 않는다 — 그 타입은 서버에서만 계산되고, 26.2 에서
+		// 블록이 부서지는 시점은 클라이언트의 STOP_DESTROY_BLOCK 이 정한다.
 		// block_break_speed 는 setSyncable(true) 라 클라이언트까지 내려가 양쪽이 같은 값을 본다.
 		// 자세한 것은 PlayerMiningSpeedMixin 과 MiningSpeedEffect 의 클래스 주석에 있다.
 		Perk perk = perk(dir, "sharedfate:excavator");
@@ -283,12 +280,7 @@ class DefaultPerkPoolValuesTest {
 	/**
 	 * 두 증강에는 <b>대가가 없다.</b>
 	 *
-	 * <p>거쳐 온 길이 있다. 처음에는 최대 체력을 깎았고(숨은 재능 −4, 하늘의 은총 −8), 그것이
-	 * 팀 전체의 목숨을 줄여 증강을 고르지 않은 사람에게까지 손해를 옮기므로 받는 피해 배율로
-	 * 바꿨다. 지금은 그것마저 뺐다 — <b>「덤으로 한 장 더」 자체가 이미 이 구간의 카드 한 장을
-	 * 쓴 것</b>이라, 골라 놓고 대가까지 무는 것은 이중으로 값을 치르는 셈이었다.
-	 *
-	 * <p>그래서 이 시험이 지키는 것은 「효과가 지급 하나뿐인가」다. 대가를 다시 붙이고 싶어지면
+	 * <p>이 시험이 지키는 것은 「효과가 지급 하나뿐인가」다. 대가를 다시 붙이고 싶어지면
 	 * 여기가 먼저 깨진다.
 	 */
 	@Test
@@ -347,8 +339,7 @@ class DefaultPerkPoolValuesTest {
 	 * 그 효과를 쓰는 증강만 풀에서 사라진다. 서버 로그의 「건너뜀 N개」를 사람이 보지 않으면
 	 * 알아챌 방법이 없다.
 	 *
-	 * <p>실제로 0.19.0-dev 에서 효과 타입 일곱을 한꺼번에 넣으면서 이 자리를 지날 뻔했다.
-	 * 등급별 개수까지 함께 세는 것은 증강을 더할 때 등급을 잘못 적는 것을 잡기 위해서다.
+	 * <p>등급별 개수까지 함께 세는 것은 증강을 더할 때 등급을 잘못 적는 것을 잡기 위해서다.
 	 */
 	@Test
 	void 기본_풀은_하나도_버려지지_않고_읽힌다(@TempDir Path dir) throws IOException {
@@ -364,7 +355,7 @@ class DefaultPerkPoolValuesTest {
 		assertEquals(32, gold, "골드");
 		assertEquals(19, prism, "프리즘");
 
-		// 0.19.0-dev 에서 새 효과 타입과 함께 들어온 넷. 등록을 빠뜨리면 여기서 먼저 걸린다.
+		// 등록을 빠뜨리면 여기서 먼저 걸린다.
 		for (String id : new String[] {"sharedfate:grounded_guard", "sharedfate:arcane_workshop",
 				"sharedfate:diamond_sundial", "sharedfate:final_movement"}) {
 			assertTrue(PerkRegistry.byId(id).isPresent(), id + " 가 풀에서 빠졌다");

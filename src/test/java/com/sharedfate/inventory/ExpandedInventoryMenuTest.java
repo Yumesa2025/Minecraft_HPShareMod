@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -134,7 +135,9 @@ class ExpandedInventoryMenuTest {
 	}
 
 	@Test
-	void 추가_슬롯의_쉬프트_클릭은_바닐라_메인_인벤토리로_이동한다() {
+	void 추가_슬롯의_쉬프트_클릭은_빈_핫바를_먼저_채운다() {
+		// 바닐라는 인벤토리 세 줄에서 쉬프트 클릭하면 핫바로 보낸다. 추가 세 줄도 화면에서는
+		// 세 줄 바로 아래에 있는 인벤토리 줄이므로 같은 곳으로 가야 한다.
 		ExpandedInventoryManager.extraFor(null).setClientActive(true);
 		Inventory inventory = new Inventory(null, new EntityEquipment());
 		InventoryMenu menu = new InventoryMenu(inventory, true, null);
@@ -144,7 +147,101 @@ class ExpandedInventoryMenuTest {
 
 		assertEquals(3, moved.getCount());
 		assertTrue(menu.getSlot(46).getItem().isEmpty());
-		assertEquals(3, menu.getSlot(9).getItem().getCount());
+		assertEquals(3, menu.getSlot(InventoryMenu.USE_ROW_SLOT_START).getItem().getCount(),
+				"핫바 첫 칸으로 가야 한다");
+		assertTrue(menu.getSlot(InventoryMenu.INV_SLOT_START).getItem().isEmpty());
+	}
+
+	@Test
+	void 핫바가_가득_차면_추가_슬롯의_쉬프트_클릭이_위_세_줄로_간다() {
+		ExpandedInventoryManager.extraFor(null).setClientActive(true);
+		Inventory inventory = new Inventory(null, new EntityEquipment());
+		InventoryMenu menu = new InventoryMenu(inventory, true, null);
+		for (int index = InventoryMenu.USE_ROW_SLOT_START;
+				index < InventoryMenu.USE_ROW_SLOT_END; index++) {
+			menu.getSlot(index).set(new ItemStack(Items.COBBLESTONE, 64));
+		}
+		menu.getSlot(46).set(new ItemStack(Items.DIAMOND, 3));
+
+		ItemStack moved = menu.quickMoveStack(null, 46);
+
+		assertEquals(3, moved.getCount());
+		assertEquals(3, menu.getSlot(InventoryMenu.INV_SLOT_START).getItem().getCount());
+	}
+
+	// --------------------------------------------------------- 장비 쉬프트 클릭
+
+	/**
+	 * 추가 칸의 갑옷이 곧바로 입혀지려면 <b>바닐라와 같은 칸 계산</b>이 필요하다.
+	 *
+	 * <p>바닐라 {@code InventoryMenu.quickMoveStack} 은 {@code 8 - getIndex()} 로 방어구 칸을
+	 * 찾는다. 여기가 어긋나면 아래 줄에서 쉬프트 클릭한 투구가 신발 칸으로 날아간다.
+	 */
+	@Test
+	void 방어구_칸_번호가_바닐라_계산과_같다() {
+		assertEquals(5, ExpandedInventoryMoves.armorMenuSlot(EquipmentSlot.HEAD));
+		assertEquals(6, ExpandedInventoryMoves.armorMenuSlot(EquipmentSlot.CHEST));
+		assertEquals(7, ExpandedInventoryMoves.armorMenuSlot(EquipmentSlot.LEGS));
+		assertEquals(8, ExpandedInventoryMoves.armorMenuSlot(EquipmentSlot.FEET));
+		assertEquals(InventoryMenu.ARMOR_SLOT_START,
+				ExpandedInventoryMoves.armorMenuSlot(EquipmentSlot.HEAD));
+		assertEquals(InventoryMenu.ARMOR_SLOT_END - 1,
+				ExpandedInventoryMoves.armorMenuSlot(EquipmentSlot.FEET));
+	}
+
+	/** 손·왼손·말 갑옷은 방어구 칸이 아니다. {@code BODY} 는 번호가 발과 겹치므로 특히 중요하다. */
+	@Test
+	void 방어구가_아닌_장비는_방어구_칸을_고르지_않는다() {
+		for (EquipmentSlot slot : new EquipmentSlot[] {
+				EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND,
+				EquipmentSlot.BODY, EquipmentSlot.SADDLE}) {
+			assertEquals(ExpandedInventoryMoves.NO_SLOT,
+					ExpandedInventoryMoves.armorMenuSlot(slot), slot.getName());
+		}
+	}
+
+	/** 입을 수 없는 물건은 플레이어를 건드리지 않고 {@code MAINHAND} 로 끝난다. */
+	@Test
+	void 입을_수_없는_물건은_장비_판정을_건너뛴다() {
+		assertEquals(EquipmentSlot.MAINHAND,
+				ExpandedInventoryMoves.equipmentSlotFor(null, new ItemStack(Items.DIAMOND)));
+		assertEquals(EquipmentSlot.MAINHAND,
+				ExpandedInventoryMoves.equipmentSlotFor(null, new ItemStack(Items.DIAMOND_HELMET)),
+				"플레이어가 없으면 바닐라 판정을 부를 수 없으므로 손으로 본다");
+	}
+
+	/**
+	 * 갑옷에는 {@code equippable} 성분이 붙어 있다 — 이것이 없으면 장비 쉬프트 클릭이
+	 * 통째로 죽는다.
+	 */
+	@Test
+	void 갑옷은_스스로_어느_칸에_들어가는지_말해_준다() {
+		var helmet = new ItemStack(Items.DIAMOND_HELMET)
+				.get(net.minecraft.core.component.DataComponents.EQUIPPABLE);
+		assertTrue(helmet != null, "equippable 성분이 사라지면 장비 판정이 통째로 죽는다");
+		assertEquals(EquipmentSlot.HEAD, helmet.slot());
+	}
+
+	/**
+	 * 우리가 되풀이하는 바닐라 판정이 <b>그 자리에 그대로</b> 있는지 못박는다.
+	 *
+	 * <p>refmap 이 없으므로 대상이 틀려도 빌드는 통과한다.
+	 */
+	@Test
+	void 인벤토리_화면의_칸_번호와_대상_메서드가_그대로다() {
+		assertEquals(5, InventoryMenu.ARMOR_SLOT_START);
+		assertEquals(9, InventoryMenu.ARMOR_SLOT_END);
+		assertEquals(9, InventoryMenu.INV_SLOT_START);
+		assertEquals(36, InventoryMenu.INV_SLOT_END);
+		assertEquals(36, InventoryMenu.USE_ROW_SLOT_START);
+		assertEquals(45, InventoryMenu.USE_ROW_SLOT_END);
+		assertEquals(45, InventoryMenu.SHIELD_SLOT);
+		assertDoesNotThrow(() -> InventoryMenu.class.getDeclaredMethod(
+						"quickMoveStack", net.minecraft.world.entity.player.Player.class, int.class),
+				"이 서술자가 바뀌면 추가 칸의 쉬프트 클릭이 통째로 죽는다");
+		assertDoesNotThrow(() -> net.minecraft.world.entity.LivingEntity.class.getDeclaredMethod(
+						"getEquipmentSlotForItem", ItemStack.class),
+				"바닐라와 같은 장비 칸 판정을 부르지 못하면 착용 금지 증강까지 새어 나간다");
 	}
 
 	@Test
@@ -263,8 +360,8 @@ class ExpandedInventoryMenuTest {
 
 	@Test
 	void 상자의_추가_27칸은_인벤토리_바로_아래_창_안쪽에_있다() {
-		// 예전에는 창 오른쪽 바깥(x 184~237)에 붙어 있었다. 창 밖이라 바닐라가
-		// 「창 밖을 눌렀다」로 읽고 들고 있던 아이템을 바닥에 버렸다.
+		// 창 밖(x 184~237)에 있으면 바닐라가 「창 밖을 눌렀다」로 읽고
+		// 들고 있던 아이템을 바닥에 버린다.
 		ExpandedInventoryManager.extraFor(null).setClientActive(true);
 		Inventory inventory = new Inventory(null, new EntityEquipment());
 		ChestMenu menu = ChestMenu.threeRows(1, inventory);
@@ -336,7 +433,7 @@ class ExpandedInventoryMenuTest {
 		ExpandedInventoryManager.extraFor(null).setClientActive(true);
 		Inventory inventory = new Inventory(null, new EntityEquipment());
 		CraftingMenu menu = new CraftingMenu(1, inventory);
-		// 제작 격자를 먼저 채워 둡니다. 비어 있으면 바닐라가 그리로 먼저 보냅니다.
+		// 제작 격자를 먼저 채워 둔다. 비어 있으면 바닐라가 그리로 먼저 보낸다.
 		for (int index = 1; index < 37; index++) {
 			menu.getSlot(index).set(new ItemStack(Items.COBBLESTONE, 64));
 		}

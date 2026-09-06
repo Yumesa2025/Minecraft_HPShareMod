@@ -19,10 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 부분(짝 성사 기억 판정)을 본다.
  *
  * <p>실제로 캘 때 성급함이 걸리는지는 살아 있는 서버·{@code ServerPlayer}가 있어야 확인할 수
- * 있어({@code PositionSwapManagerTest}와 같은 이유) 여기서 다루지 않는다.
- *
- * <p>「16칸 거리 조건」과 「혼자면 채굴 속도 −15%」는 없앴다. 그 규칙을 계산하던 코드가 통째로
- * 사라졌으므로 그것을 향하던 시험도 함께 지웠다.
+ * 있으므로 여기서 다루지 않는다.
  */
 class PairedMiningEffectTest {
 

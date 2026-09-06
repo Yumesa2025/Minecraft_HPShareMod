@@ -30,7 +30,6 @@ import java.util.List;
  * <h2>이 클래스가 하지 않는 일</h2>
  * <p>여기는 "무엇을 얼마 동안 얹을 것인가"만 들고 있는 자료 그릇이다. "누가 언제 맞았는가"를
  * 보고 실제로 얹는 일은 {@link com.sharedfate.perk.PerkTriggers} 가 맡는다.
- * {@code on_kill} 과 {@link com.sharedfate.perk.PerkKillRewards} 의 관계와 같은 구도다.
  *
  * <p>얹는 것은 상태이상과 속성 수정자뿐이라 공유 체력·허기 풀을 건드리지 않는다. 팀원 넷에게
  * 저항을 걸어도 늘어나는 것은 각자의 저항이지 공유 풀이 아니므로, 인원수만큼 배수로 들어가는

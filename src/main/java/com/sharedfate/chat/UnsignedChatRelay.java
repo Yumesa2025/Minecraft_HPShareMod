@@ -32,7 +32,7 @@ import net.minecraft.server.dedicated.DedicatedServer;
  * 비트를 참으로 말한 서버는 {@code ClientboundPlayerChatPacket} 을 <b>한 장도 보내면 안
  * 된다.</b> 대신 같은 내용을 {@code ClientboundDisguisedChatPacket} 으로 보낸다. 이 패킷도
  * {@code ChatType.Bound} 를 그대로 싣기 때문에 클라이언트가 {@code <이름> 내용} 꼴로 똑같이
- * 꾸며 준다 — 우리가 형식을 다시 만들 필요가 없다.
+ * 꾸며 준다.
  *
  * <p>서버에서 {@code ClientboundPlayerChatPacket} 을 만드는 자리는 26.2 통틀어
  * {@code ServerGamePacketListenerImpl.sendPlayerChatMessage} 하나뿐이다(그 밖의 참조는 패킷

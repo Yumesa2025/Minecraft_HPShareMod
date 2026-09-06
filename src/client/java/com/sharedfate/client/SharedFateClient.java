@@ -182,8 +182,7 @@ public class SharedFateClient implements ClientModInitializer {
 
 		// 「장님 거인」 처럼 HUD 를 가리는 증강. 바닐라 요소를 지우지 않고 "가려야 할 때만
 		// 건너뛰는" 껍데기로 감싼다. removeElement 는 되돌릴 수 없어 증강을 잃어도 영영
-		// 안 보이고, Gui/Hud 에 mixin 을 거는 길은 26.2 에서 그리기 메서드가 전부 private
-		// extract* 로 바뀌어 버전마다 깨지기 쉽다. 이 길이 둘 다 피한다.
+		// 안 보인다.
 		hideWhenPerkSays(VanillaHudElements.HEALTH_BAR, HideHudEffect.Element.HEALTH);
 		hideWhenPerkSays(VanillaHudElements.FOOD_BAR, HideHudEffect.Element.FOOD);
 		hideWhenPerkSays(VanillaHudElements.ARMOR_BAR, HideHudEffect.Element.ARMOR);
@@ -224,7 +223,7 @@ public class SharedFateClient implements ClientModInitializer {
 	/**
 	 * 선택자 뽑기 연출을 연다.
 	 *
-	 * <p>선택창과 같은 이유로 사망 화면만은 밀어내지 않는다. 연출을 못 봐도 곧이어 오는
+	 * <p>사망 화면만은 밀어내지 않는다. 연출을 못 봐도 곧이어 오는
 	 * 선택창이 알아서 뜨고, 그마저 못 봐도 서버가 시간이 다 되면 대신 골라 준다.
 	 */
 	private static void openDrawScreen(Minecraft client, PerkDrawPayload payload) {

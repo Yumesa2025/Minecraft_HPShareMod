@@ -55,7 +55,7 @@ public abstract class LivingEntityPerkDamageMixin {
 	 *       {@link com.sharedfate.sync.GameStartManager#blocksDamage} 에 있다.</li>
 	 *   <li><b>방패를 든 채 착지</b> — {@code shield_fall_immunity} 를 가진 팀원이 방패로 막는
 	 *       중에 받는 낙하 피해는 통째로 버린다. 배율을 0 으로 깎지 않고 여기서 버리는 이유는
-	 *       {@link com.sharedfate.perk.effect.ShieldFallImmunityEffect} 에 적어 뒀다. 낙하가 아닌
+	 *       {@link com.sharedfate.perk.effect.ShieldFallImmunityEffect} 에 있다. 낙하가 아닌
 	 *       피해는 {@link PerkDamage#blocksFallDamage} 첫 줄에서 곧바로 빠져나간다.</li>
 	 *   <li><b>공유 상태이상의 중복 피해</b> — 아래 설명 참고.</li>
 	 * </ol>
@@ -66,7 +66,7 @@ public abstract class LivingEntityPerkDamageMixin {
 	 *
 	 * <p>배율을 먹이는 {@link #sharedfate$applyPerkDamageMultipliers} 와 같은 HEAD 에 붙지만
 	 * 순서는 상관없다. 버릴 피해면 배율을 곱한 값도 함께 버려지고, 실제로 피해를 받는 대표
-	 * 한 명에게는 배율이 정확히 한 번 걸린다. 즉 증강의 {@code damage_taken} 배율은 예전처럼
+	 * 한 명에게는 배율이 정확히 한 번 걸린다. 즉 증강의 {@code damage_taken} 배율은
 	 * 팀원 수만큼이 아니라 1인분에만 곱해진다.
 	 */
 	@Inject(method = "hurtServer", at = @At("HEAD"), cancellable = true)
@@ -90,10 +90,9 @@ public abstract class LivingEntityPerkDamageMixin {
 	 * 인자 셋 중 {@code float amount}(로컬 3번)만 바꾼다. {@code argsOnly} 로 지역변수는 건드리지
 	 * 않고, 앞쪽 인자 둘은 캡처해 피해원을 넘겨받는다.
 	 *
-	 * <p>증강 배율을 먹인 값에 이어서 「난이도 상승」배율을 곱한다. 새 mixin 을 하나 더 두는
-	 * 대신 여기서 이어 부르는 이유는 둘이다 — 같은 자리에 두 mixin 이 붙으면 어느 쪽이 먼저
-	 * 도는지가 우선순위에 달려 눈에 안 보이고, 이미 동작이 확인된 진입점을 그대로 쓰는 편이
-	 * 안전하다. 둘 다 곱셈이라 순서는 어차피 결과를 바꾸지 않는다.
+	 * <p>증강 배율을 먹인 값에 이어서 「난이도 상승」배율을 곱한다. 같은 자리에 두 mixin 이
+	 * 붙으면 어느 쪽이 먼저 도는지가 우선순위에 달려 눈에 안 보인다. 둘 다 곱셈이라 순서는
+	 * 어차피 결과를 바꾸지 않는다.
 	 */
 	@ModifyVariable(method = "hurtServer", at = @At("HEAD"), argsOnly = true, index = 3)
 	private float sharedfate$applyPerkDamageMultipliers(float amount, ServerLevel level, DamageSource source) {

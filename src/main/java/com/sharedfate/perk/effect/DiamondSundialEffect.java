@@ -33,14 +33,12 @@ import java.util.Optional;
  * </pre>
  *
  * <p>세 값 모두 생략할 수 있고, 생략하면 {@link #DEFAULT_RADIUS}·{@link #DEFAULT_COOLDOWN_SECONDS}·
- * {@link #DEFAULT_MAX_RESULTS} 다. 범위를 벗어난 값은 정의를 버리지 않고 범위 안으로 자른다 —
- * 이 증강의 핵심은 "다이아몬드가 보인다"이지 정확한 반경이 아니므로, 오타 하나로 증강 전체가
- * 사라지는 편이 더 나쁘다.
+ * {@link #DEFAULT_MAX_RESULTS} 다. 범위를 벗어난 값은 정의를 버리지 않고 범위 안으로 자른다.
  *
  * <h2>새 아이템을 등록하지 않는다</h2>
- * <p>이 모드는 지금까지 바닐라 아이템만 써 왔다. 아이템을 새로 등록하면 텍스처와 등록이
- * 클라이언트에도 필요해져 「모드를 안 깐 사람도 들어올 수 있다」는 전제가 깨진다. 그래서
- * 해시계는 <b>바닐라 {@code minecraft:clock}</b> 에 이름과 표식을 붙인 것이다.
+ * <p>아이템을 새로 등록하면 텍스처와 등록이 클라이언트에도 필요해져 「모드를 안 깐 사람도
+ * 들어올 수 있다」는 전제가 깨진다. 그래서 해시계는 <b>바닐라 {@code minecraft:clock}</b> 에
+ * 이름과 표식을 붙인 것이다.
  *
  * <ul>
  *   <li><b>표식</b> — {@code minecraft:custom_data} 에 {@code {sharedfate_item: "diamond_sundial"}}
@@ -59,7 +57,6 @@ import java.util.Optional;
  * 않는다.</b> 두 메서드는 접속·부활·효과 갱신 때마다 다시 불리므로 거기서 주면 접속할 때마다
  * 해시계가 늘어난다. 지급은 {@code PerkManager.commit} → {@code PerkGrantChain.run} 이 지나는
  * 한 곳뿐이고, 실제 전달은 {@link com.sharedfate.perk.PerkDiamondSundial#grantOnChoice} 가 맡는다.
- * {@code item_grant} 로 주지 않는 이유는 커스텀 컴포넌트를 붙여야 하기 때문이다.
  *
  * <h2>왜 {@code minecraft:end_rod} 파티클인가</h2>
  * <p>다이아몬드를 찾는 곳은 빛이 없는 굴속이다. 26.2 의 파티클은 대부분 자기 자리의 블록 밝기를
@@ -67,13 +64,12 @@ import java.util.Optional;
  * {@code SimpleAnimatedParticle} 을 상속하고 그 클래스의 {@code getLightCoords} 가 언제나
  * {@code 15728880}(최대 밝기)을 돌려준다. 즉 <b>칠흑 같은 굴에서도 그대로 하얗게 보인다.</b>
  * 반대로 {@code minecraft:happy_villager}({@code SuspendedTownParticle})는 그 메서드를
- * 재정의하지 않아 어두운 곳에서 거의 보이지 않는다. 그래서 초록색이 「찾았다」에 더 어울림에도
- * 끝막대를 골랐다.
+ * 재정의하지 않아 어두운 곳에서 거의 보이지 않는다.
  *
  * <h2>이 클래스가 하지 않는 일</h2>
  * <p>여기는 값과 아이템 모양만 들고 있는 자료 그릇이다. 우클릭을 잡고, 청크를 훑고, 파티클과
  * 액션바를 보내고, 쿨타임을 거는 일은 전부 {@link com.sharedfate.perk.PerkDiamondSundial} 이
- * 한다. {@code ore_exchange} 와 {@link com.sharedfate.perk.PerkOreExchange} 의 관계와 같은 구도다.
+ * 한다.
  */
 public final class DiamondSundialEffect implements PerkEffect {
 	/** 기본 탐지 반경(칸). 30칸은 훑을 블록이 두 배 넘게 늘어 잠깐 멈출 수 있어 20으로 잡았다. */
@@ -108,10 +104,10 @@ public final class DiamondSundialEffect implements PerkEffect {
 	public static final Identifier COOLDOWN_GROUP = SharedFateMod.id("diamond_sundial");
 
 	/**
-	 * 광석 자리에 띄우는 파티클. 고른 이유는 클래스 문서에 적어 뒀다.
+	 * 광석 자리에 띄우는 파티클.
 	 *
-	 * <p>상수가 아니라 메서드인 것은 {@link ItemGrantEffect} 가 아이템을 미루는 것과 같은
-	 * 이유다 — 정의를 읽는 시점에 {@code ParticleTypes} 를 건드리지 않게 해 둔다.
+	 * <p>상수가 아니라 메서드인 것은 정의를 읽는 시점에 {@code ParticleTypes} 를 건드리지 않기
+	 * 위해서다.
 	 */
 	public static SimpleParticleType particle() {
 		return ParticleTypes.END_ROD;
@@ -230,8 +226,6 @@ public final class DiamondSundialEffect implements PerkEffect {
 	/**
 	 * 시계 하나를 해시계로 만든다. 표식·이름·쿨타임 묶음을 붙인다.
 	 *
-	 * <p>시험이 살아 있는 레지스트리 없이도 부를 수 있도록 따로 뺐다.
-	 *
 	 * @param cooldownSeconds {@code minecraft:use_cooldown} 에 적을 초. 이 컴포넌트는 <b>묶음 이름을
 	 *                        정하려고</b> 붙이는 것이라 실제로 쿨타임을 거는 것은 이 값이 아니다.
 	 *                        그래도 정의와 어긋난 숫자를 남기지 않도록 같은 값을 적어 둔다.
@@ -251,8 +245,7 @@ public final class DiamondSundialEffect implements PerkEffect {
 	/**
 	 * 이 묶음이 해시계인가.
 	 *
-	 * <p>이름이 아니라 {@code minecraft:custom_data} 의 표식으로 판정한다. 이유는 클래스 문서에
-	 * 적어 뒀다.
+	 * <p>이름이 아니라 {@code minecraft:custom_data} 의 표식으로 판정한다.
 	 */
 	public static boolean isSundial(@Nullable ItemStack stack) {
 		if (stack == null || stack.isEmpty()) {

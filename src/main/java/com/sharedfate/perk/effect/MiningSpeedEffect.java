@@ -27,15 +27,13 @@ import net.minecraft.world.level.block.state.BlockState;
  * </ul>
  *
  * <p>빠르게 하려면 <b>{@code minecraft:block_break_speed} 속성</b>을 써야 한다. 그 속성은
- * {@code setSyncable(true)} 라 클라이언트까지 자동으로 내려가 양쪽이 같은 값을 본다. 실제로
- * 골드 「굴착기」가 여기에 ×3 을 적어 두고 <b>이득 없이 광석 페널티만</b> 물다가 2026-09-02 에
- * 속성 방식으로 옮겨졌다. 정의를 읽을 때 1보다 크면 경고를 남긴다.
+ * {@code setSyncable(true)} 라 클라이언트까지 자동으로 내려가 양쪽이 같은 값을 본다.
+ * 정의를 읽을 때 1보다 크면 경고를 남긴다.
  *
  * <p>이 효과는 팀원에게 붙였다 떼는 것이 아니므로 {@link #apply}/{@link #remove} 는 아무 일도
  * 하지 않는다. 실제로 속도를 깎는 자리는
  * {@link com.sharedfate.perk.PerkBlockBreaks#scaleDestroySpeed} 이고, 거기까지 이어 주는 것은
- * {@code PlayerMiningSpeedMixin} 이다. {@code mob_health} 와
- * {@link com.sharedfate.perk.MobPerkModifiers} 의 관계와 같은 구도다.
+ * {@code PlayerMiningSpeedMixin} 이다.
  */
 public final class MiningSpeedEffect implements PerkEffect {
 	/**
@@ -65,9 +63,7 @@ public final class MiningSpeedEffect implements PerkEffect {
 		}
 
 		if (multiplier > 1.0) {
-			// 정의는 살려 두되 반드시 알린다. 이 타입은 느리게 하는 데만 쓸 수 있다 —
-			// 위 문단과 PlayerMiningSpeedMixin 을 보라. 실제로 「굴착기」가 ×3 을 적어 두고
-			// 아무 일도 하지 않은 채 광석 페널티만 물었다.
+			// 정의는 살려 두되 반드시 알린다. 이 타입은 느리게 하는 데만 쓸 수 있다.
 			SharedFateMod.LOGGER.warn(
 					"증강 {}: mining_speed 의 multiplier 가 1 보다 큽니다 ({}). 이 타입은 서버에서만 "
 							+ "계산되고 채굴 완료는 클라이언트가 정하므로 빨라지는 쪽은 효과가 없습니다. "

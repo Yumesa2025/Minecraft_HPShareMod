@@ -35,23 +35,23 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 인챈트의 대가가 경험치 레벨에서 다이아몬드로 바뀌었는지 <b>진짜 메뉴로</b> 확인합니다.
+ * 인챈트의 대가가 경험치 레벨이 아니라 다이아몬드인지 <b>진짜 메뉴로</b> 확인한다.
  *
- * <p>여기서 만드는 것은 바닐라 {@link EnchantmentMenu} 그 자체입니다. 아래 단언은
- * {@code EnchantmentMenuDiamondMixin} 이 실제로 붙어야만 통과합니다 — 붙지 않으면 레벨 0
- * 인 플레이어는 어느 칸도 누르지 못하고, 다이아몬드는 아예 보지도 않습니다.
+ * <p>여기서 만드는 것은 바닐라 {@link EnchantmentMenu} 그 자체다. 아래 단언은
+ * {@code EnchantmentMenuDiamondMixin} 이 실제로 붙어야만 통과한다 — 붙지 않으면 레벨 0
+ * 인 플레이어는 어느 칸도 누르지 못하고, 다이아몬드는 아예 보지도 않는다.
  *
- * <p><b>플레이어를 만드는 방법에 대하여.</b> {@code Player} 의 생성자는 {@code Level} 을
+ * <p><b>플레이어를 만드는 방법.</b> {@code Player} 의 생성자는 {@code Level} 을
  * 요구하고, {@code Level} 의 생성자는 생물군계·피해 종류 같은 데이터팩 레지스트리를
- * 요구합니다. 시험 한 판을 위해 월드를 통째로 세울 수는 없으므로, 생성자를 건너뛰고
- * <b>이 시험이 실제로 쓰는 세 가지만</b>(인벤토리, 능력, 난수) 채운 껍데기를 씁니다.
+ * 요구한다. 시험 한 판을 위해 월드를 통째로 세울 수는 없으므로, 생성자를 건너뛰고
+ * <b>이 시험이 실제로 쓰는 세 가지만</b>(인벤토리, 능력, 난수) 채운 껍데기를 쓴다.
  * 인챈트 검사가 플레이어에게서 읽는 것은 그 셋과 {@code experienceLevel}·
- * {@code enchantmentSeed} 뿐입니다.
+ * {@code enchantmentSeed} 뿐이다.
  */
 class EnchantmentDiamondCostTest {
 	private static SharedFateConfig previousConfig;
 
-	/** {@link Player} 는 추상 클래스라 껍데기가 하나 필요합니다. 생성자는 불리지 않습니다. */
+	/** {@link Player} 는 추상 클래스라 껍데기가 하나 필요하다. 생성자는 불리지 않는다. */
 	private static final class HollowPlayer extends Player {
 		private HollowPlayer() {
 			super(null, null);
@@ -105,7 +105,7 @@ class EnchantmentDiamondCostTest {
 		Player player = hollowPlayer(false);
 		EnchantmentMenu menu = readyMenu(player, 0);
 
-		// 앞에 끼우면 바닐라 quickMoveStack 의 상수 2·38 이 어긋납니다.
+		// 앞에 끼우면 바닐라 quickMoveStack 의 상수 2·38 이 어긋난다.
 		assertEquals(0, menu.getSlot(0).getContainerSlot(), "아이템 칸이 0 이어야 한다");
 		assertEquals(1, menu.getSlot(1).getContainerSlot(), "청금석 칸이 1 이어야 한다");
 		assertEquals(9, menu.getSlot(2).getContainerSlot(), "플레이어 인벤토리는 2 에서 시작한다");
@@ -146,7 +146,7 @@ class EnchantmentDiamondCostTest {
 
 	@Test
 	void 인벤토리에_다이아몬드가_많아도_칸이_비면_막힌다() throws Exception {
-		// 예전 판은 인벤토리에서 몰래 걷었습니다. 지금은 칸에 넣어야만 셉니다.
+		// 다이아몬드는 칸에 넣어야만 센다.
 		Player player = hollowPlayer(false);
 		player.getInventory().getNonEquipmentItems().set(0, new ItemStack(Items.DIAMOND, 64));
 		EnchantmentMenu menu = readyMenu(player, 3);
@@ -181,8 +181,8 @@ class EnchantmentDiamondCostTest {
 
 	@Test
 	void 접근자가_비어_있으면_눌려도_다이아몬드가_사라지지_않는다() throws Exception {
-		// 클라이언트의 접근자가 바로 ContainerLevelAccess.NULL 입니다. 여기서 다이아몬드가
-		// 줄면 서버와 즉시 어긋납니다 — 차감이 execute 람다 밖으로 새어 나온 것입니다.
+		// 클라이언트의 접근자가 바로 ContainerLevelAccess.NULL 이다. 여기서 다이아몬드가
+		// 줄면 서버와 즉시 어긋난다 — 차감이 execute 람다 밖으로 새어 나온 것이다.
 		Player player = hollowPlayer(false);
 		EnchantmentMenu menu = readyMenu(player, 3);
 		giveToSlot(menu, 9);
@@ -304,7 +304,7 @@ class EnchantmentDiamondCostTest {
 	@Test
 	void 요구_개수를_화면으로_내려보내는_데이터_칸이_붙는다() throws Exception {
 		// enchant_cost 증강으로 개수가 달라져도 단추와 툴팁이 같은 숫자를 그리려면,
-		// 서버가 계산한 값이 클라이언트까지 가야 합니다. 그 통로가 이 칸입니다.
+		// 서버가 계산한 값이 클라이언트까지 가야 한다. 그 통로가 이 칸이다.
 		Player player = hollowPlayer(false);
 		EnchantmentMenu menu = readyMenu(player, 0);
 		try {
@@ -312,7 +312,7 @@ class EnchantmentDiamondCostTest {
 			assertNotEquals(-1, index, "요구 개수를 실어 보낼 데이터 칸이 있어야 한다");
 			assertEquals(5, dataSlotsOf(menu).get(index).get(), "증강이 없으면 기본값을 보낸다");
 
-			// 클라이언트가 꾸러미를 받았을 때와 같은 자리입니다.
+			// 클라이언트가 꾸러미를 받았을 때와 같은 자리다.
 			menu.setData(index, 1);
 
 			assertEquals(1, EnchantmentDiamondCost.shownDiamonds());
@@ -347,19 +347,19 @@ class EnchantmentDiamondCostTest {
 
 	private static EnchantmentMenu readyMenu(Player player, int lapis) {
 		EnchantmentMenu menu = new EnchantmentMenu(1, player.getInventory());
-		// 인챈트할 물건이 먼저 들어가야 합니다. 비어 있으면 바닐라가 costs 를 0 으로 지웁니다.
+		// 인챈트할 물건이 먼저 들어가야 한다. 비어 있으면 바닐라가 costs 를 0 으로 지운다.
 		menu.getSlot(0).set(new ItemStack(Items.DIAMOND_SWORD));
 		if (lapis > 0) {
 			menu.getSlot(1).set(new ItemStack(Items.LAPIS_LAZULI, lapis));
 		}
-		// costs 는 서버가 월드를 보며 계산합니다. 여기서는 월드가 없으므로 직접 채웁니다.
+		// costs 는 서버가 월드를 보며 계산한다. 여기서는 월드가 없으므로 직접 채운다.
 		menu.costs[0] = 5;
 		menu.costs[1] = 12;
 		menu.costs[2] = 27;
 		return menu;
 	}
 
-	/** 다이아몬드를 <b>칸에</b> 넣습니다. 인벤토리에 넣는 것으로는 이제 세지 않습니다. */
+	/** 다이아몬드를 <b>칸에</b> 넣는다. 인벤토리에 넣는 것으로는 세지 않는다. */
 	private static void giveToSlot(EnchantmentMenu menu, int diamonds) {
 		menu.getSlot(diamondSlotOf(menu)).set(new ItemStack(Items.DIAMOND, diamonds));
 	}

@@ -74,7 +74,7 @@ public class SharedFateMod implements ModInitializer {
 			TeamRosterStore.onServerStarted(server);
 			WorldResetCoordinator.onServerStarted(server);
 			// 발전과제 달성 알림 끄기. 회차마다 월드가 새로 만들어지므로 월드에 한 번 적어
-			// 두는 방식으로는 유지되지 않는다. 까닭은 WorldGameRules 에 적어 뒀다.
+			// 두는 방식으로는 유지되지 않는다.
 			WorldGameRules.onServerStarted(server);
 			// 얼어 있는 채로 서버가 뜨는 일을 막는다. 강제 증강 선택이 남긴 시간 정지든
 			// 다른 이유든, 시작 시점에 멈춰 있으면 무조건 풀고 로그를 남긴다.

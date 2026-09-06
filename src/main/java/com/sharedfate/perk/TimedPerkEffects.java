@@ -17,10 +17,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * {@link PerkEffect#apply}/{@link PerkEffect#remove} 로만 붙였다 뗄 수 있는 효과다. 바닐라에는
  * "3초 뒤에 이 수정자를 떼라"는 장치가 없어서, 걷어낼 시점을 여기서 대신 세어 준다.
  *
- * <h2>왜 상태이상으로 대신하지 않는가</h2>
- * <p>"공격력 10% 증가" 같은 비율 변화를 상태이상으로 흉내 낼 수 없다. 힘은 고정값 +3 이고
- * 나약함은 고정값 −4 라 무기가 무엇이든 같은 양이 움직인다. 작성표가 요구하는 것은 비율이므로
- * {@code attack_damage} 속성에 {@code add_multiplied_total} 수정자를 붙이는 수밖에 없다.
+ * <p><b>상태이상으로 대신할 수 없다.</b> 힘은 공격력을 고정값 <b>+3</b>, 나약함은 <b>−4</b>
+ * 만큼 움직인다. 비율로 오르내리는 값을 상태이상으로 바꾸면 무기가 셀수록 효과가 묽어지고
+ * 약할수록 진해져 의도한 것과 다른 값이 된다.
  *
  * <h2>시각의 기준</h2>
  * <p>{@link com.sharedfate.perk.PeriodicPerkManager} 와 달리 오버월드의 게임 시간을 쓰지 않는다.

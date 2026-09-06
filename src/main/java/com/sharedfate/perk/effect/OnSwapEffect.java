@@ -32,7 +32,6 @@ import java.util.List;
  * <h2>이 클래스가 하지 않는 일</h2>
  * <p>여기는 "무엇을 얼마 동안 얹을 것인가"만 들고 있는 자료 그릇이다. "언제 누구에게"는
  * {@link com.sharedfate.perk.PerkSwapRules} 와 {@code PositionSwapManager} 가 정한다.
- * {@code on_team_hurt} 와 {@link com.sharedfate.perk.PerkTriggers} 의 관계와 같은 구도다.
  *
  * <h2>{@code effects} — 교환 시점에 잠깐 부여할 효과</h2>
  * <p>배열 각 항목은 보통의 효과 정의와 형태가 똑같고 {@link PerkEffectType} 이 재귀적으로

@@ -13,17 +13,10 @@ import java.util.List;
 /**
  * S2C — 세트 효과의 <b>지금 상태</b>와, 툴팁에 「아직 안 가진 것」을 띄우는 데 필요한 목록.
  *
- * <h2>왜 클라이언트가 스스로 세지 못하는가</h2>
  * <p>클라이언트는 증강 풀을 아예 읽지 않는다 — {@code PerkRegistry.load} 를 부르는 자리는
  * {@code SharedFateMod} 한 곳뿐이고 그것은 서버 경로다. 보유 증강조차 id 없이
  * {@code (이름, 설명, 등급)} 문자열로만 받는다({@link PerkSyncPayload}). 그래서 「채굴을 몇 개
  * 가졌는가」도, 「채굴에 무엇이 더 있는가」도 서버가 내려보내야만 화면에 뜬다.
- *
- * <h2>왜 {@link PerkSyncPayload} 에 얹지 않았는가</h2>
- * <p>{@link PerkClientFeaturesPayload} 와 같은 이유다. 기존 레코드에 필드를 더하면 그 패킷을
- * 읽고 쓰는 모든 자리가 함께 바뀐다. 새 패킷을 하나 더 두면 잘못 건드렸을 때 무너지는 범위가
- * 이 패킷 안으로 갇힌다. 보내는 조건도 다르다 — 저쪽은 보유 목록이 바뀔 때, 이쪽은
- * <b>세트 판정 결과</b>가 바뀔 때다.
  *
  * <h2>상한을 두는 이유</h2>
  * <p>{@code ByteBufCodecs.list(max)} 는 상한을 넘는 목록을 만나면 인코딩·디코딩 양쪽에서
@@ -90,9 +83,8 @@ public record PerkSetSyncPayload(List<SetLine> sets, List<TierLine> tiers,
 	/**
 	 * 단계 설명 없이 만든다. <b>「단계를 안 보낸다」는 뜻이지 「단계가 없다」가 아니다.</b>
 	 *
-	 * <p>실제 송신 경로({@code PerkSetBroadcaster})는 언제나 세 인자짜리를 쓴다. 이 생성자는
-	 * 단계와 무관한 것을 보는 시험을 짧게 쓰기 위한 것이다 — 이걸로 보낸 값을 화면이 받으면
-	 * 툴팁에 단계 줄이 한 줄도 안 뜬다.
+	 * <p>실제 송신 경로({@code PerkSetBroadcaster})는 언제나 세 인자짜리를 쓴다. 이걸로 보낸 값을
+	 * 화면이 받으면 툴팁에 단계 줄이 한 줄도 안 뜬다.
 	 */
 	public PerkSetSyncPayload(List<SetLine> sets, List<CatalogEntry> catalog) {
 		this(sets, List.of(), catalog);
@@ -139,9 +131,20 @@ public record PerkSetSyncPayload(List<SetLine> sets, List<TierLine> tiers,
 	 * @param owned         지금 가진 그 유형 증강의 개수
 	 * @param nextThreshold 다음 단계에 필요한 개수. 더 오를 곳이 없으면 0
 	 * @param activeTier    지금 켜져 있는 단계. 하나도 안 켜졌으면 0
+	 * @param intervalTicks 이 유형이 되풀이하는 일의 주기(틱). 지금은 「보급」만 0 보다 크다.
+	 *                      화면이 「다음 보급까지 04:12」를 <b>스스로</b> 세는 데 쓴다. 남은 시간을
+	 *                      싣지 않는 까닭은 {@code com.sharedfate.ui.SupplyCountdown} 머리
+	 *                      주석에 있다 — 이 값은 단계가 바뀔 때만 달라지므로 「달라졌을 때만
+	 *                      보낸다」가 그대로 살아 있다
 	 */
 	public record SetLine(String typeId, String displayName, int owned, int nextThreshold,
-			int activeTier) {
+			int activeTier, int intervalTicks) {
+
+		/** 주기가 없는 유형을 짧게 적는 생성자. */
+		public SetLine(String typeId, String displayName, int owned, int nextThreshold,
+				int activeTier) {
+			this(typeId, displayName, owned, nextThreshold, activeTier, 0);
+		}
 
 		public SetLine {
 			typeId = text(typeId);
@@ -150,6 +153,7 @@ public record PerkSetSyncPayload(List<SetLine> sets, List<TierLine> tiers,
 			owned = Math.max(0, owned);
 			nextThreshold = Math.max(0, nextThreshold);
 			activeTier = Math.max(0, activeTier);
+			intervalTicks = Math.max(0, intervalTicks);
 		}
 
 		/** 세트 효과가 이미 켜져 있는가. */
@@ -164,6 +168,7 @@ public record PerkSetSyncPayload(List<SetLine> sets, List<TierLine> tiers,
 						ByteBufCodecs.VAR_INT, SetLine::owned,
 						ByteBufCodecs.VAR_INT, SetLine::nextThreshold,
 						ByteBufCodecs.VAR_INT, SetLine::activeTier,
+						ByteBufCodecs.VAR_INT, SetLine::intervalTicks,
 						SetLine::new);
 	}
 
@@ -172,9 +177,6 @@ public record PerkSetSyncPayload(List<SetLine> sets, List<TierLine> tiers,
 	 *
 	 * <p>가진 것까지 함께 싣는다. 툴팁이 쓰는 것은 {@code owned == false} 인 것뿐이지만,
 	 * <b>가진 것을 빼고 보내면 「전부 모았다」와 「목록이 잘렸다」를 구별할 수 없다.</b>
-	 *
-	 * <p>id 를 싣지 않는 이유는 클라이언트가 id 로 할 일이 없기 때문이다. 이름과 등급만 있으면
-	 * 툴팁 한 줄이 나온다. 같은 이름이 둘 있어도 툴팁에 두 줄로 뜰 뿐 아무것도 깨지지 않는다.
 	 *
 	 * @param typeId   {@link PerkSetType#id()}. {@link SetLine#typeId()} 와 맞물린다
 	 * @param perkName 증강 이름

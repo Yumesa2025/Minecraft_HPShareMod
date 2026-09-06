@@ -21,7 +21,7 @@ import com.sharedfate.perk.PerkEffectType;
  * <p>자연 회복이 치르는 대가는 기본적으로 이 배율을 타지 않는다. 회복의 대가는 플레이어가 한
  * 행동이 아니기 때문이다. 고행자처럼 {@code no_hunger_drain} 에 {@code includeNaturalRegen:
  * true} 를 얹은 팀만 예외로 이 경로도 함께 면제된다. 까닭은 {@link NoHungerDrainEffect} 와
- * {@link com.sharedfate.mixin.FoodDataRegenExhaustionMixin} 에 적어 뒀다.
+ * {@link com.sharedfate.mixin.FoodDataRegenExhaustionMixin} 에 있다.
  *
  * <p>실제로 곱하는 자리는 {@link com.sharedfate.mixin.PlayerSharedExhaustionMixin} 이고,
  * 지금 이 팀의 배율이 얼마인지 세는 것은 {@link com.sharedfate.perk.PerkFoodRules} 다.
