@@ -46,6 +46,7 @@ import com.sharedfate.perk.effect.NoHungerDrainEffect;
 import com.sharedfate.perk.effect.NoNaturalRegenEffect;
 import com.sharedfate.perk.effect.OffhandLockEffect;
 import com.sharedfate.perk.effect.DoubleJumpEffect;
+import com.sharedfate.perk.effect.DropReplaceEffect;
 import com.sharedfate.perk.effect.DurabilityMultiplierEffect;
 import com.sharedfate.perk.effect.HideHudEffect;
 import com.sharedfate.perk.effect.OnBreakEffect;
@@ -74,6 +75,7 @@ import com.sharedfate.perk.effect.PrismRerollEffect;
 import com.sharedfate.perk.effect.LuckyOreEffect;
 import com.sharedfate.perk.effect.ToolMismatchSlowEffect;
 import com.sharedfate.perk.effect.ShieldFallImmunityEffect;
+import com.sharedfate.perk.effect.SneakSpeedEffect;
 import com.sharedfate.perk.effect.DiamondSundialEffect;
 import com.sharedfate.perk.effect.EnchantCostEffect;
 import com.sharedfate.perk.effect.MobSpawnRateEffect;
@@ -115,6 +117,7 @@ public enum PerkEffectType {
 	MAX_HEALTH_LOCK("max_health_lock", MaxHealthLockEffect::fromJson),
 	MAX_HEALTH_BONUS("max_health_bonus", MaxHealthBonusEffect::fromJson),
 	BONUS_DROP("bonus_drop", BonusDropEffect::fromJson),
+	DROP_REPLACE("drop_replace", DropReplaceEffect::fromJson),
 	ON_BREAK("on_break", OnBreakEffect::fromJson),
 	MINING_SPEED("mining_speed", MiningSpeedEffect::fromJson),
 	ON_TEAM_HURT("on_team_hurt", OnTeamHurtEffect::fromJson),
@@ -161,6 +164,7 @@ public enum PerkEffectType {
 	NO_ATTACK_DAMAGE_LOSS("no_attack_damage_loss", NoAttackDamageLossEffect::fromJson),
 	LUCKY_ORE("lucky_ore", LuckyOreEffect::fromJson),
 	TOOL_MISMATCH_SLOW("tool_mismatch_slow", ToolMismatchSlowEffect::fromJson),
+	SNEAK_SPEED("sneak_speed", SneakSpeedEffect::fromJson),
 	SHIELD_FALL_IMMUNITY("shield_fall_immunity", ShieldFallImmunityEffect::fromJson),
 	DIAMOND_SUNDIAL("diamond_sundial", DiamondSundialEffect::fromJson),
 	ENCHANT_COST("enchant_cost", EnchantCostEffect::fromJson),

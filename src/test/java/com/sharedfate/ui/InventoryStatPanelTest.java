@@ -112,24 +112,45 @@ class InventoryStatPanelTest {
 	}
 
 	/**
-	 * 1280×960 · 배율 4 — 이름과 값을 두 줄로 접는다.
+	 * 가로가 아주 좁으면 이름과 값을 두 줄로 접는다. <b>세로가 넉넉할 때만이다.</b>
 	 *
-	 * <p>화면이 320×240 으로 바닐라가 허용하는 가장 작은 GUI 다. 남는 자리가 68px 뿐이라
+	 * <p>가로 68px 은 바닐라가 허용하는 가장 작은 GUI(320×240)에서 창 왼쪽에 남는 자리다.
 	 * 한 줄로는 어떤 모양도 못 들어가지만, 접으면 가장 긴 줄이 「100% → 250%」 64px 이라
-	 * 들어간다. 세로는 16줄을 늘어놓아도 남는다.
+	 * 들어간다. 대신 세로를 두 배 쓴다 — 16줄에 묶음 틈까지 164px 이다.
 	 */
 	@Test
-	void 가장_작은_화면에서는_두_줄로_접는다() {
+	void 가로가_좁고_세로가_넉넉하면_두_줄로_접는다() {
 		assertEquals(68, available(320));
-		InventoryStatPanel.Layout layout = layout(68, height(240));
+		InventoryStatPanel.Layout layout = layout(68, 300);
 
 		assertEquals(InventoryStatPanel.Style.WRAPPED, layout.style());
 		assertEquals(16, layout.lines().size(), "여덟 줄이 두 줄씩 접힌다");
-		assertTrue(layout.height() <= height(240), "세로가 모자라면 접는 것도 못 한다");
+		assertEquals(164, layout.height());
 	}
 
 	/**
-	 * 조합법 책을 펼치면 자리가 더 줄고, 어느 지점부터는 아무것도 못 그린다.
+	 * 짧은 화면에서는 접는 것도 못 하고 감춘다.
+	 *
+	 * <p>덩어리가 HUD 세트 줄을 피해 {@link InventoryTeamButton#TOP_LIMIT} 까지 내려가므로,
+	 * 화면 세로 240 에서 능력치에 남는 것은 121px 뿐이다. 접은 여덟 줄은 164px 이라 들어가지
+	 * 않는다. <b>HUD 가 위쪽 91px 을 쓰는 이상 240px 짜리 화면에 둘을 함께 세울 자리가
+	 * 없다</b> — 겹쳐 그려 둘 다 못 읽느니 이쪽을 접고, 같은 값은 단추가 여는 팀 화면
+	 * 「능력치」 탭에 그대로 있다.
+	 *
+	 * <p>세로 283 부터는 접은 여덟 줄이 다시 들어간다(단추 아래 자리 = 화면 세로 − 119).
+	 */
+	@Test
+	void 세로가_모자라면_접지_못하고_감춘다() {
+		assertEquals(121, height(240));
+		assertFalse(layout(68, height(240)).visible());
+
+		assertEquals(164, height(283), "여기서부터 접은 여덟 줄이 들어간다");
+		assertEquals(InventoryStatPanel.Style.WRAPPED, layout(68, height(283)).style());
+		assertFalse(layout(68, height(282)).visible(), "1px 만 모자라도 감춘다");
+	}
+
+	/**
+	 * 조합법 책을 펼치면 가로가 더 줄고, 어느 지점부터는 아무것도 못 그린다.
 	 *
 	 * <p>바닐라는 화면 폭이 379 이상일 때 창을 오른쪽으로 밀어 왼쪽에 책 자리를 만든다.
 	 * 그 지점이 왼쪽 자리가 가장 좁아지는 순간이다 — 화면 폭 427 에서는 50px 밖에 안 남아
@@ -140,9 +161,39 @@ class InventoryStatPanelTest {
 		assertEquals(50, availableWithBook(427));
 		assertFalse(layout(50, height(240)).visible());
 
-		// 배율 4(480×270)에서는 책을 펼쳐도 76px 이 남아 접은 줄은 들어간다.
+		// 배율 4(480×270)에서는 책을 펼쳐도 가로는 76px 이 남지만, 세로가 151px 이라
+		// 접은 여덟 줄(164px)이 못 들어간다. 같은 폭이라도 화면이 길어지면 다시 접힌다.
 		assertEquals(76, availableWithBook(480));
-		assertEquals(InventoryStatPanel.Style.WRAPPED, layout(76, height(270)).style());
+		assertEquals(151, height(270));
+		assertFalse(layout(76, height(270)).visible());
+		assertEquals(InventoryStatPanel.Style.WRAPPED, layout(76, height(320)).style());
+	}
+
+	/**
+	 * <b>어떤 화면 세로에서도 마지막 줄이 화면 아래로 나가지 않는다.</b>
+	 *
+	 * <p>덩어리를 HUD 아래로 내렸으므로 이번에는 아래쪽이 위험해진다. 그릴 자리를
+	 * {@link InventoryTeamButton#statHeight} 가 화면 바닥까지로 잡고
+	 * {@link InventoryStatPanel#layout} 이 그 안에 드는 모양만 고르므로, 둘을 이어 붙여
+	 * 실제 마지막 줄의 아랫변을 화면과 견준다.
+	 */
+	@Test
+	void 어떤_화면_세로에서도_마지막_줄이_화면_아래로_나가지_않는다() {
+		for (int screenHeight = 240; screenHeight <= 1200; screenHeight++) {
+			int topPos = (screenHeight - IMAGE_HEIGHT) / 2;
+			int statTop = InventoryTeamButton.statTop(topPos);
+			for (int width : new int[] {50, 68, 76, 121, 148, 228, 868}) {
+				InventoryStatPanel.Layout layout =
+						layout(width, InventoryTeamButton.statHeight(screenHeight, topPos));
+				if (!layout.visible()) {
+					continue;
+				}
+				assertTrue(statTop + layout.height() <= screenHeight,
+						"화면 세로 " + screenHeight + " · 가로 " + width + " 에서 아래로 넘쳤다");
+				assertTrue(statTop >= InventoryTeamButton.HUD_BOTTOM,
+						"화면 세로 " + screenHeight + " 에서 세트 줄과 겹친다");
+			}
+		}
 	}
 
 	/** 자리가 없어 감출 때는 줄을 하나도 만들지 않는다. 반쯤 그리는 일이 없어야 한다. */

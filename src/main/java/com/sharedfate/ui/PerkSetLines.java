@@ -17,6 +17,12 @@ import java.util.List;
  * 위에서 아래로 흐르는 동안 <b>사실 → 계획</b> 순서로 읽힌다. 서버가 보낸 차례를 그대로
  * 쓰면 켜진 세트가 목록 한가운데 끼어 눈에 띄지 않는다.
  *
+ * <h2>분모는 있는 단계만 가리킨다</h2>
+ * <p>「방어 4/3」처럼 <b>분자가 분모보다 클 수 있다.</b> 방어는 단계가 2·3 둘뿐이라 넷째를
+ * 모아도 켜질 것이 없고, 그때 분모에 가진 개수를 놓으면 「방어 4/4」가 되어 <b>있지도 않은
+ * 4 단계</b>를 가리킨다. 툴팁을 열면 2·3 두 줄뿐이라 화면끼리 어긋난다. 자세한 규칙은
+ * {@link Entry#goal()} 에 있다.
+ *
  * <h2>「보급」 줄에만 시계가 붙는다</h2>
  * <p>「◆ 보급 4/4 04:12」처럼 다음 보급까지 남은 시간을 <b>진행도 뒤</b>에 적는다. <b>어느 유형에
  * 붙일지를 여기서 판단하지 않는다</b> — {@link Entry#intervalTicks()} 가 0 보다 큰 줄에만 붙고,
@@ -57,7 +63,10 @@ public final class PerkSetLines {
 	 * @param displayName   화면에 적을 한국어 이름
 	 * @param owned         지금 가진 개수
 	 * @param nextThreshold 다음 단계에 필요한 개수. 더 오를 곳이 없으면 0
-	 * @param activeTier    켜진 단계. 안 켜졌으면 0
+	 * @param activeTier    켜진 단계 중 <b>가장 높은 것이 열리는 개수</b>. 안 켜졌으면 0.
+	 *                      단계는 누적이라 켜진 것이 여럿일 수 있고({@code 채굴 4} 면 2·3·4 가
+	 *                      전부 켜진다) 그중 가장 높은 하나를 서버가 골라 싣는다.
+	 *                      {@code nextThreshold} 가 0 일 때 이 값이 분모가 된다
 	 * @param intervalTicks 이 유형이 되풀이하는 일의 주기(틱). 지금은 「보급」만 0 보다 크다.
 	 *                      0 이면 시계를 안 그린다
 	 * @param anchorTick    그 되풀이가 <b>켜진 게임 시간</b>. 경계는 이 자리부터 주기마다다.
@@ -112,14 +121,22 @@ public final class PerkSetLines {
 		}
 
 		/**
-		 * 분모로 적을 수.
+		 * 분모로 적을 수. <b>가리킬 단계가 없으면 0</b> 이고, 그때는 분수를 아예 안 적는다.
 		 *
-		 * <p>다음 단계가 있으면 그 개수다. 더 오를 곳이 없으면 <b>가진 개수를 그대로</b> 분모에
-		 * 놓아 「3/3」처럼 꽉 찬 모습으로 적는다. 「채굴 3」처럼 분모를 지우면 바로 아래 줄의
-		 * 「방어 1/2」와 모양이 달라져 두 줄을 견주기 어렵다.
+		 * <p>분모는 언제나 <b>실제로 있는 단계</b>여야 한다. 툴팁에 「2」·「3」 두 줄만 있는 방어에
+		 * 「4/4」가 뜨면 4 단계가 있는 것으로 읽히고, 그 단계를 찾으러 툴팁을 열면 없다.
+		 *
+		 * <ul>
+		 *   <li>다음 단계가 있으면 그 개수 — 「채굴 3/4」</li>
+		 *   <li>다 켰으면 <b>가장 높은 단계</b>({@link #activeTier()}) — 방어는 2·3 뿐이라 넷을
+		 *       모으면 「방어 4/3」이다. 분자가 분모보다 큰 것이 그대로 <b>더 모았지만 더 켤 것은
+		 *       없다</b>는 뜻이 된다. 마지막 단계에 꼭 맞게 모았을 때는 예전과 같은 「채굴 3/3」이다</li>
+		 *   <li>둘 다 0 이면 0 — 단계가 하나도 정의되지 않은 유형에서 임계값까지 채운 자리다.
+		 *       가리킬 숫자가 없으므로 {@link PerkSetLines#label(Entry, String)} 이 분수를 뺀다</li>
+		 * </ul>
 		 */
 		public int goal() {
-			return nextThreshold > 0 ? nextThreshold : Math.max(1, owned);
+			return nextThreshold > 0 ? nextThreshold : activeTier;
 		}
 	}
 
@@ -148,8 +165,11 @@ public final class PerkSetLines {
 	 */
 	public static String label(Entry entry, String timer) {
 		String clock = timer == null || timer.isEmpty() ? "" : " " + timer;
+		int goal = entry.goal();
+		// 가리킬 단계가 없으면 분수를 안 적는다. 없는 숫자를 지어내느니 개수만 적는 것이 낫다.
+		String progress = goal > 0 ? entry.owned() + "/" + goal : Integer.toString(entry.owned());
 		return (entry.active() ? ACTIVE_MARK : PROGRESS_MARK) + " " + entry.displayName()
-				+ " " + entry.owned() + "/" + entry.goal() + clock;
+				+ " " + progress + clock;
 	}
 
 	/**

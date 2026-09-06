@@ -3,6 +3,7 @@ package com.sharedfate.perk;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.effect.ConditionalEffect;
 import com.sharedfate.perk.effect.NoAttackDamageLossEffect;
+import com.sharedfate.perk.effect.SneakSpeedEffect;
 import com.sharedfate.perk.effect.ToolMismatchSlowEffect;
 import com.sharedfate.team.TeamLookup;
 import com.sharedfate.team.TeamState;
@@ -28,6 +29,12 @@ import java.util.UUID;
  * <p>"상태가 수시로 바뀌므로 주기적으로 다시 봐야 하는 효과"는 여기서 함께 돌린다. 지금은
  * {@link ToolMismatchSlowEffect}({@code tool_mismatch_slow}) 가 손에 든 것을 다시 보는 데 이
  * 주기를 쓴다.
+ *
+ * <h2>반 초로는 늦은 효과가 있다</h2>
+ * <p>{@link SneakSpeedEffect}({@code sneak_speed}) 는 웅크림을 본다. 웅크림은 순간마다 바뀌고
+ * 웅크림을 푼 뒤에도 수정자가 남아 있으면 서서 걷는 동안까지 빨라지므로, 반 초를 기다릴 수
+ * 없다. 그래서 이 효과만 {@link #tickFast} 로 <b>매 틱</b> 다시 본다. 판정이 지난번과 같으면
+ * 아무 일도 하지 않으므로, 매 틱 도는 것은 보유 증강 목록을 한 번 훑는 비용뿐이다.
  *
  * <h2>피해 배율 조회 대상</h2>
  * <p>{@link PerkEffect#damageDealtMultiplier} 에는 플레이어 인자가 없어서, 조건부 효과 혼자서는
@@ -63,6 +70,9 @@ public final class ConditionalPerkManager {
 		if (server == null) {
 			return;
 		}
+		// 매 틱 봐야 하는 것이 먼저다. 아래 주기 판정에 걸려 되돌아가더라도 이쪽은 이미 돌았다.
+		tickFast(server);
+
 		if (++tickCounter < CHECK_INTERVAL_TICKS) {
 			return;
 		}
@@ -70,6 +80,51 @@ public final class ConditionalPerkManager {
 
 		for (ServerPlayer player : List.copyOf(server.getPlayerList().getPlayers())) {
 			refreshPlayer(player);
+		}
+	}
+
+	/**
+	 * 반 초를 기다릴 수 없는 효과만 매 틱 다시 본다.
+	 *
+	 * <p>지금은 {@link SneakSpeedEffect} 하나뿐이다. 아래 {@link #refreshPlayer} 와 달리
+	 * {@code conditional} 하위까지 파고들지 않는다 — {@code sneak_speed} 는 최상위 효과로만
+	 * 적는다. 조건부 안에 넣으면 부모가 반 초 주기로 붙였다 떼는 바람에 웅크림 반응이 그
+	 * 주기에 묶여 버리기 때문이다.
+	 */
+	private static void tickFast(MinecraftServer server) {
+		for (ServerPlayer player : List.copyOf(server.getPlayerList().getPlayers())) {
+			refreshFastPlayer(player);
+		}
+	}
+
+	/** 한 플레이어의 매 틱 효과를 다시 본다. 팀·증강 조건은 {@link #refreshPlayer} 와 같다. */
+	private static void refreshFastPlayer(ServerPlayer player) {
+		TeamState state = TeamLookup.stateOf(player.getUUID());
+		if (state == null || !state.perksEnabled || state.ownedPerks.isEmpty()) {
+			return;
+		}
+		PerkDrawbacks.Waiver waiver = PerkDrawbacks.waiverFor(state);
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
+			if (perk == null) {
+				continue;
+			}
+			for (PerkEffect effect : perk.effects()) {
+				if (!(effect instanceof SneakSpeedEffect sneakSpeed)) {
+					continue;
+				}
+				try {
+					// 대가로 표시된 채 면제된 효과는 붙이지 않는다. 여기서 이것을 보지 않으면
+					// PerkManager.refreshPlayer 가 걷어낸 것을 다음 틱에 도로 붙인다.
+					if (waiver.waives(perk, effect)) {
+						sneakSpeed.remove(player);
+					} else {
+						sneakSpeed.refresh(player);
+					}
+				} catch (RuntimeException error) {
+					warnOnce(perk.id(), error);
+				}
+			}
 		}
 	}
 
@@ -163,6 +218,8 @@ public final class ConditionalPerkManager {
 					conditional.forgetAll();
 				} else if (effect instanceof ToolMismatchSlowEffect toolMismatch) {
 					toolMismatch.forgetAll();
+				} else if (effect instanceof SneakSpeedEffect sneakSpeed) {
+					sneakSpeed.forgetAll();
 				}
 			}
 		}

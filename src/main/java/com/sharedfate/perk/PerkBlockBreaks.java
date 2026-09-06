@@ -1,7 +1,9 @@
 package com.sharedfate.perk;
 
 import com.sharedfate.SharedFateMod;
+import com.sharedfate.inventory.ExpandedInventoryManager;
 import com.sharedfate.perk.effect.BonusDropEffect;
+import com.sharedfate.perk.effect.DropReplaceEffect;
 import com.sharedfate.perk.effect.EchoMiningEffect;
 import com.sharedfate.perk.effect.LuckyOreEffect;
 import com.sharedfate.perk.effect.MiningSpeedEffect;
@@ -19,6 +21,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -35,14 +38,18 @@ import java.util.function.BiPredicate;
 import java.util.function.Function;
 
 /**
- * 블록 파괴에 걸리는 증강 효과({@code bonus_drop}, {@code on_break}, {@code mining_speed})의
- * 실행부.
+ * 블록 파괴에 걸리는 증강 효과({@code bonus_drop}, {@code drop_replace}, {@code on_break},
+ * {@code mining_speed})의 실행부.
  *
  * <p>효과 클래스들은 "무엇을 얼마나"만 들고 있고, "언제 누가 무엇을 캤는가"와 결과를 어디에
  * 넣는가는 전부 여기서 정한다.
  *
  * <h2>어느 순간에 끼어드는가</h2>
- * <p>{@code PlayerBlockBreakEvents.AFTER} 하나만 쓴다. Fabric 이 이 이벤트를 부르는 자리는
+ * <p>자리가 둘이다. 대부분은 {@code PlayerBlockBreakEvents.AFTER} 하나로 끝나고,
+ * <b>전리품을 없애야 하는 {@code drop_replace} 만</b> 더 뒤쪽인 {@code Block.dropResources} 를
+ * 잡는다({@link #replaceDrops}). 까닭은 아래 「전리품을 갈아 끼우는 자리는 따로다」에 있다.
+ *
+ * <p>Fabric 이 {@code PlayerBlockBreakEvents.AFTER} 를 부르는 자리는
  * {@code ServerPlayerGameMode.destroyBlock} 안의 {@code Block.destroy(...)} 직후, 즉
  * <b>블록은 이미 사라졌지만 도구 손상과 전리품 지급은 아직인</b> 지점이다. 클라이언트에는
  * 같은 이름의 이벤트가 없으므로({@code ClientPlayerBlockBreakEvents} 는 별개다) 이 경로는
@@ -61,6 +68,17 @@ import java.util.function.Function;
  * <p>이 모드는 팀원의 인벤토리 칸 목록 자체를 {@code TeamState.mainItems} 로 갈아 끼워
  * 공유한다({@code InventorySwapper.finishJoin}). 즉 <b>바닥에 떨어진 아이템을 주우면 그것이
  * 곧 팀 공유 인벤토리에 들어간 것</b>이다.
+ *
+ * <p><b>{@code drop_replace} 가 대신 주는 것만 예외다.</b> 그쪽은 바닥을 거치지 않고 공유
+ * 인벤토리로 곧장 들어간다({@link #grantReplacement}). 원래 나오던 것을 없앤 자리에 놓아 주는
+ * 것이라, 자리가 없다고 바닥에 떨궈 두었다가 잃어버리는 길을 만들지 않으려는 것이다.
+ *
+ * <h2>전리품을 갈아 끼우는 자리는 따로다</h2>
+ * <p>{@code PlayerBlockBreakEvents.AFTER} 는 <b>전리품이 아직 나오기 전</b>에 발화한다. 그래서
+ * 덤을 얹는 것({@code bonus_drop}·{@code lucky_ore})은 그 자리에서 되지만, 원래 나오던 것을
+ * <b>없애는 것</b>은 되지 않는다 — 없앨 대상이 아직 존재하지 않는다. 그 일만 한 걸음 뒤인
+ * {@code Block.dropResources} 에서 한다. 붙는 자리는 {@code BlockDropReplaceMixin} 이고, 그
+ * 클래스 문서에 26.2 바이트코드로 확인한 근거가 있다.
  *
  * <h2>증강이 없으면 아무 일도 하지 않는다</h2>
  * <p>블록을 캘 때마다 지나는 자리이므로 빠져나가는 길이 짧아야 한다. 팀이 없거나 보유 증강이
@@ -332,19 +350,43 @@ public final class PerkBlockBreaks {
 	 *
 	 * <p>{@code destroyBlock} 이 아니라 {@link ServerLevel#removeBlock} 을 쓴다. 까닭은 클래스
 	 * 문서의 「연쇄는 연쇄를 부르지 않는다」에 적어 뒀다.
+	 *
+	 * <p><b>{@code drop_replace} 도 여기서 함께 건다.</b> 이 경로는 전리품을
+	 * {@link Block#getDrops} 로 직접 굴려 떨어뜨리므로 {@code Block.dropResources} 를 지나지
+	 * 않고, 그래서 {@code BlockDropReplaceMixin} 에 걸리지 않는다. 손으로 걸어 주지 않으면
+	 * 「함께 캐진 밀에서는 밀이 나온다」가 되어, 같은 한 번의 채굴 안에서 규칙이 갈린다.
 	 */
 	private static void breakExtraBlocks(ServerLevel level, ServerPlayer breaker,
 			List<BlockPos> targets) {
+		TeamState teamState = TeamLookup.stateOf(breaker.getUUID());
 		for (BlockPos target : targets) {
 			BlockState targetState = level.getBlockState(target);
 			BlockEntity targetBlockEntity = level.getBlockEntity(target);
 			List<ItemStack> drops = Block.getDrops(
 					targetState, level, target, targetBlockEntity, breaker, breaker.getMainHandItem());
 			level.removeBlock(target, false);
-			for (ItemStack drop : drops) {
-				if (drop != null && !drop.isEmpty()) {
-					Block.popResource(level, target, drop);
-				}
+
+			DropReplaceMatch match = dropReplaceFor(teamState, targetState);
+			if (match == null) {
+				popAll(level, target, drops);
+				continue;
+			}
+			DropReplaceEffect.Outcome outcome = match.effect().filter(drops);
+			popAll(level, target, outcome.kept());
+			if (outcome.removed() > 0) {
+				grantReplacement(level, breaker, teamState, match);
+			}
+		}
+	}
+
+	/** 비어 있지 않은 묶음만 그 자리에 떨어뜨린다. */
+	private static void popAll(ServerLevel level, BlockPos pos, @Nullable List<ItemStack> drops) {
+		if (drops == null) {
+			return;
+		}
+		for (ItemStack drop : drops) {
+			if (drop != null && !drop.isEmpty()) {
+				Block.popResource(level, pos, drop);
 			}
 		}
 	}
@@ -520,7 +562,7 @@ public final class PerkBlockBreaks {
 		}
 
 		// extra 가 1이면(기본값) 한 번만 굴려 하나 준다. 그보다 크면
-		// 성공할 때마다 그 횟수만큼 다시 굴려 매번 하나씩 떨어뜨린다("비옥한 땅"의 3배 등).
+		// 성공할 때마다 그 횟수만큼 다시 굴려 매번 하나씩 떨어뜨린다(채굴 세트 3단계의 3배 등).
 		int granted = 0;
 		for (int i = 0; i < effect.extra(); i++) {
 			ItemStack bonus = rollBonusStack(level, breaker, pos, state, blockEntity);
@@ -597,6 +639,149 @@ public final class PerkBlockBreaks {
 			return 0;
 		}
 		return Math.max(0, Math.min(amount, remaining - 1));
+	}
+
+	// ------------------------------------------------------------------ 전리품 갈아 끼우기
+
+	/**
+	 * 걸린 {@code drop_replace} 효과 하나와, 그것이 어디서 왔는지.
+	 *
+	 * @param sourceName 알림에 쓸 이름. 증강이면 증강 이름, 세트면 그 단계의 이름이다
+	 */
+	record DropReplaceMatch(DropReplaceEffect effect, String sourceName) {
+	}
+
+	/**
+	 * 이 팀이 이 블록에 걸어 둔 {@code drop_replace} 효과.
+	 *
+	 * <p>보유 증강을 먼저, 켜진 세트를 나중에 훑어 <b>처음 걸리는 것 하나</b>를 쓴다. 둘 이상이
+	 * 같은 블록에 걸리면 뒤엣것은 그냥 지나간다 — 전리품을 두 번 갈아 끼우면 첫 번째가 이미
+	 * 걷어 낸 것을 두 번째가 다시 찾지 못해, 준 것만 겹치고 없앤 것은 하나뿐이 된다.
+	 *
+	 * <p>레지스트리와 블록 상태만 보는 순수 판정이라 살아 있는 서버 없이 시험할 수 있다.
+	 */
+	static @Nullable DropReplaceMatch dropReplaceFor(@Nullable TeamState teamState,
+			@Nullable BlockState state) {
+		if (teamState == null || !teamState.perksEnabled || teamState.ownedPerks.isEmpty()
+				|| state == null) {
+			return null;
+		}
+		for (String perkId : teamState.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
+			if (perk == null) {
+				continue;
+			}
+			for (PerkEffect effect : perk.effects()) {
+				if (effect instanceof DropReplaceEffect replace && replace.appliesTo(state)) {
+					return new DropReplaceMatch(replace, perk.name());
+				}
+			}
+		}
+		for (PerkSets.Tier tier : PerkSetEffects.activeTiersOf(teamState)) {
+			for (PerkEffect effect : tier.effects()) {
+				if (effect instanceof DropReplaceEffect replace && replace.appliesTo(state)) {
+					return new DropReplaceMatch(replace, tier.name());
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * {@code Block.dropResources} 를 대신 처리한다. {@code BlockDropReplaceMixin} 이 부른다.
+	 *
+	 * <p>이 블록에 걸리는 {@code drop_replace} 가 없으면 곧바로 {@code false} 를 돌려주고 바닐라가
+	 * 평소대로 떨어뜨린다. 걸리면 <b>바닐라가 하는 일 둘을 그대로 대신한다</b> — 전리품 목록을
+	 * 떨어뜨리는 것과 {@code spawnAfterBreak}(광석 경험치 등)를 부르는 것이다. 다만 걷어 내기로
+	 * 한 아이템만 목록에서 빠지고, 그 자리에 정의에 적힌 것이 공유 인벤토리로 들어간다.
+	 *
+	 * <p><b>걸린 뒤에는 걷어 낼 것이 없어도 우리가 끝까지 처리한다.</b> 여기서 {@code false} 로
+	 * 돌아서면 바닐라가 전리품표를 <b>한 번 더</b> 굴리게 되어, 이미 굴린 결과와 다른 것이 나온다
+	 * (전리품표는 굴릴 때마다 난수열이 나아간다). 덜 자란 밀처럼 바꿀 것이 없는 경우가 흔하므로
+	 * 이 구분이 중요하다.
+	 *
+	 * <p>어떤 예외도 밖으로 내보내지 않는다. 판단하는 동안 실패하면 {@code false} 로 돌아서서
+	 * 바닐라에 맡기고, 이미 떨어뜨리기 시작한 뒤에 실패하면 {@code true} 로 끝낸다 — 그때
+	 * 바닐라에 넘기면 살아남은 전리품이 두 번 나온다.
+	 *
+	 * @param entity 이 블록을 부순 주체. 사람이 아니면(폭발·피스톤) 아무것도 하지 않는다
+	 * @return 우리가 처리했으면 {@code true}. 부르는 쪽은 바닐라를 취소해야 한다
+	 */
+	public static boolean replaceDrops(@Nullable BlockState state, @Nullable Level level,
+			@Nullable BlockPos pos, @Nullable BlockEntity blockEntity, @Nullable Entity entity,
+			@Nullable ItemStack tool) {
+		if (!(level instanceof ServerLevel serverLevel) || !(entity instanceof ServerPlayer breaker)
+				|| state == null || pos == null) {
+			return false;
+		}
+
+		TeamState teamState;
+		DropReplaceMatch match;
+		DropReplaceEffect.Outcome outcome;
+		ItemStack usedTool = tool == null ? ItemStack.EMPTY : tool;
+		try {
+			teamState = TeamLookup.stateOf(breaker.getUUID());
+			match = dropReplaceFor(teamState, state);
+			if (match == null) {
+				return false;
+			}
+			outcome = match.effect().filter(
+					Block.getDrops(state, serverLevel, pos, blockEntity, breaker, usedTool));
+		} catch (RuntimeException error) {
+			warnOnce(error);
+			return false;
+		}
+
+		// 여기부터는 되돌릴 수 없다. 바닐라에 다시 맡기면 전리품이 두 번 나온다.
+		try {
+			popAll(serverLevel, pos, outcome.kept());
+			if (outcome.removed() > 0) {
+				grantReplacement(serverLevel, breaker, teamState, match);
+			}
+			state.spawnAfterBreak(serverLevel, pos, usedTool, true);
+		} catch (RuntimeException error) {
+			warnOnce(error);
+		}
+		return true;
+	}
+
+	/**
+	 * 걷어 낸 자리에 놓아 줄 것을 공유 인벤토리에 넣고 캔 사람에게 알린다.
+	 *
+	 * <p>바닥에 떨어뜨리지 않고 넘침 목록에 얹은 뒤 {@link TeamState#restoreOverflow} 를 부른다.
+	 * 자리가 없으면 넘침 목록에 남아 칸이 비는 대로 저절로 들어오므로 사라지지 않는다.
+	 *
+	 * <p><b>이름은 넣기 <em>전에</em> 확보한다.</b> {@code restoreOverflow} 는 묶음을 새로 만들지
+	 * 않고 제자리에서 개수를 깎으므로, 다 들어가고 나면 우리가 넘긴 그 묶음의 개수가 0이 된다.
+	 * 개수가 0인 묶음은 {@code getItem()} 이 공기를 돌려주어 이름이 「Air」가 된다.
+	 */
+	private static void grantReplacement(ServerLevel level, ServerPlayer breaker,
+			@Nullable TeamState teamState, DropReplaceMatch match) {
+		if (teamState == null) {
+			return;
+		}
+		int count = match.effect().rollCount(level.getRandom());
+		List<ItemStack> stacks = match.effect().grantStacks(count);
+		if (stacks.isEmpty()) {
+			// 줄 아이템을 레지스트리에서 찾지 못했다. 경고는 찾는 자리에서 이미 남겼다.
+			return;
+		}
+		Component itemName = stacks.getFirst().getHoverName();
+
+		teamState.overflowItems.addAll(stacks);
+		teamState.restoreOverflow(ExpandedInventoryManager.enabled());
+		teamState.overflowItems.removeIf(ItemStack::isEmpty);
+
+		refreshScreen(breaker);
+		TitleMessenger.showActionBar(
+				breaker, DropReplaceEffect.announcement(match.sourceName(), itemName, count));
+	}
+
+	/** 공유 목록을 직접 고쳤으니 캔 사람의 화면을 맞춰 준다. */
+	private static void refreshScreen(ServerPlayer player) {
+		if (player.containerMenu != null) {
+			player.containerMenu.broadcastChanges();
+		}
 	}
 
 	// ------------------------------------------------------------------ 운수 좋은 날

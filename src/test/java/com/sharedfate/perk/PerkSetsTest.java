@@ -212,6 +212,29 @@ class PerkSetsTest {
 		assertFalse(status.isActive());
 	}
 
+	/**
+	 * 단계가 하나라도 있으면 임계값은 분모로 끼어들지 않는다.
+	 *
+	 * <p>기동은 단계가 3 하나뿐인데 임계값은 2 다. 둘을 섞으면 하나 가진 사람에게 「기동 1/2」가
+	 * 떠 <b>2 에서 무언가 켜진다</b>고 읽히는데, 실제로 둘째를 모아도 아무 일이 없다. 화면의 분모는
+	 * 언제나 실제로 있는 단계여야 한다.
+	 */
+	@Test
+	void 단계가_있으면_임계값은_분모가_되지_않는다() {
+		Map<PerkSetType, List<PerkSets.Tier>> defined = tiersOf(PerkSetType.MOBILITY, 3);
+		assertTrue(PerkSetType.MOBILITY.threshold() < 3,
+				"임계값이 첫 단계보다 낮아야 이 시험이 무언가를 잡는다");
+
+		for (int owned = 1; owned <= 2; owned++) {
+			PerkSets.Status status = statusOf(
+					PerkSets.statuses(counts(PerkSetType.MOBILITY, owned), defined),
+					PerkSetType.MOBILITY);
+
+			assertEquals(3, status.nextCount(), owned + "개를 가졌을 때");
+			assertFalse(status.isActive());
+		}
+	}
+
 	/** 상태 목록에는 유형 열한 개가 모두 들어 있다. */
 	@Test
 	void 상태_목록에는_유형이_전부_들어_있다() {
@@ -239,6 +262,18 @@ class PerkSetsTest {
 		}
 		counts.put(type, owned);
 		return counts;
+	}
+
+	/** 유형 하나에 단계를 붙인 정의. 효과는 아무거나 하나씩 넣어 「예정」이 아니게 한다. */
+	private static Map<PerkSetType, List<PerkSets.Tier>> tiersOf(PerkSetType type,
+			int... tierCounts) {
+		List<PerkSets.Tier> tiers = new ArrayList<>();
+		for (int count : tierCounts) {
+			tiers.add(new PerkSets.Tier(type, count, type.displayName() + " " + count, "",
+					List.of(new PerkEffect() {
+					})));
+		}
+		return Map.of(type, List.copyOf(tiers));
 	}
 
 	private static Map<PerkSetType, List<PerkSets.Tier>> mining(int... tierCounts) {

@@ -199,13 +199,18 @@ public final class PerkSets {
 	 *
 	 * <ul>
 	 *   <li>아직 안 켜진 단계 중 가장 낮은 {@code count}</li>
-	 *   <li>{@link PerkSetType#threshold()} — 아직 그 개수에 닿지 않았다면 이것도 후보다.
-	 *       무기처럼 <b>단계가 하나도 정의되지 않은 유형</b>도 「무기 1/2」로 진행도를 보여 줄 수
-	 *       있어야 하기 때문이다. 임계값 숫자를 여기 직접 적지 않고 반드시 이 메서드를 부른다 —
-	 *       그 값은 시뮬레이션으로 정해져 앞으로도 자주 바뀐다.</li>
+	 *   <li>{@link PerkSetType#threshold()} — <b>단계가 하나도 정의되지 않은 유형</b>에서만
+	 *       쓰는 대신할 값이다. 보상이 아직 없는 유형도 「무기 1/2」로 진행도를 보여 줄 수 있어야
+	 *       하기 때문이다. 임계값 숫자를 여기 직접 적지 않고 반드시 이 메서드를 부른다 — 그 값은
+	 *       시뮬레이션으로 정해져 앞으로도 자주 바뀐다.</li>
 	 * </ul>
 	 *
-	 * <p>둘 중 <b>작은 쪽</b>이고, 후보가 하나도 없으면(전부 켰으면) 0 이다.
+	 * <p>단계가 하나라도 정의된 유형에서는 <b>임계값을 섞지 않는다.</b> 기동은 단계가 3 하나뿐인데
+	 * 임계값이 2 라, 섞으면 하나 가진 사람에게 「기동 1/2」가 떠 <b>2 에서 무언가 켜진다</b>고
+	 * 읽힌다. 실제로 둘째를 모아도 아무 일이 없다. 두 값은 뜻이 다르다 — 임계값은 「이 유형을
+	 * 노렸을 때 몇 개면 세트라 부를 만한가」이고, 화면의 분모는 「다음에 무엇이 켜지는가」다.
+	 *
+	 * <p>후보가 하나도 없으면(전부 켰으면) 0 이다.
 	 */
 	public static List<Status> statuses(@Nullable Map<PerkSetType, Integer> counts,
 			@Nullable Map<PerkSetType, List<Tier>> defined) {
@@ -223,7 +228,9 @@ public final class PerkSets {
 					next = tier.count();
 				}
 			}
-			if (owned < type.threshold() && (next == 0 || type.threshold() < next)) {
+			// 단계가 하나라도 있으면 그 개수만 분모가 된다. 임계값은 단계가 없는 유형을 위한
+			// 대신할 값이다.
+			if (tiers.isEmpty() && owned < type.threshold()) {
 				next = type.threshold();
 			}
 			statuses.add(new Status(type, owned, next, active));

@@ -32,14 +32,61 @@ class PerkSetLinesTest {
 	}
 
 	/**
-	 * 더 오를 곳이 없으면 분모에 가진 개수를 놓는다.
+	 * 마지막 단계에 꼭 맞게 모았으면 「3/3」이다.
 	 *
-	 * <p>「채굴 3」처럼 분모를 지우면 바로 아래의 「방어 1/2」와 모양이 달라져 두 줄을 견주기
-	 * 어렵다.
+	 * <p>분모가 가진 개수와 같아 보이지만 <b>가진 개수를 옮겨 적은 것이 아니라</b> 마지막 단계의
+	 * 개수다. 다음 시험이 그 둘을 가른다.
 	 */
 	@Test
-	void 마지막_단계는_분모가_가진_개수다() {
+	void 마지막_단계에_꼭_맞으면_분모도_그_단계다() {
 		assertEquals("◆ 채굴 3/3", PerkSetLines.label(entry("mining", "채굴", 3, 0, 3)));
+	}
+
+	/**
+	 * <b>단계를 전부 켠 뒤에 더 모아도 분모는 안 따라 올라간다.</b>
+	 *
+	 * <p>방어는 단계가 2·3 둘뿐이라 넷째를 모아도 켜질 것이 없다. 여기서 「방어 4/4」가 뜨면 4
+	 * 단계가 있는 것으로 읽히는데, 툴팁을 열면 2·3 두 줄뿐이라 화면끼리 어긋난다. 분자가 분모보다
+	 * 큰 것이 그대로 <b>더 모았지만 더 켤 것은 없다</b>는 뜻이다.
+	 */
+	@Test
+	void 전부_켠_뒤_더_모아도_없는_단계를_안_가리킨다() {
+		// 방어 — 단계가 2·3 인데 넷을 모았다.
+		assertEquals("◆ 방어 4/3", PerkSetLines.label(entry("defense", "방어", 4, 0, 3)));
+		// 채굴 — 단계가 2·3·4 인데 열을 모았다.
+		assertEquals("◆ 채굴 10/4", PerkSetLines.label(entry("mining", "채굴", 10, 0, 4)));
+	}
+
+	/** 아직 오를 곳이 있으면 예전 그대로다. 이 고침이 건드리는 것은 다 켠 뒤뿐이다. */
+	@Test
+	void 오를_곳이_남았으면_분모는_다음_단계다() {
+		assertEquals("◇ 방어 1/2", PerkSetLines.label(entry("defense", "방어", 1, 2, 0)));
+		assertEquals("◆ 방어 2/3", PerkSetLines.label(entry("defense", "방어", 2, 3, 2)));
+		assertEquals("◆ 채굴 3/4", PerkSetLines.label(entry("mining", "채굴", 3, 4, 3)));
+	}
+
+	/**
+	 * 단계가 하나뿐인 기동.
+	 *
+	 * <p>기동은 3 단계 하나뿐이다. 둘까지는 아무것도 안 켜진 채 3 을 가리키고, 셋에서 켜지고,
+	 * 그 뒤로는 모은 만큼 분자만 올라간다.
+	 */
+	@Test
+	void 단계가_하나뿐인_유형도_없는_단계를_안_가리킨다() {
+		assertEquals("◇ 기동 2/3", PerkSetLines.label(entry("mobility", "기동", 2, 3, 0)));
+		assertEquals("◆ 기동 3/3", PerkSetLines.label(entry("mobility", "기동", 3, 0, 3)));
+		assertEquals("◆ 기동 5/3", PerkSetLines.label(entry("mobility", "기동", 5, 0, 3)));
+	}
+
+	/**
+	 * 단계가 하나도 정의되지 않은 유형은 분수를 아예 안 적는다.
+	 *
+	 * <p>정의 파일에서 한 유형의 단계를 통째로 지운 서버에서 임계값까지 채운 자리다. 가리킬 단계가
+	 * 하나도 없으므로 개수만 적는다 — 없는 숫자를 지어내는 것보다 낫다.
+	 */
+	@Test
+	void 가리킬_단계가_없으면_분수를_안_적는다() {
+		assertEquals("◇ 무기 3", PerkSetLines.label(entry("weapon", "무기", 3, 0, 0)));
 	}
 
 	// ------------------------------------------------------------------ 고르기와 차례
@@ -138,6 +185,22 @@ class PerkSetLinesTest {
 				PerkSetLines.visible(List.of(supply(4, 0, 4, FIVE_MINUTES)), 10, time);
 
 		assertEquals("◆ 보급 4/4 04:00", lines.getFirst().text());
+	}
+
+	/**
+	 * 다 켠 뒤에 더 모은 보급 줄도 시계와 나란히 읽힌다.
+	 *
+	 * <p>보급은 단계가 2·3·4 인데 증강은 일곱 개다. 「보급 7/4 04:00」에서 슬래시가 두 숫자
+	 * 덩어리를 갈라 준다 — 분수를 지우고 「보급 7 04:00」으로 적으면 개수와 시계가 맞붙어 읽힌다.
+	 */
+	@Test
+	void 다_켠_보급_줄도_시계와_나란히_읽힌다() {
+		long time = FIVE_MINUTES * 3L + 60 * 20L;
+
+		List<PerkSetLines.Line> lines =
+				PerkSetLines.visible(List.of(supply(7, 0, 4, FIVE_MINUTES)), 10, time);
+
+		assertEquals("◆ 보급 7/4 04:00", lines.getFirst().text());
 	}
 
 	/**
@@ -265,6 +328,30 @@ class PerkSetLinesTest {
 		}
 
 		// 보급 줄이 정말 가장 긴 줄이었는지. 아니었다면 위 되풀이가 아무것도 못 잡는다.
+		assertTrue(first > FakeFont.width("◇ 채굴 1/2"), "보급 줄이 가장 긴 줄이 아닙니다");
+	}
+
+	/**
+	 * 다 켠 보급 줄에서도 한 주기 내내 구분선 길이가 그대로다.
+	 *
+	 * <p>분수가 「7/4」로 굳어 있어 흔들릴 것은 시계뿐이다. 위 시험과 같은 것을 보되 <b>다 켠
+	 * 상태</b>로 본다.
+	 */
+	@Test
+	void 다_켠_보급_줄에서도_구분선_길이가_변하지_않는다() {
+		List<PerkSetLines.Entry> entries = List.of(
+				supply(7, 0, 4, FIVE_MINUTES),
+				entry("mining", "채굴", 1, 2, 0));
+
+		int first = PerkSetLines.blockWidth(
+				PerkSetLines.visible(entries, 10, 0L), FakeFont::width, 0);
+
+		for (long time = 0; time < FIVE_MINUTES; time++) {
+			int now = PerkSetLines.blockWidth(
+					PerkSetLines.visible(entries, 10, time), FakeFont::width, 0);
+			assertEquals(first, now, "구분선 길이가 달라졌습니다 (틱 " + time + ")");
+		}
+
 		assertTrue(first > FakeFont.width("◇ 채굴 1/2"), "보급 줄이 가장 긴 줄이 아닙니다");
 	}
 

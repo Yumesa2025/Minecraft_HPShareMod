@@ -1230,14 +1230,12 @@
       "id": "sharedfate:hushed_step",
       "icon": "minecraft:chainmail_boots",
       "name": "숨죽인 걸음",
-      "description": "웅크린 채로 달리기보다 10% 빠르게 움직입니다. 대신 서서 걷는 속도가 10% 감소합니다.",
+      "description": "웅크린 채로 달리기보다 35% 빠르게 움직입니다. 대신 서서 걷는 속도가 10% 감소합니다.",
       "rarity": "silver",
       "effects": [
         {
-          "type": "attribute",
-          "attribute": "minecraft:sneaking_speed",
-          "operation": "add_value",
-          "amount": 1.13
+          "type": "sneak_speed",
+          "sprint_multiplier": 1.35
         },
         {
           "type": "attribute",
@@ -1554,25 +1552,27 @@
     },
     {
       "id": "sharedfate:fertile_ground",
-      "icon": "minecraft:wheat",
+      "icon": "minecraft:golden_carrot",
       "name": "비옥한 땅",
-      "description": "작물을 수확하면 3배로 나옵니다. 대신 음식의 허기 회복량이 20% 감소합니다.",
+      "description": "밀을 수확하면 밀 대신 황금 당근을 1~3개 얻습니다. 대신 음식의 허기 회복량이 15% 감소합니다.",
       "rarity": "gold",
       "set_types": [
         "supply"
       ],
       "effects": [
         {
-          "type": "bonus_drop",
-          "chance": 1.0,
-          "extra": 2,
+          "type": "drop_replace",
           "blocks": [
-            "#minecraft:crops"
-          ]
+            "minecraft:wheat"
+          ],
+          "from": "minecraft:wheat",
+          "item": "minecraft:golden_carrot",
+          "min": 1,
+          "max": 3
         },
         {
           "type": "food_nutrition",
-          "multiplier": 0.8
+          "multiplier": 0.85
         }
       ]
     },
@@ -1858,7 +1858,7 @@
       "id": "sharedfate:village_finder",
       "icon": "minecraft:compass",
       "name": "길잡이 나침반",
-      "description": "나침반을 1개 얻고, 그 나침반이 가장 가까운 마을을 가리킵니다.",
+      "description": "나침반을 1개 얻고, 오버월드에서 그 나침반이 가장 가까운 마을을 가리킵니다.",
       "rarity": "silver",
       "effects": [
         {

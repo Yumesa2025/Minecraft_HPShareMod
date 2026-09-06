@@ -14,12 +14,58 @@ package com.sharedfate.ui;
  *
  * <p>오른쪽은 쓸 수 없다. 상태이상 목록이 {@code leftPos + imageWidth + 2} 부터 그려진다
  * ({@code EffectsInInventory}). 왼쪽에는 조합법 책만 있고, 그것은 {@link #anchorLeft} 가 피한다.
+ *
+ * <h2>화면 왼쪽 위는 HUD 가 먼저 쓴다</h2>
+ * <p>인벤토리를 열어도 HUD 는 계속 그려진다 — {@code Gui.extractRenderState} 가 HUD 를 먼저
+ * 그리고 그 위에 화면을 얹는다. 그래서 좌표·바이옴과 그 아래 세트 줄이 <b>인벤토리 화면 위에도
+ * 그대로 남는다.</b> 이 덩어리는 그 아래에서 시작한다({@link #TOP_LIMIT}).
  */
 public final class InventoryTeamButton {
 	/** 단추 높이. 바닐라 단추와 같다. */
 	public static final int HEIGHT = 20;
 	/** 단추와 창(또는 조합법 책) 사이의 틈. */
 	public static final int GAP = 4;
+
+	/**
+	 * HUD 좌표·바이옴 두 줄이 끝나는 자리. {@code client.hud.CoordinateHud.NEXT_LINE_Y} 다.
+	 *
+	 * <p>그 화면은 {@code src/client} 에 있어 여기서 부를 수 없으므로 값을 옮겨 적는다.
+	 * 어긋나면 {@code InventoryTeamButtonTest} 가 먼저 터진다.
+	 */
+	public static final int HUD_NEXT_LINE_Y = 24;
+
+	/**
+	 * 세트 줄 위에 놓이는 구분선 덩어리의 높이.
+	 *
+	 * <p>바이옴 줄과 선 사이의 틈 3 + 선 자체 1 + 선과 첫 세트 줄 사이의 틈 3 이다.
+	 */
+	public static final int HUD_SEPARATOR_HEIGHT = 7;
+
+	/** HUD 세트 한 줄의 높이. {@code client.hud.BottomLeftStack.LINE_HEIGHT} 와 같다. */
+	public static final int HUD_LINE_HEIGHT = 10;
+
+	/**
+	 * 세트 줄이 <b>가장 많이 그려질 때</b> HUD 덩어리의 아래끝.
+	 *
+	 * <p>세트 줄 수는 0~{@link PerkSetLines#MAX_HUD_LINES} 사이에서 변하지만 여기서는 늘
+	 * 최댓값으로 잡는다. 지금 그려지는 줄 수에 맞춰 움직이면 증강 하나를 새 유형에서 뽑는
+	 * 순간 능력치 전체가 한 줄만큼 미끄러지고, <b>같은 값이 늘 같은 자리에 있다</b>는 것이
+	 * 이 표시의 값어치다. 최댓값으로 잡아 두면 줄이 몇 개든 자리가 흔들리지 않는다.
+	 */
+	public static final int HUD_BOTTOM = HUD_NEXT_LINE_Y + HUD_SEPARATOR_HEIGHT
+			+ PerkSetLines.MAX_HUD_LINES * HUD_LINE_HEIGHT;
+
+	/** HUD 덩어리와 이 덩어리 사이에 두는 틈. */
+	public static final int HUD_GAP = 4;
+
+	/**
+	 * 덩어리가 올라갈 수 있는 가장 위.
+	 *
+	 * <p>이보다 위는 HUD 몫이다. 세트 줄은 화면 왼쪽 끝({@code MARGIN} 4)부터 그려지고 이
+	 * 덩어리도 창 왼쪽 바깥이라, 둘의 가로 범위는 좁은 화면에서 거의 통째로 겹친다. 겹침을
+	 * 가로로 피할 길이 없으므로 세로로 가른다.
+	 */
+	public static final int TOP_LIMIT = HUD_BOTTOM + HUD_GAP;
 
 	/**
 	 * 단추 글자 좌우에 두는 여백. 바닐라 {@code Button} 이 글자를 잘라 내는 여백(2px)의 두
@@ -107,22 +153,36 @@ public final class InventoryTeamButton {
 	}
 
 	/**
-	 * 단추의 y. 창 위 끝에 맞춘다.
+	 * 덩어리 맨 위, 곧 단추의 y. 창 위 끝과 {@link #TOP_LIMIT} 중 <b>아래쪽</b>이다.
 	 *
-	 * <p>조합법 책 단추는 {@code height / 2 − 22} — 창 한가운데 언저리다. 위 끝에 두면 세로로도
-	 * 멀찍이 떨어져 둘을 헷갈릴 일이 없고, 이 모드가 창을 아래로 54px 늘려도
-	 * ({@code ExpandedInventoryManager.EXTRA_PANEL_HEIGHT}) 창 위 끝은 늘 창 안이다.
+	 * <p>창 위 끝에 맞추는 것이 본디 모양이다. 조합법 책 단추는 {@code height / 2 − 22} — 창
+	 * 한가운데 언저리라 위 끝에 두면 세로로도 멀찍이 떨어지고, 이 모드가 창을 아래로 54px
+	 * 늘려도({@code ExpandedInventoryManager.EXTRA_PANEL_HEIGHT}) 창 위 끝은 늘 창 안이다.
+	 *
+	 * <p>다만 GUI 배율이 크면 화면이 짧아져 창이 위로 올라붙고, 그러면 창 위 끝이 HUD 세트
+	 * 줄 한가운데에 놓인다. 그때는 {@link #TOP_LIMIT} 까지 내린다. <b>단추도 함께 내린다</b> —
+	 * 단추만 남겨 두면 「◆ 채굴 3/3」 위에 겹쳐 앉아 무엇을 누르는지 알 수 없게 되고, 능력치
+	 * 줄과 폭·왼쪽을 함께 잡는 한 덩어리라는 계산도 깨진다.
+	 *
+	 * <p>배율 1~3 처럼 화면이 넉넉하면 창 위 끝이 이미 {@link #TOP_LIMIT} 보다 아래라 아무것도
+	 * 달라지지 않는다.
 	 */
 	public static int y(int topPos) {
-		return Math.max(0, topPos);
+		return Math.max(TOP_LIMIT, topPos);
 	}
 
 	/**
 	 * 능력치 줄들이 쓸 수 있는 세로 높이.
 	 *
 	 * <p>단추 아래부터 화면 바닥까지다. 인벤토리 창 <b>왼쪽 바깥</b>에는 바닐라가 아무것도
-	 * 그리지 않으므로 아래로는 화면 끝까지 쓸 수 있다. 화면 세로는 바닐라가 240 아래로는
-	 * 내려가지 않게 GUI 배율을 스스로 낮추므로, 창(220px)을 빼도 늘 백 픽셀 넘게 남는다.
+	 * 그리지 않으므로 아래로는 화면 끝까지 쓸 수 있다.
+	 *
+	 * <p>HUD 를 피해 내려온 만큼 세로가 줄어든다. 화면 세로는 바닐라가 240 아래로 내려가지
+	 * 않게 GUI 배율을 스스로 낮추므로 가장 짧은 화면에서도 121px 이 남고, 한 줄짜리 여덟 줄
+	 * (84px)은 어느 배율에서도 들어간다. <b>두 줄로 접은 여덟 줄(164px)은 화면 세로가 283
+	 * 아래면 못 들어간다</b> — 그때는 {@link InventoryStatPanel.Style#HIDDEN} 이 되어 단추만
+	 * 남는다. HUD 가 위쪽 91px 을 쓰는 이상 240px 짜리 화면에 접은 여덟 줄과 세트 줄을 함께
+	 * 세울 자리는 없고, 겹쳐 그려 둘 다 못 읽느니 한쪽을 접는 편이 낫다.
 	 */
 	public static int statHeight(int screenHeight, int topPos) {
 		return screenHeight - (y(topPos) + HEIGHT + InventoryStatPanel.BUTTON_GAP);

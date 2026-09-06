@@ -1,5 +1,7 @@
 package com.sharedfate.ui;
 
+import org.jetbrains.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -162,12 +164,32 @@ public final class PerkSetTooltip {
 	/**
 	 * 「채굴 2/3」 같은 진행도 줄.
 	 *
-	 * <p>더 열 것이 없으면 분모를 가진 개수로 적는다 — 「채굴 4/4」. 「4/0」 이 되면 안 된다.
+	 * <p><b>분모는 실제로 있는 단계만 가리킨다.</b> 더 열 것이 없으면 <b>최고 단계</b>를 적어
+	 * 「채굴 10/4」가 된다. 가진 개수를 분모로 삼으면 「채굴 10/10」이 되어 10단계가 있는 것처럼
+	 * 읽히는데, 바로 아래에 그리는 단계 줄에는 2·3·4 밖에 없어 눈앞에서 어긋난다.
+	 *
+	 * <p>단계가 하나도 없는 유형에서는 지어낼 숫자가 없으므로 분수를 아예 적지 않는다.
+	 *
+	 * @param tiers 이 유형의 단계들. 개수가 적은 것부터 정렬되어 있어야 한다
 	 */
-	public static String progress(String displayName, int owned, int nextThreshold) {
+	public static String progress(String displayName, int owned, int nextThreshold,
+			List<TierEntry> tiers) {
 		String name = displayName == null ? "" : displayName;
-		int goal = nextThreshold > 0 ? nextThreshold : Math.max(owned, 1);
-		return name + " " + owned + "/" + goal;
+		int goal = nextThreshold > 0 ? nextThreshold : highestCount(tiers);
+		return goal > 0 ? name + " " + owned + "/" + goal : name + " " + owned;
+	}
+
+	/** 단계들 중 가장 큰 {@code count}. 하나도 없으면 0. */
+	private static int highestCount(@Nullable List<TierEntry> tiers) {
+		int highest = 0;
+		if (tiers != null) {
+			for (TierEntry tier : tiers) {
+				if (tier != null) {
+					highest = Math.max(highest, tier.count());
+				}
+			}
+		}
+		return highest;
 	}
 
 	/**
@@ -178,8 +200,9 @@ public final class PerkSetTooltip {
 	 */
 	public static Body describe(String typeId, String displayName, int owned, int nextThreshold,
 			List<TierEntry> allTiers, List<Entry> catalog, int maxRows) {
-		return new Body(progress(displayName, owned, nextThreshold),
-				tiersOf(allTiers, typeId),
+		List<TierEntry> tiers = tiersOf(allTiers, typeId);
+		return new Body(progress(displayName, owned, nextThreshold, tiers),
+				tiers,
 				trim(missingOf(catalog, typeId), maxRows));
 	}
 }
