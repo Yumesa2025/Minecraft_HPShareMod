@@ -19,16 +19,6 @@ import java.util.Set;
  * 입력을 볼 수 없고, HUD 가림({@code hide_hud})은 서버에 그릴 화면이 없다. 그래서 "이 팀이
  * 지금 무엇을 갖고 있는가"만 클라이언트로 내려보내고, 나머지 판단은 양쪽이 나눠 맡는다.
  *
- * <h2>왜 {@link PerkSyncPayload} 에 얹지 않았는가</h2>
- * <p>{@code PerkSyncPayload} 는 화면에 글자로 뿌리는 표시용 패킷이고, 보내는 시점도
- * {@code PerkManager} 가 증강 목록이 바뀔 때로 정해 두었다. 여기 필요한 값은 보내는 조건이
- * 다르고(팀 상태가 아니라 <b>보유 효과</b>가 바뀔 때), 무엇보다 기존 레코드에 필드를 더하면
- * 그 패킷을 읽는 모든 자리가 함께 바뀐다. 새 패킷을 하나 더 두면 기존 세 패킷의 형식이
- * 한 바이트도 달라지지 않아, 잘못 건드렸을 때 무너지는 범위가 이 패킷 안으로 갇힌다.
- *
- * <p>대신 클라이언트가 이 패킷을 모르면 공중 점프가 조용히 안 되는 상태가 되므로,
- * {@link SharedFateNetworking#PROTOCOL_VERSION} 은 올려 두었다. 악수 단계에서 걸러진다.
- *
  * @param doubleJump         공중에서 한 번 더 뛸 수 있는가
  * @param doubleJumpPower    공중 점프가 실을 위쪽 속도. {@code doubleJump} 가 거짓이면 0
  * @param hiddenHudElements  가려야 할 HUD 칸 이름. {@link HideHudEffect.Element#id()} 형식이며

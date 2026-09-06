@@ -26,20 +26,14 @@ import java.util.function.IntUnaryOperator;
  * {@code holder} 증강의 보유자를 정하고 넘기는 곳.
  *
  * <p>{@link HolderEffect} 는 "보유자에게 무엇을 붙이는가"만 알고, "지금 누가 보유자인가"와
- * "언제 누구에게 넘기는가"는 여기서 정한다. {@code periodic} 과 {@link PeriodicPerkManager} 의
- * 관계와 같은 구도다.
+ * "언제 누구에게 넘기는가"는 여기서 정한다.
  *
  * <h2>보유자는 저장하지 않는다</h2>
- * <p>보유자는 이 클래스의 런타임 메모리에만 있다. {@code TeamState} 에 넣으면 세이브 형식이
- * 바뀌어 기존 월드와의 호환을 따져야 하는데, "지금 누가 버프를 들고 있는가"는 서버가 다시 뜨면
- * 새로 뽑아도 아무 문제가 없는 값이다. 대신 {@link #reset} 이 서버가 멈출 때 반드시 비운다.
- * 비우지 않으면 다음 월드에 이전 회차의 보유자가 남는다.
+ * <p>보유자는 이 클래스의 런타임 메모리에만 있다. 대신 {@link #reset} 이 서버가 멈출 때 반드시
+ * 비운다. 비우지 않으면 다음 월드에 이전 회차의 보유자가 남는다.
  *
  * <h2>기준 시각</h2>
- * <p>{@link PeriodicPerkManager} 와 달리 오버월드의 게임 시간을 쓰지 않는다. 순환은 팀에 하나뿐인
- * 상태를 옮기는 일이라 "월드 어디서나 같은 값"이 필요 없고, 오히려
- * {@link TimedPerkEffects} 처럼 자체 카운터를 쓰는 편이 낫다. 게임 시간은 강제 증강 선택 중에
- * 얼어 있어서, 그 시간을 기준으로 삼으면 선택창이 떠 있는 동안의 동작을 따로 설명해야 한다.
+ * <p>{@link PeriodicPerkManager} 와 달리 오버월드의 게임 시간을 쓰지 않는다.
  *
  * <p>대신 <b>강제 증강 선택 세션이 살아 있는 동안에는 카운터 자체를 멈춘다.</b> 선택창이 떠 있는
  * 동안 팀원은 움직일 수도 맞을 수도 없으므로, 그동안 보유자가 바뀌면 아무도 그 사실을 겪지
@@ -59,9 +53,7 @@ import java.util.function.IntUnaryOperator;
  * ({@link #passOnHurt}, {@link #release})는 이런 효과를 만나면 그냥 지나친다.
  *
  * <p>"고른 사람"은 {@code TeamState.perkOwners} 에 증강 id 별로 적혀 있다. 보유자와 달리 이
- * 값은 <b>월드 저장에 들어간다</b> — 보유자는 서버가 다시 뜨면 새로 뽑으면 그만이지만, 「누가
- * 골랐는가」는 다시 뜬 뒤에 알아낼 방법이 없기 때문이다. 적는 곳은
- * {@code PerkManager.commit} 한 자리뿐이다.
+ * 값은 <b>월드 저장에 들어간다</b>. 적는 곳은 {@code PerkManager.commit} 한 자리뿐이다.
  *
  * <p><b>주인이 접속을 끊으면 그동안 보유자는 없다</b>({@link #fixedHolder} 가 null 을 돌려준다).
  * 무작위로 넘기면 「고정」이 아니게 되므로 넘기지 않는다. 다시 들어오면 다음 점검(반 초 이내)에
@@ -69,8 +61,8 @@ import java.util.function.IntUnaryOperator;
  * 왕이 없는 동안 팀이 디메리트만 지는 것도 의도한 결과다.
  *
  * <p>주인이 적혀 있지 않은 경우도 있다. 「숨은 재능」처럼 다른 증강이 덤으로 준 증강은 고른
- * 사람이 없다. 그때는 <b>처음 뽑힌 사람을 그대로 주인으로 삼아 적어 둔다.</b> 아무도 보유자가
- * 되지 못해 증강이 죽어 있는 것보다 낫고, 한 번 정해지면 그 뒤로는 진짜 주인과 똑같이 고정된다.
+ * 사람이 없다. 그때는 <b>처음 뽑힌 사람을 그대로 주인으로 삼아 적어 둔다.</b> 한 번 정해지면
+ * 그 뒤로는 진짜 주인과 똑같이 고정된다.
  */
 public final class PerkHolderManager {
 	/** 보유자를 다시 살펴보는 주기. 반 초면 체감상 즉시 반응하는 것과 다르지 않다. */
@@ -278,8 +270,7 @@ public final class PerkHolderManager {
 	 * 보유자가 없다. 실제로 갈아 끼우는 것은 그 답이 지금과 달라졌을 때뿐이라, 주인이 그대로
 	 * 접속해 있는 보통의 틱에는 아무 일도 하지 않는다.
 	 *
-	 * <p>{@code on_pass} 는 언제나 걸지 않는다. 보유자가 「넘어간」 것이 아니라 주인이 잠깐
-	 * 자리를 비웠다 돌아온 것뿐이기 때문이다. 애초에 이 조합의 정의는
+	 * <p>{@code on_pass} 는 언제나 걸지 않는다. 애초에 이 조합의 정의는
 	 * {@link HolderEffect#fromJson} 이 받아 주지 않는다.
 	 */
 	private static void reconcileFixed(MinecraftServer server, TeamManager manager, ShareTeam team,
@@ -292,7 +283,7 @@ public final class PerkHolderManager {
 		UUID owner = state.perkOwners.get(owned.perk().id());
 		if (owner == null && !online.isEmpty()) {
 			// 고른 사람을 알 수 없는 경로로 들어온 증강이다(「숨은 재능」 등). 처음 뽑힌 사람을
-			// 그대로 주인으로 굳혀 둔다 — 아무도 보유자가 되지 못해 증강이 죽어 있는 것보다 낫다.
+			// 그대로 주인으로 굳혀 둔다.
 			owner = chooseNextHolder(null, online, randomOf(server));
 			if (owner != null) {
 				state.perkOwners.put(owned.perk().id(), owner);
@@ -382,8 +373,7 @@ public final class PerkHolderManager {
 	/**
 	 * 보유자가 바뀌었음을 팀 전원에게 알린다.
 	 *
-	 * <p>액션바만 쓴다. 순환 주기가 짧은 증강에서는 채팅으로 알리면 1분마다 로그가 한 줄씩
-	 * 쌓여 다른 안내를 밀어낸다. 액션바는 덮어써지므로 그런 일이 없다.
+	 * <p>액션바만 쓴다.
 	 */
 	private static void announce(MinecraftServer server, ShareTeam team, Owned owned,
 			@Nullable ServerPlayer holder) {
@@ -393,8 +383,7 @@ public final class PerkHolderManager {
 		if (name != null) {
 			text = "[증강] " + perkName + ": 이제 " + name + "님이 보유자입니다.";
 		} else if (owned.effect().fixedToOwner()) {
-			// 고정 보유자가 비었다는 것은 주인이 접속을 끊었다는 뜻이다. 「없다」로만 알리면
-			// 왜 없는지, 언제 돌아오는지를 아무도 알 수 없다.
+			// 고정 보유자가 비었다는 것은 주인이 접속을 끊었다는 뜻이다.
 			text = "[증강] " + perkName + ": 보유자가 접속을 끊어 돌아올 때까지 보유자가 없습니다.";
 		} else {
 			text = "[증강] " + perkName + ": 보유자가 없습니다.";

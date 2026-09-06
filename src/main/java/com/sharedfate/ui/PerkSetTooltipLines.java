@@ -7,8 +7,8 @@ import java.util.List;
  * 세트 툴팁 한 덩어리를 <b>화면이 그대로 그릴 줄들</b>로 바꾸는 계산.
  *
  * <p>{@link PerkSetTooltip} 이 「무엇을 담을지」를 정한다면 여기는 「어떤 글자와 어떤 색으로
- * 놓을지」를 정한다. 뜨는 자리가 둘이라서 나눠 두었다 — 증강 선택 카드의 <b>유형 줄</b>과 그
- * 화면 왼쪽 <b>세트 판</b>이 같은 것을 띄워야 한다. 두 곳에서 따로 만들면 한쪽만 고쳐진다.
+ * 놓을지」를 정한다. 증강 선택 카드의 <b>유형 줄</b>과 그 화면 왼쪽 <b>세트 판</b>이 같은 것을
+ * 띄워야 한다. 두 곳에서 따로 만들면 한쪽만 고쳐진다.
  *
  * <h2>켜진 단계와 안 켜진 단계는 반드시 갈려야 한다</h2>
  * <p>이 툴팁의 본론은 「지금 무엇이 켜져 있고 하나 더 모으면 무엇이 켜지는가」다. 네 줄이
@@ -16,7 +16,7 @@ import java.util.List;
  * 흐리게 준다.
  */
 public final class PerkSetTooltipLines {
-	/** 단계 번호와 설명 사이. 요청받은 모습 그대로다 — {@code "2:  광물에 …"}. */
+	/** 단계 번호와 설명 사이. {@code "2:  광물에 …"}. */
 	public static final String TIER_SEPARATOR = ":  ";
 	/** 「아직 없는 것」 이름 앞에 붙는 점. */
 	public static final String MISSING_BULLET = "· ";
@@ -40,9 +40,6 @@ public final class PerkSetTooltipLines {
 
 	/**
 	 * 줄마다 쓸 색.
-	 *
-	 * <p>색을 밖에서 받는 이유는 이 계산이 {@code src/client} 의 화면 상수를 몰라야 하기
-	 * 때문이다. 시험은 알아보기 쉬운 가짜 색을 넣고 <b>어느 줄에 어느 색이 갔는지</b>만 본다.
 	 *
 	 * @param progress      「채굴 2/3」 진행도 줄
 	 * @param tierActive    이미 켜진 단계

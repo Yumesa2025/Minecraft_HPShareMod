@@ -13,10 +13,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 /**
- * 인챈트 칸 툴팁이 레벨 대신 다이아몬드를 말하는지 확인합니다.
+ * 인챈트 칸 툴팁이 레벨 대신 다이아몬드를 말하는지 확인한다.
  *
- * <p>화면 코드는 {@code src/client} 에 있어 시험 소스셋이 보지 못합니다. 그래서 화면
- * Mixin 은 이 순수 함수를 부르기만 하고, 확인은 여기서 합니다.
+ * <p>화면 코드는 {@code src/client} 에 있어 시험 소스셋이 보지 못한다. 그래서 화면
+ * Mixin 은 이 순수 함수를 부르기만 하고, 확인은 여기서 한다.
  */
 class EnchantmentDiamondTooltipTest {
 

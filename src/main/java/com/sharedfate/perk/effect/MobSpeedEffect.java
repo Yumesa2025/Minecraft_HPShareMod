@@ -12,7 +12,7 @@ import net.minecraft.world.entity.EntityType;
  * "excludes": ["minecraft:ender_dragon"] }} 는 엔더 드래곤을 뺀 적대적 몹의 이동 속도를 15%
  * 올린다.
  *
- * <p>{@link MobHealthEffect} 와 완전히 같은 구도다. 이 효과는 팀원에게 붙이는 것이 아니므로
+ * <p>이 효과는 팀원에게 붙이는 것이 아니므로
  * {@link #apply}/{@link #remove} 는 아무 일도 하지 않고, 실제로 몹에게 수정자를 붙이고 떼는
  * 일은 {@link MobPerkModifiers} 가 맡는다. 여기서는 "얼마를, 누구에게" 만 들고 있다.
  *

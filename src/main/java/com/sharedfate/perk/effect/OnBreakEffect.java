@@ -44,9 +44,7 @@ import java.util.List;
  * {@code durationSeconds}, 그것도 없으면 {@link #DEFAULT_DURATION_SECONDS} 초다.
  *
  * <p>{@code status_effect} 가 아닌 하위 효과는 {@link PerkEffect#apply} 를 그대로 부른다.
- * 그런 효과들({@code attribute} 등)은 걷어낼 시점이 없어 영구히 붙어 버리므로 권하지 않는다.
- * 그래도 막지 않는 이유는 {@code on_kill} 과 같다. 새 효과 타입이 생겼을 때 여기를 고치지
- * 않아도 되게 하기 위해서다.
+ * 그런 효과들({@code attribute} 등)은 걷어낼 시점이 없어 영구히 붙어 버린다.
  *
  * <h2>이 클래스가 하지 않는 일</h2>
  * <p>언제 누가 무엇을 캤는지 보는 일은 {@link com.sharedfate.perk.PerkBlockBreaks} 가 맡는다.

@@ -120,9 +120,7 @@ public class TeamManager extends SavedData {
 	 * <p>여기서 되살린 팀은 {@link TeamState#fresh} 때문에 일단 <b>「시작 대기」</b> 로 나오지만,
 	 * 바로 뒤에서 {@code GameStartManager.syncRunStart} 가 회차 번호를 보고 회차를 켠다
 	 * ({@code TeamRosterStore.onServerStarted}). <b>사람이 「게임 시작」을 누르는 것은 1회차
-	 * 전 한 번뿐이고</b>, 2회차부터는 저절로 진행 중이 된다. 이 메서드가 스스로 켜지 않는 이유는
-	 * 회차 번호를 여기서 알 수 없고, 「유산」장비를 인벤토리에 넣는 일과 위치 교환의 남은 시간을
-	 * 채우는 일이 함께 일어나야 하는데 그 둘이 모두 {@code sync} 쪽 규칙이기 때문이다.
+	 * 전 한 번뿐이고</b>, 2회차부터는 저절로 진행 중이 된다.
 	 */
 	public int restoreFreshRoster(Collection<TeamRosterStore.RestoredTeam> roster) {
 		Objects.requireNonNull(roster, "roster");
@@ -308,13 +306,7 @@ public class TeamManager extends SavedData {
 		return entries;
 	}
 
-	/**
-	 * 저장 데이터를 되살린다.
-	 *
-	 * <p>0.5.1-dev 까지 있던 {@code invites} 항목은 더 읽지 않는다. 초대는 리더가 부르는
-	 * 즉시 합류로 바뀌어 대기열 자체가 없어졌다. 예전 저장 파일에 그 항목이 남아 있어도
-	 * 코덱이 모르는 항목으로 지나치므로 오류가 나지 않는다.
-	 */
+	/** 저장 데이터를 되살린다. */
 	private static TeamManager fromCodec(List<Entry> entries,
 			List<UUID> pendingEffectClears, List<UUID> pendingExperienceClears) {
 		TeamManager manager = new TeamManager();

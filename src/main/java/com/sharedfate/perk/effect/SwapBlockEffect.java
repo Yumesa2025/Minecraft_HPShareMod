@@ -15,10 +15,8 @@ import com.sharedfate.perk.PerkEffect;
  * 「뿌리내린 발」의 "원래 바뀔 시점마다 실명과 구속"이라는 대가가 성립하려면 그 시점이
  * 계속 찾아와야 하기 때문이다.
  *
- * <h2>왜 표시 클래스인가</h2>
  * <p>{@link PerkEffect#apply} 로 팀원에게 붙일 것이 없다. 교환 처리 한가운데서 "이 팀이 이
- * 효과를 갖고 있는가"만 물어보면 되므로, 이 클래스는 그 물음에 답하기 위한 표시로만 존재한다.
- * 상태가 없어 인스턴스를 나눠 써도 안전하다. {@link NoFoodHungerEffect} 와 같은 꼴이다.
+ * 효과를 갖고 있는가"만 물어본다. 상태가 없어 인스턴스를 나눠 써도 안전하다.
  *
  * <p>실제로 막는 지점은 {@link com.sharedfate.sync.PositionSwapManager} 이고, 지금 이 팀에 이
  * 효과가 있는지 판단하는 것은 {@link com.sharedfate.perk.PerkSwapRules} 다.

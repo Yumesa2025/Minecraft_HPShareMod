@@ -11,9 +11,6 @@ import org.jetbrains.annotations.Nullable;
 /**
  * S2C — 능력치 화면이 그려야 하지만 <b>클라이언트가 스스로는 알 수 없는</b> 값들.
  *
- * <p>예전 이름은 {@code AttackDamagePayload} 였다. 공격력 하나만 실었기 때문인데, 지금은
- * 받는 피해 배율과 몹 배율까지 함께 싣게 되어 이름이 내용보다 좁아졌다.
- *
  * <h2>여기 실리는 것과 실리지 않는 것</h2>
  * <ul>
  *   <li><b>공격력</b>({@code minecraft:attack_damage}) — 바닐라가 이 속성만은 클라이언트에
@@ -28,17 +25,6 @@ import org.jetbrains.annotations.Nullable;
  *   <li><b>공격 속도</b>는 여기 없다. {@code minecraft:attack_speed} 는 공격력과 달리
  *       {@code setSyncable(true)} 로 등록되어 <b>수정자까지 그대로 클라이언트에 온다.</b>
  *       이미 있는 값을 또 보내면 두 값이 어긋날 자리만 생긴다.</li>
- * </ul>
- *
- * <h2>왜 {@link TeamSyncPayload} 에 얹지 않았는가</h2>
- * <ul>
- *   <li><b>팀 단위가 아니라 사람 단위다.</b> {@code TeamSyncPayload} 는 팀마다 <b>하나를 만들어
- *       전원에게 같은 것을 보내는</b> 묶음이다. 공격력은 받는 사람마다 다르므로 저기 얹으면
- *       팀원 수만큼 다른 묶음을 만들어야 해서 그 패킷의 성격 자체가 바뀐다.</li>
- *   <li><b>팀이 없어도 적어야 한다.</b> 능력치 표시는 팀에 속하지 않아도 그려진다.
- *       팀이 없을 때 나가는 것은 {@code TeamSyncPayload.EMPTY} 뿐이라 얹을 자리가 없다.</li>
- *   <li><b>보내는 때가 다르다.</b> 저쪽은 명단·레벨이 바뀔 때 나가고 무기를 바꿔도 나가지
- *       않는다.</li>
  * </ul>
  *
  * @param attackDamageBase    공격력의 바닐라 기본값. {@code getBaseValue()} 이며 플레이어는 1.0

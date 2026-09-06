@@ -80,9 +80,6 @@ public final class PerkRegistry {
 	/**
 	 * 모드에 들어 있는 기본 증강 풀을 설정 폴더로 꺼내 놓는다.
 	 *
-	 * <p>서버 운영자가 빈 파일부터 손으로 채우게 두면 서버마다 증강이 달라진다. 기본 풀을
-	 * 함께 배포하고 첫 실행 때 꺼내 두면, 그대로 써도 되고 편집해도 된다.
-	 *
 	 * @return 꺼내 놓기에 성공했으면 true
 	 */
 	private static boolean writeBundledDefault(Path file) {
@@ -204,9 +201,6 @@ public final class PerkRegistry {
 				description = "";
 			}
 
-			// stackable 과 maxStacks 는 더 이상 읽지 않는다. 중첩 개념이 사라졌기 때문이다.
-			// 예전 형식으로 적어 둔 파일이 그대로 열려야 하므로 남아 있어도 그냥 지나친다.
-
 			// 특정 구간부터만 후보로 나오게 하는 필드. 안 적으면 0(제한 없음).
 			// 음수는 뜻이 없으므로 0으로 접어 둔다.
 			int minLevel = Math.max(0, PerkEffectType.readInt(json, "min_level", 0));
@@ -321,7 +315,7 @@ public final class PerkRegistry {
 				return null;
 			}
 			// {@code "drawback": true} 가 적혀 있으면 대가로 등록한다. 안 적혀 있으면 아무 일도
-			// 하지 않으므로 예전 정의는 한 톨도 달라지지 않는다.
+			// 하지 않는다.
 			PerkDrawbacks.mark(perkId, effectJson, effect);
 			effects.add(effect);
 		}

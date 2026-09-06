@@ -40,7 +40,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *
  * <p>증강 풀이 비어 있으면 {@link PerkFoodRules} 의 판정이 전부 팀 상태만 보고 곧바로
  * "해당 없음"이다. 막지 않고, 배율은 1 이라 {@code scaleNutrition} 이 받은 정의를 그대로
- * 돌려주며, 얹을 효과도 없다. 먹기 동작이 증강 도입 전과 완전히 같다.
+ * 돌려주며, 얹을 효과도 없다. 먹기 동작이 바닐라와 완전히 같다.
  */
 @Mixin(FoodProperties.class)
 public abstract class FoodPropertiesMixin {
@@ -77,7 +77,7 @@ public abstract class FoodPropertiesMixin {
 	 * <p>배율을 먹인 정의를 건네도 부르는 것은 바닐라의 {@code eat} 그대로다. 20 상한도,
 	 * 포만감이 허기를 넘지 못하는 규칙도 바닐라가 계산한다.
 	 *
-	 * <p>클라이언트에서는 팀 상태를 볼 수 없어 판정이 언제나 "해당 없음"이라 예전처럼 먹기를
+	 * <p>클라이언트에서는 팀 상태를 볼 수 없어 판정이 언제나 "해당 없음"이라 바닐라처럼 먹기를
 	 * 미리 그린다. 막았을 때는 서버 쪽 허기가 바뀌지 않아 화면이 한 틱 동안 어긋나는데,
 	 * {@link PerkFoodRules#resyncFoodDisplay} 가 다음 틱에 서버 값을 다시 보내게 만들어
 	 * 곧바로 제자리를 찾는다. 배율만 걸렸을 때는 서버 허기가 실제로 달라지므로 바닐라가 알아서

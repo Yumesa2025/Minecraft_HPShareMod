@@ -3,13 +3,16 @@ package com.sharedfate.sync;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.serialization.DynamicOps;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamCreationSettings;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.item.ItemStack;
@@ -95,7 +98,7 @@ public final class TeamRosterStore {
 					damageAlertEnabled, deathAlertEnabled, List.of(), false);
 		}
 
-		/** 난이도 상승이 생기기 전 형태를 그대로 쓰던 자리를 위한 편의 생성자. */
+		/** 난이도 상승을 지정하지 않는 편의 생성자. 꺼짐으로 본다. */
 		public RestoredTeam(ShareTeam team, boolean perksEnabled, float maxHealth,
 				int swapIntervalTicks, boolean damageAlertEnabled, boolean deathAlertEnabled,
 				List<ItemStack> legacyGear) {
@@ -103,7 +106,7 @@ public final class TeamRosterStore {
 					damageAlertEnabled, deathAlertEnabled, legacyGear, false);
 		}
 
-		/** 다시 뽑기가 생기기 전 형태를 그대로 쓰던 자리를 위한 편의 생성자. 기본 3회로 본다. */
+		/** 다시 뽑기 횟수를 지정하지 않는 편의 생성자. 기본 3회로 본다. */
 		public RestoredTeam(ShareTeam team, boolean perksEnabled, float maxHealth,
 				int swapIntervalTicks, boolean damageAlertEnabled, boolean deathAlertEnabled,
 				List<ItemStack> legacyGear, boolean difficultyEscalationEnabled) {
@@ -130,9 +133,7 @@ public final class TeamRosterStore {
 	 * <p>여기서 갈리는 두 길이 곧 {@link GameStartManager.WorldOrigin} 의 두 값이다.
 	 * <ul>
 	 *   <li><b>이미 굴러가던 월드</b> — 월드에 팀이 그대로 있다. 명단 파일을 지금 모습으로 다시
-	 *       뜨고, 회차가 2 이상이면 상태만 「진행 중」으로 맞춘다. <b>아이템은 손대지 않는다.</b>
-	 *       예전에는 이 갈래에서 아무것도 맞추지 않아, 5회차를 굴리던 팀이 서버를 다시 켤 때마다
-	 *       「시작 대기」로 남았다.</li>
+	 *       뜨고, 회차가 2 이상이면 상태만 「진행 중」으로 맞춘다. <b>아이템은 손대지 않는다.</b></li>
 	 *   <li><b>새 월드</b> — 월드에 팀이 하나도 없는데 명단 파일만 남아 있다. 전멸로 월드가
 	 *       지워지고 새로 열렸다는 뜻이므로 명단을 되살리고 회차를 이어 간다.</li>
 	 * </ul>
@@ -149,7 +150,7 @@ public final class TeamRosterStore {
 			if (!manager.allTeams().isEmpty()) {
 				int resumed = GameStartManager.syncRunStart(manager, runNumber,
 						GameStartManager.WorldOrigin.ONGOING_WORLD);
-				save(file, snapshot(manager));
+				save(file, snapshot(manager), server.registryAccess());
 				SharedFateMod.LOGGER.info(
 						"[TEAM-ROSTER] 현재 월드 팀 명단 저장: teams={}, 회차 이어받기={}",
 						manager.allTeams().size(), resumed);
@@ -158,7 +159,7 @@ public final class TeamRosterStore {
 			if (!Files.exists(file)) {
 				return;
 			}
-			int restored = manager.restoreFreshRoster(load(file));
+			int restored = manager.restoreFreshRoster(load(file, server.registryAccess()));
 			int autoStarted = GameStartManager.syncRunStart(manager, runNumber,
 					GameStartManager.WorldOrigin.FRESH_WORLD);
 			SharedFateMod.LOGGER.info(
@@ -179,7 +180,7 @@ public final class TeamRosterStore {
 	}
 
 	public static void saveCurrent(MinecraftServer server) throws IOException {
-		save(rosterFile(server), snapshot(TeamManager.get(server)));
+		save(rosterFile(server), snapshot(TeamManager.get(server)), server.registryAccess());
 	}
 
 	/** 지금 팀들의 명단과 이어 갈 설정을 함께 뜬다. */
@@ -199,7 +200,16 @@ public final class TeamRosterStore {
 		return result;
 	}
 
+	/**
+	 * 레지스트리 없이 적는다. <b>인챈트가 붙은 유산 장비는 저장되지 않는다</b> —
+	 * {@link #itemOps} 참고. 살아 있는 서버가 없는 시험 경로만 이것을 쓴다.
+	 */
 	static void save(Path file, Collection<RestoredTeam> teams) throws IOException {
+		save(file, teams, null);
+	}
+
+	static void save(Path file, Collection<RestoredTeam> teams,
+			@Nullable HolderLookup.Provider registries) throws IOException {
 		List<StoredTeam> storedTeams = teams.stream()
 				.map(entry -> new StoredTeam(
 						entry.team().teamId().toString(), entry.team().name(),
@@ -207,7 +217,7 @@ public final class TeamRosterStore {
 						new StoredSettings(entry.perksEnabled(), entry.maxHealth(),
 								entry.swapIntervalTicks(),
 								entry.damageAlertEnabled(), entry.deathAlertEnabled(),
-								encodeItems(entry.legacyGear()),
+								encodeItems(entry.legacyGear(), registries),
 								entry.difficultyEscalationEnabled(),
 								entry.rerollCount())))
 				.toList();
@@ -228,7 +238,13 @@ public final class TeamRosterStore {
 		}
 	}
 
+	/** 레지스트리 없이 읽는다. {@link #save(Path, Collection)} 와 같은 한계가 있다. */
 	static List<RestoredTeam> load(Path file) throws IOException {
+		return load(file, null);
+	}
+
+	static List<RestoredTeam> load(Path file, @Nullable HolderLookup.Provider registries)
+			throws IOException {
 		if (!Files.isRegularFile(file)) {
 			throw new IOException("팀 명단이 일반 파일이 아닙니다: " + file);
 		}
@@ -265,7 +281,7 @@ public final class TeamRosterStore {
 						: new RestoredTeam(share, settings.perksEnabled(),
 								settings.maxHealth(), settings.swapIntervalTicks(),
 								settings.damageAlertEnabled(), settings.deathAlertEnabled(),
-								decodeItems(settings.legacyGear()),
+								decodeItems(settings.legacyGear(), registries),
 								settings.difficultyEscalationEnabled(),
 								rerollCount(settings.rerollCount())));
 			}
@@ -298,14 +314,33 @@ public final class TeamRosterStore {
 				? 20.0F : (float) SharedFateMod.config.sharedMaxHealth;
 	}
 
+	/**
+	 * 아이템을 적고 읽을 때 쓸 연산자.
+	 *
+	 * <p><b>맨 {@link NbtOps#INSTANCE} 로는 인챈트를 적지 못한다.</b> {@code ItemEnchantments}
+	 * 의 코덱이 {@code RegistryFixedCodec} 을 타는데, 그 구현은 연산자가 {@code RegistryOps} 가
+	 * 아니면 곧바로 오류를 낸다. 그래서 인챈트가 붙은 유산 장비를 저장하면 <b>그 항목 전체가</b>
+	 * 「저장하지 못해 건너뜁니다」로 버려진다 — 회차를 넘길 때 인챈트만 사라지는 것이 아니라
+	 * 장비가 통째로 사라진다.
+	 *
+	 * <p>레지스트리를 못 받은 경우({@code null})에는 맨 연산자로 물러선다. 살아 있는 서버가 없는
+	 * 시험 경로가 그렇고, 그때는 인챈트 없는 아이템만 오간다.
+	 */
+	private static DynamicOps<Tag> itemOps(@Nullable HolderLookup.Provider registries) {
+		return registries == null
+				? NbtOps.INSTANCE : registries.createSerializationContext(NbtOps.INSTANCE);
+	}
+
 	/** {@code ItemStack} 목록을 SNBT 문자열 목록으로 바꾼다. 빈 스택은 건너뛴다. */
-	private static List<String> encodeItems(List<ItemStack> items) {
+	private static List<String> encodeItems(List<ItemStack> items,
+			@Nullable HolderLookup.Provider registries) {
+		DynamicOps<Tag> ops = itemOps(registries);
 		List<String> encoded = new ArrayList<>();
 		for (ItemStack stack : items) {
 			if (stack == null || stack.isEmpty()) {
 				continue;
 			}
-			ItemStack.CODEC.encodeStart(NbtOps.INSTANCE, stack)
+			ItemStack.CODEC.encodeStart(ops, stack)
 					.resultOrPartial(error -> SharedFateMod.LOGGER.warn(
 							"유산 아이템을 저장하지 못해 건너뜁니다: {}", error))
 					.ifPresent(tag -> encoded.add(tag.toString()));
@@ -314,10 +349,12 @@ public final class TeamRosterStore {
 	}
 
 	/** SNBT 문자열 목록을 {@code ItemStack} 목록으로 되돌린다. 못 읽는 항목은 건너뛴다. */
-	private static List<ItemStack> decodeItems(@Nullable List<String> encoded) {
+	private static List<ItemStack> decodeItems(@Nullable List<String> encoded,
+			@Nullable HolderLookup.Provider registries) {
 		if (encoded == null || encoded.isEmpty()) {
 			return List.of();
 		}
+		DynamicOps<Tag> ops = itemOps(registries);
 		List<ItemStack> decoded = new ArrayList<>();
 		for (String snbt : encoded) {
 			if (snbt == null || snbt.isBlank()) {
@@ -325,7 +362,7 @@ public final class TeamRosterStore {
 			}
 			try {
 				CompoundTag tag = TagParser.parseCompoundFully(snbt);
-				ItemStack.CODEC.parse(NbtOps.INSTANCE, tag)
+				ItemStack.CODEC.parse(ops, tag)
 						.resultOrPartial(error -> SharedFateMod.LOGGER.warn(
 								"유산 아이템을 복원하지 못해 건너뜁니다: {}", error))
 						.filter(stack -> !stack.isEmpty())

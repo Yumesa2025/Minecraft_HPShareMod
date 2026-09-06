@@ -21,8 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 번들 기본 증강 풀({@code sharedfate-perks-default.json})의 세트 유형 배정을 못박는다.
  *
  * <p>유형별 개수는 세트가 실제로 완성될 수 있는지를 정하는 값이라, 증강을 더하거나 유형을
- * 옮길 때 여기가 먼저 깨져야 한다. {@link DefaultPerkPoolValuesTest} 가 82/31/32/19 를
- * 지키는 것과 같은 자리다.
+ * 옮길 때 여기가 먼저 깨져야 한다.
  */
 class DefaultPerkSetTypesTest {
 
@@ -65,8 +64,8 @@ class DefaultPerkSetTypesTest {
 	/**
 	 * 유형이 <b>두 개</b>인 증강은 정확히 둘뿐이다.
 	 *
-	 * <p>{@code List<PerkSetType>} 인 이유가 이 둘이다. 하나로 줄이면 세트 판정이 조용히
-	 * 달라지므로, 개수와 함께 어느 증강인지도 못박는다.
+	 * <p>유형을 하나로 줄이면 세트 판정이 조용히 달라지므로, 개수와 함께 어느 증강인지도
+	 * 못박는다.
 	 */
 	@Test
 	void 유형이_둘인_증강은_정확히_둘이다(@TempDir Path dir) throws IOException {

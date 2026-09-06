@@ -18,9 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * {@link RallyPointManager}의 순수 로직(상태 조회, 인원 가드)을 본다.
  *
  * <p>실제로 모으고 15초 뒤 되돌리는 것은 살아 있는 서버·{@code ServerPlayer}가 있어야
- * 확인할 수 있어({@code PositionSwapManagerTest}와 같은 이유) 여기서 다루지 않는다.
- * 특히 <b>복귀 안전성 검사는 의도적으로 없다</b> — 확정된 설계이므로 이 클래스에서 그런
- * 검사를 시험하지 않는다(애초에 존재하지 않는다).
+ * 확인할 수 있어 여기서 다루지 않는다. 특히 <b>복귀 안전성 검사는 의도적으로 없다</b> —
+ * 이 클래스에서 그런 검사를 시험하지 않는다(애초에 존재하지 않는다).
  */
 class RallyPointManagerTest {
 

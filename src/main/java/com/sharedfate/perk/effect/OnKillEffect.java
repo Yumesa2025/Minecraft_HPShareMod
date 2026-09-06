@@ -25,11 +25,9 @@ import java.util.List;
  * <h2>이 클래스가 하지 않는 일</h2>
  * <p>여기는 "얼마를 줄 것인가"만 들고 있는 자료 그릇이다. "언제 누가 무엇을 죽였는가"를 보고
  * 실제로 공유 풀을 채우는 일은 {@link com.sharedfate.perk.PerkKillRewards} 가 맡는다.
- * {@code mob_health}/{@code mob_damage} 와 {@link com.sharedfate.perk.MobPerkModifiers} 의
- * 관계와 같은 구도다.
  *
  * <p>회복은 팀원 개인이 아니라 <b>팀 공유 값</b>에 들어간다. 그 이유와 이중 적용을 피하는
- * 방법은 {@link com.sharedfate.perk.PerkKillRewards} 에 적어 뒀다.
+ * 방법은 {@link com.sharedfate.perk.PerkKillRewards} 에 있다.
  *
  * <h2>{@code effects} — 처치 시 잠깐 부여할 효과</h2>
  * <p>배열 각 항목은 보통의 효과 정의와 형태가 똑같고 {@link PerkEffectType} 이 재귀적으로
@@ -38,9 +36,7 @@ import java.util.List;
  * {@link #DEFAULT_DURATION_SECONDS} 초다.
  *
  * <p>{@code status_effect} 가 아닌 하위 효과는 {@link PerkEffect#apply} 를 그대로 부른다.
- * 그런 효과들({@code attribute} 등)은 걷어낼 시점이 없어 처치 순간에 영구히 붙어 버리므로
- * 지금은 권하지 않는다. 그래도 막지 않는 이유는 새 효과 타입이 생겼을 때 여기를 고치지 않아도
- * 되게 하기 위해서다.
+ * 그런 효과들({@code attribute} 등)은 걷어낼 시점이 없어 처치 순간에 영구히 붙어 버린다.
  */
 public final class OnKillEffect implements PerkEffect {
 	/** 허기는 20 이 최대다. 그 이상 적어도 의미가 없다. */

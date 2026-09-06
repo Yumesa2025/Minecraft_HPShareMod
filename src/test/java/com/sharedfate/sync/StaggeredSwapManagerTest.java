@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@link StaggeredSwapManager}의 순수 로직(실행 순서 셔플, 상태 조회)을 본다.
  *
  * <p>실제로 한 명씩 옮기고 간격을 세는 것은 살아 있는 서버·{@code ServerPlayer}가 있어야
- * 확인할 수 있어({@code PositionSwapManagerTest}와 같은 이유) 여기서 다루지 않는다.
+ * 확인할 수 있어 여기서 다루지 않는다.
  */
 class StaggeredSwapManagerTest {
 

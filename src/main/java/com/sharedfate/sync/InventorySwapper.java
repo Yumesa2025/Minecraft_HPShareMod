@@ -55,8 +55,8 @@ public final class InventorySwapper {
 	 * {@code LocalPlayer.clientSideCloseContainer} 가 {@code Gui.setScreen(null)} 을 부르기
 	 * 때문이다. 컨테이너와 아무 상관 없는 창까지 함께 사라진다.
 	 *
-	 * <p>여기서 창을 닫는 본래 이유는 상자를 연 채로 인벤토리를 통째로 바꿔치우면 그 창의
-	 * 아래 칸이 옛 목록을 가리키기 때문이다. 인벤토리 메뉴만 떠 있으면 그럴 일이 없다 —
+	 * <p>창을 닫는 것은, 상자를 연 채로 인벤토리를 통째로 바꿔치우면 그 창의 아래 칸이 옛
+	 * 목록을 가리키기 때문이다. 인벤토리 메뉴만 떠 있으면 그럴 일이 없다 —
 	 * {@link #finishJoin} 이 바뀐 목록을 곧바로 내려보낸다. 대신 창을 닫을 때 바닐라가 해 주던
 	 * 뒷정리({@code AbstractContainerMenu.removed} — 커서에 쥔 것을 내려놓고 2×2 조합칸을
 	 * 인벤토리로 되돌린다)는 그대로 부른다. 빠뜨리면 그 아이템만 공유되지 않고 남는다.

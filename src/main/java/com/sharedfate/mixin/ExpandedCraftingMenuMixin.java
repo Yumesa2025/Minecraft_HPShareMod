@@ -13,12 +13,12 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * 제작대의 추가 칸에서 쉬프트 클릭했을 때만 손봅니다.
+ * 제작대의 추가 칸에서 쉬프트 클릭했을 때만 손본다.
  *
  * <p>칸을 붙이고 자리를 잡는 일은 {@link ExpandedStandardMenuMixin} 이 다른 메뉴와 똑같이
- * 합니다. 여기서 따로 다루는 것은 <b>추가 칸이 출발지일 때</b>뿐입니다 — 바닐라는 그
+ * 한다. 여기서 따로 다루는 것은 <b>추가 칸이 출발지일 때</b>뿐이다 — 바닐라는 그
  * 번호를 모르므로 「플레이어 인벤토리로 보내라」로 처리하는데, 그 범위에 추가 칸이 다시
- * 들어가 제자리걸음을 합니다.
+ * 들어가 제자리걸음을 한다.
  */
 @Mixin(CraftingMenu.class)
 public abstract class ExpandedCraftingMenuMixin {
@@ -50,12 +50,10 @@ public abstract class ExpandedCraftingMenuMixin {
 		boolean moved = ExpandedInventoryMoves.move(menu, stack,
 				ExpandedInventoryMoves.order(CRAFT_INPUT_START, CRAFT_INPUT_SIZE), false);
 		if (!moved) {
+			// 바닐라도 제작대 화면에서 「인벤토리 세 줄 → 핫바」로 보낸다. 추가 세 줄은
+			// 화면에서 세 줄 바로 아래에 있는 인벤토리 줄이므로 같은 쪽으로 가야 한다.
 			moved = ExpandedInventoryMoves.move(menu, stack,
-					ExpandedInventoryMoves.order(
-							PLAYER_SLOT_START, ExpandedInventoryManager.EXTRA_SIZE,
-							PLAYER_SLOT_START + ExpandedInventoryManager.EXTRA_SIZE,
-							ExpandedInventoryManager.EXTRA_COLUMNS),
-					false);
+					ExpandedInventoryMoves.hotbarFirstOrder(PLAYER_SLOT_START), false);
 		}
 		if (!moved) {
 			cir.setReturnValue(ItemStack.EMPTY);

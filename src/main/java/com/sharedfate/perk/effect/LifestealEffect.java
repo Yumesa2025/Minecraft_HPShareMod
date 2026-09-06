@@ -15,7 +15,7 @@ import com.sharedfate.perk.PerkEffectType;
  * <p>여기는 "얼마를 되돌리는가"만 들고 있는 자료 그릇이다. "누가 누구에게 얼마를 입혔는가"를
  * 보고 실제로 공유 풀을 채우는 일은 {@link com.sharedfate.perk.PerkLifesteal} 이 맡는다.
  * 회복이 개인이 아니라 <b>팀 공유 값</b>에 들어가는 이유와 이중 적용을 피하는 방법도 그쪽에
- * 적어 뒀다.
+ * 있다.
  */
 public final class LifestealEffect implements PerkEffect {
 	/** 흡혈 비율 상한. 준 피해를 그대로 되돌리는 1.0 을 넘길 이유가 없다. */

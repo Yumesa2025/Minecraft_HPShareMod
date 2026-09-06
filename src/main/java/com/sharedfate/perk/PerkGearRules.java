@@ -1,5 +1,6 @@
 package com.sharedfate.perk;
 
+import com.sharedfate.perk.effect.DurabilityMultiplierEffect;
 import com.sharedfate.perk.effect.EquipBanEffect;
 import com.sharedfate.perk.effect.ItemBanEffect;
 import com.sharedfate.perk.effect.NoDamageBoostEffect;
@@ -8,6 +9,7 @@ import com.sharedfate.perk.effect.WeaponDamageEffect;
 import com.sharedfate.team.TeamLookup;
 import com.sharedfate.team.TeamState;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
@@ -17,9 +19,7 @@ import java.util.function.Predicate;
 /**
  * 장비·무기 관련 증강의 판정부.
  *
- * <p>{@link PerkFoodRules} 와 같은 자리에 있는 클래스다. mixin 과 집행부는 "어디서 막는가"만
- * 갖고, "막아야 하는가"는 전부 여기에 물어본다. 그래야 판정을 살아 있는 서버 없이 시험할 수 있고
- * mixin 이 읽기 쉬운 상태로 남는다.
+ * <p>mixin 과 집행부는 "어디서 막는가"만 갖고, "막아야 하는가"는 전부 여기에 물어본다.
  *
  * <h2>빠른 경로가 곧 기본 경로다</h2>
  * <p>모든 질문은 {@link #activeState} 로 시작한다. 팀에 속하지 않았거나, 증강을 끈 팀이거나,
@@ -113,6 +113,70 @@ public final class PerkGearRules {
 	public static boolean equipmentBlocked(@Nullable TeamState state, @Nullable EquipmentSlot slot,
 			@Nullable ItemStack stack) {
 		return slotBanned(state, slot) || itemBanned(state, stack);
+	}
+
+	// ------------------------------------------------------------------ 내구도
+
+	/**
+	 * 이 아이템이 몇 배로 오래 가는가. 해당하는 규칙이 없으면 1.
+	 *
+	 * <p>여러 규칙이 겹치면 먼저 얻은 증강이 이긴다. 곱해서 쌓지 않는다.
+	 */
+	public static double durabilityMultiplier(@Nullable TeamState state, @Nullable ItemStack stack) {
+		if (stack == null || stack.isEmpty()) {
+			return 1.0;
+		}
+		DurabilityMultiplierEffect effect =
+				find(state, DurabilityMultiplierEffect.class, rule -> rule.matches(stack));
+		return effect == null ? 1.0 : effect.multiplier();
+	}
+
+	/** 이 플레이어에게 그 아이템이 몇 배로 오래 가는가. */
+	public static double durabilityMultiplier(@Nullable ServerPlayer player,
+			@Nullable ItemStack stack) {
+		return durabilityMultiplier(activeState(player), stack);
+	}
+
+	/**
+	 * 이번에 닳을 내구도를 배수만큼 깎는다. <b>이 계산이 내구도 증강의 전부다.</b>
+	 *
+	 * <p>내구도는 정수라 그냥 나누면 안 된다. 한 번에 1씩 닳는 것이 대부분인데 1을 3으로 나누면
+	 * 0이 되어 <b>영영 닳지 않는 장비</b>가 된다. 그래서 몫은 그대로 깎고 <b>나머지는 확률로</b>
+	 * 처리한다. 배수 3에 소모량 1이면 1/3 확률로 1이 닳는다 — 여러 번 반복하면 평균이 정확히
+	 * 1/3 이라 내구도가 3배가 된다. 내구성 마법의 계산이 끝난 <b>뒤</b>에 이 깎기가 걸리므로
+	 * 둘은 자연스럽게 곱해진다.
+	 *
+	 * @param amount 바닐라가 정한 소모량. 0 이하면 손대지 않는다
+	 * @param multiplier 내구도 배수. 1 이하면 손대지 않는다
+	 * @param roll 0 이상 1 미만의 난수
+	 * @return 실제로 닳을 양
+	 */
+	public static int reduceDurabilityLoss(int amount, double multiplier, double roll) {
+		if (amount <= 0 || multiplier <= 1.0 || !Double.isFinite(multiplier)) {
+			return amount;
+		}
+		double scaled = amount / multiplier;
+		int whole = (int) scaled;
+		double fraction = scaled - whole;
+		return roll < fraction ? whole + 1 : whole;
+	}
+
+	/**
+	 * 이 플레이어가 이 아이템을 쓸 때 이번에 닳을 내구도.
+	 *
+	 * <p>증강이 없으면 {@code amount} 를 그대로 돌려준다. 그래서 증강 풀이 빈 서버에서는
+	 * 바닐라와 완전히 같다.
+	 */
+	public static int reduceDurabilityLoss(@Nullable TeamState state, @Nullable ItemStack stack,
+			int amount, @Nullable RandomSource random) {
+		if (amount <= 0 || random == null) {
+			return amount;
+		}
+		double multiplier = durabilityMultiplier(state, stack);
+		if (multiplier <= 1.0) {
+			return amount;
+		}
+		return reduceDurabilityLoss(amount, multiplier, random.nextDouble());
 	}
 
 	// ------------------------------------------------------------------ 왼손 고정

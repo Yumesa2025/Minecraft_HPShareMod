@@ -2,6 +2,7 @@ package com.sharedfate.perk;
 
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.effect.ConditionalEffect;
+import com.sharedfate.perk.effect.NoAttackDamageLossEffect;
 import com.sharedfate.perk.effect.ToolMismatchSlowEffect;
 import com.sharedfate.team.TeamLookup;
 import com.sharedfate.team.TeamState;
@@ -26,8 +27,7 @@ import java.util.UUID;
  * <h2>{@code conditional} 만 보는 것은 아니다</h2>
  * <p>"상태가 수시로 바뀌므로 주기적으로 다시 봐야 하는 효과"는 여기서 함께 돌린다. 지금은
  * {@link ToolMismatchSlowEffect}({@code tool_mismatch_slow}) 가 손에 든 것을 다시 보는 데 이
- * 주기를 쓴다. 그런 효과마다 폴링 루프를 따로 만들면 서버 틱에 같은 모양의 순회가 여러 벌
- * 생기고, 어느 것이 먼저 도는지도 알 수 없게 된다.
+ * 주기를 쓴다.
  *
  * <h2>피해 배율 조회 대상</h2>
  * <p>{@link PerkEffect#damageDealtMultiplier} 에는 플레이어 인자가 없어서, 조건부 효과 혼자서는
@@ -39,9 +39,7 @@ import java.util.UUID;
  * <p>이 장치는 조건부 효과 전용이 아니다. 배율 조회에 플레이어 인자가 없다는 문제는 모든
  * 래퍼 효과가 똑같이 겪으므로, {@code holder}
  * ({@link com.sharedfate.perk.effect.HolderEffect}) 도 "지금 배율을 묻는 사람이 보유자인가"를
- * 여기서 알아낸다. 여기 두는 이유는 {@link #beginMultiplierLookup} 을 부르는 자리가
- * {@code PerkManager.multiplier} 한 곳뿐이라, 문맥을 여러 관리자에 나눠 두면 그 한 자리에서
- * 여러 번 같은 값을 적어야 하기 때문이다.
+ * 여기서 알아낸다.
  */
 public final class ConditionalPerkManager {
 	/** 조건을 다시 보는 주기. 반 초면 체감상 즉시 반응하는 것과 다르지 않다. */
@@ -93,6 +91,13 @@ public final class ConditionalPerkManager {
 		// PerkManager.refreshPlayer 가 걷어낸 것을 여기가 반 초 뒤에 도로 붙인다 — 조건부는
 		// 자기 하위 효과를 스스로 붙였다 떼기 때문이다.
 		PerkDrawbacks.Waiver waiver = PerkDrawbacks.waiverFor(state);
+		// 공격력 감소도 같은 이유로 여기서 다시 본다. 세트 「무기 3단계」를 켠 팀에서는
+		// PerkManager.refreshPlayer 가 걷어낸 것을 여기가 반 초 뒤에 도로 붙이면 안 된다.
+		//
+		// 감싼 효과는 자기 일정으로 하위를 붙였다 뗀다 — 조건이 뒤집힐 때, 보유자가 바뀔 때,
+		// 구간이 넘어갈 때다. 그 세 순간은 이 주기와 무관하게 찾아오므로 여기가 뒤따라가
+		// 걷어낸다. 그래서 감소가 다시 붙어 있는 시간은 길어야 반 초다.
+		NoAttackDamageLossEffect.Gate gate = NoAttackDamageLossEffect.gateFor(state);
 		for (String perkId : state.ownedPerks) {
 			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			if (perk == null) {
@@ -103,11 +108,19 @@ public final class ConditionalPerkManager {
 					if (waiver.waives(perk, effect)) {
 						continue;
 					}
+					if (gate.suppresses(effect)) {
+						// 최상위 감소는 PerkManager 가 이미 걷어냈다. 여기서 한 번 더 걷어내는
+						// 것은 몇 번을 불러도 결과가 같으므로 손해가 없고, 다른 경로가 실수로
+						// 붙여 두었을 때 반 초 안에 되돌려 준다.
+						effect.remove(player);
+						continue;
+					}
 					if (effect instanceof ConditionalEffect conditional) {
 						conditional.refresh(player);
 					} else if (effect instanceof ToolMismatchSlowEffect toolMismatch) {
 						toolMismatch.refresh(player);
 					}
+					gate.stripChildren(player, effect);
 				} catch (RuntimeException error) {
 					warnOnce(perk.id(), error);
 				}

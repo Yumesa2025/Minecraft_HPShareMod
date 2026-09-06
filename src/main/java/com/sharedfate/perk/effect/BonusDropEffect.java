@@ -21,8 +21,7 @@ import net.minecraft.world.level.block.state.BlockState;
  * <h2>이 클래스가 하지 않는 일</h2>
  * <p>여기는 "얼마의 확률로, 몇 개를, 어떤 블록에서, 도구를 얼마나 더 닳게 하는가"만 들고 있는
  * 자료 그릇이다. 언제 누가 무엇을 캤는지 보고 실제로 아이템을 떨어뜨리는 일은
- * {@link com.sharedfate.perk.PerkBlockBreaks} 가 맡는다. {@code on_kill} 과
- * {@link com.sharedfate.perk.PerkKillRewards} 의 관계와 같은 구도다.
+ * {@link com.sharedfate.perk.PerkBlockBreaks} 가 맡는다.
  *
  * <h2>행운·섬세한 손길과 어떻게 겹치는가</h2>
  * <p>추가 드롭은 그 블록의 전리품표를 <b>지금 든 도구로</b> {@code extra}번 다시 굴려, 매번
@@ -104,7 +103,7 @@ public final class BonusDropEffect implements PerkEffect {
 		return Math.max(0, Math.min(MAX_EXTRA_DURABILITY, extraDurability));
 	}
 
-	/** 성공할 때마다 더 줄 개수. 안 적으면 1(기존과 같은 "하나 더"). */
+	/** 성공할 때마다 더 줄 개수. 안 적으면 1. */
 	public int extra() {
 		return Math.max(1, Math.min(MAX_EXTRA, extra));
 	}

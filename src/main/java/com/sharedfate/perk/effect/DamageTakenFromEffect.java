@@ -27,13 +27,7 @@ import java.util.List;
  * 위 예시는 {@code "#minecraft:is_fire"} 한 줄로도 쓸 수 있다. 골드 5 요새 탐지기의
  * "화염 피해 ×1.5" 가 이 타입을 쓴다.
  *
- * <h2>왜 {@code damage_taken} 을 넓히지 않았는가</h2>
- * <p>{@link DamageTakenEffect} 의 배율은 {@link PerkEffect#damageTakenMultiplier()} 로 읽히는데,
- * 그 메서드에는 피해원이 넘어오지 않는다. 피해원을 넘기려면 그 자리를 부르는
- * {@code PerkManager.damageTakenMultiplier} 까지 함께 바꿔야 하고, 그러면 조건을 모르는 옛
- * 경로가 "불 피해 전용" 배율을 모든 피해에 곱하게 된다. 그래서 조건 없는 배율은
- * {@code damage_taken} 에 그대로 두고, 조건이 붙는 쪽만 별도 타입으로 나눴다. 두 타입은 서로
- * 영향을 주지 않으며 한 증강에 함께 적어도 된다.
+ * <p>{@link DamageTakenEffect} 와는 서로 영향을 주지 않으며 한 증강에 함께 적어도 된다.
  *
  * <h2>최상위에만 놓을 수 있다</h2>
  * <p>피해원을 아는 자리에서 이 효과를 찾는 {@link com.sharedfate.perk.PerkDamage} 는 증강의

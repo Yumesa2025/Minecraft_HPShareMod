@@ -3,9 +3,6 @@ package com.sharedfate.ui;
 /**
  * 증강 선택 화면 <b>왼쪽</b>에 세우는 「지금 켜진 세트」 판의 자리 계산.
  *
- * <p>{@link PerkCardMetrics} 와 같은 이유로 공용 소스셋에 있다 — 이 판을 그리는
- * {@code client/perk/PerkOfferScreen} 은 {@code src/client} 라 시험 소스셋이 보지 못한다.
- *
  * <h2>이 계산이 지키는 것</h2>
  * <p><b>카드를 절대 가리지 않는다.</b> 카드 세 장의 자리는 화면이 먼저 정하고
  * ({@code PerkOfferScreen.init}), 이 계산은 <b>그러고 남은 폭</b>만 받는다. 남은 폭이

@@ -22,7 +22,6 @@ import java.util.UUID;
  *
  * <p>{@link MaxHealthLockEffect} 는 "몇으로 고정할 것인가"만, {@link MaxHealthBonusEffect} 는
  * "얼마를 더할 것인가"만 들고 있고, 그 숫자를 실제 최대 체력으로 바꾸는 일은 전부 여기서 한다.
- * {@code on_kill} 과 {@link PerkKillRewards} 의 관계와 같은 구도다.
  *
  * <h2>기본값과 보너스를 나눠 둔다</h2>
  * <p>팀의 최대 체력은 두 조각으로 되어 있다.
@@ -34,21 +33,11 @@ import java.util.UUID;
  * </ul>
  *
  * <p>{@code TeamState.maxHealth} 는 이 둘을 합친 <b>결과</b>이고, 저장은 되지만 아무도 직접
- * 정하지 않는다. 이렇게 나눠야 하는 이유는 하나다. 보너스를 {@code maxHealth} 에 직접 더하면
- * 접속·부활·주기 점검마다 또 더해져 상한이 끝없이 불어난다. 반대로 "원래 값"을 기억해 두지
- * 않고 매번 빼려 하면 뺄 양을 짐작해야 하고, 그 짐작이 어긋나는 순간 명령으로 정해 둔 값이
- * 조용히 사라진다. 기본값을 따로 들고 있으면 몇 번을 다시 계산해도 답은
- * {@code 기본값 + 보너스} 로 같다.
+ * 정하지 않는다.
  *
  * <h2>고정이 보너스를 이긴다</h2>
- * <p>{@code max_health_lock}(고행자)이 있으면 보너스는 통째로 무시된다. 작성표의
- * "다른 증강으로도 오르지 않는다"와 맞는다. 이 우선순위를 정하는 자리는
- * {@link #effectiveMaxHealth} 하나뿐이다.
- *
- * <h2>왜 한 번 붙이고 끝낼 수 없는가</h2>
- * <p>최대 체력을 움직이는 손이 여럿이다. {@code /shareteam health}, 증강 선택, 접속·부활 때의
- * {@link MaxHealthAttribute#refresh}. 그래서 붙이는 시점({@link #enforce})뿐 아니라
- * {@link #tick} 이 1초마다 다시 확인해 어긋난 값을 되돌린다.
+ * <p>{@code max_health_lock}(고행자)이 있으면 보너스는 통째로 무시된다. 이 우선순위를 정하는
+ * 자리는 {@link #effectiveMaxHealth} 하나뿐이다.
  *
  * <h2>속성과 공유 상한을 함께 맞춰야 한다</h2>
  * <p>이 모드의 체력은 {@code TeamState.maxHealth} 를 상한으로 하는 팀 공유 풀이고,
@@ -65,14 +54,12 @@ import java.util.UUID;
  *
  * <p><b>그 자르기를 피해로 세면 안 된다.</b> {@code StatMirror} 는 팀원별 체력 감소를 사람 수만큼
  * 합산하므로, 상한이 줄어 잘린 몫까지 세면 <b>한 번의 자름이 인원수만큼 곱해진다.</b> 3인 팀이
- * 체력 18 에서 상한을 잃으면 8 이 세 번 빠져 공유 체력이 0 이 되고 팀이 즉사한다. 예전에 이
- * 주석은 "관측과 자르기가 같은 결론에 이른다"고 적고 있었는데, 그 계산은 <b>혼자일 때만</b>
- * 맞았다. 지금은 {@code StatMirror.healthDelta} 가 상한이 줄어 잘린 몫을 빼 준다.
+ * 체력 18 에서 상한을 잃으면 8 이 세 번 빠져 공유 체력이 0 이 되고 팀이 즉사한다.
+ * {@code StatMirror.healthDelta} 가 상한이 줄어 잘린 몫을 빼 준다.
  *
  * <h2>증강을 쓰지 않는 팀이면</h2>
  * <p>{@link #tick} 은 팀마다 {@code ownedPerks} 가 비었는지만 보고 곧바로 빠져나간다. 증강 풀이
- * 비어 있는 서버에서는 1초에 한 번 목록 두 개를 훑는 것이 전부이고, 최대 체력은 예전과 비트
- * 하나도 다르지 않다.
+ * 비어 있는 서버에서는 1초에 한 번 목록 두 개를 훑는 것이 전부다.
  */
 public final class PerkHealthRules {
 	/** 점검 주기. 매 틱 볼 필요는 없다. {@code PerkManager} 와 같은 값이다. */
@@ -89,8 +76,7 @@ public final class PerkHealthRules {
 	/**
 	 * 이 팀이 못 박아 둔 최대 체력. 고정 증강이 없으면 비어 있다.
 	 *
-	 * <p>여러 개를 가졌으면 <b>가장 작은 값</b>이 이긴다. 고정은 전부 대가로 붙는 것이라,
-	 * 두 개를 들었을 때 더 후한 쪽이 이기면 대가를 지우는 조합이 생긴다.
+	 * <p>여러 개를 가졌으면 <b>가장 작은 값</b>이 이긴다.
 	 */
 	public static OptionalDouble lockedMaxHealth(@Nullable TeamState state) {
 		if (state == null || state.ownedPerks.isEmpty()) {
@@ -116,8 +102,7 @@ public final class PerkHealthRules {
 	/**
 	 * 이 팀의 증강이 기본 최대 체력에 더해 주는 양. 해당 증강이 없으면 0.
 	 *
-	 * <p>여러 개를 가졌으면 <b>전부 더한다.</b> 서로 다른 증강이 각각 약속한 양이라 하나만 골라
-	 * 줄 이유가 없다. {@code food_nutrition} 배율을 모으는 규칙과 같은 생각이다.
+	 * <p>여러 개를 가졌으면 <b>전부 더한다.</b>
 	 *
 	 * <p>보유 목록을 매번 처음부터 훑는다는 점이 중요하다. 지금 상한에 무언가를 더하는 것이
 	 * 아니라 "지금 가진 증강이면 보너스가 얼마인가"를 다시 세는 것이라, 몇 번을 불러도 답이
@@ -125,11 +110,9 @@ public final class PerkHealthRules {
 	 *
 	 * <h2>예전 형식도 함께 센다</h2>
 	 * <p>{@code max_health_bonus} 가 생기기 전에는 이 증강을 {@code attribute} +
-	 * {@code minecraft:max_health} + {@code add_value} 로 적었다. 그렇게 적힌 설정 파일이 이미
-	 * 서버마다 깔려 있으므로 여기서 함께 세어 준다. 그 정의도 팀 상한을 올리게 되므로,
-	 * {@code AttributeEffect} 가 거는 수정자는 상한과 같은 값이 되어 {@code MaxHealthAttribute}
-	 * 의 덮어쓰기와 부딪히지 않는다. 예전에는 상한이 그대로여서 그 덮어쓰기가 수정자를 정확히
-	 * 상쇄했고, 그래서 증강이 무력했다.
+	 * {@code minecraft:max_health} + {@code add_value} 로 적었다. 그 정의도 팀 상한을 올리게
+	 * 되므로, {@code AttributeEffect} 가 거는 수정자는 상한과 같은 값이 되어
+	 * {@code MaxHealthAttribute} 의 덮어쓰기와 부딪히지 않는다.
 	 *
 	 * <p>배율 연산({@code add_multiplied_*})은 세지 않는다. 팀 기본값에 곱할지 보너스를 더한 뒤에
 	 * 곱할지가 정해져 있지 않아 짐작할 수 없다. 그런 정의는 {@code max_health_bonus} 로 고쳐 적어야

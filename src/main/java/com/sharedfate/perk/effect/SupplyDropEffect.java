@@ -21,11 +21,9 @@ import java.util.Map;
  *
  * <p><b>이 클래스는 시각을 모른다.</b> "얼마나 자주 · 무엇을 · 어떤 확률로"만 들고 있는 자료
  * 그릇이고, 주기를 재고 실제로 아이템을 넣는 일은 {@link com.sharedfate.perk.PerkSupplyDrops}
- * 가 맡는다. {@link GatherEffect} 와 {@code TeamGathering} 의 관계와 같은 구도다.
+ * 가 맡는다.
  *
- * <h2>{@code periodic} + {@code item_grant} 로 만들면 안 되는 이유</h2>
- * <p>이 저장소에서 가장 흔한 사고라 여기 적어 둔다.
- *
+ * <h2>{@code periodic} + {@code item_grant} 로는 만들 수 없다</h2>
  * <ul>
  *   <li>{@link PeriodicEffect} 는 <b>붙였다 떼는 효과 전용</b>이다. 구간이 바뀌면 하위 효과의
  *       {@code apply}/{@code remove} 를 부를 뿐이다.</li>
@@ -35,7 +33,7 @@ import java.util.Map;
  * </ul>
  *
  * <p>둘을 겹치면 <b>파싱도 통과하고 경고 로그도 안 나오는데 영원히 아무 일도 일어나지 않는다.</b>
- * 그래서 「주기적으로 아이템을 준다」는 별도의 타입과 별도의 매니저로 만들었다.
+ * 「주기적으로 아이템을 준다」는 이 별도 타입과 별도 매니저로만 된다.
  *
  * <p>다만 <b>아이템 한 종류를 실제 {@link ItemStack} 으로 바꾸는 일</b>만은
  * {@link ItemGrantEffect} 를 재사용한다. 물약 컴포넌트와 지속시간 늘리기가 이미 거기서 검증돼
@@ -48,7 +46,7 @@ import java.util.Map;
  * {@code PerkSetEffects.activeEffectsOf} 는 {@code supply_drop} 을 <b>셋</b> 돌려준다. 그대로
  * 돌리면 보급이 세 번 온다. 그래서 {@link com.sharedfate.perk.PerkSupplyDrops#select} 가
  * <b>후보 중 하나만</b> 고른다. 고르는 기준이 {@link #priority()} 이고, 그 값을 여기 JSON 에
- * 적는다. 자세한 규칙은 그 메서드에 적어 뒀다.
+ * 적는다. 자세한 규칙은 그 메서드에 있다.
  *
  * <p>따라서 <b>상위 단계의 정의는 그 자체로 완결이어야 한다.</b> 4단계가 이길 때 3단계 정의는
  * 아예 돌지 않으므로, 3단계의 「강화」를 4단계 정의에도 그대로 적어 두어야 한다. 값이 겹쳐
@@ -349,7 +347,7 @@ public final class SupplyDropEffect implements PerkEffect {
 	/**
 	 * 여럿이 켜졌을 때 누가 실제로 도는가. <b>큰 쪽이 이긴다.</b>
 	 *
-	 * <p>「보급」 세트는 2·3·4 단계에 각각 2·3·4 를 적어 두었다.
+	 * <p>「보급」 세트는 2·3·4 단계에 각각 2·3·4 가 적혀 있다.
 	 */
 	public int priority() {
 		return priority;
@@ -474,8 +472,8 @@ public final class SupplyDropEffect implements PerkEffect {
 	/**
 	 * 아무 일도 하지 않는다.
 	 *
-	 * <p>{@link ItemGrantEffect} 와 같은 이유다. {@code apply} 는 접속·부활·효과 갱신마다 다시
-	 * 불리므로 여기서 아이템을 주면 접속할 때마다 보급이 쏟아진다. 지급 시점은
+	 * <p>{@code apply} 는 접속·부활·효과 갱신마다 다시 불리므로 여기서 아이템을 주면 접속할
+	 * 때마다 보급이 쏟아진다. 지급 시점은
 	 * {@link com.sharedfate.perk.PerkSupplyDrops} 가 주기를 재어 정하는 그때 하나뿐이다.
 	 */
 	@Override

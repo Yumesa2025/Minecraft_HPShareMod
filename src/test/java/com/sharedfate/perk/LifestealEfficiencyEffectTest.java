@@ -48,7 +48,7 @@ class LifestealEfficiencyEffectTest {
 
 	// ------------------------------------------------------------------ 정의 읽기
 
-	/** 등록 줄을 빠뜨리면 이 타입을 쓴 세트 단계가 조용히 버려진다. 그것을 먼저 잡는다. */
+	/** 등록 줄을 빠뜨리면 이 타입을 쓴 세트 단계가 조용히 버려진다. */
 	@Test
 	void 효과_타입으로_등록돼_있다() {
 		assertNotNull(PerkEffectType.fromId("lifesteal_efficiency"),

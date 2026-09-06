@@ -14,8 +14,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * 화로의 추가 칸에서 쉬프트 클릭했을 때만 손봅니다. 바닐라는 그 번호를 아예 모르므로
- * 아무 일도 일어나지 않았습니다.
+ * 화로의 추가 칸에서 쉬프트 클릭했을 때만 손본다. 바닐라는 그 번호를 아예 모르므로
+ * 아무 일도 일어나지 않는다.
  */
 @Mixin(AbstractFurnaceMenu.class)
 public abstract class ExpandedFurnaceMenuMixin {
@@ -44,12 +44,10 @@ public abstract class ExpandedFurnaceMenuMixin {
 		boolean moved = ExpandedInventoryMoves.move(menu, stack,
 				ExpandedInventoryMoves.order(0, FURNACE_SLOTS), false);
 		if (!moved) {
+			// 바닐라도 화로 화면에서 「인벤토리 세 줄 → 핫바」로 보낸다. 추가 세 줄은
+			// 화면에서 세 줄 바로 아래에 있는 인벤토리 줄이므로 같은 쪽으로 가야 한다.
 			moved = ExpandedInventoryMoves.move(menu, stack,
-					ExpandedInventoryMoves.order(
-							FURNACE_SLOTS, ExpandedInventoryManager.EXTRA_SIZE,
-							FURNACE_SLOTS + ExpandedInventoryManager.EXTRA_SIZE,
-							ExpandedInventoryManager.EXTRA_COLUMNS),
-					false);
+					ExpandedInventoryMoves.hotbarFirstOrder(FURNACE_SLOTS), false);
 		}
 		if (!moved) {
 			cir.setReturnValue(ItemStack.EMPTY);

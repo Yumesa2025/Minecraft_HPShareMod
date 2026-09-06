@@ -65,8 +65,7 @@ public final class ShareTeamCommand {
 				.then(Commands.literal("disband")
 						.executes(ShareTeamCommand::disbandPrompt)
 						.then(Commands.literal("confirm").executes(ShareTeamCommand::disband)))
-				// 아래 셋은 팀을 만들 때만 정한다. 가지를 없애 버리면 예전 판에서 쓰던 대로
-				// 친 사람에게 「알 수 없는 명령」만 뜨고 왜 안 되는지 알 길이 없다. 그래서
+				// 아래 셋은 팀을 만들 때만 정한다.
 				// 가지는 그대로 두고 안내만 돌려준다. 읽기만 하는 swap status 는 살아 있다.
 				.then(Commands.literal("perks")
 						.then(Commands.literal("on")
@@ -114,8 +113,7 @@ public final class ShareTeamCommand {
 	 * {@code command} 를 그대로 옮겨 심는다. 이러면 {@code /st} 도 팀 화면을 연다.
 	 *
 	 * <p>자식은 하나도 달지 않는다. 브리가디어는 {@code redirect} 가 걸린 노드에 자식을
-	 * 더하는 것을 금지하고, 어차피 파싱이 원본 트리로 넘어가므로 달 필요도 없다. 덕분에
-	 * 나중에 {@code /shareteam} 에 하위 명령이 늘어도 별칭은 손댈 것이 없다.
+	 * 더하는 것을 금지하고, 어차피 파싱이 원본 트리로 넘어가므로 달 필요도 없다.
 	 */
 	private static void registerAlias(CommandDispatcher<CommandSourceStack> dispatcher,
 			LiteralCommandNode<CommandSourceStack> root) {
@@ -144,8 +142,7 @@ public final class ShareTeamCommand {
 	 * {@linkplain TeamCreationSettings#DEFAULT_REROLL_COUNT 회차당 3회}.
 	 * 팀 화면은 늘 완전한 형태를 보낸다.
 	 *
-	 * <p>가지를 손으로 다 적으면 갈래가 수십 개가 되어 어디가 빠졌는지 눈으로 못 찾는다.
-	 * 그래서 켜고 끄기 한 쌍씩 겹쳐 쌓고, 여기까지 읽은 설정은 {@link TeamCreationSettings}
+	 * <p>켜고 끄기 한 쌍씩 겹쳐 쌓고, 여기까지 읽은 설정은 {@link TeamCreationSettings}
 	 * 하나에 담아 다음 단계로 넘긴다. 각 단계의 꼬리는 {@link #withCreateOptions} 가 붙인다.
 	 *
 	 * <p><b>주의</b> — {@code perks} {@code damagealert} {@code deathalert} {@code difficulty}
@@ -197,8 +194,6 @@ public final class ShareTeamCommand {
 	/**
 	 * 켜고 끄기를 여기까지 읽은 자리에 「이름으로 끝내기 · 최대 체력 · 위치 교환 · 다시 뽑기」
 	 * 넷을 붙인다.
-	 *
-	 * <p>네 갈래를 단계마다 손으로 적으면 같은 코드가 마흔 번 나온다.
 	 */
 	private static <T extends ArgumentBuilder<CommandSourceStack, T>> T withCreateOptions(
 			T parent, SharedFateConfig config, TeamCreationSettings settings) {
@@ -256,7 +251,7 @@ public final class ShareTeamCommand {
 						.then(createName(config, settings)));
 	}
 
-	/** 예전에 위치 교환을 켜던 {@code swap on|start <분>}. 이제는 안내만 돌려준다. */
+	/** {@code swap on|start <분>}. 안내만 돌려준다. */
 	private static LiteralArgumentBuilder<CommandSourceStack> swapSettingNode(String literal) {
 		return Commands.literal(literal)
 				.executes(context -> lockedSetting(context,
@@ -288,8 +283,7 @@ public final class ShareTeamCommand {
 	 * 이번 {@code create} 에서 정해진 설정을 모은다.
 	 *
 	 * <p>켜고 끄기 넷은 어느 리터럴 가지를 지나왔는지로 정해져 {@code settings} 에 이미 실려
-	 * 있고, 숫자 셋은 <b>적었을 때만</b> 인자로 존재한다. 안 적은 단계를 기본값으로 두는 길이
-	 * 이것뿐이다.
+	 * 있고, 숫자 셋은 <b>적었을 때만</b> 인자로 존재한다.
 	 */
 	private static TeamCreationSettings creationSettings(CommandContext<CommandSourceStack> context,
 			TeamCreationSettings settings) {
@@ -376,8 +370,7 @@ public final class ShareTeamCommand {
 				"팀 '" + name + "'을 만들었습니다."
 						+ "\n" + settings.summary()
 						+ "\n위의 설정은 모두 팀을 만들 때만 정합니다. 나중에 바꿀 수 없습니다."
-						// 팀을 만들었다고 회차가 시작되지는 않는다 — 1회차라면. 다음에 무엇을
-						// 해야 하는지 여기서 알려 주지 않으면 아무도 시작되지 않은 채로 돌아다닌다.
+						// 팀을 만들었다고 회차가 시작되지는 않는다 — 1회차라면.
 						+ (autoStarted
 								? "\n이미 " + runNumber + "회차가 진행 중이라 회차도 바로 시작했습니다."
 								: "\n아직 회차는 시작되지 않았습니다. 팀원을 모두 부른 뒤"
@@ -602,7 +595,7 @@ public final class ShareTeamCommand {
 	/**
 	 * 인자 없는 {@code /shareteam}. 모드가 있는 클라이언트면 팀 화면을 연다.
 	 *
-	 * <p>모드가 없으면 창을 띄울 방법이 없으므로 예전처럼 도움말을 글로 찍는다.
+	 * <p>모드가 없으면 창을 띄울 방법이 없으므로 도움말을 글로 찍는다.
 	 * {@code /shareteam help} 는 어느 쪽이든 그대로 도움말이다.
 	 */
 	private static int openScreen(CommandContext<CommandSourceStack> context)
@@ -711,12 +704,10 @@ public final class ShareTeamCommand {
 	/**
 	 * {@code /shareteam status} 의 회차 한 줄.
 	 *
-	 * <p>시작 전에는 <b>읽는 사람이 무엇을 하면 되는지</b>를 적는다. 「시작 대기」라고만 적으면
-	 * 무엇을 기다리는 것인지 알 수 없고, 리더가 아닌 사람에게 시작 방법을 적어 줘도 그 사람은
-	 * 할 수 없는 일이다. 이 줄이 보이는 것은 <b>첫 회차 전뿐</b>이다 — 그 뒤로는 새 월드가
-	 * 열릴 때 회차가 저절로 시작된다.
+	 * <p>시작 전에는 <b>읽는 사람이 무엇을 하면 되는지</b>를 적는다. 이 줄이 보이는 것은
+	 * <b>첫 회차 전뿐</b>이다 — 그 뒤로는 새 월드가 열릴 때 회차가 저절로 시작된다.
 	 *
-	 * <p>문구가 {@link GameStartButton} 에 있는 것은 팀 화면과 같은 말을 하기 위해서다. 채팅은
+	 * <p>문구는 {@link GameStartButton} 에 있다. 채팅은
 	 * 자리가 넉넉하므로 화면보다 긴 쪽({@code waitingChatLine})을 쓴다.
 	 */
 	private static String runLine(TeamState state, boolean leader) {

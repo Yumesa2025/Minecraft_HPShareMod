@@ -15,9 +15,8 @@ import org.jetbrains.annotations.Nullable;
  * }</pre>
  *
  * <p>골드 「폭발 교환」이 이 타입을 쓴다. 세 필드 모두 안 적으면 그 증강의 기본값(반경 4.0,
- * 피해 배율 ×1.0, 블록 파괴 켜짐)이다. 세기를 조절하고 싶으면 코드가 아니라 정의 파일에서
- * 이 세 값만 고치면 된다 — 한 회차 굴려 보고 세다 싶으면 서버 재시작 없이 값만 낮추도록
- * 일부러 JSON 값으로 뺐다.
+ * 피해 배율 ×1.0, 블록 파괴 켜짐)이다. 세기를 조절하려면 코드가 아니라 정의 파일에서 이 세
+ * 값만 고치면 된다.
  *
  * <h2>필드</h2>
  * <ul>
@@ -32,14 +31,12 @@ import org.jetbrains.annotations.Nullable;
  *
  * <h2>불은 붙지 않는다</h2>
  * <p>화염 여부는 JSON 값이 아니라 코드에 고정돼 있다. 위치 교환마다 반복해서 터지는
- * 폭발이라 불이 붙으면 본진 주변이 계속 타들어 간다. 이건 세기 조절이 아니라 규칙 자체라
- * 정의 파일로 끄고 켤 대상이 아니라고 판단했다.
+ * 폭발이라 불이 붙으면 본진 주변이 계속 타들어 간다.
  *
  * <h2>누가 맞는가는 여기서 정하지 않는다</h2>
  * <p>이 클래스는 "얼마나 세게, 블록을 부수며"만 들고 있는 자료 그릇이다. 실제로 어디서
  * 터뜨리고 누구를 면역으로 둘지는 {@link com.sharedfate.sync.PositionSwapManager}가
  * {@link com.sharedfate.perk.PerkSwapRules#swapExplosions}로 이 정의를 받아 처리한다.
- * {@code swap_interval}·{@code on_swap}과 같은 구도다.
  */
 public final class SwapExplosionEffect implements PerkEffect {
 	public static final float DEFAULT_RADIUS = 4.0F;

@@ -25,13 +25,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * {@code legacy_gear}(프리즘 「유산」)의 정의 읽기와 몰수 실행을 본다.
  *
- * <h2>태그 판정 자체는 여기서 시험하지 않는다</h2>
- * <p>{@code GearPerkEffectTest}와 같은 이유다 — 아이템 태그는 데이터팩이 로드되어야 채워지는데
- * 단위 시험에는 데이터팩이 없다. 그래서 {@code mainItems}·{@code extraItems}·엔더상자를 훑는
- * 태그 판정 쪽은 "매칭되는 게 있다고 잘못 집지는 않는가"(가짜 양성이 없는가)만 확인하고,
- * 실제로 곡괭이 하나를 집어내는지는 살아 있는 서버에서 확인해야 한다({@code PROGRESS.md}
- * 확인 사항으로 남긴다). 반대로 <b>방어구 네 칸은 태그와 무관하게 슬롯을 직접 비우므로</b>
- * 그쪽은 실제 아이템으로 완전히 검증한다.
+ * <h2>확장 태그 판정 자체는 여기서 시험하지 않는다</h2>
+ * <p>아이템 태그는 데이터팩이 로드되어야 채워지는데 단위 시험에는 데이터팩이 없다. 그래서
+ * 여기서는 "매칭되는 게 있다고 잘못 집지는 않는가"(가짜 양성이 없는가)만 확인한다.
+ *
+ * <p><b>「곡괭이가 실제로 잡히는가」는 {@code LegacyGearScopeTest} 가 본다.</b> 판정의 본
+ * 기준이 태그가 아니라 아이템 컴포넌트({@link LegacyGearEffect#hasGearComponent})라서,
+ * 데이터팩 없는 단위 시험에서도 도구·무기·방어구를 하나하나 확인할 수 있다.
  */
 class LegacyGearEffectTest {
 
@@ -80,7 +80,7 @@ class LegacyGearEffectTest {
 
 	@Test
 	void 방어구_네_칸을_전부_비우지만_승계_목록은_건드리지_않는다(@TempDir Path dir) throws IOException {
-		// 2026-09-01 7차부터: 다음 회차로 넘어가는 기준은 고르는 시점이 아니라 전멸하는
+		// 다음 회차로 넘어가는 기준은 고르는 시점이 아니라 전멸하는
 		// 시점이다(PerkLegacyGear.captureAtDeath). 그래서 몰수는 없애기만 하고
 		// state.legacyGear 는 손대지 않는다.
 		Perk perk = loadSingle(dir, """

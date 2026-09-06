@@ -8,9 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 「팀 만들기」 단추를 켤지 끌지.
- *
- * <p>예전에는 이름이 비어 있어도 단추가 눌렸고 눌러도 아무 일이 없었다. 그 판단을 화면
- * 안쪽에 두면 시험할 수 없어 여기로 내려 두었다.
  */
 class TeamNameInputTest {
 

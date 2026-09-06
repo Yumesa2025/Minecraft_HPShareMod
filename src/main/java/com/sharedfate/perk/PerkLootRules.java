@@ -16,9 +16,7 @@ import java.util.List;
  * 전리품에 끼어드는 효과({@code loot_bonus}·{@code always_looting})의 판정부.
  *
  * <p>{@link com.sharedfate.mixin.EnchantmentHelperLootingMixin} 이 약탈 등급을 묻는 자리에서
- * 여기에 물어보고, 답만큼 등급을 더한다. 판정을 mixin 밖에 떼어 둔 이유는
- * {@link PerkFoodRules} 와 같다. mixin 에는 "어디서 끼어드는가"만 남고, 판정은 월드 없이
- * 시험할 수 있다.
+ * 여기에 물어보고, 답만큼 등급을 더한다.
  *
  * <h2>두 가지 효과가 이 길을 탄다</h2>
  * <ul>
@@ -31,8 +29,7 @@ import java.util.List;
  * <h2>겹칠 때의 규칙 — 형마다 다르다</h2>
  * <ol>
  *   <li>{@code loot_bonus} 끼리는 <b>모두 더한다.</b> 서로 다른 증강이 각각 「이 무기를
- *       들었을 때」라고 약속한 등급이라 하나만 골라 줄 이유가 없다. {@code food_nutrition}
- *       배율을 모으는 규칙과 같은 결이다.</li>
+ *       들었을 때」라고 약속한 등급이라 하나만 골라 줄 이유가 없다.</li>
  *   <li>{@code always_looting} 끼리는 <b>가장 높은 하나만</b> 센다. 세트 단계는 누적이라 사냥
  *       셋을 모으면 2단계(약탈 I)와 3단계(약탈 III)가 둘 다 켜지는데, 더해서 IV 가 되면
  *       3단계 설명 「약탈이 III 으로 오릅니다」와 실제가 어긋난다.</li>
@@ -101,7 +98,7 @@ public final class PerkLootRules {
 	 * 이 팀이 보유한 증강과 켜진 세트의 효과를 한 줄로 펼친다.
 	 *
 	 * <p>풀에서 사라진 id 는 건너뛴다. 증강 정의를 손으로 고칠 수 있는 이상 저장에만 남은
-	 * id 는 언제든 생긴다. {@code PerkSwapRules.effectsOf} 와 같은 모양이다.
+	 * id 는 언제든 생긴다.
 	 */
 	private static List<PerkEffect> effectsOf(TeamState state) {
 		List<PerkEffect> effects = new ArrayList<>();
@@ -113,7 +110,6 @@ public final class PerkLootRules {
 		}
 		// 켜진 세트의 효과도 같은 목록에 들어간다. 사냥 2·3단계가 always_looting 을 이 길로
 		// 태운다. 이 한 줄이 없으면 빌드도 통과하고 로그도 없는데 그 세트만 완전 무동작이 된다.
-		// 세트가 없으면 빈 목록이라 예전과 비트 하나 다르지 않다.
 		effects.addAll(PerkSetEffects.activeEffectsOf(state));
 		return effects;
 	}

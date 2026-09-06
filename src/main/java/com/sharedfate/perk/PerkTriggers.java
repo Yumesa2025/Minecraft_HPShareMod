@@ -21,8 +21,7 @@ import java.util.UUID;
  * 사건이 일어났을 때 잠깐 효과를 얹는 증강들의 실행부.
  *
  * <p>{@code on_team_hurt} 와 {@code on_critical} 이 여기를 지난다. 각 효과 클래스는 "무엇을
- * 얼마 동안 얹는가"만 들고 있고, "언제 누구에게"는 전부 여기서 정한다. {@code on_kill} 과
- * {@link PerkKillRewards} 의 관계와 같은 구도다.
+ * 얼마 동안 얹는가"만 들고 있고, "언제 누구에게"는 전부 여기서 정한다.
  *
  * <p>{@code hunger_on_damage} 도 여기를 지난다. 이쪽은 효과를 얹는 것이 아니라 <b>공유 허기
  * 풀을 직접 채우는</b> 유일한 경로다. 자세한 규칙은 {@link #fillSharedHunger} 에 적어 뒀다.
@@ -34,7 +33,7 @@ import java.util.UUID;
  *
  * <h2>공유 체력과의 관계</h2>
  * <p>여기서 얹는 것은 상태이상과 속성 수정자뿐이라 체력 공유 풀을 직접 건드리지 않는다.
- * 팀원 넷에게 저항을 걸어도 늘어나는 것은 각자의 저항이지 공유 풀이 아니므로, 최근에 고친
+ * 팀원 넷에게 저항을 걸어도 늘어나는 것은 각자의 저항이지 공유 풀이 아니므로,
  * "공유 상태이상이 팀 인원수만큼 배수로 들어가던" 문제와 같은 함정에 빠지지 않는다.
  *
  * <p>다만 여기서 회복이나 피해를 주는 상태이상(재생·독 등)을 얹으면 그때부터는 공유 상태이상의
@@ -42,8 +41,7 @@ import java.util.UUID;
  * 남기므로 1인분으로 유지된다. 여기서 따로 할 일은 없다.
  *
  * <p>허기만은 예외로 공유 풀을 직접 건드린다. 맞은 사람의 {@code FoodData} 를 채우면
- * {@code StatMirror} 가 그 변화량을 관측해 공유 풀에 <b>한 번 더</b> 더하기 때문이다. 왜 개인이
- * 아니라 풀에 더하는지는 {@link PerkKillRewards} 머리말에 자세히 적혀 있고, 이 클래스는 그
+ * {@code StatMirror} 가 그 변화량을 관측해 공유 풀에 <b>한 번 더</b> 더하기 때문이다. 이 클래스는
  * {@link PerkKillRewards#applyToPool} 과 똑같은 규칙으로 더한다.
  *
  * <h2>증강이 없으면 바닐라 그대로</h2>
@@ -83,9 +81,6 @@ public final class PerkTriggers {
 	 * {@code ServerLivingEntityEvents.AFTER_DAMAGE} 에 붙는 지점.
 	 *
 	 * <p>피해가 들어가는 모든 자리를 지나므로 어떤 예외도 밖으로 내보내지 않는다.
-	 *
-	 * <p>{@code SharedHurtFeedback} 이 같은 이벤트에서 피격 연출을 팀에 뿌리는 것과 짝을 이룬다.
-	 * 그쪽이 "누가 맞았는지 보여 주는" 일이라면 여기는 "누가 맞았을 때 무엇이 걸리는지"다.
 	 */
 	public static void onDamage(LivingEntity victim, DamageSource source,
 			float baseDamageTaken, float damageTaken, boolean blocked) {
@@ -102,15 +97,6 @@ public final class PerkTriggers {
 	 * <p><b>감산 뒤 실제로 들어간 피해({@code damageTaken})다.</b> 방어구·저항·흡수를 모두 지난
 	 * 값이라 공유 체력에서 실제로 깎인 양과 정확히 같다. {@code baseDamageTaken} 은 그 앞의 원래
 	 * 피해라 여기서는 쓰지 않는다.
-	 *
-	 * <p>감산 전을 기준으로 삼으면 {@code hunger_on_damage} 가 방어 증강과 겹칠 때 값이
-	 * 터무니없어진다 — 다이아 갑옷에 저항까지 두르면 실제로는 1 밖에 안 깎이는데 허기는 원래
-	 * 피해 10 만큼 찬다. 「맞은 만큼 배가 부르다」는 약속은 실제로 아픈 만큼이어야 말이 된다.
-	 * {@link PerkLifesteal} 이 「준 피해」를 같은 이유로 {@code damageTaken} 에서 세는 것과
-	 * 같은 판단이다.
-	 *
-	 * <p>고르는 자리를 이렇게 따로 떼어 둔 이유는 하나뿐이다 — 이 선택을 시험으로 못박을 수
-	 * 있게 하기 위해서다.
 	 */
 	static float damageBasis(float baseDamageTaken, float damageTaken) {
 		return damageTaken;
@@ -178,13 +164,11 @@ public final class PerkTriggers {
 	/**
 	 * {@code hunger_on_damage} 가 약속한 만큼 <b>팀 공유 허기 풀</b>을 채운다.
 	 *
-	 * <h2>왜 개인이 아니라 풀인가</h2>
 	 * <p>{@code hurt.getFoodData().eat(...)} 을 부르면 안 된다. 개인 허기가 움직인 만큼
 	 * {@code StatMirror} 가 그것을 관측해 공유 풀에 <b>한 번 더</b> 더하기 때문이다. 그래서
 	 * {@link TeamState#foodLevel} 만 직접 올리고 팀원 개인에게는 손대지 않는다. 개인 값이
 	 * 그대로면 {@code StatMirror} 가 보는 변화량이 0 이라 공유 풀에 아무것도 더해지지 않고,
 	 * 같은 틱 끝의 {@code writeBack} 이 우리가 올려 둔 공유 값을 팀 전원에게 그대로 써 준다.
-	 * 자세한 까닭은 {@link PerkKillRewards} 머리말에 있다.
 	 *
 	 * <h2>팀 인원수만큼 곱해지지 않는 이유</h2>
 	 * <p>여기에는 <b>팀원을 도는 고리가 없다.</b> {@link #grantToTeam} 과 달리 사건 하나에
@@ -217,8 +201,7 @@ public final class PerkTriggers {
 	/**
 	 * 이 팀이 가진 {@code hunger_on_damage} 들이 이 피해로 채우는 허기의 합.
 	 *
-	 * <p>여러 개를 가졌으면 전부 더한다. 서로 다른 정의가 각각 약속한 값이라 하나만 골라 줄
-	 * 이유가 없다. {@link PerkKillRewards#rewardFor} 와 같은 규칙이다.
+	 * <p>여러 개를 가졌으면 전부 더한다.
 	 *
 	 * <p>보유 증강을 훑은 뒤 <b>세트도 이어서 훑는다.</b> 생존 3단계가 그 길로 들어온다.
 	 *
@@ -242,8 +225,6 @@ public final class PerkTriggers {
 
 	/**
 	 * 효과 목록만 보는 순수 계산.
-	 *
-	 * <p>살아 있는 팀이나 레지스트리 없이 시험할 수 있게 떼어 두었다.
 	 */
 	static float hungerGainOf(@Nullable Iterable<PerkEffect> effects, float damageTaken) {
 		if (effects == null || !(damageTaken > 0.0F) || !Float.isFinite(damageTaken)) {
@@ -290,9 +271,8 @@ public final class PerkTriggers {
 	/**
 	 * 허기를 공유 풀에 더한다.
 	 *
-	 * <p>{@link PerkKillRewards#applyToPool} 과 같은 규칙으로 자른다. 허기는 20 까지다.
-	 * 포만감은 건드리지 않는다 — 이 보상이 약속한 것은 「배가 찬다」이지 「포만감까지 채운다」가
-	 * 아니고, {@code TeamState.sanitize} 가 포만감을 허기 이하로 다시 맞춰 준다.
+	 * <p>허기는 20 까지다. 포만감은 건드리지 않는다 — {@code TeamState.sanitize} 가 포만감을
+	 * 허기 이하로 다시 맞춰 준다.
 	 */
 	static void applyHungerToPool(TeamState state, int food) {
 		if (state == null || food <= 0) {
@@ -306,8 +286,7 @@ public final class PerkTriggers {
 	/**
 	 * {@link com.sharedfate.mixin.ServerPlayerCritMixin} 이 부르는 지점.
 	 *
-	 * <p>치명타로 실제 피해를 입힌 순간이다. 때린 본인에게만 얹는다. 자세한 이유는
-	 * {@link OnCriticalEffect} 에 적어 뒀다.
+	 * <p>치명타로 실제 피해를 입힌 순간이다. 때린 본인에게만 얹는다.
 	 */
 	public static void onCriticalHit(@Nullable ServerPlayer attacker) {
 		try {
@@ -336,7 +315,7 @@ public final class PerkTriggers {
 				}
 			}
 		}
-		// 보유 증강을 훑은 바로 뒤에 세트도 훑는다. 까닭은 teamHurt 쪽과 같다.
+		// 보유 증강을 훑은 바로 뒤에 세트도 훑는다.
 		for (PerkEffect effect : PerkSetEffects.activeEffectsOf(state)) {
 			if (effect instanceof OnCriticalEffect onCritical) {
 				onCritical.grantTo(attacker);

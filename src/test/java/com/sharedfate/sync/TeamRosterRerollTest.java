@@ -18,10 +18,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 증강 다시 뽑기의 <b>회차당 횟수</b>가 팀 명단 파일을 어떻게 넘나드는지.
  *
- * <p>{@code TeamRosterStore.save}/{@code load} 가 패키지 전용이라 이 시험만 여기 있다.
- * 나머지(월드 저장·회차 넘기기·기본값)는 {@code com.sharedfate.team.TeamRerollSettingTest}
- * 쪽에 있다.
- *
  * <p>이 파일이 이어 가는 것은 <b>「회차당 몇 번」이라는 결정</b>뿐이다. 「이번 회차에 몇 번
  * 남았는지」는 회차마다 다시 차는 값이라 여기 담지 않는다.
  */
@@ -50,9 +46,8 @@ class TeamRosterRerollTest {
 
 	@Test
 	void 안_적힌_예전_형식은_회차당_세_번으로_읽힌다(@TempDir Path server) throws Exception {
-		// 0.10.0-dev 까지의 형식 5. 설정 묶음은 있는데 rerollCount 만 없다. Gson 이 없는 필드를
-		// 0 으로 두므로, 그대로 믿으면 지금 돌아가는 서버의 팀이 다음 회차부터 다시 뽑기를
-		// 영영 못 쓰게 된다. Integer 로 받아 「없음」과 「0회」를 가른 이유가 이것이다.
+		// 형식 5. 설정 묶음은 있는데 rerollCount 만 없다. Gson 이 없는 필드를 0 으로 두므로,
+		// 그대로 믿으면 팀이 다음 회차부터 다시 뽑기를 영영 못 쓰게 된다.
 		Path file = server.resolve(TeamRosterStore.FILE_NAME);
 		Files.writeString(file, """
 				{

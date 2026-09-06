@@ -6,10 +6,6 @@ import java.util.List;
 /**
  * 세트 줄에 마우스를 올렸을 때 뜨는 「아직 없는 것」 목록의 계산.
  *
- * <p>{@link PerkSetLines} 와 같은 이유로 공용 소스셋에 있다. 그리는 자리는
- * {@code client/team/TeamScreen} 이고 시험 소스셋이 그쪽을 보지 못한다.
- *
- * <h2>왜 잘라야 하는가</h2>
  * <p>채굴에는 증강이 <b>열 개</b> 있다. 하나도 안 가진 채로 마우스를 올리면 툴팁이 열 줄이
  * 되어 팀 화면의 절반을 덮고, GUI 배율이 큰 화면에서는 아래가 잘려 <b>무엇이 잘렸는지조차</b>
  * 보이지 않는다. 그래서 몇 줄만 보이고 나머지는 「… 외 N개」 한 줄로 접는다. 접은 줄이 있다는
@@ -73,9 +69,6 @@ public final class PerkSetTooltip {
 
 	/**
 	 * 이름표 하나. {@code net.PerkSetSyncPayload.CatalogEntry} 에서 그대로 옮겨 담는다.
-	 *
-	 * <p>{@link PerkSetLines.Entry} 와 같은 이유로 여기 따로 둔다 — 패킷 레코드를 받으면
-	 * 마인크래프트 네트워크 클래스가 이 파일까지 따라 들어와 시험이 게임을 요구하게 된다.
 	 */
 	public record Entry(String typeId, String perkName, String rarity, boolean owned) {
 	}
@@ -121,9 +114,6 @@ public final class PerkSetTooltip {
 
 	/**
 	 * 세트 단계 하나. {@code net.PerkSetSyncPayload.TierLine} 에서 그대로 옮겨 담는다.
-	 *
-	 * <p>{@link Entry} 와 같은 이유로 여기 따로 둔다 — 패킷 레코드를 받으면 마인크래프트
-	 * 네트워크 클래스가 이 파일까지 따라 들어와 시험이 게임을 요구하게 된다.
 	 *
 	 * @param count       이 단계가 열리는 데 필요한 개수
 	 * @param description 무엇을 하는 단계인가. <b>서버가 보낸 글이다</b>

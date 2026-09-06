@@ -24,9 +24,6 @@ class TeamRosterStoreTest {
 	private static final UUID A = UUID.fromString("20000000-0000-0000-0000-000000000001");
 	/**
 	 * 지금 쓰는 명단 형식. {@code TeamRosterStore.FORMAT_VERSION} 을 올릴 때 여기도 올린다.
-	 *
-	 * <p>여러 시험에 숫자를 흩어 놓으면 형식을 올릴 때마다 애먼 곳이 함께 깨진다. 한 줄로 모아
-	 * 두면 "형식을 바꿨으면 번호도 올려야 한다"는 검사는 그대로 남기면서 고칠 자리는 하나다.
 	 */
 	private static final String CURRENT_FORMAT = "\"formatVersion\": 6";
 
@@ -101,7 +98,7 @@ class TeamRosterStoreTest {
 	@Test
 	void 알림_항목이_없는_형식_2_명단은_둘_다_꺼진_채로_읽힌다(@TempDir Path server) throws Exception {
 		Path file = server.resolve(TeamRosterStore.FILE_NAME);
-		// 0.7.0-dev 까지의 형식. 설정 묶음은 있는데 알림 두 항목만 없다.
+		// 설정 묶음은 있는데 알림 두 항목만 없다.
 		Files.writeString(file, """
 				{
 				  "formatVersion": 2,

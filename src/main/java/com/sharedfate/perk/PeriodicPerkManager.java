@@ -33,7 +33,7 @@ import java.util.UUID;
  * </ul>
  *
  * <p>서버가 멈춰 있는 동안에는 게임 시간도 멈춘다. 아무도 접속하지 않아 월드가 흐르지 않는
- * 시간에 주기만 혼자 도는 일이 없으므로 이 편이 자연스럽다.
+ * 시간에 주기만 혼자 도는 일이 없다.
  *
  * <h2>비용</h2>
  * <p>매 틱 돌지만, 실제로 무언가를 붙였다 떼는 것은 구간이 바뀐 틱뿐이다. 나머지 틱에는
@@ -63,7 +63,7 @@ public final class PeriodicPerkManager {
 		return currentTick;
 	}
 
-	/** 서버가 멈출 때 기억을 비운다. 다음 월드의 시각을 물려받지 않기 위해서다. */
+	/** 서버가 멈출 때 기억을 비운다. */
 	public static void reset() {
 		currentTick = 0;
 		cleanupCounter = 0;

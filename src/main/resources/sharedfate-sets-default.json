@@ -5,8 +5,7 @@
     "effects 의 형식은 증강 정의(sharedfate-perks.json)의 effects 와 완전히 같고, 같은 PerkEffectType 이 읽는다.",
     "그래서 새 효과 타입을 하나 만들어 PerkEffectType 에 등록해 두면 여기서 곧바로 쓸 수 있다.",
     "effects 가 빈 배열인 단계는 '아직 안 만들어진 자리'다. 이름과 설명만 정해 두었으니 값만 채우면 켜진다.",
-    "보상 값은 자주 바뀐다. 코드에 박지 말고 이 파일 한 곳만 고칠 것.",
-    "무기는 아직 보상이 정해지지 않아 tiers 가 비어 있다. 항목을 지우지 말 것 — 값만 넣으면 켜진다."
+    "보상 값은 자주 바뀐다. 코드에 박지 말고 이 파일 한 곳만 고칠 것."
   ],
   "sets": [
     {
@@ -651,13 +650,10 @@
         },
         {
           "count": 3,
-          "description": "공격력이 15% 늘어납니다.",
+          "description": "공격력이 깎이지 않습니다. 지금 가진 증강은 물론 앞으로 얻는 증강의 공격력 감소도 전부 사라집니다.",
           "effects": [
             {
-              "type": "attribute",
-              "attribute": "minecraft:attack_damage",
-              "operation": "add_multiplied_total",
-              "amount": 0.15
+              "type": "no_attack_damage_loss"
             }
           ]
         }

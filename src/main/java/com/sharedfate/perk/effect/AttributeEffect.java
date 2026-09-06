@@ -30,11 +30,11 @@ import java.util.Optional;
  * <h2>{@code minecraft:max_health} 는 여기서 정해지지 않는다</h2>
  * <p>이 모드의 최대 체력은 팀 공유 상한이고 {@code MaxHealthAttribute} 가 팀원의 속성을 그
  * 상한과 <b>똑같아지도록</b> 덮어쓴다. 그래서 여기서 {@code max_health} 에 +6 을 걸어 봐야
- * 그 덮어쓰기가 정확히 +6 을 상쇄해 증강이 아무 일도 하지 않은 것처럼 보인다. 실제로 그런
- * 버그가 있었다. 새 정의는 {@link MaxHealthBonusEffect}({@code max_health_bonus}) 를 쓴다.
+ * 그 덮어쓰기가 정확히 +6 을 상쇄해 증강이 아무 일도 하지 않은 것처럼 보인다. 최대 체력은
+ * {@link MaxHealthBonusEffect}({@code max_health_bonus}) 로 적는다.
  *
- * <p>예전 형식({@code attribute} + {@code max_health} + {@code add_value})이 적힌 설정 파일이
- * 이미 돌아가고 있으므로 <b>버리지는 않는다.</b> {@link #isLegacyMaxHealthBonus} 로 표를 내주고,
+ * <p>{@code attribute} + {@code max_health} + {@code add_value} 로 적은 정의도
+ * <b>버리지는 않는다.</b> {@link #isLegacyMaxHealthBonus} 로 표를 내주고,
  * {@link com.sharedfate.perk.PerkHealthRules} 가 그것도 보너스로 세어 상한 자체를 올려 준다.
  * 그러면 여기서 건 수정자는 상한과 같은 값이 되어 덮어쓰기와 부딪히지 않는다.
  */
@@ -97,7 +97,7 @@ public final class AttributeEffect implements PerkEffect {
 		return new AttributeEffect(attributeId, modifierId(perkId, index), operation, amount);
 	}
 
-	/** 이 효과가 최대 체력을 {@code add_value} 로 올리는 예전 형식인가. */
+	/** 이 효과가 최대 체력을 {@code add_value} 로 올리는 형식인가. */
 	public boolean isLegacyMaxHealthBonus() {
 		return MAX_HEALTH_ID.equals(attributeId)
 				&& operation == AttributeModifier.Operation.ADD_VALUE;

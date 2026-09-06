@@ -3,32 +3,44 @@ package com.sharedfate.perk;
 import com.sharedfate.TestBootstrap;
 import com.sharedfate.perk.effect.EchoMiningEffect;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.BiPredicate;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * {@code echo_mining}(골드 「메아리 채굴」)의 정의 읽기와, 「팀원 발밑은 캐지 않는다」 규칙을 본다.
+ * {@code echo_mining}(골드 「메아리 채굴」)의 정의 읽기와, 「같은 블록만 캔다」·「팀원 발밑은
+ * 캐지 않는다」 규칙을 본다.
  *
  * <p>실제로 블록이 사라지고 도구가 추가로 닳고 로드 안 된 청크에서 건너뛰는지는 살아 있는
- * 서버·{@code ServerLevel}·{@code ServerPlayer}가 있어야 확인할 수 있어({@code
- * PositionSwapManagerTest}와 같은 이유) 여기서 다루지 않는다.
+ * 서버·{@code ServerLevel}·{@code ServerPlayer}가 있어야 확인할 수 있어 여기서 다루지 않는다.
  *
  * <p>다만 <b>발밑 제외만은 반드시 여기서 못박는다.</b> 이 규칙이 깨지면 팀원이 서 있던 칸이
  * 사라져 떨어져 죽고, 이 모드는 체력을 공유하므로 그 사고 하나가 팀 전체를 죽인다. 그래서
  * 판정을 {@link PerkBlockBreaks#isUnderFoot} 라는 좌표 계산만으로 떼어 두고 그 함수를 직접
  * 두들긴다.
+ *
+ * <p><b>「같은 블록만 캔다」도 여기서 못박는다.</b> 후보를 훑는
+ * {@link PerkBlockBreaks#neighborCandidates} 와 기준을 잡는
+ * {@link PerkBlockBreaks#kindFilterOf} 가 둘 다 순수 계산이라, 돌 사이의 다이아를 캐는 상황을
+ * 서버 없이 그대로 재현할 수 있다.
  */
 class EchoMiningEffectTest {
 
@@ -69,6 +81,79 @@ class EchoMiningEffectTest {
 	@Test
 	void 덤으로_캐지는_블록은_두_개다() {
 		assertEquals(2, EchoMiningEffect.EXTRA_BLOCKS);
+	}
+
+	// ------------------------------------------------------------------ 같은 블록만 캔다
+
+	/**
+	 * <b>돌 사이의 다이아를 캐면 돌은 안 캐지고 다이아만 캐진다.</b> 이 증강의 약속이다.
+	 *
+	 * <p>종류를 안 가리면 붙어 있던 돌 두 칸이 함께 사라진다. 도구 내구도를 2배로 내고 얻는
+	 * 것이 돌이고, 정작 이어지는 광석은 그대로 남는다. 이 시험이 깨지면 그 동작으로 돌아간
+	 * 것이다.
+	 */
+	@Test
+	void 돌_사이의_다이아를_캐면_돌은_후보에서_빠진다() {
+		BlockPos origin = new BlockPos(0, -50, 0);
+		BlockState diamond = state(Blocks.DEEPSLATE_DIAMOND_ORE);
+		Map<BlockPos, BlockState> world = filledNeighbors(origin, state(Blocks.DEEPSLATE));
+		// 26칸 중 딱 두 칸만 같은 종류다. 하나는 바로 옆, 하나는 대각선이다.
+		BlockPos beside = origin.east();
+		BlockPos diagonal = origin.north().above();
+		world.put(beside, diamond);
+		world.put(diagonal, diamond);
+
+		List<BlockPos> picked = PerkBlockBreaks.neighborCandidates(
+				origin, world::get, ANYTHING_GOES, PerkBlockBreaks.kindFilterOf(diamond));
+
+		assertEquals(2, picked.size(), "같은 종류인 두 칸만 남는다 — 돌 24칸은 빠진다");
+		assertTrue(picked.contains(beside));
+		assertTrue(picked.contains(diagonal), "대각선도 「근처」로 친다 — 광맥은 대각선으로 잇는다");
+	}
+
+	@Test
+	void 같은_블록이_하나도_없으면_아무것도_더_캐지_않는다() {
+		BlockPos origin = new BlockPos(0, -50, 0);
+		Map<BlockPos, BlockState> world = filledNeighbors(origin, state(Blocks.DEEPSLATE));
+		BlockState diamond = state(Blocks.DEEPSLATE_DIAMOND_ORE);
+
+		assertTrue(PerkBlockBreaks.neighborCandidates(
+						origin, world::get, ANYTHING_GOES, PerkBlockBreaks.kindFilterOf(diamond))
+				.isEmpty(), "돌밭 한복판의 외톨이 광석이면 메아리는 아무 일도 하지 않는다");
+	}
+
+	/**
+	 * 「같은 블록」의 기준은 {@code Block} 동일성이다. 판정은
+	 * {@link com.sharedfate.perk.effect.SameKindMiningEffect#isSameKind} 한 곳에만 있고 메아리도
+	 * 그것을 그대로 쓴다. 딥슬레이트 변종은 서로 다른 블록이므로 함께 캐지지 않는다.
+	 */
+	@Test
+	void 딥슬레이트_변종은_같은_블록이_아니다() {
+		BlockPos origin = new BlockPos(0, 4, 0);
+		BlockState plain = state(Blocks.DIAMOND_ORE);
+		Map<BlockPos, BlockState> world = filledNeighbors(origin, state(Blocks.STONE));
+		world.put(origin.east(), plain);
+		world.put(origin.west(), state(Blocks.DEEPSLATE_DIAMOND_ORE));
+
+		List<BlockPos> picked = PerkBlockBreaks.neighborCandidates(
+				origin, world::get, ANYTHING_GOES, PerkBlockBreaks.kindFilterOf(plain));
+
+		assertEquals(List.of(origin.east()), picked, "딥슬레이트 쪽은 다른 블록이라 빠진다");
+	}
+
+	/**
+	 * <b>기준을 못 잡으면 아무것도 캐지 않는다.</b> 여기가 무너지면 예전 동작이 돌아온다.
+	 *
+	 * <p>{@code null} 은 {@link PerkBlockBreaks#neighborCandidates} 에서 「종류를 안 가림」을
+	 * 뜻하므로, 실행부는 {@link PerkBlockBreaks#kindFilterOf} 가 {@code null} 을 준 순간 후보를
+	 * 훑지 않고 곧바로 돌아간다.
+	 */
+	@Test
+	void 캔_자리를_모르면_기준이_없다() {
+		assertEquals(state(Blocks.DIAMOND_ORE),
+				PerkBlockBreaks.kindFilterOf(state(Blocks.DIAMOND_ORE)), "방금 캔 블록이 기준이다");
+		assertNull(PerkBlockBreaks.kindFilterOf(state(Blocks.AIR)));
+		assertNull(PerkBlockBreaks.kindFilterOf(null));
 	}
 
 	// ------------------------------------------------------------------ 발밑 제외
@@ -155,5 +240,30 @@ class EchoMiningEffectTest {
 		com.google.gson.JsonObject parsed =
 				com.google.gson.JsonParser.parseString("{ \"type\": \"echo_mining\" }").getAsJsonObject();
 		return PerkEffectType.ECHO_MINING.create("sharedfate:테스트", 0, parsed);
+	}
+
+	// ------------------------------------------------------------------ 도우미
+
+	/** 무엇이든 캘 수 있는 자리로 보는 판정. 종류 거르기만 따로 보고 싶을 때 쓴다. */
+	private static final BiPredicate<BlockPos, BlockState> ANYTHING_GOES = (pos, state) -> true;
+
+	private static BlockState state(Block block) {
+		return block.defaultBlockState();
+	}
+
+	/** {@code origin} 을 둘러싼 26칸을 같은 블록으로 채운 가짜 월드. 가운데는 비워 둔다. */
+	private static Map<BlockPos, BlockState> filledNeighbors(BlockPos origin, BlockState filler) {
+		Map<BlockPos, BlockState> world = new HashMap<>();
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dy = -1; dy <= 1; dy++) {
+				for (int dz = -1; dz <= 1; dz++) {
+					if (dx == 0 && dy == 0 && dz == 0) {
+						continue;
+					}
+					world.put(origin.offset(dx, dy, dz), filler);
+				}
+			}
+		}
+		return world;
 	}
 }

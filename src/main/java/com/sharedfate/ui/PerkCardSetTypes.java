@@ -7,15 +7,14 @@ import java.util.List;
  * 증강 카드의 <b>세트 유형 줄</b>을 다루는 계산 — 어디에 놓이고, 마우스가 그 위에 있는지,
  * 그리고 <b>화면용 이름을 유형 id 로 되돌리는 일</b>.
  *
- * <h2>왜 이름을 id 로 되돌려야 하는가</h2>
  * <p>{@code PerkOfferPayload.PerkOption.setTypes()} 는 서버가 <b>화면용 이름</b>을
  * {@code ·} 로 이어 붙인 한 줄이다({@code "무기·화력"}). 그런데 툴팁을 물어보는 자리
  * ({@code ClientPerkSets.tooltip}) 는 <b>id</b>({@code mining}·{@code power})를 받는다.
  * 그래서 이름을 그대로 넘기면 언제나 빈 툴팁이 나온다.
  *
  * <p>여기서는 세트 동기화 패킷이 실어 준 이름표({@link PerkSetLines.Entry}) 를 뒤져 이름을
- * id 로 되돌린다. <b>임시 다리다.</b> 이름이 겹치는 유형이 생기거나 세트 패킷이 아직 안 온
- * 순간에는 되돌릴 수 없다. 페이로드가 id 를 함께 실어 주면 이 되돌리기는 통째로 버려야 한다.
+ * id 로 되돌린다. 이름이 겹치는 유형이 생기거나 세트 패킷이 아직 안 온
+ * 순간에는 되돌릴 수 없다.
  */
 public final class PerkCardSetTypes {
 

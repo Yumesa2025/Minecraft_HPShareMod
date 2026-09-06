@@ -12,22 +12,20 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>정의는 {@code { "type": "shield_fall_immunity" }} 하나뿐이고 필드가 없다. 실버
  * 「방패 낙하 면역」이 쓴다. 방패를 <b>손에 들고만</b> 있어서는 안 되고 실제로 우클릭으로
- * 막는 중이어야 한다 — 떨어지는 내내 시야가 좁아지고 손이 묶이는 것이 이 이득의 값이다.
+ * 막는 중이어야 한다.
  *
- * <h2>왜 표시 클래스인가</h2>
- * <p>{@link StaggeredSwapEffect}·{@link NoSilverOffersEffect}와 같은 이유다.
- * {@link PerkEffect#apply}로 팀원에게 붙일 것이 없다. 피해가 들어오는 한가운데서 "이 팀이 이걸
- * 가졌는가"만 물어보면 되므로, 이 클래스는 그 물음에 답하기 위한 표시로만 존재한다.
+ * <p>{@link PerkEffect#apply}로 팀원에게 붙일 것이 없다. 피해가 들어오는 한가운데서 "이 팀이
+ * 이걸 가졌는가"만 물어본다.
  *
  * <h2>실제로 피해를 막는 곳</h2>
  * <p>{@code LivingEntityPerkDamageMixin} 이 {@code hurtServer} 진입점에서 부르는
  * {@link com.sharedfate.perk.PerkDamage#blocksFallDamage} 다. 이미 이 모드가 피해를 가로채고
  * 있는 자리라 새 mixin 이 필요 없다.
  *
- * <p>배율을 0 으로 만드는 길({@code damage_taken_from} + {@code multiplier: 0})을 쓰지 않은
- * 이유는 둘이다. 첫째, 배율은 조건 없이 언제나 걸리는데 이 효과는 <b>막는 중일 때만</b> 걸려야
- * 한다. 둘째, 피해량 0 으로 들어간 피해도 바닐라 입장에서는 피해라서 피격 소리와 무적시간이
- * 생긴다. 진입점에서 통째로 버리면 그런 흔적이 남지 않는다.
+ * <p>배율을 0 으로 만드는 길({@code damage_taken_from} + {@code multiplier: 0})로는 이 효과를
+ * 만들 수 없다. 배율은 조건 없이 언제나 걸리는데 이 효과는 <b>막는 중일 때만</b> 걸려야 하고,
+ * 피해량 0 으로 들어간 피해도 바닐라 입장에서는 피해라서 피격 소리와 무적시간이 생긴다.
+ * 진입점에서 통째로 버리면 그런 흔적이 남지 않는다.
  *
  * <h2>어느 피해가 낙하 피해인가</h2>
  * <p>{@code minecraft:fall} 하나만 본다. 종유석에 찔린 것({@code stalagmite})이나 위에서 떨어진

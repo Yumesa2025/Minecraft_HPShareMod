@@ -25,7 +25,7 @@ import net.minecraft.server.level.ServerPlayer;
  * 속성만 10 으로 낮추고 공유 상한을 20 그대로 두면, 팀은 여전히 20 만큼 맞을 수 있는데 화면에는
  * 10 칸만 보이는 상태가 된다. 그래서 {@link PerkHealthRules} 는 속성과
  * {@code TeamState.maxHealth} 를 <b>함께</b> 맞춘다. 자세한 이유와, 공유 체력 값을 직접
- * 건드리면 왜 안 되는지는 그쪽에 적어 뒀다.
+ * 건드리면 왜 안 되는지는 그쪽에 있다.
  *
  * <h2>회차가 끝나면 돌아온다</h2>
  * <p>속성 수정자는 임시(transient)라 저장되지 않고, 전멸로 월드가 새로 만들어지면

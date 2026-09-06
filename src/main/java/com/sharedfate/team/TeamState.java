@@ -578,8 +578,7 @@ public class TeamState {
 	/**
 	 * 이번 회차에 남은 횟수가 가질 수 있는 최댓값. {@code 회차당 허용치 + 세트로 얻은 몫} 이다.
 	 *
-	 * <p>{@link #rerollSetBonus} 가 0 인 보통의 팀에서는 회차당 허용치와 똑같은 값이라,
-	 * 세트를 쓰지 않는 서버의 동작은 이 필드가 생기기 전과 다르지 않다.
+	 * <p>{@link #rerollSetBonus} 가 0 인 보통의 팀에서는 회차당 허용치와 똑같은 값이다.
 	 */
 	public int rerollLimit() {
 		return rerollAllowance + rerollSetBonus;
@@ -757,9 +756,8 @@ public class TeamState {
 	/**
 	 * 저장에 남길 기본 최대 체력. 지금 상한과 같으면 아예 적지 않는다.
 	 *
-	 * <p>증강 보너스도 고정도 없는 팀에서는 둘이 언제나 같은 값이라, 그런 팀의 저장 형태는
-	 * 이 필드가 생기기 전과 <b>비트 하나도 다르지 않다.</b> 읽을 때도 항목이 없으면 저장된
-	 * {@code maxHealth} 를 기본값으로 삼으므로 결과가 같다.
+	 * <p>증강 보너스도 고정도 없는 팀에서는 둘이 언제나 같은 값이다. 읽을 때도 항목이 없으면
+	 * 저장된 {@code maxHealth} 를 기본값으로 삼으므로 결과가 같다.
 	 */
 	private Optional<Float> storedBaseMaxHealth() {
 		return baseMaxHealth == maxHealth ? Optional.empty() : Optional.of(baseMaxHealth);

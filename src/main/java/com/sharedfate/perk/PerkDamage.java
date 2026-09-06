@@ -127,8 +127,8 @@ public final class PerkDamage {
 	/**
 	 * 방패로 막는 중일 때만 걸리는 {@code damage_taken_blocking} 배율을 읽는다.
 	 *
-	 * <p>{@link #takenSourceFactor} 와 같은 구도다. {@link PerkEffect#damageTakenMultiplier()} 에는
-	 * 피해자의 <b>자세가 넘어오지 않기</b> 때문에, 자세를 아는 여기서 따로 훑는다.
+	 * <p>{@link PerkEffect#damageTakenMultiplier()} 에는 피해자의 <b>자세가 넘어오지 않기</b>
+	 * 때문에, 자세를 아는 여기서 따로 훑는다.
 	 *
 	 * <p>자세를 <b>가장 먼저</b> 본다. 막고 있지 않은 피해는 팀 상태를 찾아보지도 않고 곧바로
 	 * 빠져나가므로, 이 효과를 아무도 갖고 있지 않은 서버에서도 피해 경로에 얹히는 비용이 거의
@@ -168,8 +168,7 @@ public final class PerkDamage {
 	/**
 	 * 효과 목록만 보는 순수 계산.
 	 *
-	 * <p>살아 있는 팀이나 레지스트리 없이 시험할 수 있게 떼어 두었다. 막고 있지 않으면 목록을
-	 * 훑지도 않는다.
+	 * <p>막고 있지 않으면 목록을 훑지도 않는다.
 	 */
 	static double blockingMultiplierOf(@Nullable Iterable<PerkEffect> effects, boolean blocking) {
 		if (effects == null || !blocking) {

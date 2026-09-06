@@ -84,9 +84,8 @@ public final class PerkDiamondSundial {
 	/**
 	 * 증강 하나가 가진 {@code diamond_sundial} 효과의 해시계를 지급한다.
 	 *
-	 * <p><b>부르는 곳은 {@link PerkGrantChain#run} 하나뿐이다.</b> {@code item_grant} 와 정확히 같은
-	 * 자리이고 같은 이유다 — {@link PerkEffect#apply} 는 접속·부활·효과 갱신 때마다 다시 불리므로
-	 * 거기서 주면 접속할 때마다 해시계가 늘어난다.
+	 * <p><b>부르는 곳은 {@link PerkGrantChain#run} 하나뿐이다.</b> {@link PerkEffect#apply} 는
+	 * 접속·부활·효과 갱신 때마다 다시 불리므로 거기서 주면 접속할 때마다 해시계가 늘어난다.
 	 *
 	 * <p>아이템을 넣는 곳도 {@link PerkItemGrants} 와 같다. 개인 인벤토리가 아니라 팀 공유
 	 * 목록이고, 자리가 없으면 바닥에 떨어뜨리지 않고 넘침 목록에 남긴다.
@@ -299,11 +298,8 @@ public final class PerkDiamondSundial {
 	 * 반경 안의 광석 자리를 모은다.
 	 *
 	 * <p>바로 {@code maxResults} 개에서 끊지 않고 그 {@value #OVERSCAN} 배까지 모은 다음 거리순으로
-	 * 잘라 낸다. 훑는 순서는 청크·섹션 순이라 그대로 끊으면 「구석에 몰린 16개」가 나오는데,
-	 * 쓰는 사람이 보고 싶은 것은 <b>가장 가까운</b> 16개이기 때문이다. 상한을 배수로 둔 것은
-	 * 사람이 다이아몬드 광석으로 벽을 쌓아 둔 경우에도 목록이 무한정 커지지 않게 하려는 것이다.
-	 *
-	 * <p>레벨을 읽지 않는 순수 계산이라 살아 있는 서버 없이 시험할 수 있다.
+	 * 잘라 낸다. 훑는 순서는 청크·섹션 순이라 그대로 끊으면 「구석에 몰린 16개」가 나온다.
+	 * 상한을 배수로 두어 다이아몬드 광석으로 벽을 쌓아 둔 경우에도 목록이 무한정 커지지 않는다.
 	 */
 	public static final class Found {
 		/** 자르기 전에 모아 두는 배수. */
@@ -374,8 +370,7 @@ public final class PerkDiamondSundial {
 	 * <p>광석 자리 자체와, 그 광석에 맞닿은 빈 칸에 함께 띄운다. 파티클은 지형 뒤에 가려지므로
 	 * 돌 안에 묻힌 자리는 그대로는 보이지 않고, 굴이나 갱도 쪽으로 노출된 면이 있어야 보인다.
 	 *
-	 * <p>파티클은 <b>쓴 사람에게만</b> 보낸다. 팀 전원에게 뿌리면 멀리 있는 팀원 화면에도 뜨는데
-	 * 정작 그쪽에서는 아무 뜻이 없고 패킷만 늘어난다.
+	 * <p>파티클은 <b>쓴 사람에게만</b> 보낸다.
 	 */
 	private static void showOre(ServerLevel level, ServerPlayer user, BlockPos ore) {
 		sendAt(level, user, ore, PARTICLES_AT_ORE);
@@ -400,8 +395,7 @@ public final class PerkDiamondSundial {
 	/**
 	 * 이미 올라와 있는 청크에서만 블록을 읽는다.
 	 *
-	 * <p>{@code level.getBlockState} 를 그냥 쓰면 아직 안 올라온 청크를 불러온다. 여기서 하려는
-	 * 일은 「보일 만한 면인가」를 보는 것뿐이라 그럴 값어치가 없다.
+	 * <p>{@code level.getBlockState} 를 그냥 쓰면 아직 안 올라온 청크를 불러온다.
 	 */
 	private static @Nullable BlockState loadedStateAt(ServerLevel level, BlockPos pos) {
 		if (pos.getY() < level.getMinY() || pos.getY() > level.getMaxY()) {

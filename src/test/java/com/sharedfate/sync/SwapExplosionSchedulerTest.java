@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *
  * <p>{@link SwapExplosionScheduler#schedule}은 {@link PositionSwapManager.Position}을 받는데,
  * 그 레코드를 만들려면 살아 있는 {@code ServerLevel}이 있어야 한다. 그래서 실제로 폭발이
- * 예약되고 터지는 것은 여기서 다루지 못한다({@code PositionSwapManagerTest}와 같은 이유).
+ * 예약되고 터지는 것은 여기서 다루지 못한다.
  * 대신 빈 상태에서의 기본 성질(지연 상수, 빈 상태에서의 {@code reset}·{@code tick}의 안전성)만
  * 확인한다.
  */

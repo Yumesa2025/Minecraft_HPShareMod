@@ -16,9 +16,8 @@ import com.sharedfate.perk.PerkEffect;
  * {@code on_swap}({@link OnSwapEffect})이 그대로 맡는다. 이 클래스는 "이 팀은 순열 교환
  * 대신 집합을 쓴다"는 사실 하나만 표시한다.
  *
- * <h2>왜 표시 클래스인가</h2>
- * <p>{@link SwapBlockEffect}와 같은 이유다. {@link PerkEffect#apply}로 팀원에게 붙일 것이
- * 없다. 상태가 없어 인스턴스를 나눠 써도 안전하다.
+ * <p>{@link PerkEffect#apply}로 팀원에게 붙일 것이 없다. 상태가 없어 인스턴스를 나눠 써도
+ * 안전하다.
  *
  * <p>지금 이 팀에 이 효과가 있는지 판단하는 것은 {@link com.sharedfate.perk.PerkSwapRules}다.
  */

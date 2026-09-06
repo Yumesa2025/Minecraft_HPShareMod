@@ -13,18 +13,12 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>정의는 {@code { "type": "prism_reroll" }} 하나뿐이고 필드가 없다.
  *
- * <h2>왜 표시 클래스인가</h2>
- * <p>{@link NoSilverOffersEffect} 와 같은 이유다. {@link PerkEffect#apply} 로 팀원에게 붙일 것이
- * 없다. 다시 뽑기 한가운데서 「이 팀은 프리즘만 보는가」만 물어보면 되므로, 이 클래스는 그 물음에
- * 답하기 위한 표시로만 존재한다. 「효과를 붙인다」가 아니라 「규칙을 바꾼다」인 보상은 전부 이
- * 모양이 된다.
+ * <p>{@link PerkEffect#apply} 로 팀원에게 붙일 것이 없다. 다시 뽑기 한가운데서 「이 팀은
+ * 프리즘만 보는가」만 물어본다.
  *
  * <h2>실제로 등급을 바꾸는 곳</h2>
- * <p>{@code PerkManager.applyReroll} 이다. 그 자리는 원래 {@code offerRarity(offer)} 로 「다시
- * 뽑아도 등급은 그대로」를 하드코딩하고 있었는데, 이 표시를 가진 팀에서만 {@code PerkRarity.PRISM}
- * 으로 바꾼다. 판정을 {@code PerkDraft} 가 아니라 {@code PerkManager} 에서 하는 까닭도
- * {@code no_silver_offers} 와 같다 — 추첨기가 {@code PerkRegistry} 에 손을 뻗는 순간 게임을
- * 띄우지 않고는 확률표를 검증할 수 없게 된다.
+ * <p>{@code PerkManager.applyReroll} 이다. 그 자리는 {@code offerRarity(offer)} 로 「다시 뽑아도
+ * 등급은 그대로」를 정하는데, 이 표시를 가진 팀에서만 {@code PerkRarity.PRISM} 으로 바꾼다.
  *
  * <h2>프리즘이 모자라면 「적게」다 — 골드를 섞지 않는다</h2>
  * <p>{@code PerkDraft.fallbackOrder(PRISM)} 는 프리즘 → 골드 → 실버 순이라, 아직 안 가진 프리즘이

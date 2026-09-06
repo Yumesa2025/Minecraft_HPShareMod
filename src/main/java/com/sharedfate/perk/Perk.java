@@ -46,13 +46,13 @@ public record Perk(
 		this(id, name, description, rarity, null, 0, List.of(), effects);
 	}
 
-	/** 최소 레벨은 따로 정하지 않고 아이콘만 지정한다. {@link PerkRegistry} 가 예전부터 쓰던 자리다. */
+	/** 최소 레벨은 따로 정하지 않고 아이콘만 지정한다. */
 	public Perk(String id, String name, String description, PerkRarity rarity,
 			@Nullable Identifier icon, List<PerkEffect> effects) {
 		this(id, name, description, rarity, icon, 0, List.of(), effects);
 	}
 
-	/** 세트 유형이 생기기 전의 자리. 유형을 적지 않으면 무유형이다. */
+	/** 유형을 적지 않으면 무유형이다. */
 	public Perk(String id, String name, String description, PerkRarity rarity,
 			@Nullable Identifier icon, int minLevel, List<PerkEffect> effects) {
 		this(id, name, description, rarity, icon, minLevel, List.of(), effects);

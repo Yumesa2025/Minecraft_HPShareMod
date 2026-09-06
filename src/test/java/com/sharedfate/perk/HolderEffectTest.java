@@ -37,9 +37,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 여기서 다루지 않는다. 대신 그 코드가 내리는 판단을 전부 여기서 확인한다. "정의를 어떻게
  * 읽는가", "다음 보유자를 누구로 고르는가", "언제 넘길 수 있는가", "누가 어느 배율을 받는가"
  * 네 가지가 정해지면 {@code assign} 은 그 결정대로 두 묶음을 갈아 끼우는 일만 한다.
- *
- * <p>보유자 선정과 이전 판정은 {@link PerkHolderManager} 에 마인크래프트 타입을 하나도 쓰지 않는
- * 순수 함수로 떼어 두었다. 이 시험의 절반이 그 세 함수를 향한다.
  */
 class HolderEffectTest {
 

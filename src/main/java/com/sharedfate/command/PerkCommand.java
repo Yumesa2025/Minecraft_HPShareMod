@@ -14,8 +14,7 @@ import java.util.List;
 /**
  * {@code /shareteam perk} 하위 명령.
  *
- * <p>{@link ShareTeamCommand}가 이미 저장소에서 가장 큰 파일이라 증강 관련 가지는 여기로 뺐다.
- * {@link ShareTeamCommand#register}가 {@code .then(PerkCommand.node())} 한 줄로 붙인다.
+ * <p>{@link ShareTeamCommand#register}가 {@code .then(PerkCommand.node())} 한 줄로 붙인다.
  * 그래서 이 클래스는 dispatcher에 직접 등록하지 않는다.
  */
 public final class PerkCommand {

@@ -357,9 +357,6 @@ class BlockBreakPerkTest {
 		assertEquals(1.0, fertileBonus.chanceFor(), 1.0e-9, "비옥한 땅은 확정으로 더 준다");
 		assertEquals(2, fertileBonus.extra(), "원래 1개 + 2개 = 3배");
 
-		// 「광맥 감각」은 예전에 광석을 캘 때마다 3초짜리 성급함을 얹는 on_break 였다. 지금은
-		// 성급함을 상시로 주고, 그 대가를 흙 계열 채굴 속도로만 문다 — 돌까지 느려지면
-		// 「채굴이 빨라지는 증강」이 정작 굴을 파는 동안 느려지는 모양이 됐기 때문이다.
 		Perk vein = PerkRegistry.byId("sharedfate:vein_sense").orElseThrow();
 		assertEquals("광맥 감각", vein.name());
 		assertEquals(2, vein.effects().size());

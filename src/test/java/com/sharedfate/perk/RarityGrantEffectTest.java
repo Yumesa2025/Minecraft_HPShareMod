@@ -24,9 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * {@code rarity_grant}(실버 「숨은 재능」, 골드 「하늘의 은총」)의 정의 읽기와 즉시 지급을 본다.
- *
- * <p>{@code gambler}(도박꾼)를 등급 지정으로 일반화한 것이라 {@link GamblerEffectTest}와 같은
- * 방식으로 확인한다. 등급 무관 20·25 구간 고정 같은 부작용이 없으므로 여기서는 다루지 않는다.
  */
 class RarityGrantEffectTest {
 

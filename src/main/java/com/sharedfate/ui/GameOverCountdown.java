@@ -7,10 +7,6 @@ package com.sharedfate.ui;
  * 서버가 종료된다. 숫자를 실제로 그리는 것은 {@code GameOverHud}(클라이언트), 서버를 멈추는
  * 것은 {@code com.sharedfate.sync.WorldResetCoordinator} 이고, 여기에는 <b>남은 틱에서 화면에
  * 적을 숫자를 뽑는 계산과 문구</b>만 있다.
- *
- * <p>{@link GameStartButton}·{@link PerkRerollButton} 과 같은 이유로 이 패키지에 있다 —
- * 화면 코드({@code src/client})는 시험 소스셋이 볼 수 없으므로, 값이 맞는지 시험할 수 있는
- * 부분만 공용 소스셋으로 내려 둔다.
  */
 public final class GameOverCountdown {
 	public static final int TICKS_PER_SECOND = 20;
@@ -43,7 +39,7 @@ public final class GameOverCountdown {
 	 * <p>클라이언트는 {@code WorldResetPayload} 로 받은 길이를 스스로 세어 내려간다. 음수나
 	 * 터무니없이 큰 값이 와도 화면이 이상해지지 않게 여기서 접는다.
 	 *
-	 * @param maxTicks 허용할 최대 틱. 서버 설정의 상한과 같은 값을 넘기면 된다.
+	 * @param maxTicks 허용할 최대 틱. 서버 설정의 상한과 같은 값을 넘긴다.
 	 */
 	public static int sanitizeTicks(int ticksRemaining, int maxTicks) {
 		if (ticksRemaining <= 0) {
@@ -60,8 +56,7 @@ public final class GameOverCountdown {
 	/**
 	 * 전멸을 알리는 채팅 한 줄.
 	 *
-	 * <p>화면 연출과 따로 한 번만 나간다. 나중에 로그를 보거나 채팅을 되짚을 때 남아 있어야
-	 * 하는 사실은 「몇 초 남았는가」가 아니라 <b>어느 팀이 언제 전멸했는가</b>이다.
+	 * <p>화면 연출과 따로 한 번만 나간다.
 	 */
 	public static String wipeAnnouncement(String teamName, int seconds) {
 		return "게임 오버! '" + teamName + "' 팀이 전멸했습니다. "

@@ -3,6 +3,7 @@ package com.sharedfate.perk;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.net.PerkOfferPayload;
 import com.sharedfate.net.PerkSyncPayload;
+import com.sharedfate.perk.effect.NoAttackDamageLossEffect;
 import com.sharedfate.perk.effect.NoSilverOffersEffect;
 import com.sharedfate.perk.effect.PrismRerollEffect;
 import com.sharedfate.team.ShareTeam;
@@ -36,10 +37,7 @@ public final class PerkManager {
 	/**
 	 * 프리즘 확률을 {@link PerkDraft#PRISM_BOOST_PERCENT} 만큼 얹어 주는 증강.
 	 *
-	 * <p>효과 형이 아니라 <b>id 하나로</b> 보는 이유는, 이것이 효과가 아니라 이 증강 한 개에만
-	 * 붙은 예외이기 때문이다. 「실버 후보를 통째로 막는 대신 프리즘를 조금 더 본다」는 저울이
-	 * 이 증강의 대가와 보상 안에서만 뜻이 있어서, 효과로 일반화하면 다른 증강에 잘못 붙기 쉽다.
-	 * 정의 파일에서 이 id 가 사라지면 판정이 거짓이 되어 보너스도 함께 사라진다.
+	 * <p>정의 파일에서 이 id 가 사라지면 판정이 거짓이 되어 보너스도 함께 사라진다.
 	 */
 	private static final String PRISM_BOOST_PERK_ID = "sharedfate:expedition_kit";
 
@@ -93,10 +91,8 @@ public final class PerkManager {
 		TeamManager manager = TeamManager.get(server);
 		for (ShareTeam team : List.copyOf(manager.allTeams())) {
 			TeamState state = manager.stateByTeamId(team.teamId());
-			// 「게임 시작」을 누르기 전에는 구간을 세지 않는다. 증강은 회차의 보상인데, 팀원을
-			// 기다리며 서 있는 동안 올린 레벨로 증강이 나오면 회차가 시작되기도 전에 판이
-			// 정해진다. 시작하는 순간 레벨과 지나온 구간이 함께 0 으로 돌아간다
-			// ({@code GameStartManager}).
+			// 「게임 시작」을 누르기 전에는 구간을 세지 않는다. 시작하는 순간 레벨과 지나온
+			// 구간이 함께 0 으로 돌아간다 ({@code GameStartManager}).
 			if (state == null || !state.perksEnabled || !state.runStarted) {
 				continue;
 			}
@@ -141,13 +137,7 @@ public final class PerkManager {
 		boolean silverBlocked = silverOffersBlocked(state);
 		boolean prismBoost = state.ownedPerks.contains(PRISM_BOOST_PERK_ID);
 		for (int milestone : reached) {
-			// 예전에는 도박꾼을 가진 팀이 15렙 바로 다음 두 구간(20·25렙)에서 실버로 고정됐지만
-			// (2026-09-01 7차에서) 그 대가를 없앴으므로 이제 이 구간도 평소대로 구간 규칙을 따른다.
-			//
-			// 등급을 여기서 먼저 정하고 뽑기는 그 등급으로 부른다. PerkDraft.draw(milestone, …)
-			// 한 방으로 끝내지 않는 이유는 프리즘 라운드를 세어야 하기 때문이다. 뽑힌 후보만
-			// 보고는 「프리즘 라운드였다」와 「실버 라운드인데 실버가 바닥나 폴백으로 프리즘가
-			// 섞였다」를 구분할 수 없고, 뒤엣것까지 세면 프리즘 한도가 엉뚱하게 찬다.
+			// 등급을 여기서 먼저 정하고 뽑기는 그 등급으로 부른다.
 			PerkRarity rarity = PerkDraft.rarityFor(milestone, state.extraPrismRounds,
 					silverBlocked, prismBoost, random);
 			List<String> options = PerkDraft.draw(rarity, milestone, PerkRegistry.all(),
@@ -161,8 +151,7 @@ public final class PerkManager {
 			}
 			// 고정 구간(15)의 프리즘는 세지 않는다. 확률표가 세는 것은 「확률로 더 나온」
 			// 프리즘뿐이고, 고정까지 넣으면 확률로 얻을 수 있는 프리즘가 하나 줄어든다.
-			// 후보를 하나도 못 뽑아 건너뛴 라운드도 위에서 이미 빠졌다 — 선택권이 뜨지
-			// 않았으니 프리즘를 한 번 썼다고 볼 이유가 없다.
+			// 후보를 하나도 못 뽑아 건너뛴 라운드도 위에서 이미 빠졌다.
 			if (rarity == PerkRarity.PRISM && !PerkDraft.PRISM_MILESTONES.contains(milestone)) {
 				state.extraPrismRounds++;
 			}
@@ -178,14 +167,9 @@ public final class PerkManager {
 	/**
 	 * 실버 후보가 통째로 막혀 있는가.
 	 *
-	 * <p><b>이 판정은 {@link PerkDraft} 가 아니라 여기서 한다.</b> 추첨 쪽이 {@code PerkRegistry}
-	 * 나 효과 클래스에 손을 뻗는 순간 게임을 띄우지 않고는 확률표를 검증할 수 없게 되기 때문이다.
-	 * 그래서 추첨은 「막혔는가」라는 참·거짓 하나만 받고, 그 답을 만드는 일은 증강 정의를 이미
-	 * 알고 있는 이 클래스가 맡는다.
-	 *
 	 * <p>실버를 막는 것은 {@code no_silver_offers} 효과이고, 지금은 실버 「원정 준비물」 하나가
 	 * 가지고 있다. 보유 증강을 돌며 그 효과 형을 찾는 일은
-	 * {@link NoSilverOffersEffect#heldBy}가 맡는다 — {@link PerkGearRules}가 쓰는 방식과 같다.
+	 * {@link NoSilverOffersEffect#heldBy}가 맡는다.
 	 */
 	private static boolean silverOffersBlocked(TeamState state) {
 		if (state == null || !state.perksEnabled || state.ownedPerks.isEmpty()) {
@@ -197,8 +181,7 @@ public final class PerkManager {
 	/**
 	 * 다시 뽑기가 프리즘만 내놓아야 하는가.
 	 *
-	 * <p>{@link #silverOffersBlocked} 와 같은 자리·같은 이유로 여기서 판정한다. 세트
-	 * 「도박 3단계 — 어차피 프리즘」이 {@code prism_reroll} 표시를 켜고, 그것을 찾는 일은
+	 * <p>세트 「도박 3단계 — 어차피 프리즘」이 {@code prism_reroll} 표시를 켜고, 그것을 찾는 일은
 	 * {@link PrismRerollEffect#heldBy} 가 맡는다.
 	 *
 	 * <p><b>구간 추첨에는 영향이 없다.</b> 이 판정을 보는 곳은 {@link #applyReroll} 하나뿐이라,
@@ -217,9 +200,6 @@ public final class PerkManager {
 	 *
 	 * <p>풀에서 사라진 id 도 함께 버린다. 등급을 알 수 없는 후보를 「프리즘일 것」으로 보고
 	 * 남겨 두면 그 한 장이 이 세트의 약속을 깨뜨린다.
-	 *
-	 * <p>패키지 전용인 것은 시험 때문이다. {@link #applyReroll} 자체는 살아 있는 서버가 있어야
-	 * 부를 수 있어, 「프리즘이 모자라면 적게 준다」는 결정만 따로 확인할 자리가 필요하다.
 	 */
 	static List<String> onlyPrism(List<String> options) {
 		List<String> filtered = new ArrayList<>(options.size());
@@ -297,8 +277,7 @@ public final class PerkManager {
 
 	/** 선택권을 가진 사람이 나가면 접속 중인 다른 팀원에게 넘긴다. 후보는 그대로 유지한다. */
 	public static void onPlayerLeave(ServerPlayer player) {
-		// 나간 사람에게 무엇을 붙여 뒀는지는 더 들고 있을 이유가 없다. 다시 들어오면
-		// refreshPlayer 가 처음부터 다시 붙인다.
+		// 다시 들어오면 refreshPlayer 가 처음부터 다시 붙인다.
 		PerkSetEffects.forget(player.getUUID());
 		MinecraftServer server = player.level().getServer();
 		if (server == null) {
@@ -461,11 +440,9 @@ public final class PerkManager {
 	 * 피하므로 두 번 넘게 다시 뽑으면 그보다 앞서 본 후보는 돌아올 수 있다.
 	 *
 	 * <p><b>세트 「도박 3단계 — 어차피 프리즘」을 켠 팀만 등급이 프리즘으로 올라간다.</b>
-	 * 그때 아직 안 가진 프리즘이 3장 미만이면 카드도 그만큼만 뜬다 — 골드를 섞느니 적게 주는
-	 * 쪽을 택했다. 자세한 까닭은 {@link PrismRerollEffect} 에 적어 뒀다.
+	 * 그때 아직 안 가진 프리즘이 3장 미만이면 카드도 그만큼만 뜬다.
 	 *
-	 * <p>다음 중 하나라도 어긋나면 <b>아무 말 없이 돌아간다.</b> 지연·재전송된 패킷과 조작된
-	 * 패킷을 같은 길로 버리기 위해서다 — 실패 이유를 알려 주면 그 자체가 조작의 힌트가 된다.
+	 * <p>다음 중 하나라도 어긋나면 <b>아무 말 없이 돌아간다.</b>
 	 *
 	 * <ul>
 	 *   <li>팀·상태가 없거나 증강을 쓰지 않는 팀</li>
@@ -501,8 +478,7 @@ public final class PerkManager {
 		// 않는다 — 등급을 모르는 채로 뽑으면 구간 규칙을 다시 굴리는 셈이 된다.
 		//
 		// 유일한 예외가 세트 「도박 3단계 — 어차피 프리즘」이다. 그 팀만 등급이 프리즘으로
-		// 올라간다. 판정은 실버 차단(silverOffersBlocked)과 같은 이유로 PerkDraft 가 아니라
-		// 여기서 한다 — 추첨기가 PerkRegistry 에 손을 뻗으면 게임 없이 확률표를 검증할 수 없다.
+		// 올라간다.
 		boolean prismOnly = prismRerollActive(state);
 		PerkRarity rarity = prismOnly ? PerkRarity.PRISM : offerRarity(offer);
 		if (rarity == null) {
@@ -515,15 +491,13 @@ public final class PerkManager {
 		//
 		// 지금 화면에 떠 있는 3개를 avoid 로 넘긴다. 넘기지 않으면 실버 라운드 기준 세 번에 한
 		// 번꼴로 방금 본 카드가 그대로 돌아와, 다시 뽑기를 쓰고도 안 쓴 것처럼 보인다.
-		// 「되도록」이라 남은 후보가 3개 미만이면 뺐던 것에서 마저 채운다 — 카드가 비는 것보다
-		// 낫다. 직전 한 번만 피하므로 두 번 이상 다시 뽑으면 그전 것은 다시 나올 수 있다.
+		// 「되도록」이라 남은 후보가 3개 미만이면 뺐던 것에서 마저 채운다.
+		// 직전 한 번만 피하므로 두 번 이상 다시 뽑으면 그전 것은 다시 나올 수 있다.
 		List<String> options = PerkDraft.draw(rarity, milestone, PerkRegistry.all(),
 				state.ownedPerks, offer.optionIds(), random, OPTION_COUNT);
 		if (prismOnly) {
 			// PerkDraft.fallbackOrder(PRISM) 은 프리즘 → 골드 → 실버라, 아직 안 가진 프리즘이
-			// 3장 미만이면 골드가 섞여 들어온다. 「프리즘 등급만 나옵니다」라고 적어 놓고 골드를
-			// 보여 주면 설명이 거짓이 되므로, 모자라면 「적게 준다」를 택했다. 남은 프리즘이
-			// 두 장이면 카드도 두 장이다 — 일반 추첨도 후보가 모자라면 가능한 만큼만 준다.
+			// 3장 미만이면 골드가 섞여 들어온다. 남은 프리즘이 두 장이면 카드도 두 장이다.
 			options = onlyPrism(options);
 		}
 		if (options.isEmpty()) {
@@ -636,8 +610,7 @@ public final class PerkManager {
 		// item_grant·legacy_gear·gambler·rarity_grant·rarity_reroll 다섯 즉시 지급 효과는
 		// PerkGrantChain 이 한 곳에서 처리한다. 무작위로 받은 증강이 또 즉시 지급 효과를
 		// 가지고 있으면(예: 「숨은 재능」이 뽑은 골드가 하필 「하늘의 은총」인 경우) 그것도
-		// 마저 처리해야 실제로 손에 들어온 증강이 전부 발동하기 때문이다. 자세한 내용과
-		// 무한 재귀를 막는 방법은 그 클래스에 적어 뒀다.
+		// 마저 처리해야 실제로 손에 들어온 증강이 전부 발동한다.
 		PerkGrantChain.run(server, team, state, perk, random);
 
 		applyToTeam(server, team, state);
@@ -671,6 +644,9 @@ public final class PerkManager {
 		// 세트 「방어 3단계」를 켠 팀에서는 방어 유형 증강의 대가를 붙이지 않는다. 대가가 하나도
 		// 없는 팀은 세트를 보지도 않는다.
 		PerkDrawbacks.Waiver waiver = PerkDrawbacks.waiverFor(state);
+		// 세트 「무기 3단계」를 켠 팀에서는 공격력을 깎는 효과를 붙이지 않는다. 이쪽은 표시가
+		// 아니라 효과가 실제로 하는 일을 보고 가리므로 앞으로 새로 넣는 증강도 함께 걸린다.
+		NoAttackDamageLossEffect.Gate gate = NoAttackDamageLossEffect.gateFor(state);
 		for (String perkId : state.ownedPerks) {
 			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			if (perk == null) {
@@ -678,21 +654,24 @@ public final class PerkManager {
 			}
 			for (PerkEffect effect : perk.effects()) {
 				try {
-					if (waiver.waives(perk, effect)) {
+					if (waiver.waives(perk, effect) || gate.suppresses(effect)) {
 						// 건너뛰기만 하면 안 된다. 세트가 켜지기 전에 이미 붙어 있던 수정자는
 						// 아무도 걷어내지 않으므로 여기서 걷어낸다. remove 는 몇 번을 불러도
 						// 결과가 같아서 이 자리는 그대로 멱등하다.
 						effect.remove(player);
 					} else {
 						effect.apply(player);
+						// conditional·holder·periodic 은 자기 하위를 스스로 붙인다. 부모를 통째로
+						// 건너뛰면 같은 묶음의 공격력 증가까지 사라지므로, 붙인 직후에 감소만
+						// 골라 걷어낸다. 세트가 꺼져 있으면 아무 일도 하지 않는다.
+						gate.stripChildren(player, effect);
 					}
 				} catch (RuntimeException error) {
 					SharedFateMod.LOGGER.warn("증강 '{}' 효과 적용에 실패했습니다.", perk.id(), error);
 				}
 			}
 		}
-		// 켜진 세트를 붙이고, 방금 꺼진 세트를 걷어낸다. 순서가 뒤가 아니라 여기인 이유는
-		// PerkSetEffects 에 적어 뒀다 — 세트가 걷어내는 것은 세트가 붙인 것뿐이다.
+		// 켜진 세트를 붙이고, 방금 꺼진 세트를 걷어낸다. 세트가 걷어내는 것은 세트가 붙인 것뿐이다.
 		PerkSetEffects.refresh(player);
 	}
 
@@ -704,8 +683,7 @@ public final class PerkManager {
 	 * <b>플레이어에게 붙여 둔</b> 효과는 아무도 걷어내지 않으면 그대로 남는다. 그래서 끌 때는
 	 * 여기서 직접 {@link PerkEffect#remove} 를 돌려 준다.
 	 *
-	 * <p>보유 목록({@code ownedPerks})은 건드리지 않는다. 실수로 껐다가 다시 켰을 때 회차가
-	 * 통째로 날아가지 않게 하기 위해서다.
+	 * <p>보유 목록({@code ownedPerks})은 건드리지 않는다.
 	 *
 	 * @param enabled 켤 것인가
 	 */
@@ -735,8 +713,7 @@ public final class PerkManager {
 					}
 				}
 			}
-			// 증강을 끄면 세트도 함께 꺼진다. 세트는 보유 증강에서 파생되는 것이라 증강이 멈춘
-			// 채로 세트만 켜져 있을 이유가 없다.
+			// 증강을 끄면 세트도 함께 꺼진다.
 			PerkSetEffects.removeAll(online);
 		}
 		broadcastSync(server, team, state);
@@ -768,9 +745,12 @@ public final class PerkManager {
 		}
 		// 조건부 증강은 배율 조회에 플레이어 인자가 없어 대상을 따로 알려 줘야 한다.
 		ConditionalPerkManager.beginMultiplierLookup(player);
-		// 「불굴」의 체력 75% 초과 시 받는 피해 ×1.1 이 이 길로 들어온다. 대가를 실제로 만나기
-		// 전에는 세트 판정을 하지 않으므로 대가가 없는 팀의 피해 계산은 예전과 똑같다.
+		// 「불굴」의 체력 75% 초과 시 받는 피해 ×1.1 이 이 길로 들어온다.
 		PerkDrawbacks.Waiver waiver = PerkDrawbacks.waiverFor(state);
+		// 「급소만 노려」의 주는 피해 ×0.95 처럼 배율로 적힌 공격력 감소가 이 길로 들어온다.
+		// 무기 3단계를 켠 팀에서는 그 한 줄만 곱하지 않는다. 받는 피해 쪽은 공격력과 무관하므로
+		// 주는 피해를 모을 때만 본다.
+		NoAttackDamageLossEffect.Gate gate = NoAttackDamageLossEffect.gateFor(state);
 		double total = 1.0;
 		for (String perkId : state.ownedPerks) {
 			Perk perk = PerkRegistry.byId(perkId).orElse(null);
@@ -779,6 +759,9 @@ public final class PerkManager {
 			}
 			for (PerkEffect effect : perk.effects()) {
 				if (waiver.waives(perk, effect)) {
+					continue;
+				}
+				if (dealt && gate.suppresses(effect)) {
 					continue;
 				}
 				total *= dealt

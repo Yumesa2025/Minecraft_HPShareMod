@@ -57,7 +57,6 @@ class SharedEffectDamageTest {
 
 		TeamState state = freshTeam();
 		StatMirror.applyDeltas(state, SHARED_MAX_HEALTH, 0.0F, folded, true);
-		// 고치기 전에는 4인분이 깎여 36.0 이었다.
 		assertEquals(39.0F, state.health, 1.0e-6F);
 	}
 
@@ -93,7 +92,7 @@ class SharedEffectDamageTest {
 
 	@Test
 	void 상태이상_공유_설정이_꺼져_있으면_아무_피해도_버리지_않는다() {
-		// 설정이 꺼지면 판정이 항상 거짓이다. 즉 관측되는 체력 손실 처리가 이 수정 전과 똑같다.
+		// 설정이 꺼지면 판정이 항상 거짓이다.
 		assertFalse(SharedEffectDamage.isDuplicateEffectDamage(false, true, true, false, true));
 
 		List<StatMirror.PlayerDelta> observed = sharedEffectTick(ARA, false, true);

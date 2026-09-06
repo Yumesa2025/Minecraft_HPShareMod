@@ -38,8 +38,7 @@ import java.util.function.Predicate;
  * 나침반 지시 증강({@code compass_target})의 집행부.
  *
  * <p>{@link CompassTargetEffect} 가 "무엇을 어디서 얼마나 넓게 찾을 것인가"만 들고 있고,
- * 실제로 찾아서 나침반에 꽂는 일은 전부 여기서 한다. {@code max_health_lock} 과
- * {@link PerkHealthRules} 의 관계와 같은 구도다.
+ * 실제로 찾아서 나침반에 꽂는 일은 전부 여기서 한다.
  *
  * <h2>어떻게 가리키게 하는가</h2>
  * <p>바닐라의 자철석 나침반과 같은 길을 쓴다. 26.2 의 나침반은
@@ -174,8 +173,7 @@ public final class PerkCompassTargets {
 	/**
 	 * 이 팀이 가진 첫 {@code compass_target}. 없으면 null.
 	 *
-	 * <p>여러 개를 가졌어도 첫 번째만 쓴다. 바늘은 하나뿐이라 두 곳을 동시에 가리킬 방법이
-	 * 없고, 매번 다른 쪽을 골라 흔들리는 것보다는 하나로 못 박는 편이 낫다.
+	 * <p>여러 개를 가졌어도 첫 번째만 쓴다. 바늘은 하나뿐이라 두 곳을 동시에 가리킬 방법이 없다.
 	 */
 	public static @Nullable CompassTargetEffect firstTarget(@Nullable TeamState state) {
 		TeamState active = PerkWorldRules.activeState(state);

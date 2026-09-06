@@ -69,7 +69,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *
  * <p>문맥이 새더라도 위험이 작다. 읽는 자리가 {@code popExperience} 하나뿐이라 블록 밖의
  * 경험치로는 번질 수 없고, 그 위에 <b>좌표까지 맞아야</b> 곱하기 때문이다. 자세한 것은
- * {@link ExperienceBonus} 에 적어 뒀다.
+ * {@link ExperienceBonus} 에 있다.
  *
  * <h2>여기에 걸리지 않는 것</h2>
  * <p>폭발·TNT·좀비의 문 부수기처럼 사람이 캔 것이 아닌 파괴는 {@code playerDestroy} 를 지나지

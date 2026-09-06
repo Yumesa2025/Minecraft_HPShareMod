@@ -202,7 +202,7 @@ class NaturalRegenExhaustionTest {
 	 *
 	 * <p>{@code Player.causeFoodExhaustion} 도 결국 여기로 들어온다. 즉 이 메서드는 "행동으로
 	 * 생긴 소모도"와 "회복이 치르는 대가"가 합류하는 지점이라, 여기에 배율을 걸면 둘을 구분할
-	 * 수 없게 된다. 배율을 {@code causeFoodExhaustion} 쪽에 두는 이유다.
+	 * 수 없게 된다.
 	 */
 	@Test
 	void 행동으로_생긴_소모도는_causeFoodExhaustion_을_지난다() throws IOException {

@@ -30,10 +30,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * 곳만 잡으면 개수와 확률이 <b>함께</b> 오른다. 두 클래스를 각각 잡으면 mixin 이 둘로 늘고,
  * 앞으로 약탈을 읽는 세 번째 통로가 생겼을 때 조용히 빠진다.
  *
- * <p>약탈 인챈트 정의 자체({@code data/minecraft/enchantment/looting.json})는 손대지 않는다.
- * 그 파일에 적힌 {@code equipment_drops} 는 "몹이 쓰던 장비를 떨어뜨릴 확률"이라 전리품 개수와
- * 상관이 없고, 데이터팩을 고치면 이 증강이 없는 팀까지 영향을 받는다.
- *
  * <h2>약탈을 물을 때만 끼어든다</h2>
  * <p>이 메서드는 모든 마법의 등급을 묻는 공용 통로다. 그래서 가장 먼저 "지금 묻는 것이
  * 약탈인가"를 보고, 아니면 즉시 빠져나온다. 날카로움·보호처럼 자주 불리는 마법의 경로에는

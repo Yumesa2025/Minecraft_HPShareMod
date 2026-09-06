@@ -19,9 +19,9 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
  * <h2>여기에 최대 체력을 올리는 증강을 걸면 안 된다</h2>
  * <p>이 덮어쓰기는 접속·부활·명령·주기 점검마다 다시 돈다. 그래서 {@code attribute} 효과로
  * {@code max_health} 에 +6 을 걸어 두면, 이 계산이 그 +6 을 정확히 상쇄해 증강이 아무 일도
- * 하지 않은 것처럼 보인다. 실제로 그런 버그가 있었다.
+ * 하지 않은 것처럼 보인다.
  *
- * <p>고친 방법은 "속성을 더 올리는 것"이 아니라 <b>목표값 자체를 올리는 것</b>이다.
+ * <p>최대 체력을 올리려면 속성이 아니라 <b>목표값 자체</b>를 올려야 한다.
  * {@code max_health_bonus} 증강의 보너스는 {@code PerkHealthRules} 가 팀의 기본값에 더해
  * {@code TeamState.maxHealth} 로 만들고, 여기서는 그 값을 그대로 목표로 삼는다. 속성과 공유
  * 상한이 언제나 같은 숫자를 가리키므로 어긋날 자리가 없다.

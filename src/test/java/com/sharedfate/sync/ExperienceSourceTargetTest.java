@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>{@code sharedfate.mixins.json} 에는 refmap 이 없어 <b>대상 서술자가 틀려도 빌드가 그냥
  * 통과</b>하고, 서버를 띄우는 순간(또는 그 코드가 처음 돌 때) 터진다. 그래서 대상 서술자와
- * 그것이 기대는 상속 관계를 여기서 붙들어 둔다. {@code ScreenStatSourceTest} 와 같은 자리다.
+ * 그것이 기대는 상속 관계를 여기서 붙들어 둔다.
  *
  * <ul>
  *   <li>{@code ExperienceOrbAwardMixin} — 상시 배율(설정)</li>

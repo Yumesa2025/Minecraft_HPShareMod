@@ -78,7 +78,7 @@ class PerkSetTooltipLinesTest {
 		assertEquals("4:  바로 옆의 같은 블록이 함께 캐집니다.", rows.get(3).text());
 	}
 
-	/** <b>이 파일의 본론.</b> 켜진 단계와 아직인 단계는 반드시 다른 색으로 나가야 한다. */
+	/** 켜진 단계와 아직인 단계는 반드시 다른 색으로 나가야 한다. */
 	@Test
 	void 켜진_단계와_안_켜진_단계가_색으로_갈린다() {
 		List<PerkSetTooltipLines.Row> rows =

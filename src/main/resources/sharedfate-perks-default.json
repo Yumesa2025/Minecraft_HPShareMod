@@ -329,7 +329,7 @@
       "id": "sharedfate:vampire",
       "icon": "minecraft:glow_berries",
       "name": "흡혈귀",
-      "description": "준 피해의 일부를 체력으로 회복하고, 20초마다 흡수 III 이 다시 채워집니다. 대신 허기가 가득 차 있어도 체력이 자연 회복되지 않습니다.",
+      "description": "준 피해의 일부를 체력으로 회복하고, 2분마다 흡수 III 이 다시 채워집니다. 대신 허기가 가득 차 있어도 체력이 자연 회복되지 않습니다.",
       "rarity": "prism",
       "set_types": [
         "recovery"
@@ -344,10 +344,10 @@
         },
         {
           "type": "periodic",
-          "period_ticks": 400,
+          "period_ticks": 2400,
           "phases": [
             {
-              "ticks": 399,
+              "ticks": 2399,
               "effects": [
                 {
                   "type": "status_effect",
@@ -414,7 +414,7 @@
       "id": "sharedfate:forbidden_ore",
       "icon": "minecraft:netherite_ingot",
       "name": "금기의 광석",
-      "description": "네더라이트 주괴를 4개 얻습니다. 대신 다이아몬드 도구나 방어구를 핫바에 두거나 장착하면 계속 자동으로 버려집니다.",
+      "description": "네더라이트 주괴를 4개 얻고 네더라이트 장비의 내구도가 3배가 됩니다. 대신 다이아몬드 도구나 방어구를 핫바에 두거나 장착하면 인벤토리로 밀려나고, 인벤토리마저 꽉 차 있으면 버려집니다.",
       "rarity": "prism",
       "set_types": [
         "supply"
@@ -435,6 +435,13 @@
             "sharedfate:diamond_gear"
           ],
           "discard": true
+        },
+        {
+          "type": "durability_multiplier",
+          "tags": [
+            "sharedfate:netherite_gear"
+          ],
+          "multiplier": 3.0
         }
       ]
     },
@@ -1048,7 +1055,7 @@
       "id": "sharedfate:woodcutters_greed",
       "icon": "minecraft:oak_log",
       "name": "나무꾼의 욕심",
-      "description": "나무 도끼를 들고 우클릭하면 나무 30개를 소모하고 무작위 광물 하나를 얻습니다(다이아몬드 10% · 금 15% · 철 15% · 구리 30% · 석탄 30%).",
+      "description": "나무 도끼를 들고 우클릭하면 나무 30개를 소모하고 무작위 광물을 얻습니다(다이아몬드 10% · 금 15% · 철 13% · 구리 30% · 석탄 30%). 2%로 엄청난 보상을 받습니다.",
       "rarity": "silver",
       "set_types": [
         "supply"
@@ -1483,7 +1490,7 @@
       "id": "sharedfate:light_armor",
       "icon": "minecraft:leather_boots",
       "name": "경장",
-      "description": "이동 속도가 30% 증가하고 더 높이 뜁니다. 대신 다리 방어구를 착용할 수 없습니다.",
+      "description": "이동 속도가 30% 증가하고 더 높이 뜁니다. 대신 신발 방어구를 착용할 수 없습니다.",
       "rarity": "gold",
       "set_types": [
         "mobility"
@@ -1504,7 +1511,7 @@
         {
           "type": "equip_ban",
           "slots": [
-            "legs"
+            "feet"
           ]
         }
       ]
@@ -1975,7 +1982,7 @@
       "id": "sharedfate:echo_mining",
       "icon": "minecraft:echo_shard",
       "name": "메아리 채굴",
-      "description": "내가 캔 블록 근처의 블록 두 개가 더 캐집니다(발밑은 캐지 않습니다). 대신 쓰는 도구의 내구도가 2배로 닳습니다.",
+      "description": "내가 캔 블록 근처의 같은 블록 두 개가 더 캐집니다(발밑은 캐지 않습니다). 대신 쓰는 도구의 내구도가 2배로 닳습니다.",
       "rarity": "gold",
       "set_types": [
         "mining"

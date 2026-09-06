@@ -4,9 +4,11 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.sharedfate.SharedFateMod;
+import com.sharedfate.perk.effect.NoAttackDamageLossEffect;
 import com.sharedfate.perk.effect.OnKillEffect;
 import com.sharedfate.perk.effect.StatusEffectPerk;
 import com.sharedfate.team.TeamLookup;
+import com.sharedfate.team.TeamState;
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffect;
@@ -20,7 +22,7 @@ import java.util.List;
  * "방아쇠가 당겨지면 몇 초간"이라는 형태를 읽고 실제로 얹는 공용 부품.
  *
  * <p>{@code on_team_hurt} 와 {@code on_critical} 이 같은 모양을 쓴다. 두 타입의 차이는 언제
- * 발동하는가뿐이고, "무엇을 얼마 동안 얹는가"는 완전히 같아서 여기 한 곳에 모아 뒀다.
+ * 발동하는가뿐이고, "무엇을 얼마 동안 얹는가"는 완전히 같다.
  *
  * <pre>{@code
  * { "type": "on_critical", "durationSeconds": 3,
@@ -34,8 +36,7 @@ import java.util.List;
  * <h2>반드시 유한 지속이어야 하는 이유</h2>
  * <p>하위 {@code status_effect} 는 무한이 아니라 {@code durationSeconds} 만큼만 걸린다.
  * {@link PerkStatusEffects} 는 "무한 지속인 상태이상"을 증강이 건 것으로 보고 팀 공유 대상에서
- * 빼는데, 잠깐 거는 것까지 무한으로 걸면 그 판정에 걸려 공유가 어긋난다. {@link OnKillEffect}
- * 가 처치 보상에서 같은 이유로 유한 지속을 쓴다.
+ * 빼는데, 잠깐 거는 것까지 무한으로 걸면 그 판정에 걸려 공유가 어긋난다.
  *
  * <h2>상태이상이 아닌 하위 효과</h2>
  * <p>속성처럼 붙였다 떼야 하는 효과는 {@link TimedPerkEffects} 에 예약해 둔다. 그쪽이 정해진
@@ -75,7 +76,7 @@ public final class TemporaryPerkGrants {
 	 * {@code durationSeconds} 와 {@code effects} 를 읽는다.
 	 *
 	 * <p>하나라도 잘못됐으면 경고를 남기고 {@code null} 이다. 그러면 이 효과를 가진 증강 전체가
-	 * 버려진다. 설명은 그대로인데 효과 일부만 빠진 증강은 플레이어를 속이는 셈이기 때문이다.
+	 * 버려진다.
 	 *
 	 * @param typeId 경고 문구에 쓸 타입 이름
 	 */
@@ -139,16 +140,30 @@ public final class TemporaryPerkGrants {
 	 * 하나도 없으면 팀 상태를 찾아보지도 않으므로, 그런 정의가 없는 서버에는 아무 부담도 얹히지
 	 * 않는다. 걷어내는 쪽({@link #revoke})은 가리지 않는다 — 걸려 있지도 않은 것을 걷어내는 일은
 	 * 언제나 안전하고, 세트가 켜지기 <b>전에</b> 얹힌 것이 남아 있을 수 있기 때문이다.
+	 *
+	 * <p><b>공격력을 깎는 하위 효과는 세트 「무기 3단계」를 켠 팀에서 얹지 않는다.</b> 판정 근거가
+	 * {@code drawback} 표시가 아니라 효과가 실제로 하는 일이라, 「동병상련」처럼 표시가 붙은 것도
+	 * 앞으로 새로 넣을 정의도 같은 자리에서 함께 걸린다. 창에 감소가 하나도 없으면 팀 상태를
+	 * 찾아보지도 않는다.
 	 */
 	public static void grant(@Nullable ServerPlayer player, @Nullable Window window) {
 		if (player == null || window == null) {
 			return;
 		}
-		PerkDrawbacks.Waiver waiver = PerkDrawbacks.anyDrawback(window.effects())
-				? PerkDrawbacks.waiverFor(TeamLookup.stateOf(player.getUUID()))
+		boolean anyDrawback = PerkDrawbacks.anyDrawback(window.effects());
+		boolean anyReduction = NoAttackDamageLossEffect.anyReduction(window.effects());
+		// 팀 상태 조회는 한 번이면 된다. 걸러 낼 것이 아무것도 없으면 그 한 번도 하지 않는다.
+		TeamState state = anyDrawback || anyReduction
+				? TeamLookup.stateOf(player.getUUID())
 				: null;
+		PerkDrawbacks.Waiver waiver = anyDrawback ? PerkDrawbacks.waiverFor(state) : null;
+		NoAttackDamageLossEffect.Gate gate =
+				anyReduction ? NoAttackDamageLossEffect.gateFor(state) : null;
 		for (PerkEffect effect : window.effects()) {
 			if (waiver != null && waiver.waives(null, effect)) {
+				continue;
+			}
+			if (gate != null && gate.suppresses(effect)) {
 				continue;
 			}
 			try {

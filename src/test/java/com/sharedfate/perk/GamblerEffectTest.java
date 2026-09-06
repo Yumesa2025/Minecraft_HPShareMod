@@ -24,14 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * {@code gambler}(프리즘 「도박꾼」)의 정의 읽기와 즉시 지급을 본다.
- *
- * <p>실제로 화면에 보이는지는 {@code PerkManager.commit}이 이미 부르는
- * {@code broadcastSync}(모든 {@code ownedPerks}를 훑음) 하나로 해결되므로 새 동기화 경로가
- * 없다 — 여기서는 {@link PerkGambler}가 {@code ownedPerks}에 정확히 넣는지만 본다.
- *
- * <p>예전에는 그 대가로 15렙 바로 다음 두 구간(20·25렙)이 실버로 고정됐지만
- * (2026-09-01 7차에서) 없앴다. 지금은 대가 없이 무작위 2개를 그냥 받으므로 그 구간 고정
- * 시험은 이 파일에 더 없다.
  */
 class GamblerEffectTest {
 

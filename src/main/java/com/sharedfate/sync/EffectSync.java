@@ -27,8 +27,7 @@ import java.util.UUID;
  * <p>증강({@link com.sharedfate.perk.PerkManager})이 건 상태이상은 이 공유에서 빠진다.
  * 팀 상태에 섞여 저장되면 증강을 잃은 뒤에도 남아 되살아나기 때문이다. 판별은
  * {@link PerkStatusEffects} 가 하고, 여기서는 수집·전파·복원 세 자리에서 그 판별을 쓴다.
- * 보유 증강이 없으면 {@link PerkStatusEffects#of} 가 빈 목록을 돌려주므로 증강 도입 전과
- * 동작이 완전히 같다.
+ * 보유 증강이 없으면 {@link PerkStatusEffects#of} 가 빈 목록을 돌려준다.
  */
 public final class EffectSync {
 	private static boolean propagating;

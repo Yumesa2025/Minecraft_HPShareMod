@@ -247,7 +247,7 @@ public final class ConditionalEffect implements PerkEffect {
 			}
 			// 하위에 붙은 대가 표시는 읽지 않는다. 여기서 조용히 무시하면 「빌드도 통과하고
 			// 로그도 없이 아무 일도 안 하는」 정의가 되므로 반드시 말해 준다. 자세한 까닭은
-			// PerkDrawbacks 머리말에 적어 뒀다.
+			// PerkDrawbacks 머리말에 있다.
 			if (childJson.has(PerkDrawbacks.FIELD)) {
 				SharedFateMod.LOGGER.warn(
 						"증강 {}: conditional 의 {} 하위에는 {} 를 붙일 수 없습니다. "

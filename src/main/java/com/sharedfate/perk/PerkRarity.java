@@ -22,9 +22,7 @@ public enum PerkRarity {
 	/**
 	 * JSON의 rarity 문자열을 등급으로 바꾼다. 알 수 없는 값이면 null.
 	 *
-	 * <p>등급 이름을 바꾸기 전에 쓰던 {@code common / rare / epic} 과 {@code platinum} 도
-	 * 계속 받아준다. 사용자가 이미 채워 둔 {@code config/sharedfate-perks.json} 이 조용히
-	 * 통째로 버려지는 편보다 낫기 때문이다.
+	 * <p>{@code common / rare / epic} 과 {@code platinum} 도 계속 받아준다.
 	 */
 	public static PerkRarity fromId(String id) {
 		if (id == null) {

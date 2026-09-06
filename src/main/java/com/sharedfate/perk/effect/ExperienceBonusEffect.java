@@ -35,7 +35,7 @@ import java.util.Locale;
  * <h2>이 클래스가 하지 않는 일</h2>
  * <p>여기는 "어느 출처에, 얼마를 곱하는가"만 들고 있는 자료 그릇이다. {@link #apply}/
  * {@link #remove} 는 아무 일도 하지 않는다 — 붙였다 뗄 수 있는 것이 아니라 경험치가 생기는
- * 순간에 조회하는 값이기 때문이다. {@code mining_speed}·{@code loot_bonus} 와 같은 구도다.
+ * 순간에 조회하는 값이기 때문이다.
  *
  * <p>실제로 곱하는 자리는 {@link com.sharedfate.sync.ExperienceBonus} 와 그것을 부르는 두
  * mixin({@code BlockExperienceSourceMixin}·{@code MobExperienceSourceMixin})이다.
@@ -66,8 +66,7 @@ public final class ExperienceBonusEffect implements PerkEffect {
 	 * {@link #ORE_BLOCKS} 로 만든 판정기.
 	 *
 	 * <p>목록이 상수라 {@link BlockSelector#fromJson} 이 {@code null} 을 돌려줄 수 없다. 그래도
-	 * 확인해서 터뜨리는 이유는 {@link LuckyOreEffect} 와 같다 — 목록에 오타가 나면 조용히
-	 * 「모든 블록」이 되는 것보다 클래스를 읽는 순간 터지는 편이 낫다.
+	 * 확인해서 터뜨린다 — 목록에 오타가 나면 조용히 「모든 블록」이 되기 때문이다.
 	 */
 	private static final BlockSelector ORE_SELECTOR = buildOreSelector();
 

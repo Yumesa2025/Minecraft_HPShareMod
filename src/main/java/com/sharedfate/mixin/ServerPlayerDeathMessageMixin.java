@@ -29,9 +29,6 @@ import org.spongepowered.asm.mixin.injection.At;
  * <p>{@code die} 안에서 {@code GameRules#get} 은 두 번 불린다. 뒤쪽은
  * {@code FORGIVE_DEAD_PLAYERS} 라 건드리면 안 되므로 {@code ordinal = 0} 으로 첫 호출만
  * 잡는다.
- *
- * <p>게임룰 자체를 잠깐 껐다 되돌리는 방법은 쓰지 않는다. 게임룰은 {@code level.dat} 에
- * 저장되므로 그 사이에 서버가 죽으면 꺼진 채로 남는다.
  */
 @Mixin(ServerPlayer.class)
 public abstract class ServerPlayerDeathMessageMixin {

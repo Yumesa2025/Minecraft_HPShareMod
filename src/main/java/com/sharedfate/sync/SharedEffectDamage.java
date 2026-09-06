@@ -40,15 +40,14 @@ import org.jetbrains.annotations.Nullable;
  * <p>상태이상 공유 자체는 그대로다. 팀원 넷 모두 여전히 독·재생 아이콘과 입자를 갖고, 대표가
  * 받은 피해는 {@link SharedHurtFeedback} 이 팀 전원에게 피격 연출로 뿌리며, 달라진 공유
  * 체력·허기는 {@code StatMirror.writeBack} 이 전원에게 똑같이 써 준다. 보이는 결과는 "다 같이
- * 재생에 걸려 다 같이 체력이 찬다"로 이전과 같고, 움직이는 양만 1인분으로 바로잡힌다.
+ * 재생에 걸려 다 같이 체력이 찬다"이고, 움직이는 양만 1인분이다.
  *
  * <p>대표가 같은 상태이상을 갖고 있을 때만 막는다는 조건이 안전장치다. 어떤 이유로 대표에게
  * 그 상태이상이 없으면 아무도 막히지 않으므로, 팀이 공짜로 피해 면역을 얻거나 회복을 통째로
- * 잃는 일은 없다. {@code shareStatusEffects} 가 꺼져 있으면 이 판정은 항상 거짓이라 동작이
- * 완전히 이전과 같다.
+ * 잃는 일은 없다. {@code shareStatusEffects} 가 꺼져 있으면 이 판정은 항상 거짓이다.
  *
- * <p>왜 {@code applyEffectTick} 을 통째로 건너뛰지 않는가. 그 호출은 공유 풀 말고도 많은 일을
- * 한다. 26.2 기준으로 {@code BadOmenMobEffect} 는 그 안에서 습격 예고를 붙이고
+ * <p><b>{@code applyEffectTick} 을 통째로 건너뛰면 안 된다.</b> 그 호출은 공유 풀 말고도 많은
+ * 일을 한다. 26.2 기준으로 {@code BadOmenMobEffect} 는 그 안에서 습격 예고를 붙이고
  * {@code false} 를 돌려줘 자기 자신을 끝내고, {@code RaidOmenMobEffect} 는 습격을 실제로
  * 시작하며, {@code AbsorptionMobEffect} 는 흡수량이 0 이 되면 {@code false} 로 스스로 사라진다.
  * {@code MobEffectInstance.tickServer} 는 이 반환값을 보고 상태이상을 제거할지 정한다. 통째로
@@ -159,8 +158,8 @@ public final class SharedEffectDamage {
 	}
 
 	/**
-	 * 판정의 알맹이. 월드 없이 시험할 수 있도록 조건만 떼어 놨다. 피해·회복·배고픔이 모두 같은
-	 * 규칙을 쓴다. "한 원인이 공유 때문에 여러 번으로 보이는가"라는 질문이 셋 다 똑같기 때문이다.
+	 * 판정의 알맹이. 피해·회복·배고픔이 모두 같은 규칙을 쓴다. "한 원인이 공유 때문에 여러
+	 * 번으로 보이는가"라는 질문이 셋 다 똑같기 때문이다.
 	 *
 	 * @param shareStatusEffects        상태이상 공유 설정이 켜져 있는가
 	 * @param insideSharedEffectTick    지금 변화가 상태이상 틱 구간 안에서 났는가

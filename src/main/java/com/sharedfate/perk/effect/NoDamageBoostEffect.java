@@ -30,10 +30,8 @@ import com.sharedfate.perk.PerkEffect;
  * 막힌 양수 수정자들의 합·곱을 정확히 되돌린다. {@link com.sharedfate.perk.PerkDamageBoostBan}
  * 이 계산과 부착을 맡는다.
  *
- * <h2>왜 표시 클래스인가</h2>
- * <p>{@link com.sharedfate.perk.effect.OffhandLockEffect}와 같은 이유다. {@link PerkEffect#apply}로
- * 미리 붙여 둘 것이 없다 — 매 틱 손에 든 것과 걸린 효과가 달라지므로 그때그때 다시 계산해야
- * 한다.
+ * <p>{@link PerkEffect#apply}로 미리 붙여 둘 것이 없다 — 매 틱 손에 든 것과 걸린 효과가
+ * 달라지므로 그때그때 다시 계산해야 한다.
  */
 public final class NoDamageBoostEffect implements PerkEffect {
 	/** 상태가 없으므로 하나만 만들어 돌려쓴다. */

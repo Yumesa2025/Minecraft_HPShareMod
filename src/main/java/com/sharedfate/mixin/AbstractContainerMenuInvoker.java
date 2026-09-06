@@ -13,7 +13,7 @@ public interface AbstractContainerMenuInvoker {
 	boolean sharedfate$invokeMoveItemStackTo(
 			ItemStack stack, int startIndex, int endIndex, boolean reverseDirection);
 
-	/** 창을 닫을 때 그릇을 비워 플레이어에게 돌려줍니다. */
+	/** 창을 닫을 때 그릇을 비워 플레이어에게 돌려준다. */
 	@Invoker("clearContainer")
 	void sharedfate$invokeClearContainer(Player player, Container container);
 }

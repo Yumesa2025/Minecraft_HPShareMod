@@ -20,21 +20,18 @@ import java.util.concurrent.ConcurrentHashMap;
  * {@code paired_mining} 증강(실버 「공명」)의 실행부.
  *
  * <p>{@link PairedMiningEffect}는 값(기억 유효 시간·성급함 세기와 길이)만 들고 있고,
- * "누가 언제 무엇을 캤는가"는 전부 여기서 정한다. {@code on_kill}과 {@link PerkKillRewards}의
- * 관계와 같은 구도다.
+ * "누가 언제 무엇을 캤는가"는 전부 여기서 정한다.
  *
  * <h2>하는 일은 하나뿐이다</h2>
  * <p>{@link #onBreak}가 {@code PerkBlockBreaks}에서 캘 때마다 불린다. 플레이어별로 "마지막으로
  * 캔 블록·시각"만 기억해 뒀다가, 팀원 중 누군가가 5초 안에 같은 블록을 캤으면 둘 다 성급함 III
  * 을 5초 건다.
  *
- * <p><b>거리도 차원도 보지 않는다.</b> 예전에 있던 16칸 조건과 "혼자면 채굴 속도 −15%" 주기
- * 페널티는 둘 다 없앴다 — 까닭은 {@link PairedMiningEffect} 에 적어 뒀다. 그래서 이 클래스에는
- * 매 틱 도는 코드가 남아 있지 않고, 속성 수정자를 붙였다 떼는 일도 하지 않는다.
+ * <p><b>거리도 차원도 보지 않는다.</b>
  *
  * <h2>기억은 저장하지 않는다</h2>
- * <p>"마지막으로 캤다"는 서버가 켜져 있는 동안만 뜻이 있는 값이다. {@link PerkHolderManager}의
- * 보유자 기억과 같은 이유로 저장하지 않고, 서버가 멈추면 {@link #reset}이 비운다.
+ * <p>"마지막으로 캤다"는 서버가 켜져 있는 동안만 뜻이 있는 값이다.
+ * 저장하지 않고, 서버가 멈추면 {@link #reset}이 비운다.
  */
 public final class PerkResonantMining {
 	/** 플레이어별 마지막으로 캔 블록 기록. */
@@ -45,7 +42,6 @@ public final class PerkResonantMining {
 	private PerkResonantMining() {
 	}
 
-	/** 패키지 안 시험이 직접 만들 수 있도록 접근 제한자를 두지 않는다. */
 	record LastBreak(Block block, long tick) {
 	}
 
@@ -90,8 +86,7 @@ public final class PerkResonantMining {
 	}
 
 	/**
-	 * 최근 캔 기록이 지금 캔 블록과 짝을 이룰 수 있는가. 순수 계산이라 월드 없이 시험할 수 있게
-	 * 따로 뗐다.
+	 * 최근 캔 기록이 지금 캔 블록과 짝을 이룰 수 있는가.
 	 *
 	 * @param record    상대방의 마지막 채굴 기록. 없으면(아직 아무것도 안 캤으면) 거짓
 	 * @param block     지금 이 사람이 캔 블록
@@ -111,7 +106,7 @@ public final class PerkResonantMining {
 
 	// ------------------------------------------------------------------ 정리
 
-	/** 서버가 멈출 때 기억을 비운다. 다음 월드의 것을 물려받지 않기 위해서다. */
+	/** 서버가 멈출 때 기억을 비운다. */
 	public static void reset() {
 		LAST_BREAKS.clear();
 		warned = false;

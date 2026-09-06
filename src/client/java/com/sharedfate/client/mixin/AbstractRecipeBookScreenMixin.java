@@ -10,14 +10,14 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
 /**
- * 조합법 책 단추가 창을 따라오게 합니다.
+ * 조합법 책 단추가 창을 따라오게 한다.
  *
- * <p>바닐라는 그 단추를 <b>화면 한가운데 기준</b>(예: {@code height / 2 - 49})으로 놓습니다.
+ * <p>바닐라는 그 단추를 <b>화면 한가운데 기준</b>(예: {@code height / 2 - 49})으로 놓는다.
  * 창이 54px 커지면 창 위쪽 좌표가 27px 올라가므로, 화면 기준 자리는 그대로인데 창에서 보면
- * 단추만 27px 내려간 것처럼 보입니다. 그만큼 되돌립니다.
+ * 단추만 27px 내려간 것처럼 보인다. 그만큼 되돌린다.
  *
  * <p>제작대·화로·훈연기·용광로·플레이어 인벤토리가 모두 이 클래스를 물려받으므로 한 곳만
- * 고치면 됩니다.
+ * 고치면 된다.
  */
 @Mixin(AbstractRecipeBookScreen.class)
 public abstract class AbstractRecipeBookScreenMixin {

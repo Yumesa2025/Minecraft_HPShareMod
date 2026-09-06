@@ -20,9 +20,7 @@ import java.util.List;
  *
  * <p>{@link com.sharedfate.sync.PositionSwapManager} 와
  * {@link com.sharedfate.sync.TeamGathering} 이 처리 한가운데서 여기에 물어보고, 답에 따라
- * 순간이동을 건너뛰거나 남은 틱을 고쳐 쓴다. 판정을 실행부 밖에 떼어 둔 이유는
- * {@link PerkFoodRules} 와 같다. 실행부에는 "어디서 끼어드는가"만 남는 편이 읽기 쉽고,
- * 판정을 월드 없이 시험할 수 있다.
+ * 순간이동을 건너뛰거나 남은 틱을 고쳐 쓴다.
  *
  * <p>여기서 답하는 물음은 다섯이다.
  *
@@ -74,8 +72,7 @@ public final class PerkSwapRules {
 	/**
 	 * 이 팀이 가진 {@code swap_interval} 배율을 모두 곱한 값. 해당 없으면 1.0.
 	 *
-	 * <p>여러 개를 가졌으면 전부 곱한다. 서로 다른 증강이 각각 약속한 배율이라 하나만 골라
-	 * 줄 이유가 없다. {@link PerkFoodRules#nutritionMultiplier} 와 같은 규칙이다.
+	 * <p>여러 개를 가졌으면 전부 곱한다.
 	 */
 	public static double intervalMultiplier(@Nullable TeamState state) {
 		if (!usesPerks(state)) {
@@ -93,9 +90,7 @@ public final class PerkSwapRules {
 	/**
 	 * 주기를 못박는 증강이 있으면 그 값(틱). 없으면 0.
 	 *
-	 * <p>여러 개면 <b>가장 짧은 것</b>이 이긴다. 못박는 증강은 "이 팀은 이 간격으로 흔들린다"를
-	 * 약속하는 것이라, 둘을 곱하거나 평균 내면 어느 쪽 약속도 지켜지지 않는다. 짧은 쪽을
-	 * 택하면 적어도 그 증강의 약속은 그대로 성립한다.
+	 * <p>여러 개면 <b>가장 짧은 것</b>이 이긴다.
 	 */
 	public static int fixedIntervalTicks(@Nullable TeamState state) {
 		if (!usesPerks(state)) {
@@ -139,14 +134,12 @@ public final class PerkSwapRules {
 	}
 
 	/**
-	 * 곱셈 규칙만 떼어 놓은 것. 월드 없이 시험하려고 나눠 뒀다.
+	 * 곱셈 규칙만 떼어 놓은 것.
 	 *
-	 * <h2>왜 주기보다 길어질 수 없는가</h2>
 	 * <p>{@code TeamState.sanitize} 가 저장을 읽을 때 남은 틱을 {@code [0, 주기]} 로 자른다.
 	 * 배율이 1보다 커서 주기보다 긴 값을 남겨 두면 서버를 껐다 켜는 순간 조용히 주기로
-	 * 되돌아가, 같은 팀이 재시작 전후로 다르게 움직인다. 그럴 바에는 처음부터 주기에서
-	 * 멈추는 편이 예측 가능하다. 즉 <b>1보다 큰 배율은 지금 아무 효과가 없다.</b>
-	 * 지금 쓰이는 정의는 모두 1보다 작은 배율이다.
+	 * 되돌아가, 같은 팀이 재시작 전후로 다르게 움직인다. 즉 <b>1보다 큰 배율은 지금 아무
+	 * 효과가 없다.</b> 지금 쓰이는 정의는 모두 1보다 작은 배율이다.
 	 */
 	static int scaleInterval(int intervalTicks, double multiplier) {
 		if (intervalTicks <= 0) {
@@ -168,7 +161,7 @@ public final class PerkSwapRules {
 	/**
 	 * 교환 시점에 팀원 전원에게 {@code on_swap} 의 하위 효과를 얹는다.
 	 *
-	 * <p>순간이동이 막혔든 아니든 그대로 얹는다. 이유는 {@link OnSwapEffect} 에 적어 뒀다.
+	 * <p>순간이동이 막혔든 아니든 그대로 얹는다.
 	 * 하위 효과가 없는 팀이 대부분이라 이 순회는 대개 아무 일도 하지 않는다.
 	 */
 	public static void grantOnSwap(@Nullable TeamState state, List<ServerPlayer> members) {
@@ -214,9 +207,7 @@ public final class PerkSwapRules {
 	 * 이 팀이 {@code swap_rally}(골드 「정거장」)를 가졌는가.
 	 *
 	 * <p>참이면 {@code PositionSwapManager.swapMoment}가 순열 교환 대신
-	 * {@code RallyPointManager}에게 집합·복귀를 넘긴다. {@link #staggered}보다 먼저 확인한다 —
-	 * 골드가 실버보다 우선한다는 규칙이 아니라, 한 팀이 어쩌다 둘 다 가진 극단적인 경우에도
-	 * 판정 순서가 매번 같아야 하기 때문이다.
+	 * {@code RallyPointManager}에게 집합·복귀를 넘긴다. {@link #staggered}보다 먼저 확인한다.
 	 */
 	public static boolean rallyPoint(@Nullable TeamState state) {
 		if (!usesPerks(state)) {
@@ -302,7 +293,6 @@ public final class PerkSwapRules {
 			}
 		}
 		// 켜진 세트의 효과도 같은 목록에 들어간다. 교환 세트 2단계가 on_swap 을 이 길로 태운다.
-		// 세트가 없으면 빈 목록이라 예전과 비트 하나 다르지 않다.
 		effects.addAll(PerkSetEffects.activeEffectsOf(state));
 		return effects;
 	}

@@ -15,10 +15,8 @@ import com.sharedfate.perk.PerkEffect;
  * 일어난다. 실제로 막는 지점은 {@link com.sharedfate.mixin.FoodPropertiesMixin} 이고,
  * 지금 이 팀에 이 효과가 있는지 판단하는 것은 {@link com.sharedfate.perk.PerkFoodRules} 다.
  *
- * <h2>왜 표시 클래스인가</h2>
  * <p>{@link PerkEffect#apply} 로 팀원에게 붙일 것이 없다. 먹기 처리 한가운데서 "이 팀이 이
- * 효과를 갖고 있는가"만 물어보면 되므로, 이 클래스는 그 물음에 답하기 위한 표시로만 존재한다.
- * 상태가 없어 인스턴스를 나눠 써도 안전하다.
+ * 효과를 갖고 있는가"만 물어본다. 상태가 없어 인스턴스를 나눠 써도 안전하다.
  */
 public final class NoFoodHungerEffect implements PerkEffect {
 	/** 상태가 없으므로 하나만 만들어 돌려쓴다. */

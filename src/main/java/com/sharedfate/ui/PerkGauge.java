@@ -3,12 +3,7 @@ package com.sharedfate.ui;
 /**
  * 다음 증강 구간까지의 진행도 계산.
  *
- * <p>{@link PanelScroll} 과 같은 이유로 여기 있다 — 그리는 일은 클라이언트 소스셋의
- * {@code PerkProgressHud} 가 하지만, 시험 소스셋이 그쪽을 보지 못하므로 <b>순수 계산만</b>
- * 공용 소스셋으로 내려 두었다.
- *
- * <p>한 칸의 길이({@code step})는 {@code PerkMilestones.STEP} 을 그대로 받는다. 구간 규칙이
- * 바뀌어도 이 파일은 고칠 것이 없다.
+ * <p>한 칸의 길이({@code step})는 {@code PerkMilestones.STEP} 을 그대로 받는다.
  */
 public final class PerkGauge {
 	private PerkGauge() {

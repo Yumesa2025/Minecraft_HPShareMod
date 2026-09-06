@@ -8,17 +8,15 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>{@link StatSnapshotPayload} 로 갱신되며 월드에서 나가면 {@link #clear()} 로 비운다.
  * 공격력·받는 피해 배율·몹 배율은 바닐라 속성 동기화에 실려 오지 않아, 화면이 플레이어의
- * 속성에서 읽지 못하고 여기서 읽는다. 어느 것이 왜 여기 있는지는 페이로드 쪽에 적어 두었다.
+ * 속성에서 읽지 못하고 여기서 읽는다.
  *
  * <h2>서버가 말해 주기 전에는 아무 줄도 그리지 않는다</h2>
  * <p>{@link #known()} 이 거짓인 동안 화면은 이 값들로 만드는 줄 자체를 건너뛴다. 맨손 기본값
- * 1.0 이나 배율 100% 를 대신 그리면 <b>없는 사실을 만들어 내는</b> 셈이고, 그것이 바로 이
- * 패킷을 만든 이유다. 값은 접속하고 늦어야 몇 틱 안에 오므로 창을 열었을 때 비어 있는 일은
- * 실제로는 없다.
+ * 1.0 이나 배율 100% 를 대신 그리면 <b>없는 사실을 만들어 내는</b> 셈이다. 값은 접속하고
+ * 늦어야 몇 틱 안에 오므로 창을 열었을 때 비어 있는 일은 실제로는 없다.
  *
  * <p>읽는 자리는 화면 그리기이고 쓰는 자리는 패킷 수신인데, 수신 쪽을
- * {@code client.execute(...)} 로 클라이언트 본 스레드에 올려 두었으므로 둘은 같은 스레드다.
- * {@link com.sharedfate.client.perk.ClientPerkFeatures} 와 같은 구도다.
+ * {@code client.execute(...)} 로 클라이언트 본 스레드에 올려 두므로 둘은 같은 스레드다.
  */
 public final class ClientStatSnapshot {
 	private static boolean known;

@@ -44,29 +44,22 @@ import java.util.UUID;
  *
  * <h2>{@code fixed_to_owner} — 고른 사람이 계속 보유자</h2>
  * <p>참이면 <b>이 증강을 고른 사람</b>이 회차 내내 보유자다. {@code rotate_ticks} 로도
- * {@code pass_on_hurt} 로도 넘어가지 않고, 그 사람이 죽어도 자리를 잃지 않는다. 프리즘
- * 「제왕과 신하」처럼 "누가 왕인가"가 회차의 이야기가 되어야 하는 증강을 위한 것이다 —
- * 1분마다 왕이 바뀌면 그건 왕이 아니라 당번이다.
+ * {@code pass_on_hurt} 로도 넘어가지 않고, 그 사람이 죽어도 자리를 잃지 않는다.
  *
- * <p>적지 않으면 거짓이고, 그때의 동작은 이 필드가 없던 시절과 완전히 같다.
+ * <p>적지 않으면 거짓이다.
  *
  * <p><b>고른 사람이 접속을 끊으면 그동안 아무도 보유자가 아니다.</b> 다시 들어오면 그 사람이
- * 곧바로 보유자로 돌아온다. 무작위로 다른 사람에게 넘기지 않는 이유는 그러면 「고정」이 아니게
- * 되기 때문이다 — 왕이 잠깐 자리를 비웠다고 옆 사람이 왕이 된다면 이 필드는 뜻이 없다.
- * 대신 그동안 나머지 팀원은 계속 {@code on_others} 를 받는다. 즉 <b>왕이 없는 동안 팀은
- * 디메리트만 지고 버프는 없다.</b> 이것도 의도한 결과다. 왕이 접속을 끊으면 팀이 손해를 보는
- * 편이, 왕이 없는데도 아무 일 없는 것보다 「제왕과 신하」라는 이름에 맞는다.
- * 자세한 집행은 {@link PerkHolderManager} 에 있다.
+ * 곧바로 보유자로 돌아온다. 무작위로 다른 사람에게 넘기지 않는다.
+ * 대신 그동안 나머지 팀원은 계속 {@code on_others} 를 받는다. 즉 <b>보유자가 없는 동안 팀은
+ * 디메리트만 지고 버프는 없다.</b> 자세한 집행은 {@link PerkHolderManager} 에 있다.
  *
  * <h2>이 클래스가 하지 않는 일</h2>
  * <p>여기는 "누가 보유자인가에 따라 무엇을 붙이는가"만 아는 자료 그릇이다. "지금 누가
  * 보유자인가"와 "언제 누구에게 넘기는가"는 {@link PerkHolderManager} 가 정한다.
- * {@code on_kill} 과 {@code PerkKillRewards} 의 관계와 같은 구도다.
  *
  * <h2>보유자 상태는 저장되지 않는다</h2>
- * <p>보유자는 {@link PerkHolderManager} 의 런타임 메모리에만 있다. 팀 상태에 저장하면 세이브
- * 형식이 바뀌어 기존 월드와의 호환을 따져야 하는데, "지금 누가 버프를 들고 있는가"는 서버가
- * 다시 뜨면 새로 뽑아도 아무 문제가 없는 값이다. 그래서 저장하지 않는다.
+ * <p>보유자는 {@link PerkHolderManager} 의 런타임 메모리에만 있다. "지금 누가 버프를 들고
+ * 있는가"는 서버가 다시 뜨면 새로 뽑아도 되는 값이다.
  *
  * <h2>하위 효과의 순번</h2>
  * <p>속성 수정자 식별자가 {@code 증강id + 효과순번} 으로 만들어지므로
@@ -116,7 +109,7 @@ public final class HolderEffect implements PerkEffect {
 	private final List<PerkEffect> onOthers;
 	private final List<OnKillEffect.Grant> onPass;
 
-	/** {@code fixed_to_owner} 가 거짓인 예전 형태. 기존 호출부와 시험이 그대로 쓴다. */
+	/** {@code fixed_to_owner} 가 거짓인 생성자. */
 	public HolderEffect(int rotateTicks, int minHoldTicks, boolean passOnHurt,
 			List<PerkEffect> onHolder, List<PerkEffect> onOthers, List<OnKillEffect.Grant> onPass) {
 		this(rotateTicks, minHoldTicks, passOnHurt, false, onHolder, onOthers, onPass);
@@ -165,7 +158,7 @@ public final class HolderEffect implements PerkEffect {
 		if (passOnHurt == null) {
 			return null;
 		}
-		// 없으면 거짓이라, 이 필드를 적지 않은 기존 정의는 예전과 완전히 같이 동작한다.
+		// 적지 않으면 거짓이다.
 		Boolean fixedToOwner = readBoolean(perkId, json, "fixed_to_owner");
 		if (fixedToOwner == null) {
 			return null;

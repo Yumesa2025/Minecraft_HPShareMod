@@ -18,11 +18,9 @@ import java.util.List;
  * 능력치 줄들을 <b>한 곳에서</b> 만든다.
  *
  * <p>같은 줄을 두 화면이 그린다 — 인벤토리 화면(E) 왼쪽의 상시 표시와 팀 화면의 「능력치」 탭.
- * 줄의 차례, 이름, 단위, 색이 뒤집히는 줄이 어느 것인지를 두 화면에 각각 적으면 언젠가
- * 한쪽만 고쳐진다. 그래서 <b>여기가 유일한 출처</b>다.
+ * 줄의 차례, 이름, 단위, 색이 뒤집히는 줄이 어느 것인지는 <b>여기가 유일한 출처</b>다.
  *
- * <p>{@code src/client} 에 있는 이유는 값을 {@link LocalPlayer} 와 {@link ClientStatSnapshot}
- * 에서 읽기 때문이다. 시험할 수 있는 순수 계산(줄의 글자 모양·자리)은
+ * <p>값은 {@link LocalPlayer} 와 {@link ClientStatSnapshot} 에서 읽는다. 줄의 글자 모양·자리는
  * {@link StatRow}·{@link com.sharedfate.ui.InventoryStatPanel} 에 있다.
  *
  * <h2>값을 어디서 읽는가</h2>
@@ -37,13 +35,11 @@ import java.util.List;
  * </ul>
  *
  * <h2>줄의 차례</h2>
- * <p>내 능력치 여섯 줄과 이 판의 몹 두 줄을 <b>따로 묶는다.</b> 앞의 여섯은 「내 몸이 어떤가」고
- * 뒤의 둘은 「상대가 얼마나 센가」라, 섞으면 몹 체력이 내 체력처럼 읽힌다.
+ * <p>내 능력치 여섯 줄과 이 판의 몹 두 줄을 <b>따로 묶는다.</b>
  *
  * <p>여섯 줄의 차례는 {@code 얼마나 버티는가 → 얼마나 때리는가 → 얼마나 빨리 때리는가 →
  * 얼마나 덜 맞는가 → 얼마나 빨리 움직이는가 → 맞으면 얼마나 아픈가} 다. 공격력과 공격 속도는
- * 무기 하나가 함께 바꾸는 값이라 반드시 붙여 둔다 — 검을 들면 공격력이 오르고 공격 속도가
- * 내려가는데, 두 줄이 떨어져 있으면 그 거래가 안 보인다.
+ * 무기 하나가 함께 바꾸는 값이라 반드시 붙여 둔다.
  */
 public final class ClientStatRows {
 	/** 묶음 제목. 팀 화면이 적는다. 인벤토리 화면은 자리가 없어 제목 없이 틈만 둔다. */
@@ -109,7 +105,6 @@ public final class ClientStatRows {
 	 * 이 판의 몹 줄들. 서버가 값을 알려 준 뒤에만 나온다.
 	 *
 	 * <p>둘 다 <b>오르면 나쁜 값</b>이라 {@link StatRow.Sense#LOWER_IS_BETTER} 로 둔다.
-	 * 증강이 몹을 세게 만드는 대가를 치른 팀에게, 그 대가가 초록으로 보이면 안 된다.
 	 */
 	public static List<StatRow> mobRows() {
 		if (!ClientStatSnapshot.known()) {

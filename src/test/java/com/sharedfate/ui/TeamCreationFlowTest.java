@@ -9,8 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 「팀 만들기」를 누른 뒤 화면이 무엇을 해야 하는가.
  *
- * <p>예전에는 팀을 만들면 창이 닫혔고, 「게임 시작」을 누르려면 창을 다시 열어야 했다.
- * 이제 창을 열어 둔 채 결과를 기다리므로 <b>언제 결과가 왔는지</b>를 가릴 판정이 필요하다.
+ * <p>창을 열어 둔 채 결과를 기다리므로 <b>언제 결과가 왔는지</b>를 가릴 판정이 필요하다.
  */
 class TeamCreationFlowTest {
 

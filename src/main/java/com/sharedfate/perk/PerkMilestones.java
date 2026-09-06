@@ -8,7 +8,7 @@ import java.util.List;
  *
  * <p>팀 공유 레벨이 5의 배수에 <b>처음</b> 도달할 때마다 증강 선택권이 하나 생긴다.
  * 구간은 5, 10, 15, 20, 25, 30, 35, 40 여덟 개뿐이고 40을 넘으면 더 발동하지 않는다.
- * 2026-09-01부터 35에서 40으로 하나 늘었다. 2026-09-02부터는 고정 프리즘 구간
+ * 고정 프리즘 구간
  * ({@link PerkDraft#PRISM_MILESTONES})이 15 하나뿐이고, 나머지 일곱은 확률표
  * ({@link PerkDraft#ODDS_BY_EXTRA_PRISM})로 등급을 굴린다 — 30 도 그 일곱에 든다.
  *
@@ -64,7 +64,7 @@ public final class PerkMilestones {
 		return bounded - (bounded % STEP);
 	}
 
-	/** 5, 10, …, 35 중 하나인지. */
+	/** 5, 10, …, 40 중 하나인지. */
 	public static boolean isMilestone(int level) {
 		return level >= STEP && level <= MAX && level % STEP == 0;
 	}
