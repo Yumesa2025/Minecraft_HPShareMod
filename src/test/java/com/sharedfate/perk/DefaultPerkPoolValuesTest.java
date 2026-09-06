@@ -2,7 +2,7 @@ package com.sharedfate.perk;
 
 import com.sharedfate.TestBootstrap;
 import com.sharedfate.perk.effect.AttributeEffect;
-import com.sharedfate.perk.effect.BonusDropEffect;
+import com.sharedfate.perk.effect.DropReplaceEffect;
 import com.sharedfate.perk.effect.ConditionalEffect;
 import com.sharedfate.perk.effect.DamageTakenEffect;
 import com.sharedfate.perk.effect.DamageTakenFromEffect;
@@ -237,12 +237,15 @@ class DefaultPerkPoolValuesTest {
 	}
 
 	@Test
-	void 비옥한_땅은_확정_3배다(@TempDir Path dir) throws IOException {
+	void 비옥한_땅은_밀을_황금_당근으로_바꾼다(@TempDir Path dir) throws IOException {
 		Perk perk = perk(dir, "sharedfate:fertile_ground");
-		BonusDropEffect bonus = assertInstanceOf(BonusDropEffect.class, perk.effects().get(0));
+		DropReplaceEffect replace =
+				assertInstanceOf(DropReplaceEffect.class, perk.effects().get(0));
 
-		assertEquals(1.0, bonus.chanceFor(), 1.0e-9);
-		assertEquals(2, bonus.extra());
+		assertEquals("minecraft:wheat", replace.fromId().toString());
+		assertEquals("minecraft:golden_carrot", replace.itemId().toString());
+		assertEquals(1, replace.min());
+		assertEquals(3, replace.max());
 	}
 
 	@Test

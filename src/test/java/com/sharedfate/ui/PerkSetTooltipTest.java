@@ -106,4 +106,32 @@ class PerkSetTooltipTest {
 		assertEquals("채굴 — 전부 모았습니다", PerkSetTooltip.header("채굴", 0));
 		assertEquals("채굴 — 아직 없는 것", PerkSetTooltip.header("채굴", 3));
 	}
+
+	// ------------------------------------------------------------------ 진행도 줄
+
+	/** 채굴은 단계가 2·3·4 다. */
+	private static List<PerkSetTooltip.TierEntry> miningTiers() {
+		return List.of(
+				new PerkSetTooltip.TierEntry("mining", 2, "경험치", true),
+				new PerkSetTooltip.TierEntry("mining", 3, "다이아", true),
+				new PerkSetTooltip.TierEntry("mining", 4, "같은 블록", true));
+	}
+
+	@Test
+	void 오를_곳이_남았으면_분모는_다음_단계다() {
+		assertEquals("채굴 2/3", PerkSetTooltip.progress("채굴", 2, 3, miningTiers()));
+	}
+
+	@Test
+	void 전부_켠_뒤_더_모아도_없는_단계를_안_가리킨다() {
+		// 열 개를 모아도 10 단계는 없다. 바로 아래 그리는 단계 줄에는 2·3·4 뿐이라
+		// 「채굴 10/10」 이면 눈앞에서 어긋난다.
+		assertEquals("채굴 10/4", PerkSetTooltip.progress("채굴", 10, 0, miningTiers()));
+	}
+
+	@Test
+	void 단계가_하나도_없으면_분수를_안_적는다() {
+		assertEquals("무기 3", PerkSetTooltip.progress("무기", 3, 0, List.of()));
+		assertEquals("무기 3", PerkSetTooltip.progress("무기", 3, 0, null));
+	}
 }

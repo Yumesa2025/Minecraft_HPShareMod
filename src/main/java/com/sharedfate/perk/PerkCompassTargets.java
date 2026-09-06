@@ -25,8 +25,10 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -62,12 +64,29 @@ import java.util.function.Predicate;
  * 있는</b> 성분은 우리가 꽂은 것뿐이고, 걷어낼 때도 그것만 본다({@link #isOurs}).
  *
  * <h2>인벤토리는 팀이 통째로 공유한다</h2>
- * <p>이 모드에서 팀원의 인벤토리는 {@link TeamState#mainItems} 하나를 함께 쓴다. 그래서
- * 손보는 대상도 플레이어별 인벤토리가 아니라 그 공유 목록이고, 한 사람의 나침반을 고치면
- * 팀 전원의 나침반이 같이 고쳐진다. 뒤집어 말하면 <b>한 명이라도 그 차원에 있으면 팀의 나침반이
- * 전부 그쪽을 가리킨다.</b> 다른 차원에 있는 팀원의 화면에서는 지시 자리의 차원이 맞지 않아
- * 바늘이 헛도는데, 그건 원래 나침반보다 나쁜 상태다. 그래서 <b>아무도 그 차원에 없으면 성분을
- * 걷어내</b> 평범한 나침반으로 되돌린다.
+ * <p>이 모드에서 팀원의 인벤토리는 {@link TeamState#mainItems} 하나를 함께 쓴다. 그것도 사본이
+ * 아니라 같은 목록이고, 그 안의 묶음도 같은 객체다. 그래서 손보는 대상은 플레이어별 인벤토리가
+ * 아니라 그 공유 목록이고, <b>나침반 하나에 꽂을 수 있는 지시 자리도 팀에 하나뿐이다.</b>
+ * 팀원마다 다른 곳을 가리키게 할 방법은 없다.
+ *
+ * <p>다른 차원에 있는 팀원의 화면에서는 지시 자리의 차원이 맞지 않아 바늘이 헛도는데, 그건
+ * 원래 나침반보다 나쁜 상태다. 그래서 <b>아무도 그 차원에 없으면 성분을 걷어내</b> 평범한
+ * 나침반으로 되돌린다.
+ *
+ * <h2>정의를 여럿 가졌을 때 무엇을 고르는가</h2>
+ * <p>차원이 다른 정의를 함께 가질 수 있다. 마을은 오버월드, 요새는 네더다. 그래서 고르는
+ * 기준은 정의의 순서가 아니라 <b>지금 팀원이 서 있는 차원</b>이다. 그 차원에 아무도 없는
+ * 정의는 애초에 후보가 아니고, 후보가 여럿이면 {@link #choose} 가 다음 순서로 하나를 정한다.
+ *
+ * <ol>
+ *   <li>그 차원에 <b>나침반을 주손에 든</b> 팀원이 있는 정의. 나침반은 팀에 하나뿐이므로 지금
+ *       실제로 보고 있는 사람의 차원을 가리키는 것이 가장 쓸모 있다. 주손 선택 칸은 공유
+ *       목록을 쓰면서도 사람마다 따로라 이 판정이 사람마다 갈린다.</li>
+ *   <li>그 차원에 서 있는 팀원이 더 많은 정의.</li>
+ *   <li>그래도 같으면 <b>먼저 얻은</b> 정의. 같은 차원에 정의가 둘일 때도 이 규칙이 정한다.
+ *       "가장 가까운 것"으로 정하려면 정의마다 구조물을 찾아야 해서 아래의 탐색 비용이 정의
+ *       수만큼 불어난다. 한 주기에 탐색을 한 번만 돌리려면 찾기 전에 정해져 있어야 한다.</li>
+ * </ol>
  *
  * <h2>탐색은 비싸다</h2>
  * <p>{@code findNearestMapStructure} 는 반경 안의 구조물 배치 후보를 훑는 동기 작업이라 서버
@@ -76,11 +95,14 @@ import java.util.function.Predicate;
  * <ol>
  *   <li>{@value #SWEEP_INTERVAL_TICKS} 틱마다만 이 자리를 지난다.</li>
  *   <li>팀원이 그 차원에 <b>있을 때만</b> 찾는다.</li>
- *   <li>찾은 결과를 팀마다 캐시하고 {@value #SEARCH_INTERVAL_TICKS} 틱(10초) 안에는 다시 찾지
+ *   <li>한 주기에 찾는 것은 <b>고른 정의 하나뿐</b>이다. 정의를 여럿 가져도 탐색 횟수는 늘지
  *       않는다.</li>
+ *   <li>찾은 결과를 팀마다, 그리고 <b>정의마다</b> 캐시하고 {@value #SEARCH_INTERVAL_TICKS}
+ *       틱(10초) 안에는 다시 찾지 않는다. 정의별로 나눠 두지 않으면 팀원이 차원을 오갈 때마다
+ *       서로의 결과를 밀어내 매번 다시 찾게 된다.</li>
  * </ol>
  *
- * <p>증강을 쓰지 않는 팀은 {@link #firstTarget} 이 곧바로 null 을 돌려주므로 목록 두 개를 훑는
+ * <p>증강을 쓰지 않는 팀은 {@link #targets} 가 곧바로 빈 목록을 돌려주므로 목록 두 개를 훑는
  * 것이 전부다.
  */
 public final class PerkCompassTargets {
@@ -89,8 +111,8 @@ public final class PerkCompassTargets {
 	/** 구조물을 다시 찾기까지 기다리는 최소 시간. */
 	public static final int SEARCH_INTERVAL_TICKS = 200;
 
-	/** 팀마다 마지막으로 찾은 결과. */
-	private static final Map<UUID, Cached> CACHE = new HashMap<>();
+	/** 팀마다, 그리고 정의마다 마지막으로 찾은 결과. */
+	private static final Map<UUID, Map<CompassTargetEffect, Cached>> CACHE = new HashMap<>();
 
 	private static int tickCounter;
 
@@ -98,13 +120,31 @@ public final class PerkCompassTargets {
 	}
 
 	/**
-	 * 한 팀의 마지막 탐색 결과.
+	 * 한 정의의 마지막 탐색 결과.
 	 *
-	 * @param effect     그때 쓴 정의. 증강 풀을 다시 읽어 정의가 바뀌면 캐시를 버리게 한다
 	 * @param searchedAt 찾은 시점의 게임 시각(틱)
 	 * @param found      찾은 자리. 반경 안에 없었으면 null
 	 */
-	private record Cached(CompassTargetEffect effect, long searchedAt, @Nullable GlobalPos found) {
+	private record Cached(long searchedAt, @Nullable GlobalPos found) {
+	}
+
+	/**
+	 * 정의를 고를 때 보는 팀원 한 명의 상태.
+	 *
+	 * <p>{@link #choose} 를 살아 있는 서버 없이 시험할 수 있도록, 고르는 데 필요한 것만 떼어
+	 * 담는다.
+	 *
+	 * @param dimension       지금 서 있는 차원
+	 * @param holdingCompass  주손에 나침반을 들고 있는가
+	 */
+	public record Presence(ResourceKey<Level> dimension, boolean holdingCompass) {
+	}
+
+	/** 접속해 있는 팀원 한 명. 고르는 데 쓴 판정을 탐색 기준점 고를 때 다시 쓰려고 함께 든다. */
+	private record Member(ServerPlayer player, boolean holdingCompass) {
+		Presence presence() {
+			return new Presence(player.level().dimension(), holdingCompass);
+		}
 	}
 
 	/** 서버가 멈출 때 캐시와 주기 상태를 비운다. */
@@ -149,37 +189,48 @@ public final class PerkCompassTargets {
 	}
 
 	private static void updateTeam(MinecraftServer server, ShareTeam team, TeamState state) {
-		CompassTargetEffect effect = firstTarget(state);
-		int changed;
-		if (effect == null) {
+		List<CompassTargetEffect> candidates = targets(state);
+		if (candidates.isEmpty()) {
 			CACHE.remove(team.teamId());
+			if (clearTargets(state) > 0) {
+				broadcast(server, team);
+			}
+			return;
+		}
+		// 증강 풀을 다시 읽으면 정의 객체가 새로 만들어진다. 그때 남는 옛 항목을 여기서 턴다.
+		pruneCache(team.teamId(), candidates);
+
+		List<Member> members = onlineMembers(server, team);
+		CompassTargetEffect effect = choose(candidates, presences(members));
+		ServerPlayer scout = effect == null ? null : scoutFor(members, effect);
+		int changed;
+		if (scout == null) {
+			// 지금 팀원이 서 있는 차원에 맞는 정의가 하나도 없다. 평범한 나침반으로 돌려 둔다.
+			// 캐시는 남겨 두므로 곧바로 돌아와도 다시 찾지 않는다.
 			changed = clearTargets(state);
 		} else {
-			ServerPlayer scout = memberInDimension(server, team, effect.dimension());
-			if (scout == null) {
-				// 아무도 그 차원에 없다. 평범한 나침반으로 돌려 둔다. 캐시는 남겨 두므로
-				// 곧바로 돌아와도 다시 찾지 않는다.
-				changed = clearTargets(state);
-			} else {
-				GlobalPos target = locate(server, team.teamId(), effect, scout);
-				changed = target == null ? clearTargets(state) : applyTarget(state, target);
-			}
+			GlobalPos target = locate(server, team.teamId(), effect, scout);
+			changed = target == null ? clearTargets(state) : applyTarget(state, target);
 		}
 		if (changed > 0) {
 			broadcast(server, team);
 		}
 	}
 
+	// ------------------------------------------------------------------ 정의 고르기
+
 	/**
-	 * 이 팀이 가진 첫 {@code compass_target}. 없으면 null.
+	 * 이 팀이 가진 {@code compass_target} 을 <b>얻은 순서대로</b> 모은다. 없으면 빈 목록.
 	 *
-	 * <p>여러 개를 가졌어도 첫 번째만 쓴다. 바늘은 하나뿐이라 두 곳을 동시에 가리킬 방법이 없다.
+	 * <p>{@code ownedPerks} 는 증강을 얻은 차례대로 쌓이므로, 이 목록의 앞자리가 곧 먼저 얻은
+	 * 정의다. {@link #choose} 의 마지막 판가름이 그 순서를 쓴다.
 	 */
-	public static @Nullable CompassTargetEffect firstTarget(@Nullable TeamState state) {
+	public static List<CompassTargetEffect> targets(@Nullable TeamState state) {
 		TeamState active = PerkWorldRules.activeState(state);
 		if (active == null) {
-			return null;
+			return List.of();
 		}
+		List<CompassTargetEffect> found = new ArrayList<>();
 		for (String perkId : active.ownedPerks) {
 			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			if (perk == null) {
@@ -187,11 +238,73 @@ public final class PerkCompassTargets {
 			}
 			for (PerkEffect effect : perk.effects()) {
 				if (effect instanceof CompassTargetEffect target) {
-					return target;
+					found.add(target);
 				}
 			}
 		}
-		return null;
+		return found;
+	}
+
+	/**
+	 * 지금 가리킬 정의 하나를 고른다. 맞는 것이 없으면 null.
+	 *
+	 * <p>고르는 판정 전부가 여기 있고 월드도 서버도 보지 않는다. 클래스 설명에 적은 세 단계를
+	 * 그대로 따른다.
+	 *
+	 * @param state   팀 상태
+	 * @param members 접속해 있는 팀원들의 상태
+	 */
+	public static @Nullable CompassTargetEffect choose(@Nullable TeamState state,
+			List<Presence> members) {
+		return choose(targets(state), members);
+	}
+
+	private static @Nullable CompassTargetEffect choose(List<CompassTargetEffect> candidates,
+			List<Presence> members) {
+		CompassTargetEffect best = null;
+		boolean bestHeld = false;
+		int bestCount = 0;
+		for (CompassTargetEffect effect : candidates) {
+			int count = 0;
+			boolean held = false;
+			for (Presence member : members) {
+				if (!member.dimension().equals(effect.dimension())) {
+					continue;
+				}
+				count++;
+				held |= member.holdingCompass();
+			}
+			if (count == 0) {
+				// 그 차원에 아무도 없다. 가리켜 봐야 바늘이 헛돈다.
+				continue;
+			}
+			if (best == null || beats(held, count, bestHeld, bestCount)) {
+				best = effect;
+				bestHeld = held;
+				bestCount = count;
+			}
+		}
+		return best;
+	}
+
+	/**
+	 * 뒤에 온 후보가 앞선 후보를 이기는가.
+	 *
+	 * <p>비기면 거짓이다. 후보를 얻은 순서대로 훑으므로, 비긴 자리는 먼저 얻은 쪽이 남는다.
+	 */
+	private static boolean beats(boolean held, int count, boolean bestHeld, int bestCount) {
+		if (held != bestHeld) {
+			return held;
+		}
+		return count > bestCount;
+	}
+
+	private static List<Presence> presences(List<Member> members) {
+		List<Presence> presences = new ArrayList<>(members.size());
+		for (Member member : members) {
+			presences.add(member.presence());
+		}
+		return presences;
 	}
 
 	// ------------------------------------------------------------------ 구조물 찾기
@@ -200,16 +313,36 @@ public final class PerkCompassTargets {
 	private static @Nullable GlobalPos locate(MinecraftServer server, UUID teamId,
 			CompassTargetEffect effect, ServerPlayer scout) {
 		long now = server.overworld().getGameTime();
-		Cached cached = CACHE.get(teamId);
+		Map<CompassTargetEffect, Cached> byEffect =
+				CACHE.computeIfAbsent(teamId, id -> new IdentityHashMap<>());
+		Cached cached = byEffect.get(effect);
 		// 회차가 초기화되면 게임 시각이 뒤로 갈 수 있다. 그때는 캐시를 믿지 않는다.
-		if (cached != null && cached.effect() == effect
-				&& now >= cached.searchedAt()
+		if (cached != null && now >= cached.searchedAt()
 				&& now - cached.searchedAt() < SEARCH_INTERVAL_TICKS) {
 			return cached.found();
 		}
 		GlobalPos found = search(server, effect, scout);
-		CACHE.put(teamId, new Cached(effect, now, found));
+		byEffect.put(effect, new Cached(now, found));
 		return found;
+	}
+
+	/** 지금 가진 정의의 결과만 남긴다. */
+	private static void pruneCache(UUID teamId, List<CompassTargetEffect> candidates) {
+		Map<CompassTargetEffect, Cached> byEffect = CACHE.get(teamId);
+		if (byEffect != null && !byEffect.isEmpty()) {
+			byEffect.keySet().removeIf(effect -> !containsSame(candidates, effect));
+		}
+	}
+
+	/** {@code IdentityHashMap} 의 열쇠와 같은 기준으로, 같은 객체가 목록에 있는지 본다. */
+	private static boolean containsSame(List<CompassTargetEffect> candidates,
+			CompassTargetEffect effect) {
+		for (CompassTargetEffect candidate : candidates) {
+			if (candidate == effect) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -245,15 +378,41 @@ public final class PerkCompassTargets {
 		return found == null ? null : GlobalPos.of(effect.dimension(), found.getFirst());
 	}
 
-	private static @Nullable ServerPlayer memberInDimension(MinecraftServer server, ShareTeam team,
-			ResourceKey<Level> dimension) {
+	private static List<Member> onlineMembers(MinecraftServer server, ShareTeam team) {
+		List<Member> members = new ArrayList<>();
 		for (UUID member : team.members()) {
 			ServerPlayer online = server.getPlayerList().getPlayer(member);
-			if (online != null && online.level().dimension().equals(dimension)) {
-				return online;
+			if (online != null) {
+				// 주손 선택 칸은 공유 목록을 쓰면서도 사람마다 따로다. 왼손은 팀이 함께 쓰므로
+				// 여기서 보면 전원이 들고 있는 것이 되어 사람을 가려내지 못한다.
+				members.add(new Member(online, isCompass(online.getMainHandItem())));
 			}
 		}
-		return null;
+		return members;
+	}
+
+	/**
+	 * 탐색 기준점이 될 팀원. 고른 정의의 차원에 있는 사람 중에서 고른다.
+	 *
+	 * <p>{@link #choose} 가 고른 정의는 그 차원에 팀원이 있을 때만 나오므로 여기서 빈손으로
+	 * 돌아가는 일은 없다. 나침반을 든 사람이 있으면 그 사람을 앞세운다 — 지금 바늘을 보고 있는
+	 * 사람에게 가장 가까운 구조물이 잡힌다.
+	 */
+	private static @Nullable ServerPlayer scoutFor(List<Member> members,
+			CompassTargetEffect effect) {
+		ServerPlayer fallback = null;
+		for (Member member : members) {
+			if (!member.player().level().dimension().equals(effect.dimension())) {
+				continue;
+			}
+			if (member.holdingCompass()) {
+				return member.player();
+			}
+			if (fallback == null) {
+				fallback = member.player();
+			}
+		}
+		return fallback;
 	}
 
 	// ------------------------------------------------------------------ 나침반 손보기

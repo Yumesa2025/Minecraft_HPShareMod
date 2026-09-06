@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.sharedfate.TestBootstrap;
 import com.sharedfate.perk.effect.BonusDropEffect;
+import com.sharedfate.perk.effect.DropReplaceEffect;
 import com.sharedfate.perk.effect.MiningSpeedEffect;
 import com.sharedfate.perk.effect.OnBreakEffect;
 import com.sharedfate.perk.effect.StatusEffectPerk;
@@ -23,6 +24,7 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -38,6 +40,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>블록 <b>태그</b> 판정은 데이터팩이 올라와 있어야 실제로 걸린다. 여기서는 태그를 적은
  * 정의가 제대로 읽히고 판정이 예외 없이 지나가는 것까지만 본다.
+ *
+ * <p>{@code drop_replace}(「비옥한 땅」)는 여기서 <b>기본 풀에 제대로 들어갔는지</b>만 본다.
+ * 그 효과 자체의 시험은 {@link FertileGroundDropReplaceTest} 에 있다.
  */
 class BlockBreakPerkTest {
 
@@ -352,10 +357,26 @@ class BlockBreakPerkTest {
 		assertEquals(1, bonus.extraDurability());
 		assertTrue(bonus.appliesTo(state(Blocks.ANCIENT_DEBRIS)), "직접 적은 블록은 태그 없이도 걸린다");
 
+		// 비옥한 땅은 덤을 얹는 것이 아니라 갈아 끼운다 — 밀이 사라지고 황금 당근이 나온다.
 		Perk fertile = PerkRegistry.byId("sharedfate:fertile_ground").orElseThrow();
-		BonusDropEffect fertileBonus = assertInstanceOf(BonusDropEffect.class, fertile.effects().get(0));
-		assertEquals(1.0, fertileBonus.chanceFor(), 1.0e-9, "비옥한 땅은 확정으로 더 준다");
-		assertEquals(2, fertileBonus.extra(), "원래 1개 + 2개 = 3배");
+		DropReplaceEffect fertileReplace =
+				assertInstanceOf(DropReplaceEffect.class, fertile.effects().get(0));
+		assertEquals("minecraft:wheat", fertileReplace.fromId().toString());
+		assertEquals("minecraft:golden_carrot", fertileReplace.itemId().toString());
+		assertEquals(1, fertileReplace.min());
+		assertEquals(3, fertileReplace.max());
+		assertTrue(fertileReplace.appliesTo(state(Blocks.WHEAT)));
+		assertFalse(fertileReplace.appliesTo(state(Blocks.CARROTS)), "다른 작물은 그대로다");
+
+		// 실제로 캘 때 이 효과를 찾아내는 길. 팀이 그 증강을 가졌을 때만 걸린다.
+		TeamState owner = team("sharedfate:fertile_ground");
+		PerkBlockBreaks.DropReplaceMatch match =
+				PerkBlockBreaks.dropReplaceFor(owner, state(Blocks.WHEAT));
+		assertNotNull(match, "보유 증강에서 찾아내야 한다");
+		assertEquals("비옥한 땅", match.sourceName());
+		assertNull(PerkBlockBreaks.dropReplaceFor(owner, state(Blocks.CARROTS)));
+		assertNull(PerkBlockBreaks.dropReplaceFor(team(), state(Blocks.WHEAT)),
+				"증강이 없으면 아무것도 걸리지 않는다");
 
 		Perk vein = PerkRegistry.byId("sharedfate:vein_sense").orElseThrow();
 		assertEquals("광맥 감각", vein.name());

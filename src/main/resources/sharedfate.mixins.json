@@ -39,6 +39,7 @@
     "PlayerMiningSpeedMixin",
     "EnchantmentHelperLootingMixin",
     "ExperienceOrbAwardMixin",
+    "BlockDropReplaceMixin",
     "BlockExperienceSourceMixin",
     "MobExperienceSourceMixin",
     "NaturalSpawnerRateMixin",
