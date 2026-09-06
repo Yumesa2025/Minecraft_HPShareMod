@@ -1,6 +1,7 @@
 package com.sharedfate.client.hud;
 
 import com.sharedfate.client.perk.ClientPerkSets;
+import com.sharedfate.client.perk.PerkOfferScreen;
 import com.sharedfate.ui.PerkSetLines;
 import com.sharedfate.ui.StatRow;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
@@ -37,6 +38,9 @@ import java.util.List;
  * ◆ 채굴 3/3
  * ◇ 방어 1/2
  * </pre>
+ *
+ * <p>세트 줄은 <b>증강 선택 화면이 같은 것을 또렷하게 세우고 있을 때만</b> 접는다. 자세한
+ * 이유는 {@link #setsShownByScreen} 에 적어 두었다.
  *
  * <h2>안 그리는 때</h2>
  * <p>F3 디버그 화면이 켜져 있으면 그리지 않는다. F3 이 왼쪽 위부터 글자를 깔기 때문에 그대로
@@ -113,7 +117,27 @@ public class CoordinateHud implements HudElement {
 			graphics.text(font, biome, MARGIN, BIOME_Y, BIOME_COLOR);
 		}
 
-		renderSets(graphics, font, level.getGameTime());
+		if (!setsShownByScreen(client)) {
+			renderSets(graphics, font, level.getGameTime());
+		}
+	}
+
+	/**
+	 * 지금 떠 있는 화면이 세트를 이미 또렷하게 그리고 있는가.
+	 *
+	 * <p>증강 선택 화면은 배경을 흐리게 깔고 그 위에 자기 것을 그린다. 흐림은 바닐라
+	 * {@code Screen.extractBackground} 안에서 걸리고 <b>그때까지 그려진 것 전부</b>를 흐리는데,
+	 * HUD 는 그보다 먼저 그려진다({@code Gui.extractRenderState} 가 HUD → 화면 차례다). 그래서
+	 * 이 세트 줄은 선택 화면이 떠 있는 동안 흐려져 못 읽는다.
+	 *
+	 * <p>선택 화면은 같은 내용을 카드 왼쪽에 또렷하게 세우므로, 그럴 때는 여기서 접는다. 흐린
+	 * 사본이 하나 더 남아 봐야 읽히지도 않으면서 화면만 지저분해진다. 반대로 화면이 좁아 그
+	 * 판이 못 서면 거짓이 돌아오고, 그때는 흐려도 그리는 편이 낫다.
+	 *
+	 * <p>좌표·바이옴 두 줄은 그대로 둔다. 선택 화면에는 그 둘을 대신 그리는 자리가 없다.
+	 */
+	private static boolean setsShownByScreen(Minecraft client) {
+		return client.gui.screen() instanceof PerkOfferScreen offer && offer.hidesHudSetLines();
 	}
 
 	/**

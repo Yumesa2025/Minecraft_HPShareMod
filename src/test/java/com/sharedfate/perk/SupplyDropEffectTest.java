@@ -4,6 +4,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.sharedfate.TestBootstrap;
 import com.sharedfate.perk.effect.SupplyDropEffect;
+import com.sharedfate.team.TeamManager;
+import com.sharedfate.team.TeamState;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -548,20 +550,37 @@ class SupplyDropEffectTest {
 	// ------------------------------------------------------------------ 주기
 
 	/**
-	 * 주기의 경계는 게임 시간의 배수라는 <b>절대적인 자리</b>다.
+	 * 주기의 경계는 <b>켜진 시점부터</b> 주기마다다. 게임 시간의 배수가 아니다.
 	 *
-	 * <p>서버를 껐다 켜도 이 계산은 달라지지 않는다. {@code MinecraftServer#getTickCount()}
-	 * 처럼 켤 때마다 0 부터 세는 값을 쓰면 재시작 시각이 곧 새 기준이 되어 경계가 통째로
-	 * 옮겨진다.
+	 * <p>배수를 경계로 쓰면 세트를 켠 자리가 경계 바로 앞이었을 때 몇 초 만에 첫 보급이 오고,
+	 * 바로 뒤였으면 꼬박 한 주기를 기다린다. 같은 세트를 켰는데 첫 보급까지 걸리는 시간이
+	 * 아무 값이나 나오는 셈이다.
 	 */
 	@Test
-	void 주기_경계는_게임_시간만으로_정해진다() {
+	void 주기_경계는_켜진_시점부터_센다() {
+		int interval = 10 * MINUTE;
+		// 주기의 배수와는 아무 상관 없는 자리에서 켰다.
+		long anchor = interval * 3L + 7777;
+
+		assertEquals(0, PerkSupplyDrops.cycleAt(anchor, interval, anchor));
+		assertEquals(0, PerkSupplyDrops.cycleAt(anchor + interval - 1, interval, anchor));
+		assertEquals(1, PerkSupplyDrops.cycleAt(anchor + interval, interval, anchor));
+		assertEquals(7, PerkSupplyDrops.cycleAt(anchor + interval * 7L + 3, interval, anchor));
+		assertEquals(anchor + interval * 7L, PerkSupplyDrops.cycleStart(7, interval, anchor));
+
+		// 배수 자리는 이제 경계가 아니다. 그것이 이 고침의 전부다.
+		assertEquals(0, PerkSupplyDrops.cycleAt(interval * 4L, interval, anchor),
+				"켠 자리와 무관한 배수에서는 회차가 넘어가지 않는다");
+	}
+
+	/** 켜진 시점을 0 으로 두면 예전처럼 게임 시간의 배수가 경계다. */
+	@Test
+	void 켜진_시점을_모르면_게임_시간의_배수가_경계다() {
 		int interval = 10 * MINUTE;
 
 		assertEquals(0, PerkSupplyDrops.cycleAt(0, interval));
 		assertEquals(0, PerkSupplyDrops.cycleAt(interval - 1, interval));
 		assertEquals(1, PerkSupplyDrops.cycleAt(interval, interval));
-		assertEquals(7, PerkSupplyDrops.cycleAt(interval * 7L + 3, interval));
 		assertEquals(interval * 7L, PerkSupplyDrops.cycleStart(7, interval));
 
 		for (long time = 0; time < 500_000; time += 997) {
@@ -571,30 +590,150 @@ class SupplyDropEffectTest {
 		}
 	}
 
+	// ------------------------------------------------------------------ 켜진 시점의 저장
+
 	/**
-	 * 서버를 껐다 켜도 주기가 어긋나지 않는다.
+	 * <b>서버를 껐다 켜도 켜진 시점이 이어진다.</b>
 	 *
-	 * <p>재시작을 흉내 낸다. 게임 시간은 {@code level.dat} 에 저장돼 이어지므로 껐던 시각에서
-	 * 그대로 다시 시작한다. 다음 보급 시각이 재시작 <b>전에 계산한 것과 같아야</b> 한다.
+	 * <p>켜진 시점은 {@link TeamState#supplyAnchorTick} 에 저장되고 메모리 기억
+	 * ({@code SCHEDULES})만 사라진다. 저장하지 않으면 켤 때마다 기준이 켠 시각으로 되감겨,
+	 * <b>주기보다 자주 재시작하는 서버에서는 보급이 한 번도 오지 않는다.</b>
 	 */
 	@Test
-	void 서버를_껐다_켜도_다음_보급_시각이_같다() {
+	void 서버를_껐다_켜도_켜진_시점이_이어진다() {
 		int interval = 10 * MINUTE;
 		UUID team = UUID.randomUUID();
+		TeamState state = TeamState.fresh(20.0F);
 
-		long shutdownAt = interval * 3L + 4321;
-		long nextBefore = PerkSupplyDrops.cycleStart(
-				PerkSupplyDrops.cycleAt(shutdownAt, interval) + 1, interval);
+		long startedAt = 1000L;
+		PerkSupplyDrops.advance(team, interval,
+				PerkSupplyDrops.anchorFor(null, state, startedAt), startedAt);
+		assertEquals(startedAt, state.supplyAnchorTick);
 
-		// 껐다 켠다. 기억은 사라지고 게임 시간만 남는다.
+		// 껐다 켠다. 메모리 기억만 사라지고 팀 상태는 저장에서 그대로 돌아온다.
 		PerkSupplyDrops.reset();
-		assertNull(PerkSupplyDrops.lastCycleForTesting(team), "재시작 뒤에는 기억이 없다");
+		assertNull(PerkSupplyDrops.lastCycleForTesting(team), "회차 기억은 저장되지 않는다");
+		assertEquals(startedAt, state.supplyAnchorTick, "켜진 시점은 저장돼 이어진다");
 
-		long nextAfter = PerkSupplyDrops.cycleStart(
-				PerkSupplyDrops.cycleAt(shutdownAt, interval) + 1, interval);
+		// 25분 자리에서 다시 켰다. 다음 경계는 저장된 자리를 따라 30분이다.
+		long bootAt = startedAt + interval * 2L + 5 * MINUTE;
+		long anchor = PerkSupplyDrops.anchorFor(null, state, bootAt);
+		assertEquals(startedAt, anchor, "켠 시각이 새 기준이 되면 안 된다");
+		assertFalse(PerkSupplyDrops.advance(team, interval, bootAt, anchor));
+		assertFalse(PerkSupplyDrops.advance(team, interval, startedAt + interval * 3L - 1, anchor));
+		assertTrue(PerkSupplyDrops.advance(team, interval, startedAt + interval * 3L, anchor),
+				"저장된 자리에서 세어 30분 자리에 온다");
+	}
 
-		assertEquals(nextBefore, nextAfter);
-		assertEquals(interval * 4L, nextAfter, "경계는 언제나 주기의 배수다");
+	/**
+	 * <b>꺼져 있던 동안 지나간 회차를 소급 지급하지 않는다.</b>
+	 *
+	 * <p>회차 번호를 저장하지 않는 것이 그 장치다. 열흘을 껐다 켰다고 보급이 몰아서 오면 안 된다.
+	 */
+	@Test
+	void 꺼져_있던_동안_지나간_회차는_소급_지급하지_않는다() {
+		int interval = 10 * MINUTE;
+		UUID team = UUID.randomUUID();
+		TeamState state = TeamState.fresh(20.0F);
+		state.supplyAnchorTick = 1000L;
+
+		// 열흘 뒤에 켰다. 그사이 회차가 1440번 지났다.
+		long bootAt = state.supplyAnchorTick + interval * 1440L + 500;
+		long anchor = PerkSupplyDrops.anchorFor(null, state, bootAt);
+
+		assertFalse(PerkSupplyDrops.advance(team, interval, bootAt, anchor),
+				"켠 직후에는 지급하지 않고 회차만 잡는다");
+		assertEquals(1440L, PerkSupplyDrops.lastCycleForTesting(team));
+
+		// 그 뒤로도 한 번씩만 온다. 밀린 1440회가 따라오지 않는다.
+		int given = 0;
+		for (long time = bootAt + 1; time <= bootAt + interval * 3L; time++) {
+			if (PerkSupplyDrops.advance(team, interval, time, anchor)) {
+				given++;
+			}
+		}
+		assertEquals(3, given, "30분 동안 세 번이다. 밀린 회차가 따라오면 안 된다");
+	}
+
+	/** 켜진 시점이 없으면 지금을 그 자리로 잡고 저장 표시를 한다. */
+	@Test
+	void 켜진_시점이_없으면_지금을_잡고_저장_표시를_한다() {
+		TeamManager manager = new TeamManager();
+		TeamState state = TeamState.fresh(20.0F);
+
+		assertEquals(0L, state.supplyAnchorTick, "새 팀은 아직 모른다");
+		assertFalse(manager.isDirty());
+
+		assertEquals(5000L, PerkSupplyDrops.anchorFor(manager, state, 5000L));
+		assertEquals(5000L, state.supplyAnchorTick);
+		assertTrue(manager.isDirty(), "새로 잡았으면 저장해야 한다");
+	}
+
+	/**
+	 * <b>값이 안 바뀌면 저장 표시를 하지 않는다.</b>
+	 *
+	 * <p>{@code anchorFor} 는 매 틱 불린다. 여기서 늘 저장 표시를 하면 월드가 매 틱 저장 대상이
+	 * 된다.
+	 */
+	@Test
+	void 이미_잡혀_있으면_저장_표시를_하지_않는다() {
+		TeamManager manager = new TeamManager();
+		TeamState state = TeamState.fresh(20.0F);
+		state.supplyAnchorTick = 7000L;
+
+		for (long time = 7000L; time < 7000L + 100; time++) {
+			assertEquals(7000L, PerkSupplyDrops.anchorFor(manager, state, time));
+		}
+
+		assertFalse(manager.isDirty(), "달라진 것이 없는데 저장 표시가 나갔습니다");
+	}
+
+	/**
+	 * 게임 시간 0 에 켜도 0 을 적지 않는다.
+	 *
+	 * <p>0 은 「아직 모른다」는 뜻이라 켜진 시점으로 쓸 수 없다. 그대로 적으면 다음 틱에 다시
+	 * 잡으려 들어 켜진 시점이 영영 고정되지 않고, 그 사이 경계도 게임 시간의 배수로 돌아간다.
+	 */
+	@Test
+	void 게임_시간_0에_켜도_모른다로_적지_않는다() {
+		TeamState state = TeamState.fresh(20.0F);
+
+		assertEquals(1L, PerkSupplyDrops.anchorFor(null, state, 0L));
+		assertEquals(1L, state.supplyAnchorTick);
+	}
+
+	/**
+	 * <b>세트가 풀리면 저장된 켜진 시점도 0 이 된다.</b>
+	 *
+	 * <p>회차 기억만 지우고 저장값을 남기면, 세트를 다시 켠 순간 옛 시각부터 세어 몇 초 만에
+	 * 보급이 온다.
+	 */
+	@Test
+	void 세트가_풀리면_저장된_켜진_시점도_지워진다() {
+		TeamManager manager = new TeamManager();
+		UUID team = UUID.randomUUID();
+		TeamState state = TeamState.fresh(20.0F);
+		state.supplyAnchorTick = 7000L;
+		PerkSupplyDrops.advance(team, 10 * MINUTE, 7000L, 7000L);
+
+		PerkSupplyDrops.clearAnchor(manager, team, state);
+
+		assertEquals(0L, state.supplyAnchorTick);
+		assertNull(PerkSupplyDrops.lastCycleForTesting(team), "회차 기억도 함께 지운다");
+		assertTrue(manager.isDirty(), "값이 달라졌으니 저장해야 한다");
+	}
+
+	/** 이미 0 이면 지울 것이 없으므로 저장 표시도 하지 않는다. 매 틱 불리는 길이다. */
+	@Test
+	void 지울_켜진_시점이_없으면_저장_표시를_하지_않는다() {
+		TeamManager manager = new TeamManager();
+		TeamState state = TeamState.fresh(20.0F);
+
+		PerkSupplyDrops.clearAnchor(manager, UUID.randomUUID(), state);
+		// 팀 상태를 못 찾는 경우에도 터지지 않는다.
+		PerkSupplyDrops.clearAnchor(manager, UUID.randomUUID(), null);
+
+		assertFalse(manager.isDirty());
 	}
 
 	/** 서버를 켠 직후에는 지급하지 않는다. 안 그러면 재시작만으로 보급을 한 벌씩 더 받는다. */
@@ -602,10 +741,42 @@ class SupplyDropEffectTest {
 	void 처음_보는_팀에게는_지급하지_않고_기준만_잡는다() {
 		int interval = 10 * MINUTE;
 		UUID team = UUID.randomUUID();
+		long anchor = interval * 5L;
 
-		assertFalse(PerkSupplyDrops.advance(team, interval, interval * 5L),
+		assertFalse(PerkSupplyDrops.advance(team, interval, anchor, anchor),
 				"주기 경계에 딱 걸린 시각이어도 첫 관찰은 지급하지 않는다");
-		assertEquals(5L, PerkSupplyDrops.lastCycleForTesting(team));
+		assertEquals(0L, PerkSupplyDrops.lastCycleForTesting(team), "그 자리가 0번 회차다");
+	}
+
+	/**
+	 * <b>세트가 풀렸다 다시 켜지면 그 시점부터 다시 센다.</b>
+	 *
+	 * <p>풀리는 순간 {@code tickTeam} 이 {@code clearAnchor} 로 회차 기억과 저장된 켜진 시점을
+	 * 함께 지우고, 다시 켜지는 순간 그 틱이 새 기준이 된다.
+	 */
+	@Test
+	void 세트가_풀렸다_켜지면_그_시점부터_다시_센다() {
+		int interval = 10 * MINUTE;
+		UUID team = UUID.randomUUID();
+		TeamState state = TeamState.fresh(20.0F);
+
+		long first = PerkSupplyDrops.anchorFor(null, state, 1L);
+		PerkSupplyDrops.advance(team, interval, 1L, first);
+		assertFalse(PerkSupplyDrops.advance(team, interval, 9 * MINUTE, first),
+				"아직 한 주기가 안 됐다");
+
+		// 세트가 풀렸다.
+		PerkSupplyDrops.clearAnchor(null, team, state);
+		assertEquals(0L, state.supplyAnchorTick);
+
+		// 9분 자리에서 다시 켰다. 옛 기준으로는 1분 뒤가 경계였지만 이제 아니다.
+		long again = PerkSupplyDrops.anchorFor(null, state, 9L * MINUTE);
+		assertEquals(9L * MINUTE, again, "다시 켠 그 시점이 새 기준이다");
+		PerkSupplyDrops.advance(team, interval, 9 * MINUTE, again);
+		assertFalse(PerkSupplyDrops.advance(team, interval, 10 * MINUTE, again),
+				"옛 경계에서는 안 온다");
+		assertTrue(PerkSupplyDrops.advance(team, interval, 19 * MINUTE, again),
+				"다시 켠 자리에서 꼬박 한 주기 뒤에 온다");
 	}
 
 	@Test
@@ -613,9 +784,9 @@ class SupplyDropEffectTest {
 		int interval = 10 * MINUTE;
 		UUID team = UUID.randomUUID();
 
-		PerkSupplyDrops.advance(team, interval, 0);
+		PerkSupplyDrops.advance(team, interval, 0, 0L);
 		for (long time = 1; time < interval; time++) {
-			assertFalse(PerkSupplyDrops.advance(team, interval, time), time + "틱에서 지급됐다");
+			assertFalse(PerkSupplyDrops.advance(team, interval, time, 0L), time + "틱에서 지급됐다");
 		}
 	}
 
@@ -624,10 +795,10 @@ class SupplyDropEffectTest {
 		int interval = 10 * MINUTE;
 		UUID team = UUID.randomUUID();
 
-		PerkSupplyDrops.advance(team, interval, 0);
+		PerkSupplyDrops.advance(team, interval, 0, 0L);
 		int given = 0;
 		for (long time = 1; time <= interval * 3L; time++) {
-			if (PerkSupplyDrops.advance(team, interval, time)) {
+			if (PerkSupplyDrops.advance(team, interval, time, 0L)) {
 				given++;
 			}
 		}
@@ -641,23 +812,36 @@ class SupplyDropEffectTest {
 		int interval = 10 * MINUTE;
 		UUID team = UUID.randomUUID();
 
-		PerkSupplyDrops.advance(team, interval, 0);
-		assertTrue(PerkSupplyDrops.advance(team, interval, interval * 100L));
-		assertFalse(PerkSupplyDrops.advance(team, interval, interval * 100L + 1));
+		PerkSupplyDrops.advance(team, interval, 0, 0L);
+		assertTrue(PerkSupplyDrops.advance(team, interval, interval * 100L, 0L));
+		assertFalse(PerkSupplyDrops.advance(team, interval, interval * 100L + 1, 0L));
 	}
 
-	/** 4단계가 켜져 주기가 10분에서 5분이 되면 번호의 뜻이 달라지므로 기준을 다시 잡는다. */
+	/**
+	 * 4단계가 켜져 주기가 10분에서 5분이 되면 번호의 뜻이 달라지므로 <b>번호만</b> 다시 잡는다.
+	 *
+	 * <p>켜진 시점은 건드리지 않는다. 그래야 이미 지난 시간이 그대로 남아 화면의 시계가
+	 * 되감기지 않는다.
+	 */
 	@Test
-	void 주기가_바뀐_틱에는_지급하지_않고_기준을_다시_잡는다() {
+	void 주기가_바뀐_틱에는_지급하지_않고_번호만_다시_잡는다() {
 		UUID team = UUID.randomUUID();
-		long time = 10 * MINUTE * 3L;
+		TeamState state = TeamState.fresh(20.0F);
+		long anchor = PerkSupplyDrops.anchorFor(null, state, 3000L);
 
-		PerkSupplyDrops.advance(team, 10 * MINUTE, time);
-		assertFalse(PerkSupplyDrops.advance(team, 5 * MINUTE, time), "주기가 바뀐 그 틱은 지급하지 않는다");
-		assertEquals(6L, PerkSupplyDrops.lastCycleForTesting(team), "5분 주기로 다시 센다");
+		PerkSupplyDrops.advance(team, 10 * MINUTE, anchor, anchor);
+		// 켠 지 2분. 여기서 4단계가 켜진다.
+		long upgradeAt = anchor + 2 * MINUTE;
+		assertFalse(PerkSupplyDrops.advance(team, 5 * MINUTE, upgradeAt,
+						PerkSupplyDrops.anchorFor(null, state, upgradeAt)),
+				"주기가 바뀐 그 틱은 지급하지 않는다");
+		assertEquals(anchor, state.supplyAnchorTick, "켜진 시점은 그대로다");
+		assertEquals(0L, PerkSupplyDrops.lastCycleForTesting(team), "5분 주기로 다시 센다");
 
-		assertTrue(PerkSupplyDrops.advance(team, 5 * MINUTE, time + 5 * MINUTE),
-				"그 다음 경계부터는 정상이다");
+		// 지난 2분은 그대로 지난 것이라 3분 뒤가 다음 경계다. 5분을 새로 기다리지 않는다.
+		assertFalse(PerkSupplyDrops.advance(team, 5 * MINUTE, anchor + 5 * MINUTE - 1, anchor));
+		assertTrue(PerkSupplyDrops.advance(team, 5 * MINUTE, anchor + 5 * MINUTE, anchor),
+				"켜진 시점에서 5분 뒤가 다음 경계다");
 	}
 
 	// ------------------------------------------------------------------ 세트 정의 파일

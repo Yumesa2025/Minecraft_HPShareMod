@@ -66,7 +66,12 @@ public final class SharedFateNetworking {
 	//     com.sharedfate.ui.SupplyCountdown 에 적어 두었다 — 남은 시간은 초마다 달라져
 	//     이름표 백 몇 줄이 함께 재전송된다. 칸이 하나 늘어 형식이 바뀌었으므로 옛 클라이언트는
 	//     이 패킷을 못 읽는다.
-	public static final int PROTOCOL_VERSION = 21;
+	// 22: 세트 줄에 「켜진 시점」 칸이 하나 늘었다(PerkSetSyncPayload.SetLine.anchorTick).
+	//     보급 주기의 경계가 「게임 시간의 배수」에서 「보급이 켜진 시점부터 주기마다」로
+	//     바뀌었고, 그 기준 자리를 클라이언트도 알아야 화면의 시계와 실제 보급 시각이 맞는다.
+	//     남은 시간이 아니라 기준 자리를 싣는 이유는 21번과 같다. 칸이 하나 늘어 형식이
+	//     바뀌었으므로 옛 클라이언트는 이 패킷을 못 읽는다.
+	public static final int PROTOCOL_VERSION = 22;
 
 	private SharedFateNetworking() {
 	}

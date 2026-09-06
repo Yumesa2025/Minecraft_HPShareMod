@@ -173,6 +173,14 @@ public class TeamState {
 	 * ({@code GameStartManager} 의 회차 값 초기화)가 0 으로 되돌린다.
 	 */
 	public int extraPrismRounds;
+	/**
+	 * 「보급」이 켜진 오버월드 게임 시간. 0 이면 아직 모른다.
+	 *
+	 * <p>보급 주기의 경계가 이 자리부터 주기마다다. <b>저장하지 않으면 서버를 켤 때마다 기준이
+	 * 켠 시각으로 되감겨, 주기보다 자주 재시작하는 서버에서는 보급이 한 번도 오지 않는다.</b>
+	 * 게임 시간은 월드 저장에 이어지므로 되살린 값으로 계산해도 결과가 달라지지 않는다.
+	 */
+	public long supplyAnchorTick;
 	/** 팀이 보유한 증강의 id. 중첩이 없으므로 같은 id 가 두 번 들어가지 않는다. */
 	public final List<String> ownedPerks = new ArrayList<>();
 	/**
@@ -750,7 +758,11 @@ public class TeamState {
 			// 아직 없다」가 맞다. 그 월드에서는 15 도 30 도 고정 프리즘였으므로 확률로 나온
 			// 프리즘가 애초에 하나도 없었고, 0 이면 저장에도 적히지 않아 형태가 예전과 같다.
 			Codec.INT.optionalFieldOf("extraPrismRounds", 0)
-					.<TeamState>forGetter(state -> state.extraPrismRounds)
+					.<TeamState>forGetter(state -> state.extraPrismRounds),
+			// 이 항목이 없는 예전 월드는 0 으로 읽는다 — 「아직 모른다」가 맞다. 그 월드에서는
+			// 게임 시간의 배수가 경계였으므로 켜진 시점이라는 값 자체가 없었다.
+			Codec.LONG.optionalFieldOf("supplyAnchorTick", 0L)
+					.<TeamState>forGetter(state -> state.supplyAnchorTick)
 	).apply(instance, TeamState::withStoredSections));
 
 	/**
@@ -773,7 +785,8 @@ public class TeamState {
 	private static TeamState withStoredSections(TeamState state, PerkSection perks,
 			Optional<Float> baseMaxHealth, AlertSection alerts, List<ItemStack> legacyGear,
 			DifficultySection difficulty, boolean perkTestUsed, RerollSection reroll,
-			boolean runStarted, int extraPrismRounds) {
+			boolean runStarted, int extraPrismRounds, long supplyAnchorTick) {
+		state.supplyAnchorTick = Math.max(0L, supplyAnchorTick);
 		state.runStarted = runStarted;
 		// applyPerkSection 이 sanitizePerks 로 이 값까지 접으므로 그보다 먼저 채워야 한다.
 		state.extraPrismRounds = extraPrismRounds;

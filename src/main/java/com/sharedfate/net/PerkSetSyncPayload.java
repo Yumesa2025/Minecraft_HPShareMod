@@ -136,14 +136,22 @@ public record PerkSetSyncPayload(List<SetLine> sets, List<TierLine> tiers,
 	 *                      싣지 않는 까닭은 {@code com.sharedfate.ui.SupplyCountdown} 머리
 	 *                      주석에 있다 — 이 값은 단계가 바뀔 때만 달라지므로 「달라졌을 때만
 	 *                      보낸다」가 그대로 살아 있다
+	 * @param anchorTick    그 되풀이가 켜진 오버월드 게임 시간. 경계는 이 자리부터 주기마다다.
+	 *                      0 이면 게임 시간의 배수를 경계로 삼는다(이 칸을 모르는 옛 규칙)
 	 */
 	public record SetLine(String typeId, String displayName, int owned, int nextThreshold,
-			int activeTier, int intervalTicks) {
+			int activeTier, int intervalTicks, long anchorTick) {
+
+		/** 켜진 시점을 모르는 자리에서 쓰는 짧은 생성자. */
+		public SetLine(String typeId, String displayName, int owned, int nextThreshold,
+				int activeTier, int intervalTicks) {
+			this(typeId, displayName, owned, nextThreshold, activeTier, intervalTicks, 0L);
+		}
 
 		/** 주기가 없는 유형을 짧게 적는 생성자. */
 		public SetLine(String typeId, String displayName, int owned, int nextThreshold,
 				int activeTier) {
-			this(typeId, displayName, owned, nextThreshold, activeTier, 0);
+			this(typeId, displayName, owned, nextThreshold, activeTier, 0, 0L);
 		}
 
 		public SetLine {
@@ -154,6 +162,8 @@ public record PerkSetSyncPayload(List<SetLine> sets, List<TierLine> tiers,
 			nextThreshold = Math.max(0, nextThreshold);
 			activeTier = Math.max(0, activeTier);
 			intervalTicks = Math.max(0, intervalTicks);
+			// VAR_LONG 도 음수를 싣지 못한다. 0 이 「모른다」다.
+			anchorTick = Math.max(0L, anchorTick);
 		}
 
 		/** 세트 효과가 이미 켜져 있는가. */
@@ -169,6 +179,7 @@ public record PerkSetSyncPayload(List<SetLine> sets, List<TierLine> tiers,
 						ByteBufCodecs.VAR_INT, SetLine::nextThreshold,
 						ByteBufCodecs.VAR_INT, SetLine::activeTier,
 						ByteBufCodecs.VAR_INT, SetLine::intervalTicks,
+						ByteBufCodecs.VAR_LONG, SetLine::anchorTick,
 						SetLine::new);
 	}
 

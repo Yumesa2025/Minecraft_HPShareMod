@@ -25,11 +25,12 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Optional;
 
 /**
- * 「해시계」를 하나 지급하고, 그것을 우클릭하면 주변 다이아몬드 광석 자리에 파티클을 띄운다.
+ * 「해시계」를 하나 지급하고, 그것을 우클릭하면 주변 다이아몬드 광석 자리에 파티클을 띄우고
+ * 가장 가까운 한 자리의 좌표를 액션바에 적어 준다.
  *
  * <p>JSON 형식:
  * <pre>
- * { "type": "diamond_sundial", "radius": 20, "cooldown_seconds": 20, "max_results": 16 }
+ * { "type": "diamond_sundial", "radius": 20, "cooldown_seconds": 30, "max_results": 16 }
  * </pre>
  *
  * <p>세 값 모두 생략할 수 있고, 생략하면 {@link #DEFAULT_RADIUS}·{@link #DEFAULT_COOLDOWN_SECONDS}·
@@ -79,8 +80,13 @@ public final class DiamondSundialEffect implements PerkEffect {
 	/** 반경 상한. 여기서부터는 한 번 쓸 때 훑는 청크가 5×5 를 넘어 체감될 만큼 걸린다. */
 	public static final int MAX_RADIUS = 48;
 
-	/** 기본 쿨타임(초). */
-	public static final int DEFAULT_COOLDOWN_SECONDS = 20;
+	/**
+	 * 기본 쿨타임(초).
+	 *
+	 * <p>정의에 {@code cooldown_seconds} 를 적으면 그쪽이 이긴다. 쿨타임을 조절할 때는
+	 * <b>이 상수와 {@code sharedfate-perks-default.json} 의 값이 어긋나지 않게</b> 같이 봐야 한다.
+	 */
+	public static final int DEFAULT_COOLDOWN_SECONDS = 30;
 	public static final int MIN_COOLDOWN_SECONDS = 1;
 	/** 쿨타임 상한(초). 한 회차보다 길 이유가 없다. */
 	public static final int MAX_COOLDOWN_SECONDS = 600;
