@@ -32,7 +32,7 @@ import java.util.UUID;
  * {@code diamond_sundial} 증강(골드 「해시계」)의 집행부.
  *
  * <p>해시계를 주 손에 들고 <b>허공을</b> 우클릭하면 반경 안의 다이아몬드 광석 자리에 파티클이
- * 뜨고, 몇 개를 찾았는지가 액션바에 뜬다. 그다음 쿨타임이 걸린다.
+ * 뜨고, <b>가장 가까운 한 자리의 좌표</b>가 액션바에 뜬다. 그다음 쿨타임이 걸린다.
  *
  * <h2>등록 지점</h2>
  * <p>{@code UseItemCallback.EVENT} 에 붙는다. {@link PerkOreExchange} 와 같은 자리이고, 그쪽은
@@ -44,7 +44,7 @@ import java.util.UUID;
  * 는 둘 다 바닐라 패킷이다. 모드를 깔지 않은 클라이언트도 그대로 본다.
  *
  * <h2>성능 — 청크 섹션 팔레트로 먼저 거른다</h2>
- * <p>반경 20칸을 순진하게 훑으면 41³ = 68,921칸을 매번 {@code getBlockState} 해야 한다. 대신
+ * <p>반경 32칸을 순진하게 훑으면 65³ = 274,625칸을 매번 {@code getBlockState} 해야 한다. 대신
  * 여기서는 세 겹으로 줄인다.
  *
  * <ol>
@@ -56,15 +56,19 @@ import java.util.UUID;
  *   <li>남은 섹션 안에서도 <b>거리부터 재고</b> 구 안에 드는 칸만 {@code getBlockState} 한다.</li>
  * </ol>
  *
- * <p>반경 20이면 상자는 4×4 청크 × 4 섹션 = 최대 64개 섹션에 걸친다. 굴속에서 실제로 팔레트를
+ * <p>반경 32면 상자는 최대 5×5 청크 × 5 섹션 = 125개 섹션에 걸친다. 굴속에서 실제로 팔레트를
  * 통과하는 섹션은 보통 0~3개이므로 한 번 쓸 때 읽는 블록은 대개 만 칸 미만이고, 다이아몬드가
- * 아예 없으면 0칸이다. 모든 섹션이 통과하는 최악에도 구 안쪽 33,510칸을 넘지 않는다.
+ * 아예 없으면 0칸이다. 모든 섹션이 통과하는 최악에도 구 안쪽 약 137,000칸을 넘지 않는다.
+ *
+ * <p><b>「가장 가까운 하나」를 찾는다고 먼저 찾은 자리에서 멈추지는 않는다.</b> 파티클은 찾은
+ * 자리를 모두 표시하는 것이 이 증강의 본체라서, 멈추면 광맥이 한 칸만 보인다. 액션바에 적을
+ * 한 자리는 이미 모아 둔 목록에서 고르므로 훑는 칸 수는 늘지 않는다.
  *
  * <h2>이 클래스가 하지 못하는 일</h2>
  * <p><b>돌 뒤에 묻힌 광석은 파티클이 보이지 않는다.</b> 파티클은 클라이언트가 지형 뒤에 깊이
  * 시험을 걸어 그리므로 벽 너머는 가려진다. 그래서 광석 자리뿐 아니라 <b>그 광석에 맞닿은 빈
  * 칸</b>에도 함께 띄운다 — 굴이나 파 놓은 갱도에 노출된 광석은 그 빈 칸의 파티클로 보인다.
- * 사방이 돌로 막힌 광석은 개수(액션바)로만 알 수 있다. 블록을 발광시키는 방법은 26.2 에 없다.
+ * 사방이 돌로 막힌 광석은 액션바의 좌표로만 알 수 있다. 블록을 발광시키는 방법은 26.2 에 없다.
  */
 public final class PerkDiamondSundial {
 	/** 광석 자리에 띄우는 파티클 수. */
@@ -73,6 +77,9 @@ public final class PerkDiamondSundial {
 	private static final int PARTICLES_AT_OPENING = 4;
 	/** 파티클이 퍼지는 반지름(칸). 블록 한 칸 안에 머물게 한다. */
 	private static final double SPREAD = 0.22;
+
+	/** 액션바 머리말. 다른 증강 알림과 같은 모양으로 맞춘다. */
+	public static final String PREFIX = "[증강] ";
 
 	private static volatile boolean warned;
 
@@ -174,15 +181,14 @@ public final class PerkDiamondSundial {
 		}
 
 		ServerLevel serverLevel = user.level();
-		List<BlockPos> found = scan(serverLevel, user.blockPosition(), effect.radius(),
-				effect.maxResults());
+		// 훑는 기준점과 거리를 재는 기준점이 다르면 액션바의 칸 수가 파티클과 어긋난다. 한 번만 읽는다.
+		BlockPos center = user.blockPosition();
+		List<BlockPos> found = scan(serverLevel, center, effect.radius(), effect.maxResults());
 		for (BlockPos ore : found) {
 			showOre(serverLevel, user, ore);
 		}
 
-		TitleMessenger.showActionBar(user, Component.literal(found.isEmpty()
-				? "[해시계] 근처에 다이아몬드가 없습니다"
-				: "[해시계] " + effect.radius() + "칸 안에 다이아몬드 광석 " + found.size() + "개"));
+		TitleMessenger.showActionBar(user, Component.literal(actionBarText(center, found)));
 		// 찾지 못했을 때도 쿨타임은 건다. 그래야 연타로 훑는 일이 없다.
 		user.getCooldowns().addCooldown(held, effect.cooldownTicks());
 		return InteractionResult.SUCCESS;
@@ -202,6 +208,83 @@ public final class PerkDiamondSundial {
 			}
 		}
 		return null;
+	}
+
+	// ------------------------------------------------------------------ 문구 (순수 함수)
+
+	/**
+	 * 가까운 것부터 세우는 차례.
+	 *
+	 * <p>거리가 같은 후보가 여럿일 때는 <b>y → x → z 가 작은 것</b>이 앞이다. 이 뒷차례가 없으면
+	 * 순서가 훑는 차례(청크·섹션 번호)에 딸려 가서, 같은 자리에서 두 번 써도 다른 좌표가 뜬다.
+	 * 아래를 먼저 보는 것은 광맥이 대개 발밑에 있기 때문이다.
+	 */
+	public static Comparator<BlockPos> byDistance(BlockPos center) {
+		return Comparator.comparingLong((BlockPos pos) -> distanceSquared(center, pos))
+				.thenComparingInt(BlockPos::getY)
+				.thenComparingInt(BlockPos::getX)
+				.thenComparingInt(BlockPos::getZ);
+	}
+
+	/** {@code center} 에서 가장 가까운 자리. 후보가 없으면 null. */
+	public static @Nullable BlockPos nearest(@Nullable BlockPos center,
+			@Nullable List<BlockPos> candidates) {
+		if (center == null || candidates == null || candidates.isEmpty()) {
+			return null;
+		}
+		return candidates.stream().min(byDistance(center)).orElse(null);
+	}
+
+	/**
+	 * 좌표 한 줄.
+	 *
+	 * <p>모양은 좌표 HUD({@code client/hud/CoordinateHud.positionLine})와 같다. 그쪽을 부르지 않고
+	 * 베껴 둔 것은 <b>그 클래스가 client 소스 셋이라 여기서 참조하면 컴파일이 깨지기</b>
+	 * 때문이다. 한쪽을 고치면 다른 쪽도 같이 고쳐야 한다.
+	 */
+	public static String positionLine(int x, int y, int z) {
+		return "X " + x + "  Y " + y + "  Z " + z;
+	}
+
+	/**
+	 * 액션바에 띄울 문구.
+	 *
+	 * <p>월드를 읽지 않는 순수 함수다. 살아 있는 서버 없이 시험할 수 있게 떼어 두었다.
+	 *
+	 * <p>덧붙는 개수는 {@code max_results} 에서 잘린 값이라 <b>상한에 닿으면 실제보다 적다.</b>
+	 * 「반경 안에 정확히 몇 개」로 읽히면 안 되므로 「근처 N개」라고만 적는다.
+	 *
+	 * @param center    쓴 사람이 서 있던 칸. 거리는 여기서 잰다
+	 * @param found     {@link #scan} 이 돌려준 자리들. 정렬돼 있지 않아도 된다
+	 */
+	public static String actionBarText(@Nullable BlockPos center, @Nullable List<BlockPos> found) {
+		BlockPos target = nearest(center, found);
+		if (target == null) {
+			return PREFIX + "근처에 다이아몬드가 없습니다";
+		}
+		StringBuilder text = new StringBuilder(PREFIX)
+				.append("가장 가까운 다이아몬드: ")
+				.append(positionLine(target.getX(), target.getY(), target.getZ()))
+				.append(" (")
+				.append(blockDistance(center, target))
+				.append('칸');
+		if (found.size() > 1) {
+			text.append(", 근처 ").append(found.size()).append('개');
+		}
+		return text.append(')').toString();
+	}
+
+	/** 두 칸 사이의 거리를 반올림한 칸 수. */
+	public static int blockDistance(BlockPos from, BlockPos to) {
+		return (int) Math.round(Math.sqrt((double) distanceSquared(from, to)));
+	}
+
+	/** 거리의 제곱. 반경 48까지도 int 를 넘지 않지만 곱을 long 으로 두어 넘칠 걱정을 없앤다. */
+	private static long distanceSquared(BlockPos from, BlockPos to) {
+		long dx = (long) to.getX() - from.getX();
+		long dy = (long) to.getY() - from.getY();
+		long dz = (long) to.getZ() - from.getZ();
+		return dx * dx + dy * dy + dz * dz;
 	}
 
 	// ------------------------------------------------------------------ 훑기
@@ -305,6 +388,7 @@ public final class PerkDiamondSundial {
 		/** 자르기 전에 모아 두는 배수. */
 		public static final int OVERSCAN = 4;
 
+		private final BlockPos center;
 		private final int centerX;
 		private final int centerY;
 		private final int centerZ;
@@ -314,6 +398,8 @@ public final class PerkDiamondSundial {
 		private final List<BlockPos> positions = new ArrayList<>();
 
 		public Found(BlockPos center, int radius, int maxResults) {
+			// 부르는 쪽이 MutableBlockPos 를 넘기면 나중에 값이 바뀌어 거리가 어긋난다.
+			this.center = center.immutable();
 			this.centerX = center.getX();
 			this.centerY = center.getY();
 			this.centerZ = center.getZ();
@@ -345,11 +431,16 @@ public final class PerkDiamondSundial {
 			return !full();
 		}
 
-		/** 가까운 것부터 최대 {@code maxResults} 개. */
+		/**
+		 * 가까운 것부터 최대 {@code maxResults} 개.
+		 *
+		 * <p>차례는 {@link PerkDiamondSundial#byDistance} 하나로 맞춰 둔다. 여기서 첫 칸이
+		 * {@link PerkDiamondSundial#nearest} 가 고르는 칸과 <b>반드시 같아야</b> 액션바에 적힌
+		 * 좌표와 파티클이 어긋나지 않는다.
+		 */
 		public List<BlockPos> hits() {
 			if (positions.size() > 1) {
-				positions.sort(Comparator.comparingLong(
-						pos -> distanceSquared(pos.getX(), pos.getY(), pos.getZ())));
+				positions.sort(byDistance(center));
 			}
 			return List.copyOf(positions.subList(0, Math.min(maxResults, positions.size())));
 		}

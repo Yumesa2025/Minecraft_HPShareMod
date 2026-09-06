@@ -63,6 +63,14 @@ import java.util.Optional;
  * 「지금 켜진 세트」를 세로로 세운다. 자리는 {@link PerkSetPanelLayout} 이 정하는데,
  * <b>카드 자리를 먼저 잡고 남은 폭만</b> 넘기므로 판이 카드를 가리는 일은 없다.
  *
+ * <p>대신 카드를 놓을 때 <b>판이 쓸 폭을 먼저 뗀다</b>({@link PerkOfferCardRow}). 떼지 않고
+ * 카드를 화면 한가운데에 놓으면 왼쪽에 남는 폭이 판보다 좁아, 화면이 480 픽셀인 자리
+ * (1080p 의 기본 GUI 배율 4배)에서는 판이 통째로 사라진다. 그때 남는 것은 HUD 의 세트 줄뿐인데
+ * 그쪽은 <b>흐림 앞에 그려져 읽히지 않는다.</b>
+ *
+ * <p>판이 떠 있는 동안에는 HUD 가 세트 줄을 접는다({@code CoordinateHud}). 같은 내용이 흐린
+ * 채로 하나 더 남으면 화면만 지저분해진다.
+ *
  * <h2>흐림 위에 그린다</h2>
  * <p>선택 화면은 뒤의 게임 화면을 흐리게 깐다. 그 흐림은 {@code Screen.extractBackground} 안의
  * {@code extractBlurredBackground} 가 {@code GuiGraphicsExtractor.blurBeforeThisStratum()} 을
@@ -144,6 +152,14 @@ public class PerkOfferScreen extends Screen {
 	private static final int MIN_CARD_WIDTH = 56;
 	private static final int CARD_GAP = 8;
 	private static final int SCREEN_MARGIN = 8;
+	/**
+	 * 세트 판 자리를 떼고도 카드가 지켜야 하는 최소 폭.
+	 *
+	 * <p>{@link #PREFERRED_CARD_WIDTH} 의 4분의 3쯤이다. 이보다 좁아지면 설명이 여섯 줄 넘게
+	 * 접히고, 접힌 만큼 카드가 세로로 길어지다가 결국 아래가 잘린다. 그렇게까지 좁은 화면에서는
+	 * <b>판을 포기한다</b> — 무엇을 고르는지가 안 읽히는 것이 더 나쁘다.
+	 */
+	private static final int PANEL_MIN_CARD_WIDTH = 88;
 	private static final int CARD_PADDING = 6;
 	/** 이름과 설명 사이 구분선이 차지하는 세로 공간(위 여백 3 + 선 1 + 아래 여백 4). */
 	private static final int SEPARATOR_BLOCK_HEIGHT = 8;
@@ -452,9 +468,14 @@ public class PerkOfferScreen extends Screen {
 
 		cards.clear();
 		int count = Math.max(1, options.size());
-		int available = Math.max(MIN_CARD_WIDTH, this.width - SCREEN_MARGIN * 2);
-		int fitted = (available - CARD_GAP * (count - 1)) / count;
-		cardWidth = Math.max(MIN_CARD_WIDTH, Math.min(PREFERRED_CARD_WIDTH, fitted));
+		// 왼쪽 세트 판이 쓸 폭을 먼저 뗀다. 뗄 수 없을 만큼 좁은 화면이면 0 을 뗀 것과 같은
+		// 값이 돌아오고, 그때는 판이 저절로 사라진다.
+		PerkOfferCardRow row = PerkOfferCardRow.fit(
+				new PerkOfferCardRow.Limits(SCREEN_MARGIN, CARD_GAP, MIN_CARD_WIDTH,
+						PREFERRED_CARD_WIDTH, PANEL_MIN_CARD_WIDTH),
+				this.width, count, panelReserve());
+		cardWidth = row.cardWidth();
+		firstCardLeft = row.firstCardLeft();
 
 		int innerWidth = Math.max(8, cardWidth - CARD_PADDING * 2);
 		for (PerkOfferPayload.PerkOption option : options) {
@@ -488,9 +509,6 @@ public class PerkOfferScreen extends Screen {
 		// 등장 애니메이션은 카드를 잠깐 아래로 밀어 둔다. 아래 문구까지 여유가 있을 때만 쓴다.
 		entryAnimated = cardTop + cardHeight + ENTRY_RISE <= this.height - 20;
 
-		int totalWidth = cardWidth * count + CARD_GAP * (count - 1);
-		firstCardLeft = Math.max(2, (this.width - totalWidth) / 2);
-
 		rerollButton = null;
 		if (showReroll) {
 			int rerollWidth = Math.min(REROLL_WIDTH, Math.max(80, this.width - SCREEN_MARGIN * 2));
@@ -507,9 +525,42 @@ public class PerkOfferScreen extends Screen {
 			refreshRerollButton();
 		}
 
-		// 카드 자리가 다 정해진 뒤라야 왼쪽에 남은 폭을 잴 수 있다. 여기서 바로 재지 않고
-		// 표시를 지워 두는 이유는, 창이 열린 뒤에 세트 패킷이 도착하는 경우가 있어서다.
+		// 카드 자리가 다 정해진 뒤라야 왼쪽에 남은 폭을 잴 수 있다. 표시를 지우고 바로 다시
+		// 재는 이유는 두 가지다 — 창이 열린 첫 프레임부터 판이 서야 하고(HUD 가 이 값을 보고
+		// 자기 세트 줄을 접는다), 화면 크기가 바뀌어 다시 배치할 때는 세트가 그대로여도 자리를
+		// 새로 잡아야 한다. 창이 열린 뒤에 세트 패킷이 오는 경로는 표시가 달라지므로 저절로
+		// 따라온다.
 		panelSignature = null;
+		refreshSetPanel();
+	}
+
+	/**
+	 * 왼쪽 세트 판이 서려면 카드 왼쪽에 비워 두어야 하는 폭. 그릴 줄이 없으면 0.
+	 *
+	 * <p>{@link #fitSetPanel} 이 재는 것과 <b>같은 값</b>이어야 한다. 여기서 덜 떼면 판이 자리에
+	 * 못 들어가 사라지고, 더 떼면 카드가 이유 없이 오른쪽으로 밀린다.
+	 */
+	private int panelReserve() {
+		List<PerkSetLines.Line> lines = ClientPerkSets.lines(PANEL_MAX_ROWS);
+		if (lines.isEmpty()) {
+			return 0;
+		}
+		int widest = Math.max(PerkSetLines.blockWidth(lines, this.font::width, 0),
+				this.font.width(PANEL_TITLE));
+		return widest + PANEL_PADDING * 2 + PANEL_CARD_GAP;
+	}
+
+	/**
+	 * HUD 가 자기 세트 줄을 접어야 하는가.
+	 *
+	 * <p>이 화면이 왼쪽에 같은 것을 또렷하게 세우고 있으면 참이다. 판이 못 서는 좁은 화면에서는
+	 * 거짓이라 HUD 가 그대로 그린다 — 흐려도 없는 것보다 낫다.
+	 *
+	 * <p>결과를 보여 주는 동안에는 판도 접히지만 여기서는 참을 그대로 돌려준다. 그때는 고른 카드
+	 * 하나만 남기는 화면이라, 흐린 세트 줄이 다시 나타나면 눈이 그리로 끌린다.
+	 */
+	public boolean hidesHudSetLines() {
+		return panel.visible();
 	}
 
 	/**

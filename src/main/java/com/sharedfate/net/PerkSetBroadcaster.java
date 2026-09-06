@@ -112,19 +112,22 @@ public final class PerkSetBroadcaster {
 		//
 		// 단계 설명도 함께 싣는다. 클라이언트는 세트 정의 파일을 안 읽으므로 「2 단계가 무엇을
 		// 하는가」를 스스로 알 방법이 없고, 그래서 툴팁을 서버가 말해 주지 않으면 만들 수 없다.
-		// 「보급」 줄에 붙는 시계의 근거. 남은 시간이 아니라 주기를 싣는다 — 이 값은 단계가
-		// 바뀔 때만 달라지므로 아래 「달라졌을 때만 보낸다」가 그대로 살아 있다. 남은 시간을
-		// 실으면 값이 초마다 달라져 이름표 백 몇 줄이 0.5초마다 함께 나간다.
-		int supplyIntervalTicks = PerkSupplyDrops.intervalTicksFor(state);
+		// 「보급」 줄에 붙는 시계의 근거. 남은 시간이 아니라 주기와 켜진 시점을 싣는다 —
+		// 이 둘은 단계가 바뀌거나 세트가 풀렸다 켜질 때만 달라지므로 아래 「달라졌을 때만
+		// 보낸다」가 그대로 살아 있다. 남은 시간을 실으면 값이 초마다 달라져 이름표 백 몇 줄이
+		// 0.5초마다 함께 나간다.
+		PerkSupplyDrops.Cadence supply = PerkSupplyDrops.cadenceFor(player);
 
 		List<PerkSetSyncPayload.SetLine> sets = new ArrayList<>();
 		List<PerkSetSyncPayload.TierLine> tiers = new ArrayList<>();
 		for (PerkSets.Status status : PerkSetEffects.statusesOf(state)) {
 			// 시계가 어느 유형에 붙는지는 여기서 정한다. 화면은 주기가 실렸는지만 본다.
-			int intervalTicks = status.type() == PerkSetType.SUPPLY ? supplyIntervalTicks : 0;
+			int intervalTicks = status.type() == PerkSetType.SUPPLY ? supply.intervalTicks() : 0;
+			long anchorTick = status.type() == PerkSetType.SUPPLY ? supply.anchorTick() : 0L;
 			sets.add(new PerkSetSyncPayload.SetLine(
 					status.type().id(), status.type().displayName(),
-					status.owned(), status.nextCount(), highestTier(status), intervalTicks));
+					status.owned(), status.nextCount(), highestTier(status),
+					intervalTicks, anchorTick));
 			// 켜진 단계는 개수로 판별한다. 단계가 열리는 개수는 유형 안에서 겹치지 않는다.
 			Set<Integer> activeCounts = new HashSet<>();
 			for (PerkSets.Tier tier : status.activeTiers()) {

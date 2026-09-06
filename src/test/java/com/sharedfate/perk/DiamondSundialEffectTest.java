@@ -12,11 +12,13 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.UseCooldown;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,15 +26,19 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * {@code diamond_sundial}(골드 「해시계」)의 정의 읽기, 아이템 표식 판정, 블록 후보 판정,
  * 반경·상한 계산을 본다.
  *
+ * <p>가장 가까운 한 자리를 고르는 규칙과 액션바 문구도 여기서 본다.
+ *
  * <p>우클릭을 잡고 청크를 훑고 파티클을 보내는 부분은 살아 있는 서버와 월드가 있어야 하므로
  * 여기서 다루지 않는다. 대신 그 계산에서 실제로 판단을 내리는 조각
- * ({@link PerkDiamondSundial.Found}, {@link DiamondSundialEffect#isDiamondOre},
+ * ({@link PerkDiamondSundial.Found}, {@link PerkDiamondSundial#nearest},
+ * {@link PerkDiamondSundial#actionBarText}, {@link DiamondSundialEffect#isDiamondOre},
  * {@link DiamondSundialEffect#isSundial})은 월드를 읽지 않게 떼어 두었으므로 전부 여기서 확인한다.
  */
 class DiamondSundialEffectTest {
@@ -56,7 +62,7 @@ class DiamondSundialEffectTest {
 	@Test
 	void 기본값이_설명과_맞는다() {
 		assertEquals(20, DiamondSundialEffect.DEFAULT_RADIUS, "반경 기본값은 20칸이다");
-		assertEquals(20, DiamondSundialEffect.DEFAULT_COOLDOWN_SECONDS, "쿨타임 기본값은 20초다");
+		assertEquals(30, DiamondSundialEffect.DEFAULT_COOLDOWN_SECONDS, "쿨타임 기본값은 30초다");
 		assertEquals(16, DiamondSundialEffect.DEFAULT_MAX_RESULTS, "한 번에 최대 16개다");
 	}
 
@@ -180,6 +186,19 @@ class DiamondSundialEffectTest {
 
 	// ------------------------------------------------------------------ 블록 후보 판정
 
+	/**
+	 * {@code scan()} 은 섹션 팔레트를 거를 때도, 칸 하나를 볼 때도 이 메서드 하나만 쓴다. 여기가
+	 * 한쪽 변종을 빠뜨리면 그 변종은 어디서도 걸리지 않는다.
+	 */
+	@Test
+	void 심층암_변종도_같은_거르개를_지난다() {
+		Predicate<BlockState> filter = DiamondSundialEffect::isDiamondOre;
+
+		assertTrue(filter.test(Blocks.DIAMOND_ORE.defaultBlockState()));
+		assertTrue(filter.test(Blocks.DEEPSLATE_DIAMOND_ORE.defaultBlockState()),
+				"다이아몬드가 나오는 깊이는 대부분 심층암이라 이쪽이 빠지면 증강이 거의 동작하지 않는다");
+	}
+
 	@Test
 	void 다이아몬드_광석_두_가지만_후보다() {
 		assertTrue(DiamondSundialEffect.isDiamondOre(Blocks.DIAMOND_ORE.defaultBlockState()));
@@ -253,6 +272,118 @@ class DiamondSundialEffectTest {
 
 		assertTrue(found.hits().isEmpty());
 		assertFalse(found.full());
+	}
+
+	// ------------------------------------------------------------------ 가장 가까운 한 자리
+
+	@Test
+	void 가장_가까운_자리를_고른다() {
+		BlockPos center = new BlockPos(100, 64, -300);
+
+		BlockPos picked = PerkDiamondSundial.nearest(center, List.of(
+				new BlockPos(130, 64, -300),
+				new BlockPos(100, 52, -300),
+				new BlockPos(100, 64, -310)));
+
+		assertEquals(new BlockPos(100, 64, -310), picked, "10칸짜리가 12칸·30칸보다 앞이다");
+	}
+
+	@Test
+	void 훑은_차례가_아니라_거리로_고른다() {
+		BlockPos center = new BlockPos(0, 64, 0);
+
+		// 목록에 먼 것이 먼저 들어 있어도 고르는 것은 가까운 쪽이다.
+		assertEquals(new BlockPos(0, 63, 0), PerkDiamondSundial.nearest(center,
+				List.of(new BlockPos(0, 30, 0), new BlockPos(0, 63, 0))));
+	}
+
+	/**
+	 * 거리가 같은 후보가 여럿일 때의 규칙을 못박는다. 이 규칙이 없으면 같은 자리에서 두 번 써도
+	 * 훑는 차례(청크 번호)에 따라 다른 좌표가 뜬다.
+	 */
+	@Test
+	void 거리가_같으면_y_x_z_가_작은_것을_고른다() {
+		BlockPos center = new BlockPos(0, 64, 0);
+
+		// 여섯 방향 모두 정확히 5칸이다.
+		List<BlockPos> tied = List.of(
+				new BlockPos(0, 69, 0), new BlockPos(5, 64, 0), new BlockPos(-5, 64, 0),
+				new BlockPos(0, 64, 5), new BlockPos(0, 64, -5), new BlockPos(0, 59, 0));
+
+		assertEquals(new BlockPos(0, 59, 0), PerkDiamondSundial.nearest(center, tied),
+				"y 가 가장 작은 것이 먼저다");
+		assertEquals(new BlockPos(-5, 64, 0),
+				PerkDiamondSundial.nearest(center, tied.subList(1, 5)),
+				"y 가 같으면 x 가 작은 것, 그다음 z 가 작은 것이다");
+	}
+
+	@Test
+	void 후보가_없으면_null_이다() {
+		assertNull(PerkDiamondSundial.nearest(new BlockPos(0, 64, 0), List.of()));
+		assertNull(PerkDiamondSundial.nearest(new BlockPos(0, 64, 0), null));
+		assertNull(PerkDiamondSundial.nearest(null, List.of(new BlockPos(1, 1, 1))));
+	}
+
+	@Test
+	void 거리는_반올림한_칸_수다() {
+		BlockPos center = new BlockPos(0, 64, 0);
+
+		assertEquals(0, PerkDiamondSundial.blockDistance(center, center));
+		assertEquals(5, PerkDiamondSundial.blockDistance(center, new BlockPos(3, 68, 0)));
+		// √3 ≈ 1.73 → 2
+		assertEquals(2, PerkDiamondSundial.blockDistance(center, new BlockPos(1, 65, 1)));
+	}
+
+	// ------------------------------------------------------------------ 액션바 문구
+
+	@Test
+	void 좌표는_좌표_HUD_와_같은_모양이다() {
+		assertEquals("X 128  Y 64  Z -302", PerkDiamondSundial.positionLine(128, 64, -302),
+				"CoordinateHud.positionLine 과 칸 사이가 두 칸으로 같아야 한다");
+	}
+
+	@Test
+	void 하나만_찾으면_좌표와_거리만_적는다() {
+		String text = PerkDiamondSundial.actionBarText(new BlockPos(128, 30, -302),
+				List.of(new BlockPos(128, 12, -302)));
+
+		assertEquals("[증강] 가장 가까운 다이아몬드: X 128  Y 12  Z -302 (18칸)", text);
+	}
+
+	@Test
+	void 여럿이면_개수도_함께_적는다() {
+		String text = PerkDiamondSundial.actionBarText(new BlockPos(128, 30, -302), List.of(
+				new BlockPos(128, 12, -302),
+				new BlockPos(130, 12, -302),
+				new BlockPos(128, 11, -300)));
+
+		assertEquals("[증강] 가장 가까운 다이아몬드: X 128  Y 12  Z -302 (18칸, 근처 3개)", text);
+	}
+
+	@Test
+	void 하나도_못_찾으면_없다고_적는다() {
+		BlockPos center = new BlockPos(0, 64, 0);
+
+		assertEquals("[증강] 근처에 다이아몬드가 없습니다",
+				PerkDiamondSundial.actionBarText(center, List.of()));
+		assertEquals("[증강] 근처에 다이아몬드가 없습니다",
+				PerkDiamondSundial.actionBarText(center, null));
+	}
+
+	@Test
+	void 문구가_적는_좌표는_파티클이_뜨는_첫_자리와_같다() {
+		BlockPos center = new BlockPos(0, 64, 0);
+		PerkDiamondSundial.Found found = new PerkDiamondSundial.Found(center, 32, 16);
+		found.add(0, 64, 20);
+		found.add(0, 60, 0);
+		found.add(0, 64, 10);
+
+		List<BlockPos> hits = found.hits();
+
+		assertEquals(hits.get(0), PerkDiamondSundial.nearest(center, hits),
+				"두 길이 다른 자리를 고르면 액션바 좌표와 파티클이 어긋난다");
+		assertTrue(PerkDiamondSundial.actionBarText(center, hits)
+				.contains(PerkDiamondSundial.positionLine(0, 60, 0)));
 	}
 
 	// ------------------------------------------------------------------ 도우미

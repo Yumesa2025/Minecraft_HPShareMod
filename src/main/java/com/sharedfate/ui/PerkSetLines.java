@@ -18,13 +18,14 @@ import java.util.List;
  * 쓰면 켜진 세트가 목록 한가운데 끼어 눈에 띄지 않는다.
  *
  * <h2>「보급」 줄에만 시계가 붙는다</h2>
- * <p>「◆ 04:12 보급 4/4」처럼 다음 보급까지 남은 시간을 이름 앞에 적는다. <b>어느 유형에 붙일지를
- * 여기서 판단하지 않는다</b> — {@link Entry#intervalTicks()} 가 0 보다 큰 줄에만 붙고, 그 값을
- * 채우는 것은 서버({@code PerkSetBroadcaster})다. 「보급 옆에만」이라는 규칙을 화면과 서버 두
- * 곳에 적어 두면 한쪽만 고쳤을 때 채굴 줄에 시계가 뜬다.
+ * <p>「◆ 보급 4/4 04:12」처럼 다음 보급까지 남은 시간을 <b>진행도 뒤</b>에 적는다. <b>어느 유형에
+ * 붙일지를 여기서 판단하지 않는다</b> — {@link Entry#intervalTicks()} 가 0 보다 큰 줄에만 붙고,
+ * 그 값을 채우는 것은 서버({@code PerkSetBroadcaster})다. 「보급 옆에만」이라는 규칙을 화면과
+ * 서버 두 곳에 적어 두면 한쪽만 고쳤을 때 채굴 줄에 시계가 뜬다.
  *
- * <p>마름모는 자리를 지킨다. 시계를 마름모보다 앞에 두면 줄마다 마름모의 가로 자리가 달라져
- * 「켜졌나」를 세로로 훑을 수 없다. 시계는 마름모와 이름 사이에 들어간다.
+ * <p>시계가 <b>줄 끝</b>에 붙는 덕에 마름모도 이름도 진행도도 줄마다 같은 자리에서 시작한다.
+ * 시계를 가운데 끼워 넣으면 보급 줄만 이름이 오른쪽으로 밀려 「켜졌나」와 「몇 개 모았나」를
+ * 세로로 훑을 수 없다.
  *
  * <p>시계를 그리려면 <b>지금 게임 시간</b>이 있어야 하므로 {@link #visible(List, int, long)} 을
  * 쓴다. 시간을 모르는 자리(팀 화면·선택창 곁판)는 {@link #visible(List, int)} 를 그대로 써서
@@ -59,9 +60,23 @@ public final class PerkSetLines {
 	 * @param activeTier    켜진 단계. 안 켜졌으면 0
 	 * @param intervalTicks 이 유형이 되풀이하는 일의 주기(틱). 지금은 「보급」만 0 보다 크다.
 	 *                      0 이면 시계를 안 그린다
+	 * @param anchorTick    그 되풀이가 <b>켜진 게임 시간</b>. 경계는 이 자리부터 주기마다다.
+	 *                      0 이면 게임 시간의 배수를 경계로 삼는다 — 이 값을 안 싣는 옛 서버에
+	 *                      붙었을 때의 모습이다
 	 */
 	public record Entry(String typeId, String displayName, int owned, int nextThreshold,
-			int activeTier, int intervalTicks) {
+			int activeTier, int intervalTicks, long anchorTick) {
+
+		/**
+		 * 켜진 시점을 모르는 자리에서 쓰는 짧은 생성자.
+		 *
+		 * <p>켜진 시점을 싣지 않는 옛 서버에 붙었을 때의 모습이다. 시계는 그대로 뜨고 경계만
+		 * 게임 시간의 배수가 된다.
+		 */
+		public Entry(String typeId, String displayName, int owned, int nextThreshold,
+				int activeTier, int intervalTicks) {
+			this(typeId, displayName, owned, nextThreshold, activeTier, intervalTicks, 0L);
+		}
 
 		/**
 		 * 주기를 모르는 자리에서 쓰는 짧은 생성자.
@@ -71,7 +86,7 @@ public final class PerkSetLines {
 		 */
 		public Entry(String typeId, String displayName, int owned, int nextThreshold,
 				int activeTier) {
-			this(typeId, displayName, owned, nextThreshold, activeTier, 0);
+			this(typeId, displayName, owned, nextThreshold, activeTier, 0, 0L);
 		}
 
 		/** 세트 효과가 이미 켜져 있는가. */
@@ -120,18 +135,21 @@ public final class PerkSetLines {
 	}
 
 	/**
-	 * 「◆ 04:12 보급 4/4」 한 줄의 글자.
+	 * 「◆ 보급 4/4 04:12」 한 줄의 글자.
+	 *
+	 * <p>시계는 <b>진행도 뒤</b>, 즉 줄의 맨 끝에 붙는다. 그래서 시계가 있든 없든 마름모·이름·
+	 * 진행도가 놓이는 자리가 줄마다 같다.
 	 *
 	 * <p>시계가 필요 없는 줄에는 {@code timer} 가 빈 문자열이고, 그러면 {@link #label(Entry)} 와
 	 * 글자 하나까지 똑같다. 빈 시계에 자리를 남겨 두지 않는다 — 한 줄만 시계를 다는데 나머지
-	 * 열 줄이 그만큼 오른쪽으로 밀리면 무엇을 위해 밀렸는지 읽히지 않는다.
+	 * 열 줄이 그만큼 넓어지면 무엇을 위해 넓어졌는지 읽히지 않는다.
 	 *
 	 * @param timer 「04:12」 같은 남은 시간. 비어 있으면 아무것도 붙지 않는다
 	 */
 	public static String label(Entry entry, String timer) {
-		String clock = timer == null || timer.isEmpty() ? "" : timer + " ";
-		return (entry.active() ? ACTIVE_MARK : PROGRESS_MARK) + " " + clock + entry.displayName()
-				+ " " + entry.owned() + "/" + entry.goal();
+		String clock = timer == null || timer.isEmpty() ? "" : " " + timer;
+		return (entry.active() ? ACTIVE_MARK : PROGRESS_MARK) + " " + entry.displayName()
+				+ " " + entry.owned() + "/" + entry.goal() + clock;
 	}
 
 	/**
@@ -190,7 +208,7 @@ public final class PerkSetLines {
 		for (int index = 0; index < kept.size() && index < limit; index++) {
 			Entry entry = kept.get(index);
 			String timer = withTimer && entry.hasTimer()
-					? SupplyCountdown.text(gameTime, entry.intervalTicks())
+					? SupplyCountdown.text(gameTime, entry.intervalTicks(), entry.anchorTick())
 					: "";
 			lines.add(new Line(entry.typeId(), label(entry, timer), entry.active()));
 		}

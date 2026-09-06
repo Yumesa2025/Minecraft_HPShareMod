@@ -107,16 +107,26 @@ class PerkSetLinesTest {
 		return new PerkSetLines.Entry("supply", "보급", owned, next, tier, intervalTicks);
 	}
 
-	/** 시계는 마름모와 이름 사이에 들어간다. 마름모가 앞자리를 지켜야 세로로 훑을 수 있다. */
+	/** 켜진 시점까지 아는 보급 줄. 경계는 그 시점부터 주기마다다. */
+	private static PerkSetLines.Entry supply(int owned, int next, int tier, int intervalTicks,
+			long anchorTick) {
+		return new PerkSetLines.Entry("supply", "보급", owned, next, tier, intervalTicks, anchorTick);
+	}
+
+	/**
+	 * 시계는 <b>줄의 맨 끝</b>, 진행도 뒤에 붙는다.
+	 *
+	 * <p>그래야 마름모도 이름도 진행도도 줄마다 같은 자리에서 시작해 세로로 훑을 수 있다.
+	 */
 	@Test
-	void 보급_줄에는_마름모와_이름_사이에_남은_시간이_들어간다() {
+	void 보급_줄에는_진행도_뒤에_남은_시간이_붙는다() {
 		// 10분 주기에서 5분 48초가 지난 자리. 남은 것은 4분 12초다.
 		long time = TEN_MINUTES * 12L + (5 * 60 + 48) * 20L;
 
 		List<PerkSetLines.Line> lines =
 				PerkSetLines.visible(List.of(supply(2, 3, 2, TEN_MINUTES)), 10, time);
 
-		assertEquals("◆ 04:12 보급 2/3", lines.getFirst().text());
+		assertEquals("◆ 보급 2/3 04:12", lines.getFirst().text());
 	}
 
 	/** 최대 단계(4/4)에서도 계속 보여 준다. 주기가 5분으로 줄었을 뿐 보급은 여전히 온다. */
@@ -127,7 +137,46 @@ class PerkSetLinesTest {
 		List<PerkSetLines.Line> lines =
 				PerkSetLines.visible(List.of(supply(4, 0, 4, FIVE_MINUTES)), 10, time);
 
-		assertEquals("◆ 04:00 보급 4/4", lines.getFirst().text());
+		assertEquals("◆ 보급 4/4 04:00", lines.getFirst().text());
+	}
+
+	/**
+	 * <b>켜진 시점부터 한 주기를 센다.</b>
+	 *
+	 * <p>서버가 실어 준 켜진 시점을 화면이 그대로 쓰는지 본다. 이 값을 흘리면 세트를 켠 자리에
+	 * 따라 첫 보급이 몇 초 만에 오는 것처럼 보인다.
+	 */
+	@Test
+	void 켜진_시점부터_시계가_돈다() {
+		// 주기의 배수와는 아무 상관 없는 자리에서 켰다.
+		long anchor = TEN_MINUTES * 3L + 7777;
+
+		assertEquals("◆ 보급 2/3 10:00",
+				PerkSetLines.visible(List.of(supply(2, 3, 2, TEN_MINUTES, anchor)), 10, anchor)
+						.getFirst().text());
+		assertEquals("◆ 보급 2/3 04:12",
+				PerkSetLines.visible(List.of(supply(2, 3, 2, TEN_MINUTES, anchor)), 10,
+								anchor + (5 * 60 + 48) * 20L)
+						.getFirst().text());
+	}
+
+	/**
+	 * 4단계로 올라 주기가 5분이 되어도 시계가 되감기지 않는다.
+	 *
+	 * <p>켜진 시점은 그대로 두고 주기만 바뀐다. 켠 지 2분이면 5분 주기에서 3분이 남는 것이지
+	 * 5분이 남는 것이 아니다.
+	 */
+	@Test
+	void 주기가_줄어도_시계가_되감기지_않는다() {
+		long anchor = 5000L;
+		long time = anchor + 2 * 20 * 60L;
+
+		assertEquals("◆ 보급 3/4 08:00",
+				PerkSetLines.visible(List.of(supply(3, 4, 3, TEN_MINUTES, anchor)), 10, time)
+						.getFirst().text());
+		assertEquals("◆ 보급 4/4 03:00",
+				PerkSetLines.visible(List.of(supply(4, 0, 4, FIVE_MINUTES, anchor)), 10, time)
+						.getFirst().text());
 	}
 
 	/**
@@ -148,7 +197,7 @@ class PerkSetLinesTest {
 		// 차례는 정렬이 정하므로 유형으로 찾는다.
 		assertEquals("◆ 채굴 3/4", textOf(lines, "mining"));
 		assertEquals("◇ 화력 1/3", textOf(lines, "power"));
-		assertEquals("◆ 09:55 보급 2/3", textOf(lines, "supply"));
+		assertEquals("◆ 보급 2/3 09:55", textOf(lines, "supply"));
 	}
 
 	/** 그 유형의 줄 글자. 없으면 시험을 실패시킨다. */
@@ -186,7 +235,7 @@ class PerkSetLinesTest {
 		List<PerkSetLines.Line> lines =
 				PerkSetLines.visible(List.of(supply(1, 2, 0, TEN_MINUTES)), 10, TEN_MINUTES * 4L);
 
-		assertEquals("◇ 10:00 보급 1/2", lines.getFirst().text());
+		assertEquals("◇ 보급 1/2 10:00", lines.getFirst().text());
 	}
 
 	/**
@@ -228,6 +277,20 @@ class PerkSetLinesTest {
 		assertFalse(old.hasTimer());
 		assertEquals("◆ 보급 2/3",
 				PerkSetLines.visible(List.of(old), 10, 12345L).getFirst().text());
+	}
+
+	/**
+	 * 켜진 시점만 안 싣는 서버에서는 시계가 뜨되 경계가 게임 시간의 배수가 된다.
+	 *
+	 * <p>여섯 인자 생성자가 그 자리다. 시계가 아예 안 뜨는 것보다 낫다.
+	 */
+	@Test
+	void 켜진_시점을_안_보내는_서버에서는_게임_시간의_배수가_경계다() {
+		PerkSetLines.Entry noAnchor = supply(2, 3, 2, TEN_MINUTES);
+
+		assertEquals(0L, noAnchor.anchorTick());
+		assertEquals("◆ 보급 2/3 10:00",
+				PerkSetLines.visible(List.of(noAnchor), 10, TEN_MINUTES * 4L).getFirst().text());
 	}
 
 	// ------------------------------------------------------------------ 자리

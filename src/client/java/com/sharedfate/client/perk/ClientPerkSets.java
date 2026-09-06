@@ -47,7 +47,8 @@ public final class ClientPerkSets {
 		List<PerkSetLines.Entry> nextSets = new ArrayList<>(payload.sets().size());
 		for (PerkSetSyncPayload.SetLine line : payload.sets()) {
 			nextSets.add(new PerkSetLines.Entry(line.typeId(), line.displayName(),
-					line.owned(), line.nextThreshold(), line.activeTier(), line.intervalTicks()));
+					line.owned(), line.nextThreshold(), line.activeTier(), line.intervalTicks(),
+					line.anchorTick()));
 		}
 		List<PerkSetTooltip.TierEntry> nextTiers = new ArrayList<>(payload.tiers().size());
 		for (PerkSetSyncPayload.TierLine line : payload.tiers()) {
@@ -94,17 +95,6 @@ public final class ClientPerkSets {
 	/** 이 유형에서 아직 안 가진 증강들. 툴팁이 쓴다. */
 	public static List<PerkSetTooltip.Missing> missing(String typeId) {
 		return PerkSetTooltip.missingOf(catalog, typeId);
-	}
-
-	/**
-	 * 서버가 보낸 이름표 전부. 가진 것도 들어 있다.
-	 *
-	 * <p>팀 화면의 <b>보유 증강 줄</b>이 「이 증강은 어느 유형인가」를 이름으로 되짚는 데 쓴다
-	 * ({@link com.sharedfate.ui.PerkOwnedTypes}). 보유 목록({@code PerkSyncPayload.Owned})은
-	 * 유형 id 를 싣지 않는다.
-	 */
-	public static List<PerkSetTooltip.Entry> catalog() {
-		return catalog;
 	}
 
 	/**
