@@ -19,8 +19,8 @@ import net.minecraft.world.level.block.state.BlockState;
  * 「채굴 3단계」가 {@code chance: 1.0, extra: 2}로 "3배(원래 1개 + 추가 2개)"를 표현한다.
  *
  * <h2>덤을 얹는 것이지 갈아 끼우는 것이 아니다</h2>
- * <p>이 효과는 원래 나오던 것 <b>위에</b> 얹기만 한다. 원래 나오던 것을 없애야 하는 요구
- * (「밀 대신 황금 당근」 같은)는 여기서 표현할 수 없고
+ * <p>이 효과는 원래 나오던 것 <b>위에</b> 얹기만 한다. 원래 나오던 것을 없애는 일
+ * (「밀 대신 황금 당근」 같은)은 여기서 표현할 수 없고
  * {@link DropReplaceEffect}({@code drop_replace})가 맡는다. 두 효과가 걸리는 자리도 다르다 —
  * 이쪽은 전리품이 나오기 전인 {@code PlayerBlockBreakEvents.AFTER} 로 충분하지만, 없애는 쪽은
  * 전리품을 만드는 자리를 잡아야 한다.

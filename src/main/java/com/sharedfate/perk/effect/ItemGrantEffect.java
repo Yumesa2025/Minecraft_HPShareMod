@@ -365,7 +365,7 @@ public final class ItemGrantEffect implements PerkEffect {
 	 * 아이템 자체를 없애 버리면 증강 하나가 통째로 사라진다. 찾지 못한 인챈트는 경고만 남기고
 	 * 건너뛴다.
 	 *
-	 * <p>레벨은 자르지 않는다. 바닐라 최대 레벨을 넘겨 붙이는 것이 이 기능의 요구사항이고,
+	 * <p>레벨은 자르지 않는다. 바닐라 최대 레벨을 넘겨 붙이는 것이 이 효과가 하는 일이고,
 	 * {@code ItemEnchantments} 가 받아들이는 상한 {@value #MAX_ENCHANT_LEVEL} 은 정의를 읽는
 	 * 시점에 이미 확인했다.
 	 */
