@@ -71,7 +71,7 @@ public final class SharedFateNetworking {
 	//     바뀌었고, 그 기준 자리를 클라이언트도 알아야 화면의 시계와 실제 보급 시각이 맞는다.
 	//     남은 시간이 아니라 기준 자리를 싣는 이유는 21번과 같다. 칸이 하나 늘어 형식이
 	//     바뀌었으므로 옛 클라이언트는 이 패킷을 못 읽는다.
-	public static final int PROTOCOL_VERSION = 22;
+	public static final int PROTOCOL_VERSION = 23;
 
 	private SharedFateNetworking() {
 	}

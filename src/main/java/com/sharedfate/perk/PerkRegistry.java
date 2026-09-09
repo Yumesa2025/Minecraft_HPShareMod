@@ -208,13 +208,20 @@ public final class PerkRegistry {
 			// 세트 유형. 안 적으면 빈 목록(무유형)이고, 그것이 정상이라 경고하지 않는다.
 			List<PerkSetType> setTypes = parseSetTypes(id, json);
 
+			// 전제조건. 안 적으면 null(언제나 후보), 적혀 있는데 모르는 값이면 증강을 버린다.
+			// "안 적었다"와 "잘못 적었다"를 구분해야 하므로 결과를 두 값으로 받는다.
+			Requirement requires = parseRequirement(id, json);
+			if (requires.rejected()) {
+				return null;
+			}
+
 			List<PerkEffect> effects = parseEffects(id, json);
 			if (effects == null) {
 				return null;
 			}
 
 			return new Perk(id, name, description, rarity, parseIcon(id, json), minLevel,
-					setTypes, effects);
+					setTypes, effects, requires.value());
 		} catch (Exception error) {
 			SharedFateMod.LOGGER.warn("증강 항목을 읽다가 실패해 건너뜁니다", error);
 			return null;
@@ -252,6 +259,44 @@ public final class PerkRegistry {
 			return id;
 		}
 		return id;
+	}
+
+	/**
+	 * {@code requires} 를 읽은 결과.
+	 *
+	 * <p>{@code null} 하나로는 "안 적었다"와 "적었는데 모르는 값이다"를 구분할 수 없어 두 값으로
+	 * 나눠 들고 다닌다.
+	 *
+	 * @param value    읽어 낸 전제조건. 안 적었으면 {@code null}
+	 * @param rejected 적혀 있는데 읽을 수 없어 이 증강을 버려야 하는가
+	 */
+	private record Requirement(@Nullable Perk.Requirement value, boolean rejected) {
+		static final Requirement ABSENT = new Requirement(null, false);
+		static final Requirement REJECTED = new Requirement(null, true);
+	}
+
+	/**
+	 * 증강의 최상위 {@code requires} 필드를 읽는다. {@code min_level} 과 같은 자리다.
+	 *
+	 * <p><b>모르는 값이면 증강을 통째로 버린다.</b> 세트 유형처럼 조용히 건너뛰면 오타 하나가
+	 * 「왜 이 증강이 안 나오지」로 남아 아무도 못 찾는다. 이유는 {@link Perk.Requirement} 문서에
+	 * 적어 뒀다.
+	 *
+	 * <p>필드를 아예 안 적었거나 {@code null} 이면 전제조건이 없는 것이고, 그것이 대부분이라
+	 * 아무 말도 하지 않는다.
+	 */
+	private static Requirement parseRequirement(String perkId, JsonObject json) {
+		JsonElement raw = json.get("requires");
+		if (raw == null || raw.isJsonNull()) {
+			return Requirement.ABSENT;
+		}
+		String text = PerkEffectType.readString(json, "requires");
+		Perk.Requirement requirement = Perk.Requirement.fromId(text);
+		if (requirement == null) {
+			SharedFateMod.LOGGER.warn("증강 {}: 알 수 없는 requires 라 증강을 버립니다 ({})", perkId, raw);
+			return Requirement.REJECTED;
+		}
+		return new Requirement(requirement, false);
 	}
 
 	/**

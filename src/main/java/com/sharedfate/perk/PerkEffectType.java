@@ -77,6 +77,18 @@ import com.sharedfate.perk.effect.ToolMismatchSlowEffect;
 import com.sharedfate.perk.effect.ShieldFallImmunityEffect;
 import com.sharedfate.perk.effect.SneakSpeedEffect;
 import com.sharedfate.perk.effect.DiamondSundialEffect;
+import com.sharedfate.perk.effect.AuraDamageEffect;
+import com.sharedfate.perk.effect.DamageWardEffect;
+import com.sharedfate.perk.effect.FlightCharmEffect;
+import com.sharedfate.perk.effect.InventorySlotsEffect;
+import com.sharedfate.perk.effect.SwapExemptEffect;
+import com.sharedfate.perk.effect.WeaponKnockbackEffect;
+import com.sharedfate.perk.effect.ProjectileWardEffect;
+import com.sharedfate.perk.effect.ProximityRangeEffect;
+import com.sharedfate.perk.effect.RallyShardEffect;
+import com.sharedfate.perk.effect.SanctuaryEffect;
+import com.sharedfate.perk.effect.ShockwaveEffect;
+import com.sharedfate.perk.effect.SpreadDamageEffect;
 import com.sharedfate.perk.effect.EnchantCostEffect;
 import com.sharedfate.perk.effect.MobSpawnRateEffect;
 import com.sharedfate.perk.effect.MobSpeedEffect;
@@ -170,6 +182,18 @@ public enum PerkEffectType {
 	ENCHANT_COST("enchant_cost", EnchantCostEffect::fromJson),
 	EXPERIENCE_BONUS("experience_bonus", ExperienceBonusEffect::fromJson),
 	SUPPLY_DROP("supply_drop", SupplyDropEffect::fromJson),
+	RALLY_SHARD("rally_shard", RallyShardEffect::fromJson),
+	AURA_DAMAGE("aura_damage", AuraDamageEffect::fromJson),
+	SPREAD_DAMAGE("spread_damage", SpreadDamageEffect::fromJson),
+	PROXIMITY_RANGE("proximity_range", ProximityRangeEffect::fromJson),
+	PROJECTILE_WARD("projectile_ward", ProjectileWardEffect::fromJson),
+	SHOCKWAVE("shockwave", ShockwaveEffect::fromJson),
+	SANCTUARY("sanctuary", SanctuaryEffect::fromJson),
+	DAMAGE_WARD("damage_ward", DamageWardEffect::fromJson),
+	WEAPON_KNOCKBACK("weapon_knockback", WeaponKnockbackEffect::fromJson),
+	FLIGHT_CHARM("flight_charm", FlightCharmEffect::fromJson),
+	SWAP_EXEMPT("swap_exempt", SwapExemptEffect::fromJson),
+	INVENTORY_SLOTS("inventory_slots", InventorySlotsEffect::fromJson),
 	CUSTOM("custom", CustomEffect::fromJson);
 
 	/** 효과 하나를 만드는 팩토리. 정의가 잘못됐으면 {@code null}을 돌려준다. */

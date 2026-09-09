@@ -384,7 +384,15 @@ public class TeamState {
 
 	public static final class PositionSwapLimits {
 		public static final int MIN_MINUTES = 1;
-		public static final int MAX_MINUTES = 120;
+		/**
+		 * 위치 교환 주기의 상한(분).
+		 *
+		 * <p>2026-09-09 에 120 에서 30 으로 줄였다. 한 회차가 그렇게 길지 않아 30분을 넘기면
+		 * 회차 내내 한 번도 안 바뀌는 것과 다르지 않았고, 굴림 단추로 고르기에도 눈금이 너무
+		 * 길었다. <b>저장된 팀이 그보다 큰 값을 들고 있으면 읽을 때 30으로 잘린다</b>
+		 * ({@code TeamCreationSettings.sanitize}) — 예전 팀이 죽지 않는다.
+		 */
+		public static final int MAX_MINUTES = 30;
 		public static final int TICKS_PER_MINUTE = 20 * 60;
 		public static final int RETRY_TICKS = 20;
 		private static final int MAX_INTERVAL_TICKS = MAX_MINUTES * TICKS_PER_MINUTE;

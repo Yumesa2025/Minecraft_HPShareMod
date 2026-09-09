@@ -140,8 +140,11 @@ public final class PerkManager {
 			// 등급을 여기서 먼저 정하고 뽑기는 그 등급으로 부른다.
 			PerkRarity rarity = PerkDraft.rarityFor(milestone, state.extraPrismRounds,
 					silverBlocked, prismBoost, random);
-			List<String> options = PerkDraft.draw(rarity, milestone, PerkRegistry.all(),
-					state.ownedPerks, random, OPTION_COUNT);
+			// 팀 설정을 못 채우는 증강은 후보에서 뺀다 — 위치 교환을 끈 팀에게 교환 증강이
+			// 뜨면 골라도 아무 일이 없는 죽은 카드가 된다.
+			List<String> options = PerkDraft.drawFor(rarity, milestone, PerkRegistry.all(),
+					state.ownedPerks, PerkSwapRules.satisfiedRequirements(state),
+					random, OPTION_COUNT);
 			state.lastPerkMilestone = milestone;
 			if (options.isEmpty()) {
 				SharedFateMod.LOGGER.warn(
@@ -493,8 +496,9 @@ public final class PerkManager {
 		// 번꼴로 방금 본 카드가 그대로 돌아와, 다시 뽑기를 쓰고도 안 쓴 것처럼 보인다.
 		// 「되도록」이라 남은 후보가 3개 미만이면 뺐던 것에서 마저 채운다.
 		// 직전 한 번만 피하므로 두 번 이상 다시 뽑으면 그전 것은 다시 나올 수 있다.
-		List<String> options = PerkDraft.draw(rarity, milestone, PerkRegistry.all(),
-				state.ownedPerks, offer.optionIds(), random, OPTION_COUNT);
+		List<String> options = PerkDraft.drawFor(rarity, milestone, PerkRegistry.all(),
+				state.ownedPerks, offer.optionIds(),
+				PerkSwapRules.satisfiedRequirements(state), random, OPTION_COUNT);
 		if (prismOnly) {
 			// PerkDraft.fallbackOrder(PRISM) 은 프리즘 → 골드 → 실버라, 아직 안 가진 프리즘이
 			// 3장 미만이면 골드가 섞여 들어온다. 남은 프리즘이 두 장이면 카드도 두 장이다.

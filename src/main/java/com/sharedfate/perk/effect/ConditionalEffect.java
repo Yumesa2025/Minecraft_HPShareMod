@@ -8,8 +8,12 @@ import com.sharedfate.perk.ConditionalPerkManager;
 import com.sharedfate.perk.PerkDrawbacks;
 import com.sharedfate.perk.PerkEffect;
 import com.sharedfate.perk.PerkEffectType;
+import com.sharedfate.sync.TeamProximity;
+import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamLookup;
+import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,9 +39,20 @@ import java.util.concurrent.ConcurrentHashMap;
  * }
  * }</pre>
  *
- * <h2>조건은 팀 공유 값을 본다</h2>
+ * <h2>조건은 대개 팀 공유 값을 본다</h2>
  * <p>이 모드는 체력과 허기를 팀이 공유하므로, 개인의 {@code player.getHealth()} 가 아니라
  * {@link TeamState} 에 담긴 공유 값을 본다. 같은 팀원은 언제나 같은 판정을 받는다.
+ *
+ * <p><b>예외가 있다.</b> {@link TeamState} 만 봐서는 답할 수 없는 조건이 둘 있고,
+ * {@link Condition#perPlayer()} 가 그 갈래를 표시한다.
+ *
+ * <ul>
+ *   <li>{@code in_water} — 팀이 공유하는 값이 아니라 그 사람이 지금 물에 몸을 담그고 있는지를
+ *       보므로, 한 팀 안에서도 물에 있는 사람만 효과를 받는다.</li>
+ *   <li>{@code team_nearby} — <b>답 자체는 팀 전체가 같다.</b> 그런데 어느 팀인지를 알아내려면
+ *       플레이어가 있어야 한다({@link TeamState} 에는 팀 id 가 없다). 그래서 판정에 사람이
+ *       필요하다는 점만 {@code in_water} 와 같은 갈래로 묶었다.</li>
+ * </ul>
  *
  * <h2>조건은 계속 다시 본다</h2>
  * <p>허기와 체력은 수시로 변하므로 {@link #apply} 한 번으로는 끝나지 않는다.
@@ -81,6 +96,9 @@ public final class ConditionalEffect implements PerkEffect {
 	/** 지금 몇 겹째를 읽고 있는지. 읽기는 재귀라 호출 스택을 따라 오르내린다. */
 	private static final ThreadLocal<Integer> PARSE_DEPTH = ThreadLocal.withInitial(() -> 0);
 
+	/** 뭉침 판정 경고를 이미 남겼는지. {@link #forgetAllWarnings} 가 회차마다 되돌린다. */
+	private static volatile boolean proximityWarned;
+
 	/** 무엇을 볼지. */
 	public enum Condition {
 		/** 팀 공유 허기가 최대치. */
@@ -90,14 +108,48 @@ public final class ConditionalEffect implements PerkEffect {
 		/** 팀 공유 체력이 기준 비율 이하. */
 		HEALTH_BELOW("health_below", true),
 		/** 팀 공유 체력이 기준 비율 초과. */
-		HEALTH_ABOVE("health_above", true);
+		HEALTH_ABOVE("health_above", true),
+		/**
+		 * <b>이 사람이</b> 물에 몸을 담그고 있다.
+		 *
+		 * <p>팀 공유 값이 아니라 <b>사람마다 답이 다른</b> 유일한 조건이다. 같은 팀 안에서도 물에
+		 * 들어간 사람만 효과를 받는다({@code team_nearby} 도 사람을 거쳐 판정하지만 그쪽은 답이
+		 * 팀 전체에 같다). 비를 맞는 것은 해당하지 않고({@code isInWaterOrRain} 이 아니라
+		 * {@code isInWater} 를 쓴다), 머리까지 잠길 필요도 없다.
+		 */
+		IN_WATER("in_water", false, true),
+		/**
+		 * <b>팀원 전원이</b> {@code distance} 칸 안에 뭉쳐 있다.
+		 *
+		 * <p>「결속」 증강들이 쓰는 조건이다. 거리를 직접 재지 않고
+		 * {@link TeamProximity#together} 에 물어본다 — 거기가 1초에 한 번 팀마다 한 번만 재고,
+		 * 세트 「결속 3」의 반경 배율도 그 안에서 저절로 먹는다. 여기서 다시 재면 같은 계산을
+		 * 증강 수만큼 되풀이하게 되고 배율도 놓친다.
+		 *
+		 * <p>{@code in_water} 와 달리 답은 팀 전체가 같다. 그런데도 {@code perPlayer} 갈래에
+		 * 넣은 까닭은 {@link TeamState} 에 팀 id 가 없어 <b>사람을 거쳐야만</b> 팀을 찾을 수 있기
+		 * 때문이다.
+		 */
+		TEAM_NEARBY("team_nearby", false, true, true);
 
 		private final String id;
 		private final boolean needsThreshold;
+		private final boolean perPlayer;
+		private final boolean needsDistance;
 
 		Condition(String id, boolean needsThreshold) {
+			this(id, needsThreshold, false);
+		}
+
+		Condition(String id, boolean needsThreshold, boolean perPlayer) {
+			this(id, needsThreshold, perPlayer, false);
+		}
+
+		Condition(String id, boolean needsThreshold, boolean perPlayer, boolean needsDistance) {
 			this.id = id;
 			this.needsThreshold = needsThreshold;
+			this.perPlayer = perPlayer;
+			this.needsDistance = needsDistance;
 		}
 
 		public String id() {
@@ -107,6 +159,22 @@ public final class ConditionalEffect implements PerkEffect {
 		/** {@code threshold} 필드가 있어야 하는 조건인지. */
 		public boolean needsThreshold() {
 			return needsThreshold;
+		}
+
+		/**
+		 * 팀 상태({@link TeamState})만으로는 판정할 수 없는 조건인지.
+		 *
+		 * <p>참이면 {@link ConditionalEffect#matches(TeamState)} 만으로는 답할 수 없고 플레이어가
+		 * 함께 있어야 한다. {@code in_water} 는 사람마다 답이 다르기 때문이고,
+		 * {@code team_nearby} 는 답은 팀 전체가 같지만 팀을 찾으려면 사람을 거쳐야 하기 때문이다.
+		 */
+		public boolean perPlayer() {
+			return perPlayer;
+		}
+
+		/** {@code distance} 필드가 있어야 하는 조건인지. */
+		public boolean needsDistance() {
+			return needsDistance;
 		}
 
 		/** JSON 의 condition 문자열에 맞는 조건. 알 수 없는 값이면 null. */
@@ -126,6 +194,8 @@ public final class ConditionalEffect implements PerkEffect {
 
 	private final Condition condition;
 	private final double threshold;
+	/** {@code team_nearby} 가 쓰는 거리(블록). 다른 조건에서는 0 이고 아무도 보지 않는다. */
+	private final double distance;
 	private final List<PerkEffect> whenTrue;
 	private final List<PerkEffect> whenFalse;
 
@@ -137,10 +207,17 @@ public final class ConditionalEffect implements PerkEffect {
 	 */
 	private final Map<UUID, Boolean> applied = new ConcurrentHashMap<>();
 
+	/** 거리를 쓰지 않는 조건용. {@code distance} 를 0 으로 둔다. */
 	public ConditionalEffect(Condition condition, double threshold,
+			List<PerkEffect> whenTrue, List<PerkEffect> whenFalse) {
+		this(condition, threshold, 0.0, whenTrue, whenFalse);
+	}
+
+	public ConditionalEffect(Condition condition, double threshold, double distance,
 			List<PerkEffect> whenTrue, List<PerkEffect> whenFalse) {
 		this.condition = condition;
 		this.threshold = threshold;
+		this.distance = distance;
 		this.whenTrue = List.copyOf(whenTrue);
 		this.whenFalse = List.copyOf(whenFalse);
 	}
@@ -180,6 +257,22 @@ public final class ConditionalEffect implements PerkEffect {
 			threshold = raw;
 		}
 
+		// 거리는 proximity 와 같은 범위로 받는다. 두 곳이 같은 「뭉침」을 재는데 받아들이는
+		// 거리가 다르면, 같은 숫자를 적어도 한쪽만 켜지는 일이 생긴다.
+		double distance = 0.0;
+		if (condition.needsDistance()) {
+			Double raw = PerkEffectType.readDouble(json, "distance");
+			if (raw == null || raw < ProximityEffect.MIN_DISTANCE
+					|| raw > ProximityEffect.MAX_DISTANCE) {
+				SharedFateMod.LOGGER.warn(
+						"증강 {}: {} 조건의 distance 가 없거나 {}~{} 를 벗어났습니다 ({})",
+						perkId, condition.id(),
+						ProximityEffect.MIN_DISTANCE, ProximityEffect.MAX_DISTANCE, raw);
+				return null;
+			}
+			distance = raw;
+		}
+
 		// 하위 효과를 읽는 동안만 깊이를 한 겹 올린다. 예외가 나도 반드시 되돌린다.
 		PARSE_DEPTH.set(depth + 1);
 		List<PerkEffect> whenTrue;
@@ -203,7 +296,7 @@ public final class ConditionalEffect implements PerkEffect {
 			return null;
 		}
 
-		return new ConditionalEffect(condition, threshold, whenTrue, whenFalse);
+		return new ConditionalEffect(condition, threshold, distance, whenTrue, whenFalse);
 	}
 
 	/**
@@ -270,11 +363,25 @@ public final class ConditionalEffect implements PerkEffect {
 	// ------------------------------------------------------------------ 판정
 
 	/**
-	 * 이 조건이 지금 참인지.
+	 * 이 조건이 지금 참인지. 팀 공유 값만 보고 판정한다.
 	 *
 	 * <p>팀 상태를 모르면(팀이 없거나 아직 준비되지 않았으면) 거짓으로 본다.
+	 *
+	 * <p><b>{@link Condition#perPlayer()} 인 조건은 여기서 언제나 거짓이다.</b> 볼 사람이 없기
+	 * 때문이다. 그런 조건은 {@link #matches(TeamState, ServerPlayer)} 를 써야 한다.
 	 */
 	public boolean matches(@Nullable TeamState state) {
+		return matches(state, null);
+	}
+
+	/**
+	 * 이 조건이 이 사람에게 지금 참인지.
+	 *
+	 * <p>팀 공유 조건은 {@code player} 를 보지 않으므로 null 을 넘겨도 결과가 같다.
+	 * 사람을 거쳐야 하는 조건({@code in_water}·{@code team_nearby})만 {@code player} 를 쓰고,
+	 * 없으면 거짓으로 본다.
+	 */
+	public boolean matches(@Nullable TeamState state, @Nullable ServerPlayer player) {
 		if (state == null) {
 			return false;
 		}
@@ -283,7 +390,48 @@ public final class ConditionalEffect implements PerkEffect {
 			case HEALTH_FULL -> healthRatio(state) >= 1.0 - EPSILON;
 			case HEALTH_BELOW -> healthRatio(state) <= threshold + EPSILON;
 			case HEALTH_ABOVE -> healthRatio(state) > threshold + EPSILON;
+			case IN_WATER -> player != null && player.isInWater();
+			case TEAM_NEARBY -> teamNearby(player);
 		};
+	}
+
+	/**
+	 * 이 사람의 팀이 지금 {@link #distance} 안에 뭉쳐 있는가.
+	 *
+	 * <p>거리는 {@link TeamProximity} 가 1초마다 한 번 재 둔 값을 쓴다. 여기가 하는 일은 팀을
+	 * 찾아 그 값을 물어보는 것뿐이라, {@link ConditionalPerkManager} 가 반 초마다 물어봐도
+	 * 실제로 바뀌는 것은 1초에 한 번이다. 답이 같으면 {@link #refresh} 가 아무 일도 하지 않으므로
+	 * 따로 주기를 두지 않았다 — 나머지 절반은 맵 조회 한 번으로 끝난다.
+	 *
+	 * <p>팀 상태를 읽는 중에 무슨 일이 생겨도 밖으로 내보내지 않는다. 이 판정은 서버 틱
+	 * 한가운데서 불리므로, 예외 하나가 남은 증강들의 갱신까지 통째로 멈추면 안 된다.
+	 */
+	private boolean teamNearby(@Nullable ServerPlayer player) {
+		if (player == null) {
+			return false;
+		}
+		try {
+			MinecraftServer server = player.level().getServer();
+			if (server == null) {
+				return false;
+			}
+			ShareTeam team = TeamManager.get(server).teamOf(player.getUUID());
+			// 정의에 적힌 거리를 그대로 넘긴다. 세트 「결속 3」의 배율은 저쪽에서 먹인다.
+			return team != null && TeamProximity.together(team.teamId(), distance);
+		} catch (RuntimeException error) {
+			warnProximityOnce(error);
+			return false;
+		}
+	}
+
+	/** 뭉침 판정이 실패했다고 한 번만 알린다. 매 판정마다 남기면 로그가 초당 수십 줄로 불어난다. */
+	private static void warnProximityOnce(RuntimeException error) {
+		if (proximityWarned) {
+			return;
+		}
+		proximityWarned = true;
+		SharedFateMod.LOGGER.warn(
+				"team_nearby 조건이 팀의 뭉침을 확인하지 못했습니다. 이 경고는 한 번만 남습니다.", error);
 	}
 
 	/** 팀 공유 체력의 비율. 최대 체력이 이상한 값이면 0 으로 본다. */
@@ -313,7 +461,7 @@ public final class ConditionalEffect implements PerkEffect {
 		if (state == null) {
 			return;
 		}
-		boolean met = matches(state);
+		boolean met = matches(state, player);
 		switchTo(player, met);
 		applied.put(player.getUUID(), met);
 	}
@@ -344,7 +492,7 @@ public final class ConditionalEffect implements PerkEffect {
 		if (state == null) {
 			return false;
 		}
-		boolean met = matches(state);
+		boolean met = matches(state, player);
 		Boolean previous = applied.get(player.getUUID());
 		if (previous != null && previous == met) {
 			return false;
@@ -362,6 +510,16 @@ public final class ConditionalEffect implements PerkEffect {
 	/** 기억해 둔 판정을 모두 버린다. 서버가 멈출 때 다음 회차로 새어나가지 않게 한다. */
 	public void forgetAll() {
 		applied.clear();
+	}
+
+	/**
+	 * 한 번만 남기기로 한 경고들을 다시 낼 수 있게 되돌린다.
+	 *
+	 * <p>서버가 멈출 때 {@link ConditionalPerkManager#reset} 이 부른다. 되돌리지 않으면 첫 회차에
+	 * 한 번 실패한 뒤로는 다음 회차에서 같은 문제가 나도 영영 조용해진다.
+	 */
+	public static void forgetAllWarnings() {
+		proximityWarned = false;
 	}
 
 	/** 지는 쪽을 먼저 떼고 이기는 쪽을 붙인다. 두 묶음이 같은 대상을 건드려도 순서가 안전하다. */
@@ -441,13 +599,21 @@ public final class ConditionalEffect implements PerkEffect {
 		return Double.isFinite(total) && total > 0.0 ? total : 1.0;
 	}
 
-	/** 지금 조회의 대상이 누구인지 알아내 조건을 판정한다. 알 수 없으면 null. */
+	/**
+	 * 지금 조회의 대상이 누구인지 알아내 조건을 판정한다. 알 수 없으면 null.
+	 *
+	 * <p>배율 조회에는 {@code UUID} 만 오고 {@code ServerPlayer} 가 없다. 그래서 사람마다
+	 * 판정하는 조건({@code in_water})은 다시 재지 못하고 <b>마지막 갱신 때 기억해 둔 판정</b>을
+	 * 쓴다. 반 초마다 다시 보므로 그 사이의 어긋남은 최대 반 초다.
+	 */
 	private @Nullable Boolean resolveCondition() {
 		UUID target = ConditionalPerkManager.multiplierContext();
 		if (target != null) {
-			TeamState state = TeamLookup.stateOf(target);
-			if (state != null) {
-				return matches(state);
+			if (!condition.perPlayer()) {
+				TeamState state = TeamLookup.stateOf(target);
+				if (state != null) {
+					return matches(state);
+				}
 			}
 			Boolean remembered = applied.get(target);
 			if (remembered != null) {
@@ -478,6 +644,11 @@ public final class ConditionalEffect implements PerkEffect {
 
 	public double threshold() {
 		return threshold;
+	}
+
+	/** {@code team_nearby} 가 요구하는 거리(블록). 다른 조건에서는 0 이다. */
+	public double distance() {
+		return distance;
 	}
 
 	public List<PerkEffect> whenTrue() {

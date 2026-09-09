@@ -2,6 +2,8 @@ package com.sharedfate.perk;
 
 import com.sharedfate.TestBootstrap;
 import com.sharedfate.perk.effect.AttributeEffect;
+import com.sharedfate.perk.effect.RallyShardEffect;
+import com.sharedfate.perk.effect.SwapBlockEffect;
 import com.sharedfate.perk.effect.DropReplaceEffect;
 import com.sharedfate.perk.effect.ConditionalEffect;
 import com.sharedfate.perk.effect.DamageTakenEffect;
@@ -14,6 +16,7 @@ import com.sharedfate.perk.effect.NoDamageBoostEffect;
 import com.sharedfate.perk.effect.OnKillEffect;
 import com.sharedfate.perk.effect.OreExchangeEffect;
 import com.sharedfate.perk.effect.RarityGrantEffect;
+import com.sharedfate.perk.effect.StatusEffectPerk;
 import com.sharedfate.perk.effect.WeaponDamageEffect;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import org.junit.jupiter.api.AfterEach;
@@ -27,6 +30,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -82,13 +86,20 @@ class DefaultPerkPoolValuesTest {
 		assertEquals(2.5, damageTaken.multiplier(), 1.0e-9);
 	}
 
+	/**
+	 * 제왕은 <b>고른 사람에게 고정</b>이고 대가는 −15% 다.
+	 *
+	 * <p>예전에는 1분마다 무작위로 옮겨 다녔다. 가호 유형이 「고른 사람 하나」로 정해지면서
+	 * {@code fixed_to_owner} 로 바뀌었고, 그때부터 {@code rotate_ticks}·{@code min_hold_ticks}·
+	 * {@code pass_on_hurt} 는 <b>읽히기는 하지만 무시되는</b> 값이 되어 서버가 뜰 때마다 경고를
+	 * 남겼다. 2026-09-09 에 정의에서 걷어냈다.
+	 */
 	@Test
-	void 제왕과_신하는_1분마다_바뀌고_대가는_15퍼센트다(@TempDir Path dir) throws IOException {
+	void 제왕과_신하는_고른_사람에게_고정이고_대가는_15퍼센트다(@TempDir Path dir) throws IOException {
 		Perk perk = perk(dir, "sharedfate:king_and_subjects");
 		HolderEffect holder = assertInstanceOf(HolderEffect.class, perk.effects().get(0));
 
-		assertEquals(1200, holder.rotateTicks(), "1분 = 1200틱");
-		assertEquals(200, holder.minHoldTicks());
+		assertTrue(holder.fixedToOwner(), "고른 사람에게 고정이어야 한다");
 		AttributeEffect penalty = assertInstanceOf(AttributeEffect.class, holder.onOthers().get(0));
 		assertEquals(-0.15, penalty.amount(), 1.0e-9);
 	}
@@ -333,6 +344,56 @@ class DefaultPerkPoolValuesTest {
 	}
 
 	/**
+	 * 「아가미」는 물에 있을 때만 켜지고, 물 이동 속도는 조건 밖에 있다.
+	 *
+	 * <p>물 이동 효율 속성은 <b>물속에서만 뜻이 있는 값</b>이라 조건 안에 넣을 필요가 없다.
+	 * 조건 안으로 옮기면 반 초마다 수정자를 뗐다 붙이게 되어 얻는 것 없이 일만 늘어난다.
+	 * 반대로 재생을 조건 밖으로 꺼내면 땅에서도 계속 회복되어 증강이 통째로 달라진다.
+	 */
+	@Test
+	void 아가미는_물에_있을_때만_회복한다(@TempDir Path dir) throws IOException {
+		Perk perk = perk(dir, "sharedfate:gills");
+
+		ConditionalEffect conditional = assertInstanceOf(ConditionalEffect.class,
+				perk.effects().get(0));
+		assertEquals(ConditionalEffect.Condition.IN_WATER, conditional.condition());
+		assertTrue(conditional.whenFalse().isEmpty(), "땅에서는 아무것도 붙지 않는 것이 대가다");
+		assertInstanceOf(StatusEffectPerk.class, conditional.whenTrue().get(0));
+
+		// 물속에서만 뜻이 있는 속성이라 조건 밖에 둔다. 없으면 여기서 걸린다.
+		AttributeEffect water = attributeEffect(perk, "minecraft:water_movement_efficiency");
+		assertEquals(0.15, water.amount(), 1.0e-9);
+	}
+
+	/**
+	 * 「소집의 조각」의 교환 막힘은 <b>조용한 쪽</b>이어야 한다.
+	 *
+	 * <p>{@code silent} 을 빠뜨려도 증강은 그대로 읽히고 개수 시험도 통과한다. 그런데 그러면
+	 * 자리만 안 바뀌고 부수효과는 주기마다 계속 돌아, 「시차」를 함께 가진 팀은 힘·재생만
+	 * 공짜로 받고 「정거장」을 함께 가진 팀은 나약함만 계속 문다. 코드가 아니라 <b>정의 한
+	 * 글자</b>로 갈리는 자리라 여기서 못박는다.
+	 */
+	@Test
+	void 소집의_조각은_조용한_막힘을_쓴다(@TempDir Path dir) throws IOException {
+		Perk perk = perk(dir, "sharedfate:rally_shard");
+
+		SwapBlockEffect block = perk.effects().stream()
+				.filter(SwapBlockEffect.class::isInstance)
+				.map(SwapBlockEffect.class::cast)
+				.findFirst()
+				.orElseThrow(() -> new AssertionError("swap_block 이 없다"));
+		assertSame(SwapBlockEffect.SILENT, block, "silent 를 빠뜨리면 부수효과만 주기마다 돈다");
+
+		RallyShardEffect shard = perk.effects().stream()
+				.filter(RallyShardEffect.class::isInstance)
+				.map(RallyShardEffect.class::cast)
+				.findFirst()
+				.orElseThrow(() -> new AssertionError("rally_shard 가 없다"));
+		assertEquals(60, shard.freezeTicks(), "굳는 시간은 3초다");
+		assertEquals(4800, shard.cooldownTicks(), "쿨타임은 4분이다");
+	}
+
+	/**
 	 * 기본 풀이 <b>한 개도 버려지지 않고</b> 전부 읽힌다.
 	 *
 	 * <p>이 시험이 지키는 것은 개수가 아니라 <b>조용한 실패</b>다. {@link PerkRegistry} 는
@@ -348,19 +409,21 @@ class DefaultPerkPoolValuesTest {
 	void 기본_풀은_하나도_버려지지_않고_읽힌다(@TempDir Path dir) throws IOException {
 		loadDefaultPool(dir);
 
-		assertEquals(82, PerkRegistry.all().size(),
+		assertEquals(94, PerkRegistry.all().size(),
 				"파일에 적힌 수와 읽힌 수가 다르면 효과 타입이 등록되지 않은 것이다");
 
 		long silver = PerkRegistry.all().stream().filter(p -> p.rarity() == PerkRarity.SILVER).count();
 		long gold = PerkRegistry.all().stream().filter(p -> p.rarity() == PerkRarity.GOLD).count();
 		long prism = PerkRegistry.all().stream().filter(p -> p.rarity() == PerkRarity.PRISM).count();
-		assertEquals(31, silver, "실버");
-		assertEquals(32, gold, "골드");
-		assertEquals(19, prism, "프리즘");
+		assertEquals(34, silver, "실버");
+		assertEquals(36, gold, "골드");
+		assertEquals(24, prism, "프리즘");
 
 		// 등록을 빠뜨리면 여기서 먼저 걸린다.
 		for (String id : new String[] {"sharedfate:grounded_guard", "sharedfate:arcane_workshop",
-				"sharedfate:diamond_sundial", "sharedfate:final_movement"}) {
+				"sharedfate:diamond_sundial", "sharedfate:final_movement",
+				"sharedfate:rally_shard", "sharedfate:bloodlust",
+				"sharedfate:cushion"}) {
 			assertTrue(PerkRegistry.byId(id).isPresent(), id + " 가 풀에서 빠졌다");
 		}
 	}
