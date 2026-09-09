@@ -487,10 +487,14 @@
         },
         {
           "count": 3,
-          "description": "다시 뽑으면 프리즘 등급만 나옵니다.",
+          "description": "다시 뽑기 횟수를 3회 더 받고, 다시 뽑으면 프리즘 등급만 나옵니다.",
           "effects": [
             {
               "type": "prism_reroll"
+            },
+            {
+              "type": "extra_rerolls",
+              "amount": 3
             }
           ]
         }
@@ -654,6 +658,36 @@
           "effects": [
             {
               "type": "no_attack_damage_loss"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "blessing",
+      "tiers": [
+        {
+          "count": 3,
+          "description": "가호 증강의 효과가 강화됩니다.",
+          "effects": []
+        },
+        {
+          "count": 4,
+          "description": "강화가 사라지는 대신, 가호 증강의 효과를 팀원 전원이 받습니다.",
+          "effects": []
+        }
+      ]
+    },
+    {
+      "type": "bond",
+      "tiers": [
+        {
+          "count": 3,
+          "description": "결속 증강의 거리가 1.5배로 늘어납니다.",
+          "effects": [
+            {
+              "type": "proximity_range",
+              "multiplier": 1.5
             }
           ]
         }

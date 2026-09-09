@@ -283,6 +283,39 @@ class ConditionalEffectTest {
 		assertFalse(effect.matches(state(20.0F, 0)));
 	}
 
+	/**
+	 * {@code in_water} 는 팀 공유 값이 아니라 사람마다 본다.
+	 *
+	 * <p>실제로 물에 있는지는 살아 있는 플레이어가 있어야 알 수 있으므로 여기서는 <b>사람 없이
+	 * 물어보면 거짓</b>이라는 것과 갈래 표시만 못박는다. 이 규칙이 무너지면 팀 공유 조건처럼
+	 * 취급되어 물에 안 들어간 팀원까지 효과를 받는다.
+	 */
+	@Test
+	void 물속_판정은_사람마다_본다() {
+		ConditionalEffect effect = parse("""
+				{ "type": "conditional", "condition": "in_water",
+				  "when_true": [ { "type": "status_effect", "effect": "minecraft:regeneration" } ] }
+				""");
+
+		assertEquals(ConditionalEffect.Condition.IN_WATER, effect.condition());
+		assertTrue(effect.condition().perPlayer(), "사람마다 판정하는 조건이다");
+		assertFalse(effect.condition().needsThreshold(), "threshold 를 쓰지 않는다");
+
+		assertFalse(effect.matches(state(20.0F, 20)),
+				"사람 없이 팀 상태만으로는 물에 있는지 알 수 없다");
+		assertFalse(effect.matches(state(20.0F, 20), null));
+		assertFalse(effect.matches(null, null));
+	}
+
+	@Test
+	void 팀_공유_조건은_사람을_보지_않는다() {
+		ConditionalEffect effect = parse(PREDATOR);
+
+		assertFalse(effect.condition().perPlayer());
+		assertEquals(effect.matches(state(20.0F, 20)), effect.matches(state(20.0F, 20), null),
+				"팀 공유 조건은 사람이 있든 없든 같은 답이어야 한다");
+	}
+
 	@Test
 	void 체력_만피_판정() {
 		ConditionalEffect effect = parse("""
@@ -441,6 +474,123 @@ class ConditionalEffectTest {
 				"거짓 쪽 상태이상도 마찬가지다");
 
 		PerkRegistry.clear();
+	}
+
+	// ------------------------------------------------------------------ 뭉침 조건
+
+	/** 실버 「발맞춰 걷기」가 쓰는 형태. 15칸 안에 전원이 있으면 이동 속도·공격력·재생. */
+	private static final String IN_STEP = """
+			{
+			  "type": "conditional",
+			  "condition": "team_nearby",
+			  "distance": 15,
+			  "when_true": [
+			    { "type": "attribute", "attribute": "minecraft:movement_speed",
+			      "operation": "add_multiplied_base", "amount": 0.15 },
+			    { "type": "attribute", "attribute": "minecraft:attack_damage",
+			      "operation": "add_multiplied_base", "amount": 0.15 },
+			    { "type": "status_effect", "effect": "minecraft:regeneration", "amplifier": 0 }
+			  ]
+			}
+			""";
+
+	@Test
+	void 뭉침_조건을_읽는다() {
+		ConditionalEffect effect = parse(IN_STEP);
+
+		assertEquals(ConditionalEffect.Condition.TEAM_NEARBY, effect.condition());
+		assertEquals(15.0, effect.distance(), 1.0e-9);
+		assertEquals(3, effect.whenTrue().size());
+		assertTrue(effect.whenFalse().isEmpty(), "뭉치지 않았을 때는 아무것도 붙지 않는다");
+	}
+
+	@Test
+	void 뭉침_조건은_거리를_요구하고_기준값은_요구하지_않는다() {
+		ConditionalEffect.Condition nearby = ConditionalEffect.Condition.TEAM_NEARBY;
+
+		assertTrue(nearby.needsDistance(), "distance 가 없으면 얼마나 붙어야 하는지 알 수 없다");
+		assertFalse(nearby.needsThreshold(), "체력 비율과는 상관이 없다");
+		assertSame(nearby, ConditionalEffect.Condition.fromId(" Team_Nearby "));
+	}
+
+	@Test
+	void 뭉침_조건은_거리가_없거나_범위를_벗어나면_버린다() {
+		String template = """
+				{ "type": "conditional", "condition": "team_nearby", %s
+				  "when_true": [ { "type": "damage_dealt", "multiplier": 1.2 } ] }
+				""";
+
+		assertNull(ConditionalEffect.fromJson("sharedfate:test", 0, json(template.formatted(""))),
+				"team_nearby 에는 distance 가 반드시 있어야 한다");
+		assertNull(ConditionalEffect.fromJson("sharedfate:test", 0,
+				json(template.formatted("\"distance\": 1,"))),
+				"proximity 와 같은 하한 아래는 사실상 발동하지 않는다");
+		assertNull(ConditionalEffect.fromJson("sharedfate:test", 0,
+				json(template.formatted("\"distance\": 100000,"))));
+	}
+
+	@Test
+	void 거리를_쓰지_않는_조건의_거리는_0이다() {
+		assertEquals(0.0, parse(PREDATOR).distance(), 1.0e-9);
+		// 상관없는 조건에 distance 를 적어 두어도 읽지 않는다. 기존 정의가 깨지지 않아야 한다.
+		assertEquals(0.0, parse("""
+				{ "type": "conditional", "condition": "hunger_full", "distance": 15,
+				  "when_true": [ { "type": "damage_dealt", "multiplier": 1.2 } ] }
+				""").distance(), 1.0e-9);
+	}
+
+	/**
+	 * {@code team_nearby} 도 사람을 거쳐야 판정할 수 있다.
+	 *
+	 * <p>답 자체는 팀 전체가 같지만 {@link TeamState} 에는 팀 id 가 없어서, 사람 없이 팀 상태만
+	 * 들고는 어느 팀의 뭉침을 물어봐야 할지 알 수 없다. 이 규칙이 무너지면 팀 공유 조건으로
+	 * 취급되어 배율 조회가 언제나 「뭉치지 않았다」로 굳는다.
+	 */
+	@Test
+	void 뭉침_판정은_사람이_없으면_거짓이다() {
+		ConditionalEffect effect = parse(IN_STEP);
+
+		assertTrue(effect.condition().perPlayer(), "사람을 거쳐야 하는 조건이다");
+		assertFalse(effect.matches(state(20.0F, 20)),
+				"사람 없이 팀 상태만으로는 어느 팀인지 알 수 없다");
+		assertFalse(effect.matches(state(20.0F, 20), null));
+		assertFalse(effect.matches(null, null));
+	}
+
+	/** 프리즘 「운명 공동체」가 쓰는 형태. 20칸 안에 전원이 있으면 공격력과 받는 피해. */
+	@Test
+	void 운명_공동체_묶음을_읽는다() {
+		ConditionalEffect effect = parse("""
+				{
+				  "type": "conditional",
+				  "condition": "team_nearby",
+				  "distance": 20,
+				  "when_true": [
+				    { "type": "attribute", "attribute": "minecraft:attack_damage",
+				      "operation": "add_multiplied_base", "amount": 0.5 },
+				    { "type": "damage_taken", "multiplier": 0.85 }
+				  ]
+				}
+				""");
+
+		assertEquals(20.0, effect.distance(), 1.0e-9);
+		assertEquals(0.85, effect.damageTakenMultiplier(true), 1.0e-9,
+				"뭉쳐 있는 동안만 받는 피해가 줄어야 한다");
+		assertEquals(1.0, effect.damageTakenMultiplier(false), 1.0e-9,
+				"흩어지면 감면이 사라진다");
+	}
+
+	@Test
+	void 뭉침_조건도_하위_순번_규칙을_그대로_따른다() {
+		ConditionalEffect effect = parse(IN_STEP);
+
+		AttributeEffect speed = assertInstanceOf(AttributeEffect.class, effect.whenTrue().get(0));
+		AttributeEffect attack = assertInstanceOf(AttributeEffect.class, effect.whenTrue().get(1));
+
+		assertNotEquals(speed.modifierId(), attack.modifierId(),
+				"같은 묶음 안의 두 속성이 같은 식별자를 쓰면 서로를 덮어쓴다");
+		assertEquals(AttributeEffect.modifierId("sharedfate:test", ConditionalEffect.childIndex(0, 0)),
+				speed.modifierId());
 	}
 
 	@Test

@@ -30,6 +30,13 @@ import java.util.UUID;
  * {@link ToolMismatchSlowEffect}({@code tool_mismatch_slow}) 가 손에 든 것을 다시 보는 데 이
  * 주기를 쓴다.
  *
+ * <h2>반 초보다 느리게 도는 조건도 있다</h2>
+ * <p>{@code team_nearby} 는 {@link com.sharedfate.sync.TeamProximity} 가 <b>1초에 한 번</b> 재 둔
+ * 값을 본다. 그러니 반 초마다 물어보면 두 번 중 한 번은 반드시 지난번과 같은 답이다. 그렇다고
+ * 이 조건만 따로 느린 주기로 돌리지는 않았다 — 답이 같으면
+ * {@link ConditionalEffect#refresh} 가 아무 일도 하지 않으므로, 헛도는 절반의 값은 맵 조회
+ * 한 번뿐이다. 주기를 하나 더 두고 그 상태를 따로 관리하는 쪽이 오히려 비싸다.
+ *
  * <h2>반 초로는 늦은 효과가 있다</h2>
  * <p>{@link SneakSpeedEffect}({@code sneak_speed}) 는 웅크림을 본다. 웅크림은 순간마다 바뀌고
  * 웅크림을 푼 뒤에도 수정자가 남아 있으면 서서 걷는 동안까지 빨라지므로, 반 초를 기다릴 수
@@ -212,6 +219,9 @@ public final class ConditionalPerkManager {
 		tickCounter = 0;
 		multiplierContext = null;
 		warned = false;
+		// 한 번만 남기기로 한 경고도 함께 되돌린다. 그러지 않으면 첫 회차에 한 번 실패한 뒤로
+		// 다음 회차에서 같은 문제가 나도 로그가 조용하다.
+		ConditionalEffect.forgetAllWarnings();
 		for (Perk perk : PerkRegistry.all()) {
 			for (PerkEffect effect : perk.effects()) {
 				if (effect instanceof ConditionalEffect conditional) {

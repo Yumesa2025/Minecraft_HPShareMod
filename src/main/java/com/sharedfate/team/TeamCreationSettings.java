@@ -56,13 +56,33 @@ public record TeamCreationSettings(boolean perksEnabled, boolean damageAlertEnab
 	 */
 	public static final int DEFAULT_REROLL_COUNT = 3;
 
-	/** {@code /shareteam create ... reroll <값>} 이 받는 범위. 0 이면 다시 뽑기를 안 쓰는 팀이다. */
+	/**
+	 * {@code /shareteam create ... reroll <값>} 이 받는 범위. 0 이면 다시 뽑기를 안 쓰는 팀이다.
+	 *
+	 * <p><b>이 상한은 세트 보상의 상한이기도 하다.</b> 「도박 2」(5회)와 「도박 3」(3회)이 둘 다
+	 * 켜지면 세트 몫만 8회인데, {@code TeamState.sanitizeRerollSetBonus} 가 그 몫을
+	 * {@code 상한 − 회차당 허용치} 로 접는다. 10 이던 시절에는 허용치 3인 팀에서 몫이 7로
+	 * 잘려 「3회 더」가 실제로는 2회밖에 안 늘었다. 15 로 올려 두 단계를 온전히 받게 했다.
+	 */
 	public static final int MIN_REROLL_COUNT = 0;
-	public static final int MAX_REROLL_COUNT = 10;
+	public static final int MAX_REROLL_COUNT = 15;
 
 	/** 손상된 저장값이나 조작된 값을 허용 범위 안으로 접는다. */
 	public static int sanitizeRerollCount(int value) {
 		return Math.max(MIN_REROLL_COUNT, Math.min(MAX_REROLL_COUNT, value));
+	}
+
+	/**
+	 * 위치 교환 주기를 허용 범위 안으로 접는다. {@link #SWAP_DISABLED}(끔)는 그대로 둔다.
+	 *
+	 * <p>상한을 줄일 때 예전 명단이 죽지 않게 하는 것이 이 함수가 있는 이유다.
+	 */
+	public static int sanitizeSwapMinutes(int value) {
+		if (value == SWAP_DISABLED) {
+			return SWAP_DISABLED;
+		}
+		return Math.max(TeamState.PositionSwapLimits.MIN_MINUTES,
+				Math.min(TeamState.PositionSwapLimits.MAX_MINUTES, value));
 	}
 
 	private static final float ABSOLUTE_MIN_HEALTH = 1.0F;
@@ -74,14 +94,12 @@ public record TeamCreationSettings(boolean perksEnabled, boolean damageAlertEnab
 		maxHealth = Float.isFinite(maxHealth)
 				? Math.max(ABSOLUTE_MIN_HEALTH, Math.min(ABSOLUTE_MAX_HEALTH, maxHealth))
 				: 20.0F;
-		// 반면 주기는 명령이 이미 1~120 으로 걸러서 넘긴다. 벗어난 값이 오면 부르는 쪽의
-		// 버그이므로 TeamState.enablePositionSwap 과 똑같이 예외로 알린다.
-		if (swapIntervalMinutes != SWAP_DISABLED
-				&& (swapIntervalMinutes < TeamState.PositionSwapLimits.MIN_MINUTES
-						|| swapIntervalMinutes > TeamState.PositionSwapLimits.MAX_MINUTES)) {
-			throw new IllegalArgumentException("위치 교환 주기는 1~120분이어야 합니다.");
-		}
-		// 다시 뽑기 횟수는 최대 체력과 같은 결로 조용히 접는다. 명령이 이미 0~10 으로 거르지만
+		// 주기도 최대 체력과 같은 결로 조용히 접는다. 예전에는 예외로 알렸는데, 2026-09-09 에
+		// 상한을 120 에서 30 으로 줄이면서 그 길이 위험해졌다 — 예전에 120분으로 만든 팀이
+		// 명단 파일에 남아 있으면 팀을 읽는 순간 죽는다. 값 하나 때문에 팀이 통째로 사라지는
+		// 것보다 접는 쪽이 낫다.
+		swapIntervalMinutes = sanitizeSwapMinutes(swapIntervalMinutes);
+		// 다시 뽑기 횟수는 최대 체력과 같은 결로 조용히 접는다. 명령이 이미 0~15 로 거르지만
 		// 예전 형식의 팀 명단 파일에서도 흘러들어오는 값이라, 그것 때문에 팀 만들기가 죽으면 안 된다.
 		rerollCount = sanitizeRerollCount(rerollCount);
 	}

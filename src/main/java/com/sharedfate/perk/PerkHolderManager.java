@@ -2,8 +2,11 @@ package com.sharedfate.perk;
 
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.effect.HolderEffect;
+import com.sharedfate.perk.effect.HolderEffect.HolderMode;
+import com.sharedfate.perk.effect.HolderEffect.ModeResolver;
 import com.sharedfate.sync.TitleMessenger;
 import com.sharedfate.team.ShareTeam;
+import com.sharedfate.team.TeamLookup;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
 import net.minecraft.network.chat.Component;
@@ -63,6 +66,19 @@ import java.util.function.IntUnaryOperator;
  * <p>주인이 적혀 있지 않은 경우도 있다. 「숨은 재능」처럼 다른 증강이 덤으로 준 증강은 고른
  * 사람이 없다. 그때는 <b>처음 뽑힌 사람을 그대로 주인으로 삼아 적어 둔다.</b> 한 번 정해지면
  * 그 뒤로는 진짜 주인과 똑같이 고정된다.
+ *
+ * <h2>{@link HolderMode} — 강화와 「전원에게」</h2>
+ * <p>{@link HolderEffect} 는 모드에 따라 다른 묶음을 붙인다. <b>지금 어느 모드인가를 정하는
+ * 규칙은 이 클래스가 모른다.</b> 세트 정의와 세트 유형을 아는 쪽이
+ * {@link #setModeResolver}(으)로 판정기를 꽂아 주고, 여기서는 그 답을 받아 나른다.
+ * 판정기를 꽂지 않으면 언제나 {@link HolderMode#NORMAL} 이라, 이 기능을 쓰지 않는 서버에서는
+ * 팀 상태를 찾아보는 일조차 하지 않는다.
+ *
+ * <p><b>모드가 바뀌는 순간이 이 확장에서 가장 위험한 자리다.</b> 이전 모드의 효과가 남아 있으면
+ * 속성 수정자가 그대로 두 번 더해진다. 그래서 팀마다 마지막으로 맞춰 둔 모드를
+ * {@link Holding#mode} 에 적어 두고, 답이 달라진 틱에 <b>접속 중인 팀원 전원</b>을 새 모드로
+ * 다시 맞춘다({@link #reconcileMode}). 실제로 무엇을 떼고 무엇을 붙일지는
+ * {@link HolderEffect#applyAs} 가 사람마다 기억해 둔 묶음을 보고 정확히 가른다.
  */
 public final class PerkHolderManager {
 	/** 보유자를 다시 살펴보는 주기. 반 초면 체감상 즉시 반응하는 것과 다르지 않다. */
@@ -86,6 +102,14 @@ public final class PerkHolderManager {
 		@Nullable UUID holder;
 		/** 보유가 시작된 시각({@link #now} 기준). 순환과 최소 유지 시간의 기준점이다. */
 		long since;
+		/**
+		 * 이 팀 전원을 마지막으로 맞춰 둔 모드.
+		 *
+		 * <p>매 틱 다시 판정하지만, 답이 이 값과 같으면 아무것도 하지 않는다. 모드가 그대로인
+		 * 보통의 틱에 팀 전원의 수정자를 뗐다 붙이면 성능도 나쁘고 최대 체력을 건드리는 수정자는
+		 * 현재 체력까지 깎는다. {@code ConditionalEffect} 가 판정을 기억해 두는 이유와 같다.
+		 */
+		HolderMode mode = HolderMode.NORMAL;
 	}
 
 	/** 한 증강의 최상위 {@code holder} 효과와 그 증강. 알림 문구에 증강 이름이 필요하다. */
@@ -101,7 +125,64 @@ public final class PerkHolderManager {
 	private static int cleanupCounter;
 	private static volatile boolean warned;
 
+	/**
+	 * 지금 어느 모드인지 정하는 판정기. 꽂지 않으면 언제나 {@link HolderMode#NORMAL} 이다.
+	 *
+	 * <p>세트 정의와 세트 유형을 아는 쪽이 한 번 꽂아 둔다. 여기서는 무엇을 보고 정하는지 알지
+	 * 못한다. 서버가 멈출 때도 지우지 않는다 — 모드 배선은 모드 초기화 때 한 번 하는 일이라,
+	 * 월드를 바꿀 때마다 지우면 두 번째 월드부터 스위치가 죽는다.
+	 */
+	private static volatile @Nullable ModeResolver modeResolver;
+
 	private PerkHolderManager() {
+	}
+
+	// ------------------------------------------------------------------ 모드 스위치
+
+	/**
+	 * 모드 판정기를 꽂는다. null 을 주면 언제나 {@link HolderMode#NORMAL} 로 돌아간다.
+	 *
+	 * <p><b>이것이 「가호」 같은 세트가 눌러야 할 스위치다.</b> 꽂는 쪽은 팀 상태와 증강 id 를
+	 * 받아 {@link HolderMode#resolve} 로 두 스위치를 접어 돌려주면 된다. 증강 id 로 <b>세트에
+	 * 속한 증강만</b> 골라야 한다. 팀 단위로만 판정하면 같은 팀이 함께 들고 있는 다른
+	 * {@code holder} 증강까지 덩달아 강화된다.
+	 */
+	public static void setModeResolver(@Nullable ModeResolver resolver) {
+		modeResolver = resolver;
+	}
+
+	/**
+	 * 이 팀에서 이 증강이 지금 어느 모드인가.
+	 *
+	 * <p>판정기가 없거나 예외를 내면 {@link HolderMode#NORMAL} 이다. 서버 틱 한가운데서 불리므로
+	 * 밖에서 꽂은 함수의 실수 때문에 보유자 처리 전체가 멈추게 두지 않는다.
+	 */
+	public static HolderMode modeOf(@Nullable TeamState state, @Nullable String perkId) {
+		ModeResolver resolver = modeResolver;
+		if (resolver == null) {
+			return HolderMode.NORMAL;
+		}
+		try {
+			HolderMode mode = resolver.resolve(state, perkId);
+			return mode == null ? HolderMode.NORMAL : mode;
+		} catch (RuntimeException error) {
+			warnOnce(error);
+			return HolderMode.NORMAL;
+		}
+	}
+
+	/**
+	 * 이 사람이 속한 팀에서 이 증강이 지금 어느 모드인가.
+	 *
+	 * <p>{@link HolderEffect} 가 플레이어 하나만 들고 부르는 자리다. 판정기를 꽂지 않았으면
+	 * 팀 상태를 찾아보지도 않는다 — 이 기능을 쓰지 않는 서버의 뜨거운 경로(피해 배율 조회)에
+	 * 아무 부담도 얹히지 않게 한다.
+	 */
+	public static HolderMode modeFor(@Nullable UUID player, @Nullable String perkId) {
+		if (player == null || modeResolver == null) {
+			return HolderMode.NORMAL;
+		}
+		return modeOf(TeamLookup.stateOf(player), perkId);
 	}
 
 	// ------------------------------------------------------------------ 조회
@@ -250,7 +331,7 @@ public final class PerkHolderManager {
 					if (owned.effect().fixedToOwner()) {
 						reconcileFixed(server, manager, team, state, owned);
 					} else {
-						reconcile(server, team, owned);
+						reconcile(server, team, state, owned);
 					}
 				}
 			}
@@ -278,6 +359,7 @@ public final class PerkHolderManager {
 		HolderEffect effect = owned.effect();
 		Holding holding = HOLDINGS.computeIfAbsent(
 				new Key(effect, team.teamId()), ignored -> new Holding());
+		reconcileMode(server, team, state, owned, holding);
 		List<UUID> online = onlineMembers(server, team);
 
 		UUID owner = state.perkOwners.get(owned.perk().id());
@@ -298,11 +380,41 @@ public final class PerkHolderManager {
 		assign(server, team, owned, holding, next, holding.holder, false);
 	}
 
+	/**
+	 * 모드가 지난번과 달라졌으면 <b>접속 중인 팀원 전원</b>을 새 모드로 다시 맞춘다.
+	 *
+	 * <p>모드가 바뀌면 누가 보유자인지와 무관하게 팀 전원이 받을 묶음이 달라질 수 있다
+	 * ({@link HolderMode#EVERYONE} 이 그렇다). 그래서 보유자 둘만 손보는 {@link #assign} 으로는
+	 * 모자라고, 여기서 한 번에 훑는다.
+	 *
+	 * <p>이전 모드의 효과를 실제로 걷어내는 일은 {@link HolderEffect#applyAs} 가 한다. 사람마다
+	 * 마지막에 붙여 준 묶음을 기억하고 있어서, 바뀐 사람만 정확히 그 묶음만 뗀다. 여기서
+	 * 「전부 걷어내고 다시 붙인다」로 하면 켜진 적도 없는 묶음까지 지워 포션 효과가 날아간다.
+	 *
+	 * <p>모드가 그대로면 아무 일도 하지 않는다. 보통의 틱에는 이 검사 한 번으로 끝난다.
+	 */
+	private static void reconcileMode(MinecraftServer server, ShareTeam team, TeamState state,
+			Owned owned, Holding holding) {
+		HolderMode mode = modeOf(state, owned.perk().id());
+		if (mode == holding.mode) {
+			return;
+		}
+		holding.mode = mode;
+		for (UUID member : team.members()) {
+			ServerPlayer online = server.getPlayerList().getPlayer(member);
+			if (online != null) {
+				owned.effect().applyAs(online, member.equals(holding.holder), mode);
+			}
+		}
+	}
+
 	/** 이 팀의 보유자가 아직 유효한지 보고, 아니면 넘기거나 새로 뽑는다. */
-	private static void reconcile(MinecraftServer server, ShareTeam team, Owned owned) {
+	private static void reconcile(MinecraftServer server, ShareTeam team, TeamState state,
+			Owned owned) {
 		HolderEffect effect = owned.effect();
 		Holding holding = HOLDINGS.computeIfAbsent(
 				new Key(effect, team.teamId()), ignored -> new Holding());
+		reconcileMode(server, team, state, owned, holding);
 		List<UUID> online = onlineMembers(server, team);
 
 		if (online.isEmpty()) {
@@ -359,13 +471,18 @@ public final class PerkHolderManager {
 		ServerPlayer nextPlayer = next == null ? null : server.getPlayerList().getPlayer(next);
 
 		if (previousPlayer != null && !previousPlayer.getUUID().equals(next)) {
-			effect.applyAs(previousPlayer, false);
+			effect.applyAs(previousPlayer, false, holding.mode);
 		}
 		if (nextPlayer != null) {
-			effect.applyAs(nextPlayer, true);
+			effect.applyAs(nextPlayer, true, holding.mode);
 		}
 		if (grantPass && previousPlayer != null && !previousPlayer.getUUID().equals(next)) {
 			effect.grantPassEffects(previousPlayer);
+		}
+		if (holding.mode == HolderMode.EVERYONE) {
+			// 전원이 같은 효과를 받는 동안에는 「누가 보유자인가」가 아무 뜻도 없다. 그런데도
+			// 알리면 「보유자가 접속을 끊어 …」 같은 문구가 버프는 그대로인 채로 뜬다.
+			return;
 		}
 		announce(server, team, owned, nextPlayer);
 	}
@@ -542,8 +659,18 @@ public final class PerkHolderManager {
 	 *
 	 * <p>보유자는 저장되지 않는 런타임 값이므로, 남겨 두면 다음 월드에 이전 회차의 보유자가
 	 * 그대로 딸려 들어간다. {@link PeriodicPerkManager#reset} 과 같은 자리에서 불린다.
+	 *
+	 * <p>효과가 사람마다 기억해 둔 묶음도 함께 버린다. 남겨 두면 다음 회차에서 「이미 그 묶음이
+	 * 붙어 있다」고 잘못 믿어 걷어내기를 건너뛴다. {@code ConditionalPerkManager} 가
+	 * {@code forgetAll} 을 부르는 것과 같은 이유다.
+	 *
+	 * <p>모드 판정기는 지우지 않는다. 모드 초기화 때 한 번 꽂는 배선이라, 월드를 바꿀 때마다
+	 * 지우면 두 번째 월드부터 스위치가 죽는다.
 	 */
 	public static void reset() {
+		for (Key key : HOLDINGS.keySet()) {
+			key.effect().forgetAll();
+		}
 		HOLDINGS.clear();
 		now = 0;
 		checkCounter = 0;

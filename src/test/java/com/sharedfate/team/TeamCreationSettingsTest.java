@@ -146,12 +146,27 @@ class TeamCreationSettingsTest {
 		assertEquals(1024.0F, TeamCreationSettings.defaults(99999.0F).maxHealth());
 	}
 
+	/**
+	 * 범위를 벗어난 교환 주기는 <b>조용히 접는다.</b>
+	 *
+	 * <p>예전에는 예외로 알렸는데, 2026-09-09 에 상한을 120 에서 30 으로 줄이면서 그 길이
+	 * 위험해졌다 — 예전에 120분으로 만든 팀이 명단 파일에 남아 있으면 <b>팀을 읽는 순간
+	 * 죽는다.</b> 값 하나 때문에 팀이 통째로 사라지는 것보다 접는 쪽이 낫다.
+	 */
 	@Test
-	void 명령이_거르지_못한_교환_주기는_예외로_알린다() {
-		assertThrows(IllegalArgumentException.class,
-				() -> TeamCreationSettings.defaults(20.0F).withSwapIntervalMinutes(121));
-		assertThrows(IllegalArgumentException.class,
-				() -> TeamCreationSettings.defaults(20.0F).withSwapIntervalMinutes(-1));
+	void 범위를_벗어난_교환_주기는_접는다() {
+		assertEquals(TeamState.PositionSwapLimits.MAX_MINUTES,
+				TeamCreationSettings.defaults(20.0F).withSwapIntervalMinutes(121)
+						.swapIntervalMinutes(),
+				"예전 명단의 120분도 팀을 죽이지 않고 상한으로 접힌다");
+		assertEquals(TeamState.PositionSwapLimits.MIN_MINUTES,
+				TeamCreationSettings.defaults(20.0F).withSwapIntervalMinutes(-1)
+						.swapIntervalMinutes());
+		// 「끔」은 범위 밖의 값이지만 접지 않는다. 0 은 주기가 아니라 상태다.
+		assertEquals(TeamCreationSettings.SWAP_DISABLED,
+				TeamCreationSettings.defaults(20.0F)
+						.withSwapIntervalMinutes(TeamCreationSettings.SWAP_DISABLED)
+						.swapIntervalMinutes());
 	}
 
 	// ------------------------------------------------------------------ 안내 문구

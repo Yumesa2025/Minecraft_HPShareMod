@@ -57,6 +57,9 @@ public final class ClientTeamState {
 		damageAlertEnabled = payload.damageAlertEnabled();
 		deathAlertEnabled = payload.deathAlertEnabled();
 		runStarted = payload.runStarted();
+		// 확장 인벤토리는 클라이언트가 스스로 셀 수 없다. 팀의 보유 증강을 모르기 때문이다.
+		com.sharedfate.inventory.ExpandedInventoryManager.setClientUnlockedSlots(
+				payload.unlockedExtraSlots());
 		leader = payload.isLeader(localPlayer);
 		for (TeamSyncPayload.Member member : payload.members()) {
 			MEMBER_NAMES.put(member.id(), member.name());

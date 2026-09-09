@@ -73,6 +73,10 @@ public final class RallyPointManager {
 	 *
 	 * <p>옮기다 한 명이라도 실패하면 {@code TeamGathering.gatherTeam}과 같은 정책으로 이미
 	 * 옮긴 사람을 되돌리고 아무 예약도 남기지 않는다.
+	 *
+	 * @param players 모일 사람들. {@code PositionSwapManager} 가 이미 골드 「열외」
+	 *                ({@code swap_exempt})를 빼고 넘긴다. 그래서 목적지로 뽑히는 사람도 열외가
+	 *                아니다 — 열외는 제자리에 남고, 나머지가 그 사람 없이 모인다
 	 */
 	public static void beginGather(ShareTeam team, List<ServerPlayer> players,
 			RandomGenerator random, List<SwapExplosionEffect> explosions) {

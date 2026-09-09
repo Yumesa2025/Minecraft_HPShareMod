@@ -20,7 +20,16 @@ public enum PerkSetType {
 	RECOVERY("회복", 2),
 	SWAP("교환", 2),
 	GAMBLE("도박", 2),
-	MOBILITY("기동", 2);
+	MOBILITY("기동", 2),
+	BLESSING("가호", 2),
+	/**
+	 * 결속 — 팀원이 뭉치면 강해진다.
+	 *
+	 * <p>단계가 <b>3 하나뿐</b>이다. 기동·가호와 같은 모양이고, 그 하나가 <b>모든 거리를
+	 * 1.5배로 늘리는 것</b> — 즉 이 유형의 제약 자체를 풀어 준다. 뭉치기 힘들어서 못 쓰던 것이
+	 * 모을수록 흩어져도 되는 것으로 바뀐다.
+	 */
+	BOND("결속", 2);
 
 	private final String displayName;
 	private final int threshold;

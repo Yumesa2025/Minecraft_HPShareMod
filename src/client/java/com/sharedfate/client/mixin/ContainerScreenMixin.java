@@ -46,9 +46,20 @@ public abstract class ContainerScreenMixin {
 	private static final int EXTRA_SLOT_BORDER = 0xFF373737;
 	private static final int EXTRA_SLOT_INNER = 0xFF8B8B8B;
 
-	/** 인벤토리 첫 줄 y 에서 그림 띠의 위쪽까지. 칸은 띠보다 1px 아래에서 시작한다. */
+	/**
+	 * 인벤토리 첫 줄 y 에서 그림 띠의 위쪽까지. 칸은 띠보다 1px 아래에서 시작한다.
+	 *
+	 * <p>바닐라 세 줄 바로 아래라 <b>해금 수와 무관하게 고정</b>이다. 달라지는 것은 그 아래로
+	 * 몇 줄을 그리느냐뿐이다.
+	 */
 	@Unique
-	private static final int BAND_OFFSET = ExpandedInventoryManager.EXTRA_PANEL_HEIGHT - 1;
+	private static final int BAND_OFFSET = ExpandedInventoryManager.EXTRA_TOP_OFFSET_FIXED - 1;
+
+	/** 지금 이 팀에 열려 있는 추가 칸 수. 서버가 보내 준 값이다. */
+	@Unique
+	private static int sharedfate$unlocked() {
+		return ExpandedInventoryManager.clientUnlockedSlots();
+	}
 	/** {@code inventory.png} 에서 인벤토리 한 줄이 있는 자리. */
 	@Unique
 	private static final int ROW_SOURCE_Y = 119;
@@ -102,14 +113,15 @@ public abstract class ContainerScreenMixin {
 		// x 에서 되짚어 인벤토리 그림의 왼쪽 끝을 구한다.
 		int panelLeft = sharedfate$extraSlot().x - 8;
 		int bandTop = inventoryTop + BAND_OFFSET;
-		for (int row = 0; row < ExpandedInventoryManager.EXTRA_ROWS; row++) {
+		int rows = ExpandedInventoryManager.rowsFor(sharedfate$unlocked());
+		for (int row = 0; row < rows; row++) {
 			graphics.blit(RenderPipelines.GUI_TEXTURED, AbstractContainerScreen.INVENTORY_LOCATION,
 					panelLeft, bandTop + row * ExpandedInventoryManager.SLOT_PITCH,
 					0.0F, (float) ROW_SOURCE_Y,
 					PANEL_WIDTH, ExpandedInventoryManager.SLOT_PITCH,
 					TEXTURE_SIZE, TEXTURE_SIZE);
 		}
-		int separatorTop = bandTop + ExpandedInventoryManager.EXTRA_PANEL_HEIGHT;
+		int separatorTop = bandTop + rows * ExpandedInventoryManager.SLOT_PITCH;
 		graphics.blit(RenderPipelines.GUI_TEXTURED, AbstractContainerScreen.INVENTORY_LOCATION,
 				panelLeft, separatorTop, 0.0F, (float) SEPARATOR_SOURCE_Y,
 				PANEL_WIDTH, SEPARATOR_HEIGHT, TEXTURE_SIZE, TEXTURE_SIZE);
@@ -170,7 +182,7 @@ public abstract class ContainerScreenMixin {
 		}
 		int wanted = sharedfate$baseImageHeight
 				+ (sharedfate$expandedInventoryTop() >= 0
-						? ExpandedInventoryManager.EXTRA_PANEL_HEIGHT : 0);
+						? ExpandedInventoryManager.panelHeightFor(sharedfate$unlocked()) : 0);
 		if (screen.sharedfate$getImageHeight() == wanted) {
 			return false;
 		}

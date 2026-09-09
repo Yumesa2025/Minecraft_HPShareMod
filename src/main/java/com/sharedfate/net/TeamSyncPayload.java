@@ -3,6 +3,7 @@ package com.sharedfate.net;
 import com.sharedfate.SharedFateMod;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import com.sharedfate.inventory.ExpandedInventoryManager;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -55,9 +56,14 @@ public record TeamSyncPayload(List<Member> members, String teamName, int xpLevel
 	 *                    「게임 시작」 단추를 그린다
 	 */
 	public record Options(boolean perks, boolean damageAlert, boolean deathAlert,
-			boolean runStarted) {
-		/** 넷 다 꺼진 상태. 팀에 속하지 않았을 때의 값이다. */
-		public static final Options NONE = new Options(false, false, false, false);
+			boolean runStarted, int unlockedExtraSlots) {
+		/**
+		 * 팀에 속하지 않았을 때의 값.
+		 *
+		 * <p>추가 칸은 기본 개수로 둔다. 팀이 없으면 어차피 확장 인벤토리가 통째로 접힌다.
+		 */
+		public static final Options NONE = new Options(false, false, false, false,
+				ExpandedInventoryManager.BASE_EXTRA_SIZE);
 
 		public static final StreamCodec<RegistryFriendlyByteBuf, Options> CODEC =
 				StreamCodec.composite(
@@ -65,7 +71,26 @@ public record TeamSyncPayload(List<Member> members, String teamName, int xpLevel
 						ByteBufCodecs.BOOL, Options::damageAlert,
 						ByteBufCodecs.BOOL, Options::deathAlert,
 						ByteBufCodecs.BOOL, Options::runStarted,
+						ByteBufCodecs.VAR_INT, Options::unlockedExtraSlots,
 						Options::new);
+
+		public Options {
+			// 클라이언트는 이 값으로 화면을 그린다. 범위를 벗어난 값이 오면 창이 깨지므로
+			// 받는 쪽에서도 접는다.
+			unlockedExtraSlots = Math.max(0,
+					Math.min(ExpandedInventoryManager.EXTRA_SIZE, unlockedExtraSlots));
+		}
+
+		/**
+		 * 추가 칸 수를 적지 않으면 기본 개수로 본다.
+		 *
+		 * <p>이 값이 생기기 전의 호출을 위한 자리다. 표준 생성자에 인자를 끼워 넣으면 그 자리를
+		 * 쓰던 곳이 전부 깨진다.
+		 */
+		public Options(boolean perks, boolean damageAlert, boolean deathAlert, boolean runStarted) {
+			this(perks, damageAlert, deathAlert, runStarted,
+					ExpandedInventoryManager.BASE_EXTRA_SIZE);
+		}
 	}
 
 	/** 팀에 속하지 않은 상태. */
@@ -94,6 +119,12 @@ public record TeamSyncPayload(List<Member> members, String teamName, int xpLevel
 	}
 
 	/** 이 팀이 증강을 쓰는가. */
+	/** 이 팀에 열려 있는 추가 인벤토리 칸 수. */
+	public int unlockedExtraSlots() {
+		return options == null
+				? ExpandedInventoryManager.BASE_EXTRA_SIZE : options.unlockedExtraSlots();
+	}
+
 	public boolean perksEnabled() {
 		return options.perks();
 	}

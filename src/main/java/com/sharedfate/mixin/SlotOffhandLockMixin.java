@@ -36,7 +36,12 @@ public abstract class SlotOffhandLockMixin {
 	)
 	private void sharedfate$lockOffhandSlot(ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
 		Slot self = (Slot) (Object) this;
-		if (self.index != Inventory.SLOT_OFFHAND
+		// index 가 아니라 getContainerSlot() 이어야 한다. Slot 에는 칸이 둘 있다 —
+		// getContainerSlot() 은 컨테이너 안의 자리(왼손은 40)이고, index 는 AbstractContainerMenu
+		// 가 addSlot 하며 덮어쓰는 화면 순번이다. 26.2 의 InventoryMenu 는 왼손 칸을 맨 마지막에
+		// 추가하므로 그 순번이 45 다. index 로 비교하면 생존 인벤토리에서는 핫바 5번 칸이,
+		// 상자를 열면 또 다른 칸이 잠긴다.
+		if (self.getContainerSlot() != Inventory.SLOT_OFFHAND
 				|| !(self.container instanceof Inventory inventory)
 				|| !(inventory.player instanceof ServerPlayer owner)) {
 			return;

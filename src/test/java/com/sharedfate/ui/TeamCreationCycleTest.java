@@ -1,6 +1,7 @@
 package com.sharedfate.ui;
 
 import com.sharedfate.team.TeamCreationSettings;
+import com.sharedfate.team.TeamState;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,14 +50,17 @@ class TeamCreationCycleTest {
 			assertTrue(steps < 100, "굴림이 끔으로 돌아오지 못하고 맴돌면 안 된다");
 		} while (minutes != TeamCreationCycle.SWAP_OFF);
 
-		assertEquals(11, steps, "끔 + 자리 열 개");
+		// 2026-09-09 에 상한이 30분으로 줄면서 45·60·90·120 자리가 사라졌다.
+		assertEquals(7, steps, "끔 + 자리 여섯 개(1·5·10·15·20·30)");
 	}
 
 	@Test
-	void 위치_교환_자리는_명령이_받는_1에서_120_사이다() {
+	void 위치_교환_자리는_명령이_받는_범위_안이다() {
 		int minutes = TeamCreationCycle.nextSwapMinutes(TeamCreationCycle.SWAP_OFF);
 		while (minutes != TeamCreationCycle.SWAP_OFF) {
-			assertTrue(minutes >= 1 && minutes <= 120, minutes + "분은 명령이 받지 못한다");
+			assertTrue(minutes >= TeamState.PositionSwapLimits.MIN_MINUTES
+							&& minutes <= TeamState.PositionSwapLimits.MAX_MINUTES,
+					minutes + "분은 명령이 받지 못한다");
 			minutes = TeamCreationCycle.nextSwapMinutes(minutes);
 		}
 	}

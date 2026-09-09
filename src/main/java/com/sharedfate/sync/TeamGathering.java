@@ -1,10 +1,15 @@
 package com.sharedfate.sync;
 
 import com.sharedfate.SharedFateMod;
+import com.sharedfate.perk.Perk;
 import com.sharedfate.perk.PerkChoiceSession;
+import com.sharedfate.perk.PerkEffect;
+import com.sharedfate.perk.PerkRegistry;
+import com.sharedfate.perk.PerkSetEffects;
 import com.sharedfate.perk.PerkSwapRules;
 import com.sharedfate.perk.effect.GatherEffect;
 import com.sharedfate.perk.effect.ProximityEffect;
+import com.sharedfate.perk.effect.ProximityRangeEffect;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
@@ -45,6 +50,11 @@ import java.util.random.RandomGenerator;
  *
  * <h2>모이는 지점</h2>
  * <p>팀원 중 <b>무작위 한 명의 현재 위치</b>다. 그 사람은 움직이지 않는다.
+ *
+ * <h2>거리를 넓히는 증강</h2>
+ * <p>{@link ProximityRangeEffect} 를 가진 팀은 정의에 적힌 거리 대신 배율을 먹인 거리로 잰다.
+ * <b>{@code proximity} 와 {@code gather} 에 같은 배율을 함께 먹인다.</b> 한쪽만 넓히면 늘어난
+ * 보상 거리에 닿기 전에 집합이 먼저 걸려, 넓힌 거리를 영영 쓸 수 없다.
  */
 public final class TeamGathering {
 	/** 거리를 재는 주기. 1초다. */
@@ -96,14 +106,19 @@ public final class TeamGathering {
 					continue;
 				}
 				List<ProximityEffect> proximities = PerkSwapRules.proximities(state);
-				if (!proximities.isEmpty()) {
-					tickProximity(server, team, proximities);
-				}
 				List<GatherEffect> gathers = PerkSwapRules.gathers(state);
+				if (proximities.isEmpty() && gathers.isEmpty()) {
+					continue;
+				}
+				// 두 판정이 같은 배율을 써야 하므로 한 번만 구해 둘 다에 넘긴다.
+				double range = rangeMultiplier(state);
+				if (!proximities.isEmpty()) {
+					tickProximity(server, team, proximities, range);
+				}
 				if (gathers.isEmpty()) {
 					continue;
 				}
-				tickTeam(server, team, gathers, time);
+				tickTeam(server, team, gathers, time, range);
 			}
 		} catch (RuntimeException error) {
 			warnOnce(error);
@@ -120,7 +135,7 @@ public final class TeamGathering {
 	// ------------------------------------------------------------------ 팀 하나
 
 	private static void tickTeam(MinecraftServer server, ShareTeam team,
-			List<GatherEffect> gathers, long time) {
+			List<GatherEffect> gathers, long time, double range) {
 		Long until = COOLDOWN_UNTIL.get(team.teamId());
 		if (until != null && time < until) {
 			return;
@@ -130,7 +145,7 @@ public final class TeamGathering {
 			return;
 		}
 		for (GatherEffect gather : gathers) {
-			if (!scattered(online, gather.distance())) {
+			if (!scattered(online, ProximityRangeEffect.scale(gather.distance(), range))) {
 				continue;
 			}
 			// 옮기다 실패하더라도 재우는 시간은 똑같이 건다. 실패한 판정을 1초 뒤에 다시
@@ -152,13 +167,14 @@ public final class TeamGathering {
 	 * 뿐이라 저절로 사라진다.
 	 */
 	private static void tickProximity(MinecraftServer server, ShareTeam team,
-			List<ProximityEffect> proximities) {
+			List<ProximityEffect> proximities, double range) {
 		List<ServerPlayer> online = onlineMembers(server, team);
 		if (online.isEmpty()) {
 			return;
 		}
 		for (ProximityEffect proximity : proximities) {
-			if (online.size() >= MIN_MEMBERS && scattered(online, proximity.distance())) {
+			if (online.size() >= MIN_MEMBERS
+					&& scattered(online, ProximityRangeEffect.scale(proximity.distance(), range))) {
 				continue;
 			}
 			for (ServerPlayer member : online) {
@@ -250,6 +266,31 @@ public final class TeamGathering {
 				Component.literal("집합!").withStyle(ChatFormatting.LIGHT_PURPLE, ChatFormatting.BOLD),
 				Component.literal(anchorName + "님의 위치").withStyle(ChatFormatting.WHITE),
 				0, TITLE_STAY_TICKS, TITLE_FADE_OUT_TICKS);
+	}
+
+	// ------------------------------------------------------------------ 거리 배율
+
+	/**
+	 * 이 팀이 거리에 곱할 배율. {@code proximity_range} 가 없으면 1.0.
+	 *
+	 * <p>보유 증강의 효과에 켜진 세트 효과를 이어 붙여 훑는다. {@link PerkSetEffects} 가 적어 둔
+	 * 그 모양 그대로다 — 세트 쪽을 빠뜨리면 세트로 얻은 배율이 조용히 무시된다.
+	 *
+	 * <p>정의에 적힌 거리에 이 값을 먹이는 일은 {@link ProximityRangeEffect#scale} 이 한다.
+	 */
+	public static double rangeMultiplier(@Nullable TeamState state) {
+		if (state == null || !state.perksEnabled || state.ownedPerks.isEmpty()) {
+			return 1.0;
+		}
+		List<PerkEffect> effects = new ArrayList<>();
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
+			if (perk != null) {
+				effects.addAll(perk.effects());
+			}
+		}
+		effects.addAll(PerkSetEffects.activeEffectsOf(state));
+		return ProximityRangeEffect.multiplierOf(effects);
 	}
 
 	// ------------------------------------------------------------------ 도우미

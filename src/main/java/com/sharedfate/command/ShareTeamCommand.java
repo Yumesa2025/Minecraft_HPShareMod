@@ -25,6 +25,7 @@ import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
 import com.sharedfate.ui.GameStartButton;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -131,7 +132,7 @@ public final class ShareTeamCommand {
 	 * <pre>
 	 * /shareteam create [perks on|off] [damagealert on|off] [deathalert on|off]
 	 *                   [difficulty on|off] [health &lt;20~40&gt;] [swap off|&lt;1~120&gt;]
-	 *                   [reroll &lt;0~10&gt;] &lt;이름&gt;
+	 *                   [reroll &lt;0~15&gt;] &lt;이름&gt;
 	 * </pre>
 	 *
 	 * <p>각 단계에서 곧바로 이름으로 빠져나갈 수 있으므로 {@code /shareteam create 우리팀} 도
@@ -236,7 +237,7 @@ public final class ShareTeamCommand {
 	}
 
 	/**
-	 * {@code reroll <0~10>}. 증강 선택창에서 후보를 다시 뽑을 수 있는 <b>회차당</b> 횟수다.
+	 * {@code reroll <0~15>}. 증강 선택창에서 후보를 다시 뽑을 수 있는 <b>회차당</b> 횟수다.
 	 *
 	 * <p>순서상 마지막 항목이라 뒤에는 이름만 온다. 적지 않으면
 	 * {@linkplain TeamCreationSettings#DEFAULT_REROLL_COUNT 3회}이고, 0 으로 적으면 그 팀은
@@ -375,7 +376,28 @@ public final class ShareTeamCommand {
 								? "\n이미 " + runNumber + "회차가 진행 중이라 회차도 바로 시작했습니다."
 								: "\n아직 회차는 시작되지 않았습니다. 팀원을 모두 부른 뒤"
 										+ " /shareteam start 로 게임을 시작하세요.")), false);
+		warnLonelySwap(context, settings, manager.teamOf(self.getUUID()));
 		return 1;
+	}
+
+	/**
+	 * 위치 교환을 켰는데 팀원이 혼자면 알려 준다. <b>막지는 않는다.</b>
+	 *
+	 * <p>설정은 팀을 만들 때만 정하고 나중에 못 바꾸므로, 혼자라고 켜는 것을 막아 버리면
+	 * <b>위치 교환을 쓰는 길이 아예 없어진다</b> — 팀을 만드는 순간에는 언제나 리더 혼자다.
+	 * 그래서 「효과가 없다」는 사실만 알리고 선택은 사람에게 맡긴다. 초대해서 둘이 되면
+	 * 저절로 돌기 시작한다.
+	 */
+	private static void warnLonelySwap(CommandContext<CommandSourceStack> context,
+			TeamCreationSettings settings, @Nullable ShareTeam team) {
+		if (!settings.swapEnabled() || team == null || team.members().size() >= 2) {
+			return;
+		}
+		context.getSource().sendSuccess(() -> Component.literal(
+				"⚠ 위치 교환을 켰지만 지금은 팀원이 혼자라 교환이 일어나지 않습니다."
+						+ "\n  자리를 바꾸려면 두 명이 있어야 합니다. /shareteam invite 로 부르면"
+						+ " 그때부터 저절로 돕니다.")
+				.withStyle(ChatFormatting.YELLOW), false);
 	}
 
 	private static int invite(CommandContext<CommandSourceStack> context, SharedFateConfig config)
@@ -634,7 +656,7 @@ public final class ShareTeamCommand {
 				   · 증강 다시 뽑기 회차당 3회)
 				/shareteam create [perks on|off] [damagealert on|off] [deathalert on|off]
 				                  [difficulty on|off] [health <20~40>] [swap off|<1~120>]
-				                  [reroll <0~10>] <이름>
+				                  [reroll <0~15>] <이름>
 				  — 이 일곱은 팀을 만들 때만 정합니다. 만든 뒤에는 바꿀 수 없습니다.
 				  difficulty 를 켜면 30분마다 적대적 몹이 4%p 씩 세집니다 (엔더 드래곤 제외).
 				  reroll 은 증강 선택창에서 후보 3장을 다시 뽑을 수 있는 회차당 횟수입니다.
@@ -744,6 +766,13 @@ public final class ShareTeamCommand {
 		}
 		if (!state.positionSwapEnabled()) {
 			context.getSource().sendSuccess(() -> Component.literal("랜덤 위치 교환은 꺼져 있습니다."), false);
+			return 1;
+		}
+		// 「소집의 조각」을 가진 팀은 주기가 아예 돌지 않는다. 멈춰 있는 숫자를 보여 주면
+		// 「곧 교환된다」로 읽히므로 아예 다른 줄을 내보낸다.
+		if (com.sharedfate.perk.PerkSwapRules.silentSwapBlock(state)) {
+			context.getSource().sendSuccess(() -> Component.literal(
+					"랜덤 위치 교환: 자동 교환이 꺼져 있습니다 (「소집의 조각」으로 부를 때만)"), false);
 			return 1;
 		}
 		int seconds = (state.positionSwapRemainingTicks + 19) / 20;

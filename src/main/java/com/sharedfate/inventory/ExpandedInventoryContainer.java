@@ -17,6 +17,11 @@ public final class ExpandedInventoryContainer implements Container, StackedConte
 	private SharedItemList local = SharedItemList.ofSize(ExpandedInventoryManager.EXTRA_SIZE);
 	private boolean clientActive;
 
+	/** 이 칸 묶음의 주인. 잠긴 칸을 가릴 때 그 사람의 팀을 봐야 한다. */
+	public Player owner() {
+		return player;
+	}
+
 	ExpandedInventoryContainer(Player player) {
 		this.player = player;
 	}

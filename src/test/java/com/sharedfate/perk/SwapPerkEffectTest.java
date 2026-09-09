@@ -346,6 +346,55 @@ class SwapPerkEffectTest {
 				"주기만 줄이는 증강은 교환을 막지 않는다");
 	}
 
+	/**
+	 * 「소집의 조각」만 교환 시점 자체를 없앤다.
+	 *
+	 * <p>이것이 갈라지지 않으면 「뿌리내린 발」의 "원래 바뀔 시점마다 실명과 구속"이 사라지거나,
+	 * 반대로 조각을 가진 팀이 부수효과만 주기마다 계속 받는다.
+	 */
+	@Test
+	void 조용한_막힘은_소집의_조각만이다(@TempDir Path dir) throws IOException {
+		loadPool(dir);
+
+		assertTrue(PerkSwapRules.silentSwapBlock(teamWith("sharedfate:shard")));
+		assertTrue(PerkSwapRules.blocksSwap(teamWith("sharedfate:shard")),
+				"조용한 막힘도 막힘이다");
+
+		assertFalse(PerkSwapRules.silentSwapBlock(teamWith("sharedfate:rooted")),
+				"뿌리내린 발은 시점이 계속 찾아와야 대가가 성립한다");
+		assertFalse(PerkSwapRules.silentSwapBlock(TeamState.fresh(20.0F)));
+	}
+
+	@Test
+	void 둘_다_가지면_조용한_쪽이_이긴다(@TempDir Path dir) throws IOException {
+		loadPool(dir);
+
+		assertTrue(PerkSwapRules.silentSwapBlock(
+				teamWith("sharedfate:rooted", "sharedfate:shard")),
+				"교환 시점이 오지 않으므로 뿌리내린 발의 대가도 함께 멈춘다");
+	}
+
+	@Test
+	void 조용한_막힘은_따로_만든_인스턴스다() {
+		PerkEffect plain = create(PerkEffectType.SWAP_BLOCK, "{ \"type\": \"swap_block\" }");
+		PerkEffect silent = create(PerkEffectType.SWAP_BLOCK,
+				"{ \"type\": \"swap_block\", \"silent\": true }");
+
+		assertSame(SwapBlockEffect.INSTANCE, plain);
+		assertSame(SwapBlockEffect.SILENT, silent);
+		assertFalse(((SwapBlockEffect) plain).silent());
+		assertTrue(((SwapBlockEffect) silent).silent());
+	}
+
+	@Test
+	void silent_가_참_거짓이_아니면_평범한_막힘이다() {
+		assertSame(SwapBlockEffect.INSTANCE, create(PerkEffectType.SWAP_BLOCK,
+				"{ \"type\": \"swap_block\", \"silent\": \"네\" }"),
+				"정의를 버리면 자리가 안 바뀐다는 본체까지 사라져 손해가 더 크다");
+		assertSame(SwapBlockEffect.INSTANCE, create(PerkEffectType.SWAP_BLOCK,
+				"{ \"type\": \"swap_block\", \"silent\": false }"));
+	}
+
 	@Test
 	void 주기_배율은_가진_것을_모두_곱한다(@TempDir Path dir) throws IOException {
 		loadPool(dir);
@@ -527,6 +576,11 @@ class SwapPerkEffectTest {
 				        { "type": "on_swap",
 				          "effects": [ { "type": "status_effect", "effect": "minecraft:weakness",
 				                         "amplifier": 0, "duration": 15 } ] }
+				      ] },
+				    { "id": "sharedfate:shard", "rarity": "prism", "name": "소집의 조각",
+				      "effects": [
+				        { "type": "swap_block", "silent": true },
+				        { "type": "rally_shard", "freeze_seconds": 3, "cooldown_seconds": 240 }
 				      ] }
 				  ]
 				}

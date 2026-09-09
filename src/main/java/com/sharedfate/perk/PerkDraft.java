@@ -18,6 +18,18 @@ import java.util.Set;
  * 한 번의 추첨 안에서 같은 증강이 두 번 나오지 않는다.
  *
  * <p>후보 풀은 호출자가 넘긴다. 난수도 주입받으므로 고정 시드를 주면 결과가 항상 같다.
+ *
+ * <h2>전제조건({@code requires})</h2>
+ * <p>{@link Perk#requires()} 가 붙은 증강은 <b>팀이 그 조건을 갖췄을 때만</b> 후보에 든다.
+ * 거르는 자리는 {@link #eligibleByRarity} 한 곳이라 등급 폴백·다시 뽑기까지 함께 걸린다.
+ *
+ * <p>이 클래스는 팀 상태를 직접 보지 않는다. {@code no_silver_offers} 의 {@code silverBlocked}
+ * 와 같은 방식으로 <b>호출자가 갖춘 조건의 집합을 넘긴다.</b> 그래야 월드 없이 순수 계산으로
+ * 시험할 수 있다. 팀 상태에서 그 집합을 만드는 한 줄은
+ * {@link PerkSwapRules#satisfiedRequirements}다.
+ *
+ * <p>조건 집합을 받지 않는 옛 시그니처들은 {@link Perk.Requirement#ALL} 을 넘긴 것과 같아
+ * 아무것도 거르지 않는다 — 전제조건이 생기기 전과 결과가 똑같다.
  */
 public final class PerkDraft {
 	/** 한 번에 제시하는 기본 후보 수. */
@@ -225,6 +237,25 @@ public final class PerkDraft {
 	}
 
 	/**
+	 * 등급·구간에 더해 <b>팀이 갖춘 전제조건</b>까지 지정해 뽑는다. 구간 추첨의 정식 경로다.
+	 *
+	 * <p>{@link Perk#requires()} 가 붙은 증강은 {@code satisfied} 에 그 조건이 들어 있을 때만
+	 * 후보에 든다. 위치 교환을 끈 팀에게 교환 증강을 보여 주지 않는 것이 이 인자 하나다.
+	 *
+	 * <p><b>이름이 {@code draw} 가 아닌 이유</b>는 {@code null} 때문이다. 인자 수가 같은
+	 * {@code draw} 가 이미 회피 목록({@code List<String>})을 받고 있어서, 같은 이름으로 두면
+	 * {@code draw(..., null, random, 3)} 처럼 넘기던 자리가 어느 쪽인지 정해지지 않아 컴파일이
+	 * 깨진다.
+	 *
+	 * @param satisfied 이 팀이 갖춘 전제조건들. 빈 집합이면 전제조건이 붙은 증강이 모두 빠지고,
+	 *                  {@link Perk.Requirement#ALL} 이면 아무것도 걸리지 않는다
+	 */
+	public static List<String> drawFor(PerkRarity rarity, int milestone, List<Perk> pool,
+			List<String> owned, Set<Perk.Requirement> satisfied, RandomSource random, int count) {
+		return drawFor(rarity, milestone, pool, owned, List.of(), satisfied, random, count);
+	}
+
+	/**
 	 * 등급·구간에 더해 <b>이번에는 피하고 싶은 후보</b>까지 지정해 뽑는다. 「다시 뽑기」가 쓴다.
 	 *
 	 * <p>{@code owned} 와 {@code avoid} 는 성격이 다르다. 보유 증강은 <b>절대</b> 나오면 안 되지만,
@@ -242,11 +273,26 @@ public final class PerkDraft {
 	 */
 	public static List<String> draw(PerkRarity rarity, int milestone, List<Perk> pool,
 			List<String> owned, List<String> avoid, RandomSource random, int count) {
+		return drawFor(rarity, milestone, pool, owned, avoid, Perk.Requirement.ALL, random, count);
+	}
+
+	/**
+	 * 회피 목록과 전제조건을 함께 지정해 뽑는다. 다른 뽑기들이 모두 여기로 모인다.
+	 *
+	 * <p>전제조건은 회피 목록보다 <b>훨씬 강하다.</b> 회피는 「되도록」이라 모자라면 다시 꺼내
+	 * 쓰지만, 전제조건에 걸린 증강은 어느 등급으로 폴백해도 끝까지 나오지 않는다 — 갖추지 못한
+	 * 팀에게는 아무 일도 하지 않는 카드이므로 채워 넣을 값이 없다.
+	 *
+	 * @param satisfied 이 팀이 갖춘 전제조건들
+	 */
+	public static List<String> drawFor(PerkRarity rarity, int milestone, List<Perk> pool,
+			List<String> owned, List<String> avoid, Set<Perk.Requirement> satisfied,
+			RandomSource random, int count) {
 		if (rarity == null || pool == null || pool.isEmpty() || random == null || count <= 0) {
 			return List.of();
 		}
 
-		Map<PerkRarity, List<Perk>> remaining = eligibleByRarity(pool, owned, milestone);
+		Map<PerkRarity, List<Perk>> remaining = eligibleByRarity(pool, owned, milestone, satisfied);
 		Map<PerkRarity, List<Perk>> avoided = extract(remaining, idSet(avoid));
 		List<String> drawn = new ArrayList<>(count);
 		for (PerkRarity bucketRarity : fallbackOrder(rarity)) {
@@ -299,10 +345,14 @@ public final class PerkDraft {
 	 *
 	 * <p>증강은 중첩되지 않는다. 한 번 보유하면 그 회차 동안 영원히 후보에서 빠진다.
 	 * 풀에 같은 id가 두 번 들어 있어도 한 번만 담는다. {@link Perk#minLevel} 이 {@code milestone}
-	 * 보다 큰 증강도 여기서 함께 걸러진다.
+	 * 보다 큰 증강도, 팀이 갖추지 못한 전제조건({@link Perk#requires()})이 붙은 증강도 여기서
+	 * 함께 걸러진다.
+	 *
+	 * <p>거르는 자리를 굳이 이 한 곳에 모은 이유는 모든 뽑기가 여기를 지나가기 때문이다. 구간
+	 * 추첨·등급 폴백·다시 뽑기가 각자 거르면 셋 중 하나를 고치다가 나머지를 잊는다.
 	 */
 	private static Map<PerkRarity, List<Perk>> eligibleByRarity(List<Perk> pool, List<String> owned,
-			int milestone) {
+			int milestone, Set<Perk.Requirement> satisfied) {
 		Set<String> ownedIds = idSet(owned);
 		Map<PerkRarity, List<Perk>> byRarity = new EnumMap<>(PerkRarity.class);
 		for (PerkRarity rarity : PerkRarity.values()) {
@@ -320,6 +370,11 @@ public final class PerkDraft {
 				continue;
 			}
 			if (perk.minLevel() > milestone) {
+				continue;
+			}
+			// 팀이 갖추지 못한 전제조건이 붙어 있으면 뺀다. 전제조건이 없는 증강(대부분)은
+			// satisfied 를 보지도 않으므로 지금까지와 결과가 같다.
+			if (!perk.requirementMet(satisfied)) {
 				continue;
 			}
 			byRarity.get(perk.rarity()).add(perk);
