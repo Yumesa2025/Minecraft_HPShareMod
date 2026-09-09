@@ -36,8 +36,8 @@ class PerkSetTypeTest {
 	}
 
 	@Test
-	void 유형은_열한_개다() {
-		assertEquals(11, PerkSetType.values().length);
+	void 유형은_열세_개다() {
+		assertEquals(13, PerkSetType.values().length);
 	}
 
 	@Test
@@ -48,10 +48,10 @@ class PerkSetTypeTest {
 			assertEquals(type.name().toLowerCase(java.util.Locale.ROOT), type.id());
 		}
 
-		// JSON 에 적힐 문자열이 실제로 이 열한 개다. 이름을 바꾸면 정의 파일도 함께 고쳐야 한다.
+		// JSON 에 적힐 문자열이 실제로 이 열세 개다. 이름을 바꾸면 정의 파일도 함께 고쳐야 한다.
 		assertEquals(
 				Set.of("weapon", "power", "hunt", "mining", "supply", "defense",
-						"survival", "recovery", "swap", "gamble", "mobility"),
+						"survival", "recovery", "swap", "gamble", "mobility", "blessing", "bond"),
 				EnumSet.allOf(PerkSetType.class).stream().map(PerkSetType::id)
 						.collect(java.util.stream.Collectors.toSet()));
 	}

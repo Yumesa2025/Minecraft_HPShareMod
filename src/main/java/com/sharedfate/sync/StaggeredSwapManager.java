@@ -77,6 +77,9 @@ public final class StaggeredSwapManager {
 	/**
 	 * 시퀀스를 새로 시작한다. 최종 자리 배정(순열)과 실행 순서를 여기서 한 번에 정하고,
 	 * 첫 걸음은 다음 {@link #tick}에서 곧바로(간격 없이) 실행된다.
+	 *
+	 * @param players 자리를 바꿀 사람들. {@code PositionSwapManager} 가 이미 골드 「열외」
+	 *                ({@code swap_exempt})를 빼고 넘긴다 — 여기서 다시 거르지 않는다
 	 */
 	public static void beginSequence(ShareTeam team, TeamState state, List<ServerPlayer> players,
 			RandomGenerator random, List<SwapExplosionEffect> explosions) {
@@ -153,6 +156,13 @@ public final class StaggeredSwapManager {
 		ACTIVE.remove(teamId);
 	}
 
+	/**
+	 * 마지막 걸음이 끝났다. {@code on_swap}을 얹고 다음 주기를 다시 채운다.
+	 *
+	 * <p>여기서 쓰는 명단은 <b>열외까지 포함한 팀 전원</b>이다. 열외가 빠지는 것은 자리를 바꾸는
+	 * 명단이지 {@code on_swap} 이 아니다({@code PerkSwapRules.swapParticipants} 참고). 열외
+	 * 당사자의 이동 속도 보너스는 이미 교환 시점에 {@code PositionSwapManager}가 주고 지나갔다.
+	 */
 	private static void finishSequence(MinecraftServer server, ShareTeam team, TeamState state) {
 		List<ServerPlayer> online = onlineMembers(server, team);
 		PerkSwapRules.grantOnSwap(state, online);

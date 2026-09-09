@@ -316,7 +316,7 @@ class GambleSetRewardTest {
 		assertEquals(2, state.rerollsRemaining, "상한만 내려갈 뿐, 남은 것을 더 뺏지는 않는다");
 	}
 
-	// ------------------------------------------------------------------ 도박 2 — 상한 10
+	// ------------------------------------------------------------------ 도박 2 — 상한
 
 	@Test
 	void 회차당_열_번인_팀은_더_받지_못한다(@TempDir Path dir) throws IOException {
@@ -328,21 +328,25 @@ class GambleSetRewardTest {
 		grant(state, "sharedfate:gamble_a", "sharedfate:gamble_b");
 
 		assertEquals(0, state.rerollSetBonus);
-		assertEquals(10, state.rerollsRemaining, "상한을 넘겨 주느니 안 준다");
+		assertEquals(TeamCreationSettings.MAX_REROLL_COUNT, state.rerollsRemaining,
+				"상한을 넘겨 주느니 안 준다");
 	}
 
 	@Test
-	void 상한_열_번을_넘지_않는_만큼만_받는다(@TempDir Path dir) throws IOException {
+	void 상한을_넘지_않는_만큼만_받는다(@TempDir Path dir) throws IOException {
 		load(dir);
 		TeamState state = team();
-		state.rerollAllowance = 8;
-		state.rerollsRemaining = 8;
+		// 허용치를 상한 바로 아래에 두면 세트 몫이 남은 칸만큼만 들어간다.
+		int allowance = TeamCreationSettings.MAX_REROLL_COUNT - 2;
+		state.rerollAllowance = allowance;
+		state.rerollsRemaining = allowance;
 
 		grant(state, "sharedfate:gamble_a", "sharedfate:gamble_b");
 
-		assertEquals(2, state.rerollSetBonus, "5회를 다 얹으면 13회가 된다");
-		assertEquals(10, state.rerollsRemaining);
-		assertEquals(10, decode(encode(state)).rerollsRemaining);
+		assertEquals(2, state.rerollSetBonus, "5회를 다 얹으면 상한을 넘는다");
+		assertEquals(TeamCreationSettings.MAX_REROLL_COUNT, state.rerollsRemaining);
+		assertEquals(TeamCreationSettings.MAX_REROLL_COUNT,
+				decode(encode(state)).rerollsRemaining);
 	}
 
 	@Test

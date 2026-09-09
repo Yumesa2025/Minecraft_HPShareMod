@@ -3,13 +3,18 @@ package com.sharedfate.perk;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.effect.DamageTakenBlockingEffect;
 import com.sharedfate.perk.effect.DamageTakenFromEffect;
+import com.sharedfate.perk.effect.DamageWardEffect;
 import com.sharedfate.perk.effect.ShieldFallImmunityEffect;
+import com.sharedfate.perk.effect.WeaponKnockbackEffect;
 import com.sharedfate.team.TeamLookup;
 import com.sharedfate.team.TeamState;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.player.Player;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -209,6 +214,103 @@ public final class PerkDamage {
 		} catch (RuntimeException error) {
 			warnOnce(error);
 			return false;
+		}
+	}
+
+	// ------------------------------------------------------------------ 몹 피해 한 번 막기
+
+	/**
+	 * 이 피해를 「호위」({@code damage_ward})가 통째로 막아야 하는가.
+	 *
+	 * <p>{@code LivingEntityPerkDamageMixin} 이 {@code hurtServer} 진입점에서 부른다. 참이면 그
+	 * 자리에서 {@code false} 를 돌려주므로 체력·무적시간·피격 애니메이션 어느 것도 움직이지 않는다.
+	 * {@link #blocksFallDamage} 와 같은 방식이다.
+	 *
+	 * <p><b>참을 돌려주는 순간 그 사람의 쿨타임이 시작된다.</b> 그래서 값싼 검사를 모두 통과한
+	 * 뒤에 맨 마지막으로 쿨타임을 건드린다. 순서는 이렇다.
+	 *
+	 * <ol>
+	 *   <li>피해자가 팀원이고 실제로 깎일 피해량이 있는가 — 0 짜리 피해에 쿨타임을 쓰지 않는다.</li>
+	 *   <li><b>가해자가 몹인가</b> — {@link #isMobAttack} 참고. 낙하·굶주림·용암·플레이어 피해는
+	 *       여기서 걸러진다.</li>
+	 *   <li>이 사람이 「호위」를 골랐는가 — {@link DamageWardEffect#wardFor}.</li>
+	 *   <li>어차피 안 들어갈 피해는 아닌가 — 크리에이티브·무적 명령·이미 죽은 상태.</li>
+	 *   <li>쿨타임이 찼는가 — {@link DamageWardTracker#tryConsume}.</li>
+	 * </ol>
+	 *
+	 * <p>무적시간(피격 뒤 0.5초) 안에 들어와 어차피 버려질 피해까지는 가려내지 못한다. 그 판정에
+	 * 필요한 {@code LivingEntity.lastHurt} 가 이 자리에서 읽히지 않기 때문이다. 그래서 몹이 여럿
+	 * 달라붙은 상황에서는 「호위」가 이미 무효인 한 대에 쓰일 수 있다. 반대로 막아야 할 한 대를
+	 * 놓치는 일은 없다.
+	 *
+	 * @param level  피해가 처리되는 월드. 지금 시각(게임 시간)을 여기서 읽는다
+	 * @param victim 피해를 받는 대상
+	 * @param source 피해원
+	 * @param amount 진입점이 받은 피해량
+	 */
+	public static boolean blocksMobDamage(@Nullable ServerLevel level, @Nullable Entity victim,
+			@Nullable DamageSource source, float amount) {
+		if (level == null || source == null || !(victim instanceof ServerPlayer player)
+				|| !(amount > 0.0F)) {
+			return false;
+		}
+		try {
+			if (!isMobAttack(source)) {
+				return false;
+			}
+			DamageWardEffect ward =
+					DamageWardEffect.wardFor(TeamLookup.stateOf(player.getUUID()), player.getUUID());
+			if (ward == null) {
+				return false;
+			}
+			if (player.isInvulnerableTo(level, source) || player.isDeadOrDying()) {
+				return false;
+			}
+			return DamageWardTracker.tryConsume(
+					player.getUUID(), level.getGameTime(), ward.cooldownTicks());
+		} catch (RuntimeException error) {
+			warnOnce(error);
+			return false;
+		}
+	}
+
+	/**
+	 * 이 피해를 몹이 준 것인가.
+	 *
+	 * <p>판정 규칙은 {@link com.sharedfate.perk.MobPerkModifiers#damageMultiplier} 와 <b>똑같다</b>.
+	 * {@code DamageSource.getEntity()} 가 {@code Mob} 이면 몹 피해다. 화살·불덩이처럼 던진 것에
+	 * 맞은 경우에도 그 자리는 쏜 몹을 가리키므로 함께 잡힌다. 플레이어는 {@code Mob} 이 아니라
+	 * 자연히 빠지고, 낙하·굶주림·용암처럼 가해자가 없는 피해는 {@code null} 이라 빠진다.
+	 *
+	 * <p>두 곳이 같은 규칙을 써야 「몹에게서 받는 것」이라는 말이 증강마다 다른 뜻이 되지 않는다.
+	 */
+	private static boolean isMobAttack(DamageSource source) {
+		return source.getEntity() instanceof Mob;
+	}
+
+	// ------------------------------------------------------------------ 무기 넉백
+
+	/**
+	 * 이 공격에 걸릴 {@code weapon_knockback} 의 넉백. 걸릴 것이 없으면 음수.
+	 *
+	 * <p>{@code LivingEntityPerkDamageMixin} 이 {@code LivingEntity.getKnockback} 에서 부른다.
+	 * 그 자리의 {@code this} 는 <b>때리는 쪽</b>이고 첫 인자가 맞는 쪽이다.
+	 *
+	 * <p>때리는 쪽이 팀원이 아니면(몹끼리의 싸움 포함) 첫 줄에서 곧바로 빠져나가므로, 이 증강을
+	 * 아무도 갖고 있지 않은 서버의 전투 경로에는 얹히는 비용이 거의 없다.
+	 *
+	 * @return {@code getKnockback} 이 돌려줄 값. 걸릴 것이 없으면 {@code -1}
+	 */
+	public static float weaponKnockback(@Nullable Entity attacker, @Nullable Entity target) {
+		if (target == null || !(attacker instanceof ServerPlayer player)) {
+			return -1.0F;
+		}
+		try {
+			return WeaponKnockbackEffect.strengthFor(TeamLookup.stateOf(player.getUUID()),
+					player.getUUID(), player.getMainHandItem(), target instanceof Player);
+		} catch (RuntimeException error) {
+			warnOnce(error);
+			return -1.0F;
 		}
 	}
 

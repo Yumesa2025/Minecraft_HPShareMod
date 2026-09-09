@@ -65,6 +65,9 @@ public class SharedFateMod implements ModInitializer {
 		PerkRegistry.load(FabricLoader.getInstance().getConfigDir());
 		PerkSetRegistry.load(FabricLoader.getInstance().getConfigDir());
 		SharedFateNetworking.register();
+		// 「가호」 세트가 holder 증강의 모드를 정한다. 판정기를 꽂지 않으면 언제나 NORMAL 이라
+		// 세트 3·4 단계가 아무 일도 하지 않는다.
+		com.sharedfate.perk.PerkBlessingSet.install();
 
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
 			TeamLookup.setServer(server);
@@ -85,6 +88,9 @@ public class SharedFateMod implements ModInitializer {
 		ServerLifecycleEvents.SERVER_STOPPING.register(TeamRosterStore::onServerStopping);
 		// 종료 직전에 시간 정지를 되돌린다. reset 은 서버가 완전히 멈춘 뒤라 너무 늦다.
 		ServerLifecycleEvents.SERVER_STOPPING.register(PerkManager::onServerStopping);
+		// 비행 허가는 저장보다 먼저 걷어내야 한다. SERVER_STOPPED 는 이미 늦다.
+		ServerLifecycleEvents.SERVER_STOPPING.register(
+				com.sharedfate.perk.PerkFlightCharm::onServerStopping);
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			TeamLookup.setServer(null);
 			ExpandedInventoryManager.clearRuntimeState();
@@ -97,8 +103,16 @@ public class SharedFateMod implements ModInitializer {
 			com.sharedfate.perk.PerkSupplyDrops.reset();
 			PerkHolderManager.reset();
 			TeamGathering.reset();
+			com.sharedfate.sync.TeamProximity.reset();
+			com.sharedfate.sync.ProjectileWardManager.reset();
+			com.sharedfate.sync.ShockwaveManager.reset();
+			com.sharedfate.sync.SanctuaryManager.reset();
+			com.sharedfate.sync.AuraDamageManager.reset();
 			com.sharedfate.sync.StaggeredSwapManager.reset();
 			com.sharedfate.sync.RallyPointManager.reset();
+			com.sharedfate.sync.RallyShardManager.reset();
+			com.sharedfate.perk.PerkFlightCharm.reset();
+			com.sharedfate.sync.SpreadDamageManager.reset();
 			com.sharedfate.sync.SwapExplosionScheduler.reset();
 			com.sharedfate.perk.PerkResonantMining.reset();
 			PerkWorldRules.reset();
@@ -115,6 +129,7 @@ public class SharedFateMod implements ModInitializer {
 		});
 		ServerTickEvents.END_SERVER_TICK.register(server -> TeamManager.get(server).markDirtyIfActive());
 		ServerPlayerEvents.JOIN.register(player -> {
+			com.sharedfate.perk.PerkFlightCharm.onPlayerJoin(player);
 			TeamManager manager = TeamManager.get(player.level().getServer());
 			if (manager.consumeExperienceClear(player.getUUID())) {
 				StatMirror.setTotalExperience(player, 0);
@@ -135,6 +150,7 @@ public class SharedFateMod implements ModInitializer {
 			com.sharedfate.command.PerkTestCommand.warnOnJoin(player);
 		});
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
+			com.sharedfate.perk.PerkFlightCharm.onRespawn(oldPlayer, newPlayer);
 			StatMirror.forget(oldPlayer.getUUID());
 			MaxHealthAttribute.refresh(newPlayer, config.sharedMaxHealth);
 			EffectSync.refreshPlayer(newPlayer);
@@ -147,6 +163,8 @@ public class SharedFateMod implements ModInitializer {
 			PerkManager.refreshPlayer(newPlayer);
 		});
 		ServerPlayerEvents.LEAVE.register(player -> {
+			// 저장되기 전에 비행 허가를 걷어내야 영구 비행이 안 남는다.
+			com.sharedfate.perk.PerkFlightCharm.onPlayerLeave(player);
 			var state = TeamLookup.stateOf(player.getUUID());
 			if (state != null) {
 				com.sharedfate.sync.InventorySwapper.stashCarried(player, state);
@@ -170,6 +188,8 @@ public class SharedFateMod implements ModInitializer {
 		// 시차·정거장이 진행·대기 중이던 상태를 팀 전멸 때 지우는 지점.
 		ServerLivingEntityEvents.AFTER_DEATH.register(com.sharedfate.sync.StaggeredSwapManager::onDeath);
 		ServerLivingEntityEvents.AFTER_DEATH.register(com.sharedfate.sync.RallyPointManager::onDeath);
+		ServerLivingEntityEvents.AFTER_DEATH.register(com.sharedfate.sync.RallyShardManager::onDeath);
+		ServerLivingEntityEvents.AFTER_DEATH.register(com.sharedfate.sync.SpreadDamageManager::onDeath);
 		ServerLivingEntityEvents.AFTER_DAMAGE.register(SharedHurtFeedback::onDamage);
 		// 팀원이 맞았을 때 잠깐 걸리는 증강(on_team_hurt)의 등록 지점.
 		ServerLivingEntityEvents.AFTER_DAMAGE.register(PerkTriggers::onDamage);
@@ -189,6 +209,13 @@ public class SharedFateMod implements ModInitializer {
 		// 받으므로 부딪히지 않는다.
 		net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(
 				com.sharedfate.perk.PerkDiamondSundial::onUseItem);
+		// 팀원을 자기 자리로 부르는 증강(rally_shard)의 등록 지점. 소집의 조각을 들고 허공
+		// 우클릭했을 때만 발화한다. 위 둘과 같은 사건에 붙지만 서로 다른 아이템만 받는다.
+		net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(
+				com.sharedfate.perk.PerkRallyShard::onUseItem);
+		// 「비행 부적」을 들고 허공 우클릭했을 때만 발화한다.
+		net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(
+				com.sharedfate.perk.PerkFlightCharm::onUseItem);
 		EffectSync.register();
 		ServerTickEvents.END_SERVER_TICK.register(EffectSync::tick);
 		ServerTickEvents.END_SERVER_TICK.register(StatMirror::tick);
@@ -197,10 +224,31 @@ public class SharedFateMod implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(PositionSwapManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.StaggeredSwapManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.RallyPointManager::tick);
+		// 「소집의 조각」이 굳힌 팀원을 소환자에게 끌어오는 지점.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.RallyShardManager::tick);
+		// 비행 시간을 세고 핫바 1번 칸의 부적을 지킨다.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.perk.PerkFlightCharm::tick);
+		// 「완충」이 미뤄 둔 피해를 1초에 한 몫씩 넣는 지점.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.SpreadDamageManager::tick);
+		// 쿨타임이 있는 증강 아이템을 들고 있을 때 남은 시간을 액션바에 적는 지점.
+		ServerTickEvents.END_SERVER_TICK.register(
+				com.sharedfate.perk.PerkItemCooldownDisplay::tick);
 		// 폭발 교환이 0.5초 미뤄 둔 폭발을 실제로 터뜨리는 지점.
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.SwapExplosionScheduler::tick);
 		// 흩어진 팀을 한곳으로 모으는 증강(gather)의 판정 지점. 1초에 한 번만 실제로 잰다.
 		ServerTickEvents.END_SERVER_TICK.register(TeamGathering::tick);
+		// 「결속」 증강들이 함께 쓰는 「지금 얼마나 벌어져 있나」를 1초마다 한 번만 잰다.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.TeamProximity::tick);
+		// 아래 셋은 그 값을 읽는다. 반드시 TeamProximity 뒤여야 같은 틱에 갓 잰 값을 본다.
+		// 골드 「방패벽」 — 뭉쳐 있으면 날아오는 적대적 투사체를 지운다.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.ProjectileWardManager::tick);
+		// 골드 「파문」 — 뭉쳐 있으면 주기마다 팀당 한 번 충격파가 퍼진다.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.ShockwaveManager::tick);
+		// 프리즘 「성역」 — 뭉쳐 있으면 근처 몹의 틱을 건너뛰어 모든 행동을 늦춘다.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.SanctuaryManager::tick);
+		// 프리즘 「살기」(aura_damage)의 판정 지점. 1초에 한 번, 팀원 주위의 적대적 몹을
+		// 겹친 인원만큼 한 번에 벤다.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.AuraDamageManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PerkManager::tick);
 		// 최대 체력 고정 증강(max_health_lock)이 명령이나 다른 증강에 밀리지 않게 지키는 지점.
 		// StatMirror 보다 뒤에 등록해야 공유 체력 계산이 끝난 뒤에 상한을 되돌린다.

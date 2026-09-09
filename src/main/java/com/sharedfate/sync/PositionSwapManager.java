@@ -29,7 +29,12 @@ import java.util.random.RandomGenerator;
 
 public final class PositionSwapManager {
 	private static final int TICKS_PER_SECOND = 20;
-	/** 교환에 필요한 최소 인원. */
+	/**
+	 * 교환에 필요한 최소 인원.
+	 *
+	 * <p>세는 대상은 「접속한 팀원」이 아니라 <b>실제로 자리를 바꿀 사람</b>이다. 골드 「열외」로
+	 * 한 명이 빠져 둘 미만이 되면 교환이 일어나지 않고 1초 뒤 다시 시도한다.
+	 */
 	private static final int MIN_SWAP_MEMBERS = 2;
 	/** 카운트다운 기본 길이(초). 설정이 없을 때 쓴다. */
 	static final int DEFAULT_COUNTDOWN_SECONDS = 5;
@@ -64,10 +69,20 @@ public final class PositionSwapManager {
 			if (StaggeredSwapManager.hasActiveSequence(team.teamId())) {
 				continue;
 			}
+			// 「소집의 조각」은 자동 교환을 통째로 없앤다. 주기를 세지도, 예고하지도, on_swap 을
+			// 발동하지도 않는다. 자리를 바꾸는 일만 막으면 부수효과가 주기마다 계속 돌아
+			// 「시차」는 공짜 버프가 되고 「정거장」은 대가만 남는다(PerkSwapRules.silentSwapBlock).
+			if (PerkSwapRules.silentSwapBlock(state)) {
+				continue;
+			}
 			List<ServerPlayer> online = onlineMembers(server, team);
-			boolean enoughMembers = online.size() >= MIN_SWAP_MEMBERS;
+			// 골드 「열외」를 고른 사람은 자리를 바꾸는 명단에서 빠진다. 최소 인원도 남은 사람
+			// 기준으로 센다 — 열외로 한 명이 빠져 둘 미만이 되면 교환 자체가 일어나지 않고
+			// 1초 뒤 다시 시도한다(TeamState.advancePositionSwapTick).
+			List<ServerPlayer> movers = PerkSwapRules.swapParticipants(state, online);
+			boolean enoughMembers = movers.size() >= MIN_SWAP_MEMBERS;
 			if (state.advancePositionSwapTick(enoughMembers)) {
-				swapMoment(online, team, state);
+				swapMoment(online, movers, team, state);
 				continue;
 			}
 			if (!enoughMembers) {
@@ -95,6 +110,15 @@ public final class PositionSwapManager {
 	 * <p>{@code swap_rally}(정거장)가 {@code staggered_swap}(시차)보다 먼저다. 한 팀이 둘 다
 	 * 가진 경우에도 판정 순서가 늘 같아야 한다({@link PerkSwapRules#rallyPoint} 문서 참고).
 	 *
+	 * <h2>명단이 둘이다</h2>
+	 * <p>{@code movers} 는 <b>자리를 바꾸는 사람들</b>이고 {@code online} 은 <b>팀 전원</b>이다.
+	 * 골드 「열외」({@code swap_exempt})를 고른 사람만 앞에서 빠져 있다. 순간이동에 관한 것은
+	 * 전부 {@code movers} 로, 알림과 {@code on_swap} 은 {@code online} 으로 간다 — 열외는 자리를
+	 * 바꾸지 않을 뿐 여전히 팀원이라, 교환 시점에 팀에 걸리는 효과는 그대로 받아야 한다.
+	 *
+	 * <p>열외의 이동 속도 보너스는 <b>갈림길보다 먼저</b> 준다. 시차는 아래에서 곧바로 돌아가
+	 * 버리므로 뒤에 두면 시차 팀의 열외만 영영 못 받는다.
+	 *
 	 * <p>{@code TeamState.advancePositionSwapTick} 이 이미 남은 틱을 주기 그대로 채워 넣은
 	 * 뒤라, 마지막에 덮어쓰는 것으로 배율이 걸린다. 배율이 없으면 같은 값을 다시 쓰는 셈이라
 	 * 아무 일도 일어나지 않는다.
@@ -105,18 +129,20 @@ public final class PositionSwapManager {
 	 * 걸쳐 일어나므로, {@link StaggeredSwapManager#beginSequence}를 부른 뒤 곧바로 돌아간다 —
 	 * {@code on_swap}과 다음 주기 계산은 마지막 걸음이 끝난 뒤 그쪽에서 한다.
 	 */
-	private static void swapMoment(List<ServerPlayer> online, ShareTeam team, TeamState state) {
+	private static void swapMoment(List<ServerPlayer> online, List<ServerPlayer> movers,
+			ShareTeam team, TeamState state) {
+		PerkSwapRules.grantSwapExemptBonus(state, online);
 		if (PerkSwapRules.blocksSwap(state)) {
 			announceBlockedSwap(online);
-		} else if (PerkSwapRules.rallyPoint(state) && online.size() >= MIN_SWAP_MEMBERS) {
-			RallyPointManager.beginGather(team, online, ThreadLocalRandom.current(),
+		} else if (PerkSwapRules.rallyPoint(state) && movers.size() >= MIN_SWAP_MEMBERS) {
+			RallyPointManager.beginGather(team, movers, ThreadLocalRandom.current(),
 					PerkSwapRules.swapExplosions(state));
-		} else if (PerkSwapRules.staggered(state) && online.size() >= MIN_SWAP_MEMBERS) {
-			StaggeredSwapManager.beginSequence(team, state, online, ThreadLocalRandom.current(),
+		} else if (PerkSwapRules.staggered(state) && movers.size() >= MIN_SWAP_MEMBERS) {
+			StaggeredSwapManager.beginSequence(team, state, movers, ThreadLocalRandom.current(),
 					PerkSwapRules.swapExplosions(state));
 			return;
 		} else {
-			swapTeamPositions(online, ThreadLocalRandom.current(), PerkSwapRules.swapExplosions(state));
+			swapTeamPositions(movers, ThreadLocalRandom.current(), PerkSwapRules.swapExplosions(state));
 		}
 		PerkSwapRules.grantOnSwap(state, online);
 		state.positionSwapRemainingTicks = PerkSwapRules.nextRemainingTicks(state);
@@ -176,6 +202,12 @@ public final class PositionSwapManager {
 		}
 	}
 
+	/**
+	 * 접속해 살아 있는 팀원 전원.
+	 *
+	 * <p>여기서는 아무도 빼지 않는다. 「열외」를 빼는 일은 {@link PerkSwapRules#swapParticipants}
+	 * 가 이 결과를 받아서 하고, 그 결과가 순열 교환·시차·정거장 셋 모두에 그대로 넘어간다.
+	 */
 	private static List<ServerPlayer> onlineMembers(MinecraftServer server, ShareTeam team) {
 		List<ServerPlayer> result = new ArrayList<>();
 		for (var memberId : team.members()) {

@@ -6,6 +6,7 @@ import com.sharedfate.perk.effect.ProximityEffect;
 import com.sharedfate.perk.effect.SwapBlockEffect;
 import com.sharedfate.perk.effect.StaggeredSwapEffect;
 import com.sharedfate.perk.effect.SwapExplosionEffect;
+import com.sharedfate.perk.effect.SwapExemptEffect;
 import com.sharedfate.perk.effect.SwapIntervalEffect;
 import com.sharedfate.perk.effect.SwapRallyEffect;
 import com.sharedfate.team.TeamState;
@@ -13,7 +14,11 @@ import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * 팀원 위치 교환과 집합에 끼어드는 증강들의 판정부.
@@ -34,6 +39,15 @@ import java.util.List;
  *
  * <p>보유 증강이 하나도 없으면 어느 물음도 팀 상태 두 번만 보고 곧바로 "해당 없음"이다.
  * 증강을 쓰지 않는 팀의 교환 경로에는 사실상 아무 부담도 얹히지 않는다.
+ *
+ * <h2>사람을 가리는 두 물음</h2>
+ * <p>위의 물음들이 「팀이 무엇을 갖고 있는가」라면, {@link #swapParticipants} 와
+ * {@link #grantSwapExemptBonus} 는 「그 팀의 <b>누구</b>인가」를 답한다. 골드 「열외」
+ * ({@code swap_exempt})는 고른 사람 하나만 교환에서 빼고 그 사람에게만 보상을 준다.
+ *
+ * <p>{@link #satisfiedRequirements} 는 결이 또 다르다. 교환이 일어나는 순간이 아니라 <b>증강을
+ * 뽑는 순간</b>에 쓰이는 값으로, 위치 교환을 끈 팀에게 교환 증강을 보여 주지 않기 위한
+ * 것이다({@link PerkDraft}).
  *
  * <h2>세 물음은 서로를 막지 않는다</h2>
  * <p>{@code swap_block} 이 참이어도 {@link #nextRemainingTicks} 와 {@link #grantOnSwap} 은
@@ -61,6 +75,30 @@ public final class PerkSwapRules {
 		}
 		for (PerkEffect effect : effectsOf(state)) {
 			if (effect instanceof SwapBlockEffect) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * 이 팀이 <b>교환 시점 자체를</b> 없앴는가({@code swap_block} 의 {@code silent}).
+	 *
+	 * <p>참이면 {@code PositionSwapManager} 가 주기를 세는 것부터 건너뛴다 — 예고도 없고,
+	 * {@link #grantOnSwap} 도 돌지 않고, 남은 시간도 줄지 않는다. 「소집의 조각」이 자동 교환을
+	 * 없애고 대신 아이템으로 부르는 방식이기 때문이다. 자세한 이유는 {@link SwapBlockEffect}
+	 * 문서에 있다.
+	 *
+	 * <p>{@link #blocksSwap} 이 참인 팀 중 일부만 이것도 참이다. 둘 다 가진 팀(「뿌리내린 발」 +
+	 * 「소집의 조각」)은 조용한 쪽이 이긴다 — 교환 시점이 오지 않으므로 「뿌리내린 발」의 대가도
+	 * 함께 멈춘다.
+	 */
+	public static boolean silentSwapBlock(@Nullable TeamState state) {
+		if (!usesPerks(state)) {
+			return false;
+		}
+		for (PerkEffect effect : effectsOf(state)) {
+			if (effect instanceof SwapBlockEffect block && block.silent()) {
 				return true;
 			}
 		}
@@ -269,6 +307,131 @@ public final class PerkSwapRules {
 			}
 		}
 		return found;
+	}
+
+	// ------------------------------------------------------------------ 열외
+
+	/**
+	 * 이 명단에서 <b>위치 교환 열외</b>({@code swap_exempt})를 뺀 사람들.
+	 *
+	 * <p>열외가 하나도 없으면 받은 목록을 그대로 돌려준다 — 그런 팀이 대부분이라 아무 부담도
+	 * 얹히지 않는다.
+	 *
+	 * <p>여기서 빠지는 것은 <b>자리를 바꾸는 명단</b>뿐이다. 예고 카운트다운도 {@code on_swap}도
+	 * 팀 전원이 그대로 받는다. 「그 사람만 교환에서 빠진다」이지 「그 사람만 팀이 아니다」가
+	 * 아니기 때문이다.
+	 *
+	 * <p>{@code PositionSwapManager} 가 이 결과를 순열 교환·{@code StaggeredSwapManager}(시차)·
+	 * {@code RallyPointManager}(정거장) 셋 모두에 그대로 넘기므로, 세 갈래가 같은 명단을 쓴다.
+	 */
+	public static List<ServerPlayer> swapParticipants(@Nullable TeamState state,
+			List<ServerPlayer> online) {
+		// 「가호 4」가 켜지면 열외가 팀 전원에게 걸려 아무도 움직이지 않는다.
+		if (SwapExemptEffect.everyoneIn(state) != null) {
+			return List.of();
+		}
+		Set<UUID> exempt = SwapExemptEffect.ownersIn(state).keySet();
+		if (exempt.isEmpty() || online.isEmpty()) {
+			return online;
+		}
+		List<ServerPlayer> movers = new ArrayList<>(online.size());
+		for (ServerPlayer player : online) {
+			if (!exempt.contains(player.getUUID())) {
+				movers.add(player);
+			}
+		}
+		return movers;
+	}
+
+	/**
+	 * 사람 객체 없이 UUID 만으로 같은 계산을 한다. 시험이 보는 자리이자
+	 * {@link #swapParticipants} 가 무엇을 하는지의 정의다.
+	 */
+	public static List<UUID> swapParticipantIds(@Nullable TeamState state, List<UUID> memberIds) {
+		if (SwapExemptEffect.everyoneIn(state) != null) {
+			return List.of();
+		}
+		return withoutExempt(SwapExemptEffect.ownersIn(state).keySet(), memberIds);
+	}
+
+	/**
+	 * 명단에서 주어진 열외를 뺀다.
+	 *
+	 * <p>팀도 보관소도 보지 않는 순수 계산이라 시험이 이 자리를 곧바로 본다. 명단의 순서는
+	 * 그대로 지킨다 — 순열 교환이 이 순서로 자리를 배정하므로 여기서 섞으면 안 된다.
+	 */
+	public static List<UUID> withoutExempt(Set<UUID> exempt, List<UUID> memberIds) {
+		if (exempt == null || exempt.isEmpty() || memberIds.isEmpty()) {
+			return List.copyOf(memberIds);
+		}
+		List<UUID> movers = new ArrayList<>(memberIds.size());
+		for (UUID memberId : memberIds) {
+			if (!exempt.contains(memberId)) {
+				movers.add(memberId);
+			}
+		}
+		return List.copyOf(movers);
+	}
+
+	/**
+	 * 교환 시점에 열외 당사자에게만 이동 속도 보너스를 얹는다.
+	 *
+	 * <p>받는 사람은 <b>그 증강을 고른 사람</b> 하나뿐이다({@code TeamState.perkOwners}).
+	 * 명단에 그 사람이 없으면(접속을 끊었거나 죽었으면) 아무 일도 하지 않는다.
+	 *
+	 * <p>부르는 자리는 {@code PositionSwapManager.swapMoment} 의 맨 앞이다. 시차는 이동이 여러
+	 * 틱에 걸쳐 일어나 그 갈래에서 곧바로 돌아가 버리므로, 갈림길 뒤에서 주면 시차 팀의 열외는
+	 * 영영 못 받는다.
+	 */
+	public static void grantSwapExemptBonus(@Nullable TeamState state, List<ServerPlayer> members) {
+		if (members.isEmpty()) {
+			return;
+		}
+		// 「가호 4」면 고른 사람이 아니라 팀 전원이 받는다. 그 대신 강화는 없다.
+		SwapExemptEffect everyone = SwapExemptEffect.everyoneIn(state);
+		if (everyone != null) {
+			for (ServerPlayer member : members) {
+				everyone.grantTo(member, false);
+			}
+			return;
+		}
+		Map<UUID, SwapExemptEffect> exempt = SwapExemptEffect.ownersIn(state);
+		if (exempt.isEmpty()) {
+			return;
+		}
+		boolean amplified = PerkBlessingSet.teamAmplified(state);
+		for (ServerPlayer member : members) {
+			SwapExemptEffect effect = exempt.get(member.getUUID());
+			if (effect != null) {
+				effect.grantTo(member, amplified);
+			}
+		}
+	}
+
+	// ------------------------------------------------------------------ 추첨 전제조건
+
+	/**
+	 * 이 팀이 갖춘 증강 전제조건들({@link Perk.Requirement}).
+	 *
+	 * <p>{@link PerkDraft} 는 팀 상태를 직접 보지 않으므로(월드 없이 시험할 수 있어야 한다)
+	 * 이 한 줄이 팀 상태를 조건 집합으로 옮겨 준다. {@code no_silver_offers} 의
+	 * {@code silverBlocked} 플래그와 같은 구조다.
+	 *
+	 * <p>지금 있는 조건은 {@code position_swap} 하나다. 팀 상태를 모르면 아무것도 갖추지 못한
+	 * 것으로 본다 — 모르는 것을 갖춘 것으로 치면 전제조건이 있으나 마나가 된다.
+	 *
+	 * <p>여기서 보는 것은 <b>팀 설정</b>이지 보유 증강이 아니다. 「소집의 조각」처럼 자동 교환을
+	 * 없애는 증강을 가진 팀도 위치 교환 설정 자체는 켜져 있으므로 조건은 갖춘 것이다.
+	 */
+	public static Set<Perk.Requirement> satisfiedRequirements(@Nullable TeamState state) {
+		if (state == null) {
+			return Perk.Requirement.NONE;
+		}
+		EnumSet<Perk.Requirement> satisfied = EnumSet.noneOf(Perk.Requirement.class);
+		if (state.positionSwapEnabled()) {
+			satisfied.add(Perk.Requirement.POSITION_SWAP);
+		}
+		return satisfied.isEmpty() ? Perk.Requirement.NONE : satisfied;
 	}
 
 	// ------------------------------------------------------------------ 공통

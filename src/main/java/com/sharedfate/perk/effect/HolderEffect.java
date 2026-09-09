@@ -9,6 +9,7 @@ import com.sharedfate.perk.PerkEffect;
 import com.sharedfate.perk.PerkEffectType;
 import com.sharedfate.perk.PerkHolderManager;
 import com.sharedfate.perk.TimedPerkEffects;
+import com.sharedfate.team.TeamState;
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffect;
@@ -17,7 +18,10 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.IntUnaryOperator;
 
 /**
  * 팀원 <b>한 명</b>에게만 효과를 몰아 주는 래퍼.
@@ -53,6 +57,45 @@ import java.util.UUID;
  * 대신 그동안 나머지 팀원은 계속 {@code on_others} 를 받는다. 즉 <b>보유자가 없는 동안 팀은
  * 디메리트만 지고 버프는 없다.</b> 자세한 집행은 {@link PerkHolderManager} 에 있다.
  *
+ * <h2>{@code on_holder_amplified} — 강화된 보유자 묶음</h2>
+ * <p>세트 단계 같은 바깥 조건이 「강화」를 켜면 보유자는 {@code on_holder} <b>대신</b> 이 묶음을
+ * 받는다. 둘을 겹쳐 붙이지 않는다. 겹쳐 붙이면 같은 속성에 수정자가 두 번 걸리거나
+ * (수정자 식별자가 다르므로 실제로 두 번 더해진다) 같은 상태이상이 서로를 덮는다.
+ *
+ * <pre>{@code
+ * {
+ *   "type": "holder",
+ *   "fixed_to_owner": true,
+ *   "on_holder":           [ { "type": "attribute", "attribute": "minecraft:block_break_speed",
+ *                              "operation": "add_multiplied_total", "amount": 4.0 } ],
+ *   "on_holder_amplified": [ { "type": "attribute", "attribute": "minecraft:block_break_speed",
+ *                              "operation": "add_multiplied_total", "amount": 5.0 } ],
+ *   "on_others":           [ { "type": "attribute", "attribute": "minecraft:block_break_speed",
+ *                              "operation": "add_multiplied_total", "amount": -0.5 } ]
+ * }
+ * }</pre>
+ *
+ * <p><b>적지 않으면 이 필드를 모르던 때와 완전히 같이 동작한다.</b> 빈 묶음이면 「강화」가 켜져도
+ * {@code on_holder} 를 그대로 쓴다. 이 필드 없이 쓰이던 기존 {@code holder} 증강들이 그대로
+ * 돌아야 하기 때문이다.
+ *
+ * <h2>{@link HolderMode} — 지금 어느 모드인가</h2>
+ * <ul>
+ *   <li>{@link HolderMode#NORMAL}: 보유자는 {@code on_holder}, 나머지는 {@code on_others}.</li>
+ *   <li>{@link HolderMode#AMPLIFIED}: 보유자는 {@code on_holder_amplified}, 나머지는
+ *       {@code on_others}.</li>
+ *   <li>{@link HolderMode#EVERYONE}: <b>팀원 전원</b>이 {@code on_holder} 를 받고
+ *       {@code on_others} 는 아무에게도 붙지 않는다. 「고른 사람」이라는 구분이 사라진다.</li>
+ * </ul>
+ *
+ * <p>강화와 전원 모드는 <b>동시에 켜지지 않는다.</b> 둘 다 켜지면 전원 모드가 이기고 강화는
+ * 무시된다({@link HolderMode#resolve}). 두 단계가 서로를 맞바꾸는 세트를 전제로 한 규칙이라,
+ * 어느 쪽으로 읽어도 뜻이 흔들리지 않게 한 곳에 못박아 둔다.
+ *
+ * <p>모드를 <b>무엇을 보고</b> 정하는지는 여기서 정하지 않는다. {@link ModeResolver} 를
+ * {@code PerkHolderManager} 에 꽂아 주는 쪽이 정한다. 이 클래스는 "모드가 이것일 때 무엇을
+ * 붙이는가"만 안다.
+ *
  * <h2>이 클래스가 하지 않는 일</h2>
  * <p>여기는 "누가 보유자인가에 따라 무엇을 붙이는가"만 아는 자료 그릇이다. "지금 누가
  * 보유자인가"와 "언제 누구에게 넘기는가"는 {@link PerkHolderManager} 가 정한다.
@@ -68,6 +111,24 @@ import java.util.UUID;
  * ({@code on_others} 는 50 부터 센다), {@code on_pass} 는 그 구간과 부딪히지 않도록
  * {@link OnKillEffect#nestedIndex} 쪽 구간을 쓴다. {@code TemporaryPerkGrants} 가 같은 방식으로
  * {@code conditional} 과 한 증강 안에 공존한다.
+ *
+ * <p>{@code childIndex} 구간은 이미 꽉 찼다. 한 부모가 쓸 수 있는 폭이 100 인데
+ * {@code on_holder} 가 0~49, {@code on_others} 가 50~99 를 다 쓰기 때문이다. 그래서
+ * {@code on_holder_amplified} 는 <b>{@code on_pass} 와 같은 {@code nestedIndex} 구간</b>을
+ * 나눠 쓴다({@link #amplifiedIndex}).
+ *
+ * <pre>
+ *   on_holder           의 i 번째 → childIndex(부모순번, i)        = (부모순번+1)*100 + i
+ *   on_others           의 i 번째 → childIndex(부모순번, 50 + i)   = (부모순번+1)*100 + 50 + i
+ *   on_pass             의 i 번째 → nestedIndex(부모순번, i)       = (부모순번+1)*1000 + i
+ *   on_holder_amplified 의 i 번째 → nestedIndex(부모순번, 100 + i) = (부모순번+1)*1000 + 100 + i
+ * </pre>
+ *
+ * <p>{@code nestedIndex} 한 칸의 폭은 1000 이고 {@code on_pass} 는 {@link #MAX_PASS_EFFECTS} 개까지만
+ * 적을 수 있으므로 0~7 만 쓴다. 강화 묶음은 그 구간을 100 만큼 비켜난 100~149 를 쓰므로
+ * {@code on_pass} 와 절대 겹치지 않고, {@code childIndex} 구간(부모가 최상위라 최대 10099)과도
+ * 부모 순번이 같은 한 겹치지 않는다. 즉 <b>한 {@code holder} 안의 네 묶음은 서로를 덮어쓰지
+ * 못한다.</b> 이것이 이 타입에서 지켜야 할 전부다.
  *
  * <h2>최상위에만 놓을 수 있다</h2>
  * <p>{@link PerkHolderManager} 는 증강의 최상위 효과만 훑으므로, 다른 효과의 하위로 들어간
@@ -88,7 +149,16 @@ public final class HolderEffect implements PerkEffect {
 	private static final int OTHERS_BRANCH_OFFSET = 50;
 
 	/** {@code on_pass} 에 적을 수 있는 효과 수. 잠깐 거는 것이라 많을 이유가 없다. */
-	private static final int MAX_PASS_EFFECTS = 8;
+	static final int MAX_PASS_EFFECTS = 8;
+
+	/**
+	 * {@code on_holder_amplified} 가 {@code nestedIndex} 구간 안에서 시작하는 자리.
+	 *
+	 * <p>{@code on_pass} 가 0~{@link #MAX_PASS_EFFECTS}-1 을 쓰고 한 칸의 폭이 1000 이므로,
+	 * 100 부터 50 개를 쓰면 양쪽 어디와도 부딪히지 않는다. 자세한 근거는 클래스 설명의
+	 * 「하위 효과의 순번」에 있다.
+	 */
+	private static final int AMPLIFIED_NESTED_OFFSET = 100;
 
 	/** {@code on_pass} 하위 효과가 {@code duration} 을 적지 않았을 때의 지속시간(초). */
 	public static final double DEFAULT_PASS_DURATION_SECONDS = 5.0;
@@ -101,13 +171,86 @@ public final class HolderEffect implements PerkEffect {
 	/** {@code holder} 는 최상위에만 놓을 수 있다. 최상위 순번은 언제나 이 값보다 작다. */
 	private static final int TOP_LEVEL_INDEX_LIMIT = 100;
 
+	/**
+	 * 지금 이 {@code holder} 가 어떻게 동작하는가.
+	 *
+	 * <p>바깥에서(세트 단계 등) 켜고 끄는 스위치다. 무엇이 이 값을 정하는지는
+	 * {@link ModeResolver} 를 꽂는 쪽이 안다.
+	 */
+	public enum HolderMode {
+		/** 이 필드를 모르던 때와 같다. 보유자는 {@code on_holder}, 나머지는 {@code on_others}. */
+		NORMAL,
+		/** 보유자가 {@code on_holder} 대신 {@code on_holder_amplified} 를 받는다. */
+		AMPLIFIED,
+		/** 팀원 전원이 {@code on_holder} 를 받고 {@code on_others} 는 아무에게도 붙지 않는다. */
+		EVERYONE;
+
+		/**
+		 * 두 스위치를 모드 하나로 접는다. <b>서버 없이 시험할 수 있는 순수 함수다.</b>
+		 *
+		 * <p>둘이 동시에 켜지면 전원 모드가 이기고 강화는 무시된다. 두 단계가 서로를 맞바꾸는
+		 * 세트를 전제로 한 규칙이라, 어느 쪽이 이기는지 한 곳에만 적어 둔다.
+		 */
+		public static HolderMode resolve(boolean amplified, boolean everyone) {
+			if (everyone) {
+				return EVERYONE;
+			}
+			return amplified ? AMPLIFIED : NORMAL;
+		}
+	}
+
+	/**
+	 * 지금 한 사람에게 붙어 있는 묶음.
+	 *
+	 * <p>모드가 바뀔 때 <b>이전 모드가 붙여 둔 것만 정확히 걷어내려고</b> 기억해 두는 값이다.
+	 * 「전부 걷어낸다」로 하면 켜진 적도 없는 묶음의 {@code remove} 가 포션으로 얻은 상태이상까지
+	 * 지운다.
+	 */
+	public enum Branch {
+		HOLDER,
+		HOLDER_AMPLIFIED,
+		OTHERS
+	}
+
+	/**
+	 * 팀 상태를 보고 지금 어느 모드인지 돌려주는 판정기.
+	 *
+	 * <p>{@code PerkHolderManager.setModeResolver} 로 꽂는다. 세트 정의와 세트 유형을 아는 쪽이
+	 * 이 함수를 쓰고, {@code holder} 는 그 답만 받는다.
+	 *
+	 * <p>증강 id 를 함께 받는 이유가 있다. 한 팀이 세트에 속한 {@code holder} 증강과 속하지 않은
+	 * {@code holder} 증강(「버프 돌리기」 등)을 동시에 가질 수 있어서, <b>세트에 속한 증강만</b>
+	 * 골라 모드를 켤 수 있어야 하기 때문이다. 팀 단위로만 판정하면 무관한 증강까지 강화된다.
+	 */
+	@FunctionalInterface
+	public interface ModeResolver {
+		/**
+		 * @param state  판정할 팀의 상태. 모르면 null
+		 * @param perkId 이 {@code holder} 가 들어 있는 증강 id. 모르면 null
+		 * @return 지금 모드. null 을 돌려주면 {@link HolderMode#NORMAL} 로 본다
+		 */
+		@Nullable HolderMode resolve(@Nullable TeamState state, @Nullable String perkId);
+	}
+
+	/** 이 효과가 들어 있는 증강 id. 정의에서 읽지 않고 만든 경우에는 null. */
+	private final @Nullable String perkId;
 	private final int rotateTicks;
 	private final int minHoldTicks;
 	private final boolean passOnHurt;
 	private final boolean fixedToOwner;
 	private final List<PerkEffect> onHolder;
+	private final List<PerkEffect> onHolderAmplified;
 	private final List<PerkEffect> onOthers;
 	private final List<OnKillEffect.Grant> onPass;
+
+	/**
+	 * 사람마다 지금 붙여 둔 묶음.
+	 *
+	 * <p>{@code PerkSetEffects} 가 「마지막으로 붙여 준 단계」를 기억하는 것과 같은 이유다.
+	 * 모드가 바뀔 때 이전 묶음만 정확히 걷어내야 두 묶음이 이중으로 걸리지 않는다.
+	 * 팀 인원만큼만 자라므로 크기는 문제되지 않는다.
+	 */
+	private final Map<UUID, Branch> applied = new ConcurrentHashMap<>();
 
 	/** {@code fixed_to_owner} 가 거짓인 생성자. */
 	public HolderEffect(int rotateTicks, int minHoldTicks, boolean passOnHurt,
@@ -115,13 +258,23 @@ public final class HolderEffect implements PerkEffect {
 		this(rotateTicks, minHoldTicks, passOnHurt, false, onHolder, onOthers, onPass);
 	}
 
+	/** {@code on_holder_amplified} 가 없는 생성자. 이 필드를 모르던 때와 같이 동작한다. */
 	public HolderEffect(int rotateTicks, int minHoldTicks, boolean passOnHurt, boolean fixedToOwner,
 			List<PerkEffect> onHolder, List<PerkEffect> onOthers, List<OnKillEffect.Grant> onPass) {
+		this(null, rotateTicks, minHoldTicks, passOnHurt, fixedToOwner,
+				onHolder, List.of(), onOthers, onPass);
+	}
+
+	public HolderEffect(@Nullable String perkId, int rotateTicks, int minHoldTicks, boolean passOnHurt,
+			boolean fixedToOwner, List<PerkEffect> onHolder, List<PerkEffect> onHolderAmplified,
+			List<PerkEffect> onOthers, List<OnKillEffect.Grant> onPass) {
+		this.perkId = perkId;
 		this.rotateTicks = Math.max(0, rotateTicks);
 		this.minHoldTicks = Math.max(0, minHoldTicks);
 		this.passOnHurt = passOnHurt;
 		this.fixedToOwner = fixedToOwner;
 		this.onHolder = List.copyOf(onHolder);
+		this.onHolderAmplified = List.copyOf(onHolderAmplified);
 		this.onOthers = List.copyOf(onOthers);
 		this.onPass = List.copyOf(onPass);
 	}
@@ -164,12 +317,17 @@ public final class HolderEffect implements PerkEffect {
 			return null;
 		}
 
-		List<PerkEffect> onHolder = parseBranch(perkId, index, json, "on_holder", 0);
-		List<PerkEffect> onOthers = parseBranch(perkId, index, json, "on_others", OTHERS_BRANCH_OFFSET);
-		if (onHolder == null || onOthers == null) {
+		List<PerkEffect> onHolder = parseBranch(perkId, json, "on_holder",
+				ordinal -> ConditionalEffect.childIndex(index, ordinal));
+		List<PerkEffect> onOthers = parseBranch(perkId, json, "on_others",
+				ordinal -> ConditionalEffect.childIndex(index, OTHERS_BRANCH_OFFSET + ordinal));
+		// 강화 묶음은 childIndex 구간이 이미 꽉 차 있어 nestedIndex 쪽을 나눠 쓴다.
+		List<PerkEffect> onHolderAmplified = parseBranch(perkId, json, "on_holder_amplified",
+				ordinal -> amplifiedIndex(index, ordinal));
+		if (onHolder == null || onOthers == null || onHolderAmplified == null) {
 			return null;
 		}
-		if (onHolder.isEmpty() && onOthers.isEmpty()) {
+		if (onHolder.isEmpty() && onOthers.isEmpty() && onHolderAmplified.isEmpty()) {
 			SharedFateMod.LOGGER.warn(
 					"증강 {}: holder 에 on_holder 도 on_others 도 없습니다", perkId);
 			return null;
@@ -195,8 +353,19 @@ public final class HolderEffect implements PerkEffect {
 					"증강 {}: holder 가 fixed_to_owner 라 rotate_ticks·pass_on_hurt 는 무시됩니다", perkId);
 		}
 
-		return new HolderEffect(rotateTicks, minHoldTicks, passOnHurt, fixedToOwner,
-				onHolder, onOthers, onPass);
+		return new HolderEffect(perkId, rotateTicks, minHoldTicks, passOnHurt, fixedToOwner,
+				onHolder, onHolderAmplified, onOthers, onPass);
+	}
+
+	/**
+	 * {@code on_holder_amplified} 하위 효과의 순번.
+	 *
+	 * <p>{@code on_pass} 와 같은 {@link OnKillEffect#nestedIndex} 구간을 쓰되
+	 * {@link #AMPLIFIED_NESTED_OFFSET} 만큼 비켜난 자리를 쓴다. 근거는 클래스 설명의
+	 * 「하위 효과의 순번」에 있다.
+	 */
+	public static int amplifiedIndex(int parentIndex, int ordinal) {
+		return OnKillEffect.nestedIndex(parentIndex, AMPLIFIED_NESTED_OFFSET + Math.max(0, ordinal));
 	}
 
 	/**
@@ -205,10 +374,10 @@ public final class HolderEffect implements PerkEffect {
 	 * <p>{@link ConditionalEffect} 가 {@code when_true} 를 읽는 규칙과 같다. 다만 {@code holder} 안에 또
 	 * {@code holder} 를 넣는 것만은 막는다. 안쪽 보유자는 아무도 뽑아 주지 않는다.
 	 *
-	 * @param branchOffset 이 묶음의 하위 순번에 더할 값
+	 * @param indexOf 묶음 안 순번을 받아 하위 효과의 순번을 만드는 함수. 묶음마다 다르다
 	 */
-	private static @Nullable List<PerkEffect> parseBranch(String perkId, int index, JsonObject json,
-			String key, int branchOffset) {
+	private static @Nullable List<PerkEffect> parseBranch(String perkId, JsonObject json,
+			String key, IntUnaryOperator indexOf) {
 		JsonElement element = json.get(key);
 		if (element == null || element.isJsonNull()) {
 			return List.of();
@@ -245,8 +414,7 @@ public final class HolderEffect implements PerkEffect {
 				SharedFateMod.LOGGER.warn("증강 {}: holder 안에 holder 를 넣을 수 없습니다", perkId);
 				return null;
 			}
-			PerkEffect child = type.create(
-					perkId, ConditionalEffect.childIndex(index, branchOffset + i), childJson);
+			PerkEffect child = type.create(perkId, indexOf.applyAsInt(i), childJson);
 			if (child == null) {
 				return null;
 			}
@@ -360,26 +528,123 @@ public final class HolderEffect implements PerkEffect {
 		if (player == null) {
 			return;
 		}
-		applyAs(player, PerkHolderManager.isHolder(this, player.getUUID()));
+		UUID playerId = player.getUUID();
+		// 모드는 기억해 둔 값이 아니라 지금 값을 다시 묻는다. 접속하는 순간 이미 세트 단계가
+		// 켜져 있을 수 있고, 그때 예전 모드로 붙이면 다음 점검까지 반 초 동안 틀린 값이 걸린다.
+		applyAs(player, PerkHolderManager.isHolder(this, playerId),
+				PerkHolderManager.modeFor(playerId, perkId));
 	}
 
-	/**
-	 * 이 사람을 보유자/비보유자로 맞춘다.
-	 *
-	 * <p><b>지는 쪽을 먼저 떼고 이기는 쪽을 붙인다.</b> 두 묶음이 같은 속성이나 같은 상태이상을
-	 * 건드려도 이 순서면 안전하다. 이것을 뒤집으면 갓 붙인 수정자를 곧바로 떼어 내는 일이 생긴다.
-	 * {@link ConditionalEffect} 의 {@code switchTo} 와 같은 규칙이다.
-	 */
+	/** 지금 모드를 다시 물어 이 사람을 보유자/비보유자로 맞춘다. */
 	public void applyAs(@Nullable ServerPlayer player, boolean holding) {
 		if (player == null) {
 			return;
 		}
-		removeAll(holding ? onOthers : onHolder, player);
-		applyAll(holding ? onHolder : onOthers, player);
+		applyAs(player, holding, PerkHolderManager.modeFor(player.getUUID(), perkId));
 	}
 
 	/**
-	 * 두 묶음을 모두 걷어내고 {@code on_pass} 로 걸어 둔 것도 취소한다.
+	 * 이 사람을 주어진 모드의 제 모습으로 맞춘다.
+	 *
+	 * <p><b>지는 쪽을 먼저 떼고 이기는 쪽을 붙인다.</b> 두 묶음이 같은 속성이나 같은 상태이상을
+	 * 건드려도 이 순서면 안전하다. 이것을 뒤집으면 갓 붙인 수정자를 곧바로 떼어 내는 일이 생긴다.
+	 * {@link ConditionalEffect} 의 {@code switchTo} 와 같은 규칙이다.
+	 *
+	 * <p><b>무엇을 떼는가가 이 메서드의 전부다.</b> 모드가 바뀌는 순간 이전 모드가 붙여 둔 것이
+	 * 남아 있으면 속성 수정자가 그대로 두 번 더해진다(식별자가 서로 달라 덮이지도 않는다).
+	 * 그래서 사람마다 마지막에 붙여 준 묶음을 {@link #applied} 에 적어 두고 <b>그것만</b> 떼어
+	 * 낸다. 「이기는 쪽 말고 전부 뗀다」로 하면 켜진 적도 없는 묶음의 {@code remove} 가 포션으로
+	 * 얻은 상태이상까지 지운다.
+	 *
+	 * <p>기억이 없을 때만은 어쩔 수 없이 나머지를 전부 뗀다. 그대로 두면 이전 회차나 서버
+	 * 재시작 전에 붙은 수정자가 영영 남기 때문이다. 이 필드를 쓰지 않는 기존 증강에서는 강화
+	 * 묶음이 비어 있어 예전과 똑같이 「반대쪽 하나만 뗀다」가 된다.
+	 */
+	public void applyAs(@Nullable ServerPlayer player, boolean holding, @Nullable HolderMode mode) {
+		if (player == null) {
+			return;
+		}
+		UUID playerId = player.getUUID();
+		Branch wanted = branchFor(holding, mode);
+		Branch previous = applied.get(playerId);
+		if (previous == null) {
+			for (Branch branch : Branch.values()) {
+				if (branch != wanted) {
+					removeAll(branchEffects(branch), player);
+				}
+			}
+		} else if (previous != wanted) {
+			removeAll(branchEffects(previous), player);
+		}
+		applyAll(branchEffects(wanted), player);
+		applied.put(playerId, wanted);
+	}
+
+	/**
+	 * 이 사람이 지금 받아야 할 묶음.
+	 *
+	 * <p>{@code on_holder_amplified} 가 비어 있으면 {@link HolderMode#AMPLIFIED} 여도
+	 * {@code on_holder} 를 그대로 쓴다. 이 필드를 모르던 정의가 예전과 똑같이 동작해야 하기
+	 * 때문이다.
+	 */
+	public Branch branchFor(boolean holding, @Nullable HolderMode mode) {
+		return selectBranch(holding, mode, !onHolderAmplified.isEmpty());
+	}
+
+	/**
+	 * 모드와 보유 여부로 어느 묶음을 붙일지 고른다.
+	 *
+	 * <p><b>서버 없이 시험할 수 있는 순수 함수다.</b> 이 표가 이 확장의 전부다.
+	 *
+	 * <pre>
+	 *   EVERYONE  → 보유자든 아니든 on_holder     (on_others 는 아무에게도 붙지 않는다)
+	 *   AMPLIFIED → 보유자는 on_holder_amplified, 나머지는 on_others
+	 *   NORMAL    → 보유자는 on_holder,           나머지는 on_others
+	 * </pre>
+	 *
+	 * @param hasAmplified {@code on_holder_amplified} 가 실제로 적혀 있는가
+	 */
+	public static Branch selectBranch(boolean holding, @Nullable HolderMode mode,
+			boolean hasAmplified) {
+		HolderMode resolved = mode == null ? HolderMode.NORMAL : mode;
+		if (resolved == HolderMode.EVERYONE) {
+			// 「고른 사람」이라는 구분이 사라진다. 전원이 보유자와 같은 효과를 받는다.
+			return Branch.HOLDER;
+		}
+		if (!holding) {
+			return Branch.OTHERS;
+		}
+		return resolved == HolderMode.AMPLIFIED && hasAmplified
+				? Branch.HOLDER_AMPLIFIED
+				: Branch.HOLDER;
+	}
+
+	/** 묶음 이름에 해당하는 하위 효과들. */
+	private List<PerkEffect> branchEffects(Branch branch) {
+		return switch (branch) {
+			case HOLDER -> onHolder;
+			case HOLDER_AMPLIFIED -> onHolderAmplified;
+			case OTHERS -> onOthers;
+		};
+	}
+
+	/** 이 사람에게 지금 붙여 둔 묶음. 아직 붙인 적이 없으면 null. */
+	public @Nullable Branch appliedBranch(@Nullable UUID playerId) {
+		return playerId == null ? null : applied.get(playerId);
+	}
+
+	/**
+	 * 기억해 둔 묶음을 모두 버린다.
+	 *
+	 * <p>서버가 멈출 때 {@link PerkHolderManager#reset} 이 부른다. 남겨 두면 다음 회차에서
+	 * 「이미 그 묶음이 붙어 있다」고 잘못 믿어 걷어내기를 건너뛴다.
+	 */
+	public void forgetAll() {
+		applied.clear();
+	}
+
+	/**
+	 * 세 묶음을 모두 걷어내고 {@code on_pass} 로 걸어 둔 것도 취소한다.
 	 *
 	 * <p>어느 쪽이 붙어 있었는지 몰라도 안전하다. 하나라도 남기면 속성 수정자가 영구히 붙어
 	 * 팀이 망가진다.
@@ -390,10 +655,12 @@ public final class HolderEffect implements PerkEffect {
 			return;
 		}
 		removeAll(onHolder, player);
+		removeAll(onHolderAmplified, player);
 		removeAll(onOthers, player);
 		for (OnKillEffect.Grant grant : onPass) {
 			revokePass(player, grant);
 		}
+		applied.remove(player.getUUID());
 	}
 
 	/**
@@ -478,30 +745,43 @@ public final class HolderEffect implements PerkEffect {
 	 */
 	@Override
 	public double damageDealtMultiplier() {
-		Boolean holding = resolveHolding();
-		return holding == null ? 1.0 : damageDealtMultiplier(holding);
+		UUID target = ConditionalPerkManager.multiplierContext();
+		return target == null
+				? 1.0
+				: damageDealtMultiplier(PerkHolderManager.isHolder(this, target), modeFor(target));
 	}
 
 	@Override
 	public double damageTakenMultiplier() {
-		Boolean holding = resolveHolding();
-		return holding == null ? 1.0 : damageTakenMultiplier(holding);
-	}
-
-	/** 보유자 여부를 직접 주고 구하는 주는 피해 배율. */
-	public double damageDealtMultiplier(boolean holding) {
-		return branchMultiplier(holding ? onHolder : onOthers, true);
-	}
-
-	/** 보유자 여부를 직접 주고 구하는 받는 피해 배율. */
-	public double damageTakenMultiplier(boolean holding) {
-		return branchMultiplier(holding ? onHolder : onOthers, false);
-	}
-
-	/** 지금 조회의 대상이 보유자인지. 대상을 알 수 없으면 null. */
-	private @Nullable Boolean resolveHolding() {
 		UUID target = ConditionalPerkManager.multiplierContext();
-		return target == null ? null : PerkHolderManager.isHolder(this, target);
+		return target == null
+				? 1.0
+				: damageTakenMultiplier(PerkHolderManager.isHolder(this, target), modeFor(target));
+	}
+
+	/** 보유자 여부를 직접 주고 구하는 주는 피해 배율. 모드는 {@link HolderMode#NORMAL} 로 본다. */
+	public double damageDealtMultiplier(boolean holding) {
+		return damageDealtMultiplier(holding, HolderMode.NORMAL);
+	}
+
+	/** 보유자 여부를 직접 주고 구하는 받는 피해 배율. 모드는 {@link HolderMode#NORMAL} 로 본다. */
+	public double damageTakenMultiplier(boolean holding) {
+		return damageTakenMultiplier(holding, HolderMode.NORMAL);
+	}
+
+	/** 보유자 여부와 모드를 직접 주고 구하는 주는 피해 배율. */
+	public double damageDealtMultiplier(boolean holding, @Nullable HolderMode mode) {
+		return branchMultiplier(branchEffects(branchFor(holding, mode)), true);
+	}
+
+	/** 보유자 여부와 모드를 직접 주고 구하는 받는 피해 배율. */
+	public double damageTakenMultiplier(boolean holding, @Nullable HolderMode mode) {
+		return branchMultiplier(branchEffects(branchFor(holding, mode)), false);
+	}
+
+	/** 이 사람에게 지금 걸려 있는 모드. 알 수 없으면 {@link HolderMode#NORMAL}. */
+	private HolderMode modeFor(UUID target) {
+		return PerkHolderManager.modeFor(target, perkId);
 	}
 
 	private static double branchMultiplier(List<PerkEffect> effects, boolean dealt) {
@@ -547,8 +827,22 @@ public final class HolderEffect implements PerkEffect {
 		return fixedToOwner;
 	}
 
+	/** 이 효과가 들어 있는 증강 id. 정의에서 읽지 않고 만든 경우에는 null. */
+	public @Nullable String perkId() {
+		return perkId;
+	}
+
 	public List<PerkEffect> onHolder() {
 		return onHolder;
+	}
+
+	/**
+	 * 강화가 켜졌을 때 보유자가 {@code on_holder} <b>대신</b> 받는 묶음.
+	 *
+	 * <p>비어 있으면 강화가 켜져도 {@code on_holder} 를 그대로 쓴다.
+	 */
+	public List<PerkEffect> onHolderAmplified() {
+		return onHolderAmplified;
 	}
 
 	public List<PerkEffect> onOthers() {
@@ -560,23 +854,28 @@ public final class HolderEffect implements PerkEffect {
 	}
 
 	/**
-	 * 상시로 붙었다 떼는 두 묶음의 하위 효과 전부.
+	 * 상시로 붙었다 떼는 세 묶음의 하위 효과 전부.
 	 *
-	 * <p>지금 누가 보유자든 둘 다 이 증강이 거는 효과라, 하위 효과까지 훑어야 하는 곳
-	 * ({@code PerkStatusEffects} 처럼)에서는 양쪽을 모두 봐야 한다.
+	 * <p>지금 누가 보유자든, 지금 어느 모드든 셋 다 이 증강이 거는 효과라, 하위 효과까지 훑어야
+	 * 하는 곳({@code PerkStatusEffects} 처럼)에서는 전부 봐야 한다. <b>{@code on_holder_amplified}
+	 * 를 빠뜨리면</b> 강화 묶음의 상태이상이 증강분으로 인식되지 않아 포션 효과처럼 팀에 공유된다.
 	 *
 	 * <p>{@code on_pass} 는 넣지 않는다. 그쪽은 언제나 유한 지속으로 걸리므로
 	 * {@code PerkStatusEffects} 의 "무한 지속이어야 증강분" 판정에 애초에 걸리지 않는다.
 	 */
 	public List<PerkEffect> children() {
-		if (onOthers.isEmpty()) {
-			return onHolder;
+		if (onHolderAmplified.isEmpty()) {
+			if (onOthers.isEmpty()) {
+				return onHolder;
+			}
+			if (onHolder.isEmpty()) {
+				return onOthers;
+			}
 		}
-		if (onHolder.isEmpty()) {
-			return onOthers;
-		}
-		List<PerkEffect> all = new ArrayList<>(onHolder.size() + onOthers.size());
+		List<PerkEffect> all = new ArrayList<>(
+				onHolder.size() + onHolderAmplified.size() + onOthers.size());
 		all.addAll(onHolder);
+		all.addAll(onHolderAmplified);
 		all.addAll(onOthers);
 		return List.copyOf(all);
 	}

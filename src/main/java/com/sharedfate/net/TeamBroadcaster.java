@@ -1,6 +1,7 @@
 package com.sharedfate.net;
 
 import com.sharedfate.SharedFateMod;
+import com.sharedfate.inventory.ExpandedInventoryManager;
 import com.sharedfate.perk.PerkMilestones;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
@@ -45,7 +46,33 @@ public final class TeamBroadcaster {
 			ServerPlayer player = server.getPlayerList().getPlayer(member);
 			if (player != null) {
 				sendIfSupported(player, payload);
+				refreshExpandedLayout(player);
 			}
+		}
+	}
+
+	/**
+	 * 서버 쪽 인벤토리 메뉴의 칸 자리를 지금 해금 수에 맞춘다.
+	 *
+	 * <p><b>「짐꾼」을 골라도 칸이 바로 안 열리던 이유가 여기였다.</b> 잠긴 칸을 화면 밖으로
+	 * 치우는 일({@code updateMenuLayout})을 부르는 곳이 <b>메뉴를 만드는 자리뿐</b>이었는데,
+	 * {@code player.inventoryMenu} 는 접속할 때 한 번 만들어져 계속 살아 있다. 그래서 클라이언트는
+	 * 새 칸 수를 받아 판을 크게 그리는데 서버 슬롯은 여전히 화면 밖에 있어, <b>재접속하기
+	 * 전까지</b> 늘어난 칸을 쓸 수 없었다.
+	 *
+	 * <p>팀 동기화를 보내는 이 자리에서 함께 맞춘다. 칸 수를 클라이언트에 실어 보내는 곳과
+	 * 서버 메뉴를 고치는 곳이 <b>같은 자리</b>여야 둘이 어긋나지 않는다 — 증강을 고를 때든
+	 * 세트가 켜질 때든 환골탈태로 잃을 때든, 값이 바뀌면 반드시 이 길을 지난다.
+	 */
+	private static void refreshExpandedLayout(ServerPlayer player) {
+		if (!ExpandedInventoryManager.enabled()) {
+			return;
+		}
+		try {
+			ExpandedInventoryManager.updateMenuLayout(player,
+					ExpandedInventoryManager.extraFor(player).active());
+		} catch (RuntimeException error) {
+			SharedFateMod.LOGGER.warn("확장 인벤토리 칸 자리를 다시 잡지 못했습니다.", error);
 		}
 	}
 
@@ -188,7 +215,8 @@ public final class TeamBroadcaster {
 		TeamSyncPayload.Options options = state == null
 				? TeamSyncPayload.Options.NONE
 				: new TeamSyncPayload.Options(state.perksEnabled,
-						state.damageAlertEnabled, state.deathAlertEnabled, state.runStarted);
+						state.damageAlertEnabled, state.deathAlertEnabled, state.runStarted,
+						com.sharedfate.perk.PerkInventorySlots.unlockedFor(state));
 		return new TeamSyncPayload(members, team.name(), xpLevel, nextPerkLevel,
 				maxHealth, swapMinutes, options, team.leader());
 	}
