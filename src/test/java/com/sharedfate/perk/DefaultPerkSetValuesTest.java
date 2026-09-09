@@ -108,13 +108,13 @@ class DefaultPerkSetValuesTest {
 	}
 
 	/**
-	 * 유형 열한 개가 모두 파일에 있다.
+	 * 유형 전부가 파일에 있다.
 	 *
 	 * <p>보상이 아직 없는 유형(무기)도 <b>항목 자체는 있어야</b> 한다. 나중에 값만 넣으면 켜지게
 	 * 자리를 잡아 둔 것이라, 항목을 지우면 그 자리가 어디였는지 잊힌다.
 	 */
 	@Test
-	void 유형_열한_개가_모두_파일에_있다() throws IOException {
+	void 유형_전부가_파일에_있다() throws IOException {
 		JsonObject raw = bundled();
 		Set<PerkSetType> seen = new HashSet<>();
 		for (JsonElement element : raw.getAsJsonArray("sets")) {

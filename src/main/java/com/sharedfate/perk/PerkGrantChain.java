@@ -88,14 +88,16 @@ final class PerkGrantChain {
 			}
 			Perk current = queue.poll();
 
-			// 즉시 지급은 정확히 이 여섯 곳에서만 일어난다. item_grant · legacy_gear ·
-			// diamond_sundial 은 서로를 부르지 않는(더 받게 하지 않는) 단순 지급·몰수라 큐에
-			// 넣을 것이 없다.
+			// 즉시 지급은 정확히 이 일곱 곳에서만 일어난다. item_grant · legacy_gear ·
+			// diamond_sundial · rally_shard 는 서로를 부르지 않는(더 받게 하지 않는) 단순
+			// 지급·몰수라 큐에 넣을 것이 없다.
 			PerkItemGrants.grantOnChoice(server, team, state, current);
 			PerkLegacyGear.sacrificeOnChoice(server, team, state, current);
-			// 해시계는 커스텀 컴포넌트를 붙여야 해서 item_grant 로 줄 수 없다. 대신 지급 시점은
-			// 여기, item_grant 와 정확히 같은 자리다.
+			// 해시계와 소집의 조각은 커스텀 컴포넌트를 붙여야 해서 item_grant 로 줄 수 없다.
+			// 대신 지급 시점은 여기, item_grant 와 정확히 같은 자리다.
 			PerkDiamondSundial.grantOnChoice(server, team, state, current);
+			PerkRallyShard.grantOnChoice(server, team, state, current);
+			PerkFlightCharm.grantOnChoice(server, team, state, current);
 
 			for (Perk granted : PerkGambler.grantOnChoiceDetailed(server, team, state, current, random)) {
 				enqueue(queue, visited, granted);

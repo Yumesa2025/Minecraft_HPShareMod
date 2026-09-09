@@ -12,9 +12,12 @@ public final class TeamCreationCycle {
 	/**
 	 * 위치 교환 주기가 굴러가는 자리들(분).
 	 *
-	 * <p>명령은 1~120 아무 값이나 받는다.
+	 * <p>명령은 1~{@code TeamState.PositionSwapLimits.MAX_MINUTES} 아무 값이나 받는다.
+	 * 2026-09-09 에 상한이 120 에서 <b>30</b> 으로 줄면서 45·60·90·120 자리를 걷어냈다 —
+	 * 한 회차가 그렇게 길지 않아 그 위는 「회차 내내 한 번도 안 바뀜」과 다르지 않았고,
+	 * 굴림 단추를 열한 번 눌러야 한 바퀴가 도는 것도 길었다.
 	 */
-	private static final int[] SWAP_STEPS = {SWAP_OFF, 1, 5, 10, 15, 20, 30, 45, 60, 90, 120};
+	private static final int[] SWAP_STEPS = {SWAP_OFF, 1, 5, 10, 15, 20, 30};
 
 	private TeamCreationCycle() {
 	}

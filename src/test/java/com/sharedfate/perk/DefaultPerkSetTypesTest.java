@@ -43,14 +43,16 @@ class DefaultPerkSetTypesTest {
 		expected.put(PerkSetType.MINING, 10);
 		expected.put(PerkSetType.POWER, 8);
 		expected.put(PerkSetType.MOBILITY, 7);
-		expected.put(PerkSetType.DEFENSE, 7);
+		expected.put(PerkSetType.DEFENSE, 8);
 		expected.put(PerkSetType.SUPPLY, 7);
-		expected.put(PerkSetType.WEAPON, 6);
+		expected.put(PerkSetType.WEAPON, 7);
 		expected.put(PerkSetType.GAMBLE, 5);
 		expected.put(PerkSetType.SURVIVAL, 5);
-		expected.put(PerkSetType.HUNT, 5);
-		expected.put(PerkSetType.SWAP, 4);
-		expected.put(PerkSetType.RECOVERY, 4);
+		expected.put(PerkSetType.HUNT, 6);
+		expected.put(PerkSetType.SWAP, 6);
+		expected.put(PerkSetType.RECOVERY, 5);
+		expected.put(PerkSetType.BLESSING, 7);
+		expected.put(PerkSetType.BOND, 6);
 
 		for (PerkSetType type : PerkSetType.values()) {
 			long count = PerkRegistry.all().stream().filter(p -> p.hasSetType(type)).count();
@@ -58,17 +60,20 @@ class DefaultPerkSetTypesTest {
 		}
 
 		long none = PerkRegistry.all().stream().filter(p -> p.setTypes().isEmpty()).count();
-		assertEquals(16, none, "무유형");
+		assertEquals(12, none, "무유형");
 	}
 
 	/**
-	 * 유형이 <b>두 개</b>인 증강은 정확히 둘뿐이다.
+	 * 유형이 <b>두 개</b>인 증강은 정확히 다섯뿐이다.
+	 *
+	 * <p>「가호」는 셋이 겸업이다 — 전속 광부(채굴)·몽둥이찜질(무기)·열외(교환). 한 사람에게
+	 * 몰아주는 축과 그 효과가 무엇이냐는 축이 서로 직교하기 때문이다.
 	 *
 	 * <p>유형을 하나로 줄이면 세트 판정이 조용히 달라지므로, 개수와 함께 어느 증강인지도
 	 * 못박는다.
 	 */
 	@Test
-	void 유형이_둘인_증강은_정확히_둘이다(@TempDir Path dir) throws IOException {
+	void 유형이_둘인_증강은_정확히_다섯이다(@TempDir Path dir) throws IOException {
 		loadDefaultPool(dir);
 
 		List<String> multi = PerkRegistry.all().stream()
@@ -76,7 +81,18 @@ class DefaultPerkSetTypesTest {
 				.map(Perk::id)
 				.toList();
 
-		assertEquals(List.of("sharedfate:expedition_kit", "sharedfate:price_of_blood"), multi);
+		assertEquals(List.of("sharedfate:expedition_kit", "sharedfate:price_of_blood",
+				"sharedfate:shared_pickaxe", "sharedfate:cudgel",
+				"sharedfate:swap_exempt"), multi);
+		assertEquals(List.of(PerkSetType.WEAPON, PerkSetType.BLESSING),
+				PerkRegistry.byId("sharedfate:cudgel").orElseThrow().setTypes(),
+				"몽둥이찜질 = 무기·가호");
+		assertEquals(List.of(PerkSetType.SWAP, PerkSetType.BLESSING),
+				PerkRegistry.byId("sharedfate:swap_exempt").orElseThrow().setTypes(),
+				"열외 = 교환·가호");
+		assertEquals(List.of(PerkSetType.MINING, PerkSetType.BLESSING),
+				PerkRegistry.byId("sharedfate:shared_pickaxe").orElseThrow().setTypes(),
+				"전속 광부 = 채굴·가호");
 		assertEquals(List.of(PerkSetType.SUPPLY, PerkSetType.GAMBLE),
 				PerkRegistry.byId("sharedfate:expedition_kit").orElseThrow().setTypes(),
 				"원정 준비물 = 보급·도박");

@@ -102,6 +102,11 @@ public final class PerkRarityGrant {
 			if (state.ownedPerks.contains(candidate.id())) {
 				continue;
 			}
+			// 팀 설정을 못 채우는 증강은 덤으로도 주지 않는다. 후보 추첨(PerkDraft)만 막으면
+			// 위치 교환을 끈 팀이 이 길로 교환 증강을 받아 죽은 카드를 쥐게 된다.
+			if (!candidate.requirementMet(PerkSwapRules.satisfiedRequirements(state))) {
+				continue;
+			}
 			pool.add(candidate);
 		}
 		return pool;

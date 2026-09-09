@@ -659,6 +659,12 @@ public class TeamScreen extends Screen {
 			graphics.text(this.font,
 					nameReady ? "숫자 단추는 누를 때마다 다음 값으로 바뀝니다." : TeamNameInput.EMPTY_HINT,
 					left, noteY + ROW_HEIGHT, nameReady ? TEXT_DIM : TEXT_WARN);
+			// 위치 교환은 두 명이 있어야 돈다. 팀을 만드는 순간에는 언제나 혼자이므로 막지는
+			// 않고, 「지금은 안 돈다」는 사실만 알린다 — 막으면 위치 교환을 쓰는 길이 없어진다.
+			if (newTeamSwapMinutes != TeamCreationCycle.SWAP_OFF) {
+				graphics.text(this.font, "⚠ 위치 교환은 팀원이 둘 이상이어야 돕니다. 혼자면 멈춰 있습니다.",
+						left, noteY + ROW_HEIGHT * 2, TEXT_WARN);
+			}
 			return;
 		}
 

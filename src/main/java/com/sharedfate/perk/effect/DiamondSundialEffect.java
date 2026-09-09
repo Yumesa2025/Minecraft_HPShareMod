@@ -106,6 +106,9 @@ public final class DiamondSundialEffect implements PerkEffect {
 	/** {@code minecraft:custom_data} 에 남기는 표식의 값. */
 	public static final String MARKER_VALUE = "diamond_sundial";
 
+	/** 아이템에 붙는 이름. 쿨타임 표시도 이 이름을 쓴다. */
+	public static final String DISPLAY_NAME = "해시계";
+
 	/** 쿨타임 묶음. 평범한 시계와 갈라 두려고 모드 이름공간을 쓴다. */
 	public static final Identifier COOLDOWN_GROUP = SharedFateMod.id("diamond_sundial");
 
@@ -241,7 +244,7 @@ public final class DiamondSundialEffect implements PerkEffect {
 		marker.putString(MARKER_KEY, MARKER_VALUE);
 		stack.set(DataComponents.CUSTOM_DATA, CustomData.of(marker));
 		// 이름은 알아보기 위한 것일 뿐 판정에는 쓰지 않는다. 기본 기울임은 꺼 둔다.
-		stack.set(DataComponents.CUSTOM_NAME, Component.literal("해시계")
+		stack.set(DataComponents.CUSTOM_NAME, Component.literal(DISPLAY_NAME)
 				.withStyle(style -> style.withItalic(false).withColor(ChatFormatting.AQUA)));
 		stack.set(DataComponents.USE_COOLDOWN,
 				new UseCooldown(cooldownSeconds, Optional.of(COOLDOWN_GROUP)));

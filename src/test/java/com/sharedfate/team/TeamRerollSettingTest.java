@@ -53,12 +53,13 @@ class TeamRerollSettingTest {
 
 	@Test
 	void 범위를_벗어난_값은_조용히_접힌다() {
-		// 명령은 이미 0~10 으로 거르지만, 손상된 명단 파일에서도 흘러들어오는 값이다.
+		// 명령은 이미 범위 안으로 거르지만, 손상된 명단 파일에서도 흘러들어오는 값이다.
 		// 그것 때문에 팀 만들기나 회차 복원이 죽으면 안 된다.
+		int max = TeamCreationSettings.MAX_REROLL_COUNT;
 		assertEquals(0, TeamCreationSettings.defaults(20.0F).withRerollCount(-4).rerollCount());
-		assertEquals(10, TeamCreationSettings.defaults(20.0F).withRerollCount(999).rerollCount());
+		assertEquals(max, TeamCreationSettings.defaults(20.0F).withRerollCount(999).rerollCount());
 		assertEquals(0, TeamCreationSettings.sanitizeRerollCount(Integer.MIN_VALUE));
-		assertEquals(10, TeamCreationSettings.sanitizeRerollCount(Integer.MAX_VALUE));
+		assertEquals(max, TeamCreationSettings.sanitizeRerollCount(Integer.MAX_VALUE));
 	}
 
 	@Test
