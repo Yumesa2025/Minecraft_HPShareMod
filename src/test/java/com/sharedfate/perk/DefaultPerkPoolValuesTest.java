@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -405,6 +406,36 @@ class DefaultPerkPoolValuesTest {
 	 *
 	 * <p>등급별 개수까지 함께 세는 것은 증강을 더할 때 등급을 잘못 적는 것을 잡기 위해서다.
 	 */
+	/**
+	 * 설명이 길면 <b>그 줄의 카드 아이콘이 셋 다 사라진다.</b>
+	 *
+	 * <p>선택 화면은 아이콘 크기를 큰 것부터 대 본다({@code PerkOfferScreen.ICON_SIZES} =
+	 * 32 → 16 → <b>0</b>). 설명이 길어지면 카드가 세로로 길어지고, 셋 중 <b>가장 긴 한 장</b>이
+	 * 남은 높이를 넘기는 순간 아이콘 크기가 0 으로 떨어진다. 아이콘 크기는 줄 전체가 함께 쓰는
+	 * 값이라 <b>한 장 때문에 나머지 두 장의 그림도 같이 사라진다.</b>
+	 *
+	 * <p>빌드도 시험도 통과하고 로그도 조용하다. 카드를 눈으로 볼 때만 알 수 있어 여기서 막는다.
+	 * 실제로 2026-09-11 에 설명 세 장이 길어져 아이콘이 통째로 사라졌다.
+	 *
+	 * <p>{@value #MAX_DESCRIPTION_LENGTH} 자는 「지금 가장 긴 것」이 아니라 <b>여유를 두고 잡은
+	 * 상한</b>이다. 값을 올리려거든 먼저 낮은 해상도에서 카드 셋을 띄워 아이콘이 남는지 보라.
+	 */
+	@Test
+	void 증강_설명은_카드_아이콘을_밀어낼_만큼_길지_않다(@TempDir Path dir) throws IOException {
+		loadDefaultPool(dir);
+
+		List<String> 너무긴것 = PerkRegistry.all().stream()
+				.filter(perk -> perk.description().length() > MAX_DESCRIPTION_LENGTH)
+				.map(perk -> perk.name() + " " + perk.description().length() + "자")
+				.toList();
+
+		assertTrue(너무긴것.isEmpty(),
+				"설명이 " + MAX_DESCRIPTION_LENGTH + "자를 넘으면 카드 아이콘이 사라진다: " + 너무긴것);
+	}
+
+	/** 증강 설명의 상한. 까닭은 위 시험 문서에 있다. */
+	private static final int MAX_DESCRIPTION_LENGTH = 85;
+
 	@Test
 	void 기본_풀은_하나도_버려지지_않고_읽힌다(@TempDir Path dir) throws IOException {
 		loadDefaultPool(dir);

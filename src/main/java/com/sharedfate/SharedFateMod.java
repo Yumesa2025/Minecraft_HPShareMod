@@ -111,6 +111,7 @@ public class SharedFateMod implements ModInitializer {
 			com.sharedfate.sync.StaggeredSwapManager.reset();
 			com.sharedfate.sync.RallyPointManager.reset();
 			com.sharedfate.sync.RallyShardManager.reset();
+			com.sharedfate.sync.RallyShardCooldown.reset();
 			com.sharedfate.perk.PerkFlightCharm.reset();
 			com.sharedfate.sync.SpreadDamageManager.reset();
 			com.sharedfate.sync.SwapExplosionScheduler.reset();
@@ -146,6 +147,8 @@ public class SharedFateMod implements ModInitializer {
 			}
 			TeamBroadcaster.sendTo(player);
 			RunProgressManager.onPlayerJoin(player);
+			// 팀이 쓰는 소집의 조각 쿨타임이 도는 중이면 게이지를 남은 만큼 다시 걸어 준다.
+			com.sharedfate.sync.RallyShardCooldown.onPlayerJoin(player);
 			PerkManager.onPlayerJoin(player);
 			com.sharedfate.command.PerkTestCommand.warnOnJoin(player);
 		});
@@ -226,6 +229,8 @@ public class SharedFateMod implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.RallyPointManager::tick);
 		// 「소집의 조각」이 굳힌 팀원을 소환자에게 끌어오는 지점.
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.RallyShardManager::tick);
+		// 소집의 조각 쿨타임은 사람이 아니라 팀이 쓴다. 그 하나를 여기서 줄인다.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.RallyShardCooldown::tick);
 		// 비행 시간을 세고 핫바 1번 칸의 부적을 지킨다.
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.perk.PerkFlightCharm::tick);
 		// 「완충」이 미뤄 둔 피해를 1초에 한 몫씩 넣는 지점.

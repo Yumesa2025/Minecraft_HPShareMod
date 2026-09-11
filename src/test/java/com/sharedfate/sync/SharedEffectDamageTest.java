@@ -128,14 +128,14 @@ class SharedEffectDamageTest {
 			DamageLedger.record(TEAM_ID, "독팀", MEMBERS.get(index), "팀원" + index, 1, loss);
 		}
 
-		String book = String.join("\n", DamageLedger.buildPageTexts(
-				new ShareTeam(TEAM_ID, "독팀", MEMBERS), 1));
+		// 책은 표지 다음이 1회차다. 표지에도 최다 피해가 한 줄 있어 거기까지 세면 두 번이 된다.
+		String runPage = DamageLedger.buildPageTexts(
+				new ShareTeam(TEAM_ID, "독팀", MEMBERS), 1).get(1);
 
-		assertTrue(book.contains("1회차: 1.0 / 0.5♥"), book);
-		assertEquals(1, occurrences(book, "1회차: 1.0 / 0.5♥"),
-				"독 한 방은 장부에도 한 번만 남아야 한다");
-		assertEquals(3, occurrences(book, "1회차: 0.0 / 0.0♥"),
-				"막힌 팀원 셋에게는 피해가 기록되지 않아야 한다");
+		assertEquals(1, occurrences(runPage, " 1.0"),
+				"독 한 방은 장부에도 한 번만 남아야 한다: " + runPage);
+		assertEquals(3, occurrences(runPage, " 0.0"),
+				"막힌 팀원 셋에게는 피해가 기록되지 않아야 한다: " + runPage);
 	}
 
 	/**

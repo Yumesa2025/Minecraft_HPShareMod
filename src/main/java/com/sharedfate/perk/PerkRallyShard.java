@@ -3,6 +3,7 @@ package com.sharedfate.perk;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.inventory.ExpandedInventoryManager;
 import com.sharedfate.perk.effect.RallyShardEffect;
+import com.sharedfate.sync.RallyShardCooldown;
 import com.sharedfate.sync.RallyShardManager;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamManager;
@@ -140,12 +141,15 @@ public final class PerkRallyShard {
 		if (team == null || state == null || !state.perksEnabled || state.ownedPerks.isEmpty()) {
 			return InteractionResult.PASS;
 		}
-		RallyShardEffect effect = findEffect(state);
+		RallyShardEffect effect = effectOf(state);
 		if (effect == null) {
 			// 증강을 잃었으면 조각이 남아 있어도 아무 일도 하지 않는다.
 			return InteractionResult.PASS;
 		}
-		if (user.getCooldowns().isOnCooldown(held)) {
+		// 쿨타임은 사람이 아니라 팀이 쓴다. 조각이 공유 인벤토리에 있어 누구나 집어 쓸 수
+		// 있으므로, 사람마다 따로 돌면 번갈아 눌러 쿨타임을 인원수만큼 나눠 버린다.
+		if (RallyShardCooldown.onCooldown(team.teamId())
+				|| user.getCooldowns().isOnCooldown(held)) {
 			return InteractionResult.FAIL;
 		}
 		// 회차가 시작되기 전에는 위치를 건드리지 않는다. 「게임 시작」이 사람을 스폰으로 모으는
@@ -171,7 +175,8 @@ public final class PerkRallyShard {
 		if (!started) {
 			return InteractionResult.FAIL;
 		}
-		user.getCooldowns().addCooldown(held, effect.cooldownTicks());
+		// 팀 전원에게 함께 건다. 누른 사람의 바닐라 쿨타임도 그 안에서 걸린다.
+		RallyShardCooldown.begin(server, team, effect);
 		return InteractionResult.SUCCESS;
 	}
 
@@ -197,8 +202,16 @@ public final class PerkRallyShard {
 				.withStyle(ChatFormatting.GRAY));
 	}
 
-	/** 팀이 가진 소집의 조각 효과. 없으면 null. */
-	private static @Nullable RallyShardEffect findEffect(TeamState state) {
+	/**
+	 * 팀이 가진 소집의 조각 효과. 없으면 null.
+	 *
+	 * <p>{@link com.sharedfate.sync.RallyShardCooldown} 도 이것을 쓴다 — 쿨타임이 도는 중에
+	 * 들어온 사람에게 게이지를 다시 걸어 주려면 「이 팀의 조각이 몇 초짜리인가」를 알아야 한다.
+	 */
+	public static @Nullable RallyShardEffect effectOf(@Nullable TeamState state) {
+		if (state == null || !state.perksEnabled || state.ownedPerks.isEmpty()) {
+			return null;
+		}
 		for (String perkId : state.ownedPerks) {
 			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			if (perk == null) {

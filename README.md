@@ -5,26 +5,26 @@ Minecraft Java Edition 26.2 / Fabric용 협동 모드입니다. 최대 4명이 �
 팀 공유 레벨이 오르면 팀 전체에 적용되는 **증강**을 함께 고르고, 팀 전멸 뒤에는 다음 회차의
 새 월드를 시작하며, 엔더 드래곤을 처치하면 그 회차가 승리로 끝납니다.
 
-> 현재 버전은 **`0.24.0-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
+> 현재 버전은 **`0.25.0-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
 > SharedFate 버전을 사용해야 합니다.
 >
-> **0.23.0-dev 이하에서 올라오는 경우 서버와 모든 클라이언트를 함께 갱신하세요.** 통신 규약이
-> 23으로 바뀌어 예전 클라이언트로는 접속할 수 없습니다.
+> **0.24.0-dev 이하에서 올라오는 경우 서버와 모든 클라이언트를 함께 갱신하세요.** 통신 규약이
+> 24로 바뀌어 예전 클라이언트로는 접속할 수 없습니다.
 > (참고: 0.4.0-dev 는 5, 0.5.x 는 10, 0.6.0-dev 는 11, 0.7.0-dev 는 12,
 > 0.8.0-dev~0.10.0-dev 는 13, 0.11.0-dev 는 14, 0.12.0-dev 는 15,
 > 0.13.0-dev~0.13.1-dev 는 16, 0.14.0-dev 는 17, 0.15.0-dev~0.18.0-dev 는 18,
 > 0.19.0-dev 는 19, 0.20.0-dev 는 20, 0.21.0-dev 는 21,
-> 0.22.0-dev~0.23.0-dev 는 22입니다.)
+> 0.22.0-dev~0.23.0-dev 는 22, 0.24.0-dev 는 23입니다.)
 
 ## 다운로드
 
 | 파일 | 용도 |
 |---|---|
-| [SharedFate-0.24.0-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.24.0-dev/SharedFate-0.24.0-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
-| [sharedfate-0.24.0-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.24.0-dev/sharedfate-0.24.0-dev.jar) | 서버 운영자·수동 설치용 모드 JAR |
-| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.24.0-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
+| [SharedFate-0.25.0-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.25.0-dev/SharedFate-0.25.0-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
+| [sharedfate-0.25.0-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.25.0-dev/sharedfate-0.25.0-dev.jar) | 서버 운영자·수동 설치용 모드 JAR |
+| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.25.0-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
 
-[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.24.0-dev)
+[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.25.0-dev)
 
 ### 클라이언트 설치
 
@@ -58,7 +58,8 @@ Java 25가 필요합니다. SharedFate JAR만 받았다면 Fabric API
 
 ## 주요 기능
 
-- 공유 저장공간 기본 54칸: 핫바 9 + 메인 27 + 추가 18. 증강으로 최대 63칸까지 열립니다
+- 공유 저장공간 기본 54칸(9×6): 핫바 9 + 메인 27 + 추가 18. 증강 「짐꾼」이 한 줄을 더 열어
+  63칸(9×7)이 됩니다
 - 방어구 4칸, 오프핸드, 엔더상자 공유
 - 팀별 최대 체력 20~40, 흡수 체력, 배고픔·포화도·경험치·포션 효과 공유
 - 아군 선택 슬롯 빨간 표시와 피격 알림·피격 연출

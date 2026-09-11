@@ -323,6 +323,8 @@ public final class RallyShardManager {
 		ShareTeam team = TeamManager.get(server).teamOf(player.getUUID());
 		if (team != null) {
 			forget(team.teamId());
+			// 전멸은 회차의 끝이다. 다음 회차에 「분명 안 썼는데 못 쓴다」가 되면 안 된다.
+			RallyShardCooldown.forget(team.teamId());
 		}
 	}
 

@@ -83,7 +83,8 @@ public abstract class LivingEntityPerkDamageMixin {
 	 *   <li><b>방패를 든 채 착지</b> — {@code shield_fall_immunity} 를 가진 팀원이 방패로 막는
 	 *       중에 받는 낙하 피해는 통째로 버린다. 배율을 0 으로 깎지 않고 여기서 버리는 이유는
 	 *       {@link com.sharedfate.perk.effect.ShieldFallImmunityEffect} 에 있다. 낙하가 아닌
-	 *       피해는 {@link PerkDamage#blocksFallDamage} 첫 줄에서 곧바로 빠져나간다.</li>
+	 *       피해는 {@link PerkDamage#blocksFallDamage} 첫 줄에서 곧바로 빠져나간다.
+	 *       <b>버리기 전에</b> 방패를 막은 양의 열 배로 깎는다 — 그것이 이 증강의 대가다.</li>
 	 *   <li><b>공유 상태이상의 중복 피해</b> — 아래 설명 참고.</li>
 	 *   <li><b>몹에게 받은 한 대</b> — {@code damage_ward} 를 고른 사람은 쿨타임마다 한 번, 몹이
 	 *       준 피해를 통째로 버린다. 낙하 면역과 같은 이유로 배율 0 이 아니라 여기서 버린다.
@@ -110,6 +111,8 @@ public abstract class LivingEntityPerkDamageMixin {
 			return;
 		}
 		if (PerkDamage.blocksFallDamage(self, source)) {
+			// 막아 준 대가로 방패가 크게 닳는다. 피해를 버리기 <b>전에</b> 깎아야 막은 양을 안다.
+			PerkDamage.wearShieldForBlockedFall(self, amount);
 			callback.setReturnValue(false);
 			return;
 		}
@@ -148,6 +151,12 @@ public abstract class LivingEntityPerkDamageMixin {
 		// 또 미루면 같은 피해가 영원히 나뉘기만 하고 끝나지 않는다.
 		if (SpreadDamageManager.isDeliveringSlice()) {
 			return amount;
+		}
+		// 「무엇에 맞았나」를 여기서 적어 둔다. 실제로 기록하는 자리(StatMirror)는 체력이 얼마나
+		// 줄었는지만 보고 출처를 모른다. 사망 알림을 끈 팀에서는 이것이 죽은 까닭을 아는
+		// 유일한 단서가 된다.
+		if (self instanceof net.minecraft.server.level.ServerPlayer victim) {
+			com.sharedfate.sync.DamageLedger.noteSource(victim, source);
 		}
 		float scaled = PerkDamage.scale(self, source, amount);
 		float escalated = DifficultyEscalation.scaleDamage(source, scaled);

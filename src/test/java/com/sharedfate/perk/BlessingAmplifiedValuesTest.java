@@ -59,7 +59,7 @@ class BlessingAmplifiedValuesTest {
 	 * 자체는 아래 시험들이 하나씩 확인한다.
 	 */
 	@Test
-	void 가호_증강은_전부_강화값을_가진다(@TempDir Path dir) throws IOException {
+	void 가호_증강은_짐꾼만_빼고_전부_강화값을_가진다(@TempDir Path dir) throws IOException {
 		loadDefaultPool(dir);
 		List<String> 밋밋한것 = new ArrayList<>();
 		int 본것 = 0;
@@ -68,6 +68,11 @@ class BlessingAmplifiedValuesTest {
 				continue;
 			}
 			본것++;
+			// 짐꾼만은 강화할 자리가 없다. 이미 마지막 줄을 열어 9×7 이 가득 차기 때문이다.
+			// 「칸을 더 준다」는 강화는 만들 수가 없다.
+			if (강화없이도된다.contains(perk.id())) {
+				continue;
+			}
 			if (!강화가있다(perk)) {
 				밋밋한것.add(perk.name() + "(" + perk.id() + ")");
 			}
@@ -76,6 +81,9 @@ class BlessingAmplifiedValuesTest {
 		assertTrue(밋밋한것.isEmpty(),
 				"「가호 3」에서 아무것도 달라지지 않는 가호 증강이 있다: " + 밋밋한것);
 	}
+
+	/** 강화값이 없어도 되는 가호. 이유는 위 시험 본문에 적어 두었다. */
+	private static final List<String> 강화없이도된다 = List.of("sharedfate:porter");
 
 	/** 전속 광부 — 채굴 ×5 가 ×6 이 된다. {@code holder} 의 강화 묶음을 쓴다. */
 	@Test
@@ -128,13 +136,17 @@ class BlessingAmplifiedValuesTest {
 		assertEquals(1200, effect.cooldownTicks(), "쿨타임은 강화되지 않는다");
 	}
 
-	/** 짐꾼 — 여섯 칸이 아홉 칸이 된다. 이 길은 처음부터 있었다. */
+	/**
+	 * 짐꾼 — 한 줄을 통째로 여는 아홉 칸이고, 그 위로는 늘어날 자리가 없다.
+	 *
+	 * <p>기본 두 줄에 한 줄을 더하면 9×7 로 인벤토리가 가득 찬다. 강화가 더 줄 칸이 없다.
+	 */
 	@Test
-	void 짐꾼의_칸이_늘어난다(@TempDir Path dir) throws IOException {
+	void 짐꾼은_아홉_칸이고_더_늘어날_자리가_없다(@TempDir Path dir) throws IOException {
 		InventorySlotsEffect effect = (InventorySlotsEffect) 효과(dir, "sharedfate:porter",
 				InventorySlotsEffect.class);
-		assertEquals(6, effect.amount());
-		assertEquals(9, effect.amplifiedAmount());
+		assertEquals(9, effect.amount());
+		assertEquals(9, effect.amplifiedAmount(), "강화해도 더 열 칸이 없다");
 	}
 
 	/**

@@ -71,7 +71,10 @@ public final class SharedFateNetworking {
 	//     바뀌었고, 그 기준 자리를 클라이언트도 알아야 화면의 시계와 실제 보급 시각이 맞는다.
 	//     남은 시간이 아니라 기준 자리를 싣는 이유는 21번과 같다. 칸이 하나 늘어 형식이
 	//     바뀌었으므로 옛 클라이언트는 이 패킷을 못 읽는다.
-	public static final int PROTOCOL_VERSION = 23;
+	// 24: 골드 「폭발 교환」의 혜택으로 다음 위치 교환까지 남은 시간을 화면 왼쪽 위에 늘
+	//     그린다(SwapTimerPayload 신설). 새 묶음이라 기존 형식은 그대로지만, 이 패킷을 모르는
+	//     클라이언트는 혜택 없이 대가만 치르게 되므로 악수 단계에서 걸러지도록 번호를 올린다.
+	public static final int PROTOCOL_VERSION = 24;
 
 	private SharedFateNetworking() {
 	}
@@ -82,6 +85,7 @@ public final class SharedFateNetworking {
 		PayloadTypeRegistry.clientboundPlay().register(TeamSyncPayload.TYPE, TeamSyncPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(WorldResetPayload.TYPE, WorldResetPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(TeamWipePayload.TYPE, TeamWipePayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(SwapTimerPayload.TYPE, SwapTimerPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(PerkOfferPayload.TYPE, PerkOfferPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(PerkSyncPayload.TYPE, PerkSyncPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(

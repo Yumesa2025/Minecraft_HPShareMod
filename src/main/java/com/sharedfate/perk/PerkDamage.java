@@ -15,6 +15,7 @@ import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,6 +31,13 @@ import org.jetbrains.annotations.Nullable;
 public final class PerkDamage {
 	/** 배율을 곱한 뒤의 상한. 무한대·NaN 이 바닐라 계산으로 새어나가지 않게 막는다. */
 	static final float MAX_DAMAGE = 1.0e9F;
+
+	/**
+	 * 「버티는 방패」가 낙하 피해를 막았을 때 방패가 닳는 배수.
+	 *
+	 * <p>바닐라가 막은 피해량만큼 깎는 것에 견주어 이만큼 더 깎는다.
+	 */
+	static final int FALL_BLOCK_DURABILITY_FACTOR = 10;
 
 	/** 조회가 한 번 터지면 매 피해마다 로그가 쌓이므로 한 번만 남긴다. */
 	private static volatile boolean warned;
@@ -214,6 +222,41 @@ public final class PerkDamage {
 		} catch (RuntimeException error) {
 			warnOnce(error);
 			return false;
+		}
+	}
+
+	/**
+	 * 막아 낸 낙하 피해만큼 방패를 닳게 한다. {@link #blocksFallDamage} 가 참을 돌려준 직후에만
+	 * 부른다.
+	 *
+	 * <p>「버티는 방패」가 치르는 대가다. 바닐라에서 방패로 한 대를 막으면 피해량만큼 닳는데,
+	 * 이 증강은 낙하 피해를 <b>통째로</b> 없애 주므로 그보다 훨씬 비싸야 한다. 그래서
+	 * {@value #FALL_BLOCK_DURABILITY_FACTOR} 배를 깎는다 — 높은 데서 뛰어내릴수록 방패가 빨리
+	 * 부서지고, 부서지면 그 회차에 다시 만들어야 한다.
+	 *
+	 * <p>닳는 대상은 {@code getUseItem()} — <b>지금 들어 올려 막고 있는 바로 그 물건</b>이다.
+	 * 주 손인지 왼손인지 따로 가리지 않아도 되고, 방패가 아닌 무언가로 막는 물건이 생겨도
+	 * 그대로 맞는다.
+	 *
+	 * <p>내구도가 없는 물건이면 아무 일도 하지 않는다. 실제로 깎이는 양은 내구성 마법과
+	 * {@code durability_multiplier} 증강을 지나며 다시 줄어든다
+	 * ({@link com.sharedfate.mixin.ItemStackDurabilityMixin}).
+	 *
+	 * @param blocked 막아 낸 피해량. 배율이 이미 반영된 값이다
+	 */
+	public static void wearShieldForBlockedFall(@Nullable Entity victim, float blocked) {
+		if (!(victim instanceof ServerPlayer player) || !Float.isFinite(blocked) || blocked <= 0.0F) {
+			return;
+		}
+		try {
+			ItemStack shield = player.getUseItem();
+			if (shield.isEmpty() || !shield.isDamageableItem()) {
+				return;
+			}
+			int cost = Math.max(1, Math.round(blocked) * FALL_BLOCK_DURABILITY_FACTOR);
+			shield.hurtAndBreak(cost, player, player.getUsedItemHand());
+		} catch (RuntimeException error) {
+			warnOnce(error);
 		}
 	}
 

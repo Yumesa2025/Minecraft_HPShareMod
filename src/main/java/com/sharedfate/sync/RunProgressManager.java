@@ -116,15 +116,21 @@ public final class RunProgressManager {
 			SharedFateMod.LOGGER.error("승리 회차 상태를 저장하지 못했습니다: {}", stateFile, e);
 		}
 		WorldResetCoordinator.cancelPendingReset();
+		// 회차 기록을 <b>책보다 먼저</b> 남긴다. 그래야 방금 끝낸 회차가 책과 엔딩에 함께 들어간다.
+		if (winningTeam != null) {
+			DamageLedger.noteRunEnd(winningTeam, state.runNumber(), null,
+					RunPerkNames.of(TeamManager.get(server).stateByTeamId(winningTeam.teamId())));
+		}
 		DamageLedger.giveVictoryBooks(server, winningTeam, state.runNumber());
 		refreshBossBar(server);
 		server.getPlayerList().broadcastSystemMessage(Component.literal(
 				"승리! '" + winningName + "' 팀이 " + state.runNumber() + "회차에서 엔더 드래곤을 처치했습니다!"),
 				false);
 
-		// 엔딩 크레딧은 띄우지 않는다. 대신 타이틀 → 폭죽 연출을 예약한다.
+		// 바닐라 엔딩 크레딧은 띄우지 않는다. 대신 폭죽과 함께 넘어가는 엔딩을 예약한다.
 		Set<UUID> audience = celebrationAudience(server, winningTeam, killer);
 		VictoryCelebration.start(audience, state.runNumber(), winningName,
+				DamageLedger.summaryFor(winningTeam),
 				SharedFateMod.config.victoryTitleDelayTicks,
 				SharedFateMod.config.victoryFireworkDelayTicks);
 		SharedFateMod.LOGGER.info(
