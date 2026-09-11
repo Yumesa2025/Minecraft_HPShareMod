@@ -80,6 +80,14 @@ public class SharedFateClient implements ClientModInitializer {
 						payload.runNumber(), payload.delayTicks()));
 		ClientPlayNetworking.registerGlobalReceiver(TeamWipePayload.TYPE,
 				(payload, context) -> GameOverClientDisplay.showVictim(payload.victimName()));
+		// 「폭발 교환」의 혜택. 받은 숫자를 그대로 들고 있다가 왼쪽 위에 그린다.
+		ClientPlayNetworking.registerGlobalReceiver(com.sharedfate.net.SwapTimerPayload.TYPE,
+				(payload, context) -> {
+					var level = context.client().level;
+					if (level != null) {
+						ClientSwapTimer.set(payload.remainingSeconds(), level.getGameTime());
+					}
+				});
 
 		// /shareteam 화면. 네트워크 스레드에서 화면을 열 수 없으므로 클라이언트 스레드로 넘긴다.
 		// 다른 창이 이미 떠 있으면 열지 않는다. 증강 강제 선택 창을 밀어내면 안 된다.
@@ -130,6 +138,7 @@ public class SharedFateClient implements ClientModInitializer {
 
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientTeamState.clear();
+			ClientSwapTimer.clear();
 			SelectedSlotReporter.reset();
 			DamageAlertHud.clear();
 			ExpandedInventoryManager.clearNegotiatedClientLayout();

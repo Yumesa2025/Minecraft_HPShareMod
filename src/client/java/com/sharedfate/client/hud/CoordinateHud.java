@@ -1,5 +1,6 @@
 package com.sharedfate.client.hud;
 
+import com.sharedfate.client.ClientSwapTimer;
 import com.sharedfate.client.perk.ClientPerkSets;
 import com.sharedfate.client.perk.PerkOfferScreen;
 import com.sharedfate.ui.PerkSetLines;
@@ -34,6 +35,7 @@ import java.util.List;
  * <pre>
  * X 128  Y 64  Z -302
  * 어두운 숲
+ * 위치 교환까지 3:07     ← 골드 「폭발 교환」을 가진 팀만
  * ────────────────
  * ◆ 채굴 3/3
  * ◇ 방어 1/2
@@ -78,6 +80,12 @@ public class CoordinateHud implements HudElement {
 	private static final int SET_ACTIVE_COLOR = StatRow.COLOR_GOOD;
 	/** 아직 안 켜진 세트. 바이옴보다도 한 단계 더 가라앉혀 「지금은 아니다」를 색으로도 말한다. */
 	private static final int SET_PROGRESS_COLOR = StatRow.COLOR_MASKED;
+	/**
+	 * 위치 교환 시계. 좌하단 「다음 증강까지」와 같은 노란색이다.
+	 *
+	 * <p>둘 다 <b>다음 사건까지 남은 것</b>을 세는 줄이라 같은 색으로 묶어 읽히게 한다.
+	 */
+	private static final int SWAP_TIMER_COLOR = 0xFFFFD24A;
 
 	/**
 	 * 좌표 한 줄을 만든다.
@@ -117,8 +125,17 @@ public class CoordinateHud implements HudElement {
 			graphics.text(font, biome, MARGIN, BIOME_Y, BIOME_COLOR);
 		}
 
+		// 교환 시계는 세트 줄 바로 위에 선다. 선택 화면이 세트를 대신 그려 주더라도 이 줄은
+		// 대신 그려 주는 자리가 없어 그대로 둔다 — 좌표·바이옴 두 줄과 같은 취급이다.
+		int setsTop = NEXT_LINE_Y;
+		String swapTimer = ClientSwapTimer.line(level.getGameTime());
+		if (swapTimer != null) {
+			graphics.text(font, swapTimer, MARGIN, setsTop, SWAP_TIMER_COLOR);
+			setsTop += LINE_HEIGHT;
+		}
+
 		if (!setsShownByScreen(client)) {
-			renderSets(graphics, font, level.getGameTime());
+			renderSets(graphics, font, level.getGameTime(), setsTop);
 		}
 	}
 
@@ -149,14 +166,15 @@ public class CoordinateHud implements HudElement {
 	 *
 	 * <p>세트가 하나도 없으면 구분선도 긋지 않는다.
 	 */
-	private static void renderSets(GuiGraphicsExtractor graphics, Font font, long gameTime) {
+	private static void renderSets(GuiGraphicsExtractor graphics, Font font, long gameTime,
+			int top) {
 		List<PerkSetLines.Line> lines =
 				ClientPerkSets.hudLines(PerkSetLines.MAX_HUD_LINES, gameTime);
 		if (lines.isEmpty()) {
 			return;
 		}
 
-		int separatorY = NEXT_LINE_Y + SEPARATOR_GAP;
+		int separatorY = top + SEPARATOR_GAP;
 		int width = PerkSetLines.blockWidth(lines, font::width, SEPARATOR_MIN_WIDTH);
 		graphics.fill(MARGIN, separatorY, MARGIN + width, separatorY + 1, SEPARATOR_COLOR);
 

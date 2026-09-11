@@ -85,11 +85,15 @@ public final class PositionSwapManager {
 				swapMoment(online, movers, team, state);
 				continue;
 			}
-			if (!enoughMembers) {
-				continue;
+			// 「폭발 교환」을 가진 팀은 남은 시간을 화면 왼쪽 위에 늘 달고 다닌다. 자리를 비울
+			// 때 터지는 폭발이 대가이고, 언제 터질지 아는 것이 혜택이다. 최소 인원이 모자라
+			// 교환이 미뤄지는 동안에도 시계는 돌아야 하므로 인원 검사보다 앞이다.
+			if (!PerkSwapRules.swapExplosions(state).isEmpty()
+					&& state.positionSwapRemainingTicks % TICKS_PER_SECOND == 0) {
+				com.sharedfate.net.TeamBroadcaster.broadcastSwapTimer(online,
+						Math.max(0, state.positionSwapRemainingTicks / TICKS_PER_SECOND));
 			}
-			// 「폭발 교환」을 가진 팀은 5초 예고와 효과음을 받지 않는다.
-			if (!PerkSwapRules.swapExplosions(state).isEmpty()) {
+			if (!enoughMembers) {
 				continue;
 			}
 			int secondsLeft = countdownSecondsToShow(

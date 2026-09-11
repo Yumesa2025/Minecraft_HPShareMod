@@ -49,6 +49,11 @@ public final class DeathHandler {
 		if (state.deathAlertEnabled) {
 			TeamBroadcaster.broadcastTeamWipe(server, team, dead.getPlainTextName());
 		}
+		// 이 회차가 여기서 끝난다. 누가 끝냈는지와 그때 무엇을 가지고 있었는지를 남긴다 —
+		// 아래에서 state 를 초기화하고 나면 보유 증강을 다시 알 방법이 없다. 이것이 승리 책과
+		// 엔딩의 「최다 사망」·「고른 증강」이 서는 자리다.
+		DamageLedger.noteRunEnd(team, RunProgressManager.runNumber(), dead.getPlainTextName(),
+				RunPerkNames.of(state));
 
 		boolean keepInventory = dead.level().getGameRules().get(GameRules.KEEP_INVENTORY);
 		StatMirror.suppressTeamForCurrentTick(team.teamId());

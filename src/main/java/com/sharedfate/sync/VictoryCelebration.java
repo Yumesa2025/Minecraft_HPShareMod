@@ -15,39 +15,56 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.FireworkExplosion;
 import net.minecraft.world.item.component.Fireworks;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.random.RandomGenerator;
 
 /**
- * 엔더드래곤 처치 뒤 이어지는 승리 연출.
+ * 엔더드래곤 처치 뒤 이어지는 엔딩.
  *
- * <p>처치 → (기본 5초) → 화면 중앙에 "엔더드래곤 토벌" 타이틀 → (기본 5초) → 팀원 각자의
- * 위치에 폭죽. 엔딩 크레딧은 띄우지 않는다.
+ * <p>처치 → (기본 5초) → 팀원 자리에서 폭죽이 오르기 시작하고, 그 위로 화면 한가운데 글이
+ * 한 장씩 넘어간다. 폭죽은 <b>마지막 장이 지나갈 때까지</b> 계속 터진다.
+ *
+ * <pre>
+ * 3회차 승리        · 팀 이름
+ * 최다 피해         · Kairen  412.5
+ * 최다 사망         · Kairen  2회
+ * 고른 증강         · 합계 17개
+ * 수고하셨습니다      · 제작자 카이렌
+ * </pre>
+ *
+ * <p>가운데 세 장은 <b>전체 회차 누적</b>이고 {@link DamageLedger#summaryFor} 가 센다. 셀
+ * 것이 없는 장은 통째로 빠진다 — 「최다 사망 : 없음」은 축하 자리에 어울리지 않는다.
+ *
+ * <p>바닐라 엔딩 크레딧은 띄우지 않는다.
  *
  * <p>진행 상태는 전부 런타임에만 있고 저장하지 않는다. 서버가 재시작되면 예약이 사라지므로
  * 연출이 다시 재생되지 않는다. 승리 판정 자체는 {@link RunProgressState}가 파일로 들고 있어
  * 드래곤을 또 잡아도 {@link RunProgressManager}가 두 번째 승리를 막는다.
  */
 public final class VictoryCelebration {
-	/** 드래곤 처치 후 타이틀이 뜰 때까지의 기본 지연. 100틱 = 5초. */
+	/** 드래곤 처치 후 첫 장이 뜰 때까지의 기본 지연. 100틱 = 5초. */
 	public static final int DEFAULT_TITLE_DELAY_TICKS = 100;
-	/** 타이틀이 뜬 뒤 폭죽이 터질 때까지의 기본 지연. 100틱 = 5초. */
+	/** 장이 넘어가는 기본 간격. 100틱 = 5초. */
 	public static final int DEFAULT_FIREWORK_DELAY_TICKS = 100;
 
-	/** 타이틀 페이드 인 / 유지 / 페이드 아웃 (틱). 합쳐서 5초 남짓 보인다. */
-	private static final int TITLE_FADE_IN_TICKS = 10;
-	private static final int TITLE_STAY_TICKS = 70;
-	private static final int TITLE_FADE_OUT_TICKS = 20;
+	/** 폭죽 한 무리와 다음 무리 사이. 20틱 = 1초. */
+	static final int VOLLEY_PERIOD_TICKS = 20;
 
-	/** 팀원 한 명당 터뜨릴 폭죽 개수. */
-	private static final int ROCKETS_PER_PLAYER = 3;
+	/** 글이 뜨고 사라지는 데 쓰는 시간(틱). 나머지는 그대로 떠 있는 시간이다. */
+	private static final int TITLE_FADE_IN_TICKS = 8;
+	private static final int TITLE_FADE_OUT_TICKS = 8;
+
+	/** 한 무리에 팀원 한 명당 터뜨릴 폭죽 개수. */
+	private static final int ROCKETS_PER_PLAYER = 2;
 
 	/**
 	 * 폭죽을 플레이어 머리 위 몇 블록에서 띄울지.
@@ -71,59 +88,90 @@ public final class VictoryCelebration {
 
 	private static final Schedule SCHEDULE = new Schedule();
 	private static final Set<UUID> AUDIENCE = new LinkedHashSet<>();
-	private static int runNumber;
-	private static String winningName = "";
+	private static List<Card> cards = List.of();
+	private static int cardGapTicks = DEFAULT_FIREWORK_DELAY_TICKS;
 
 	private VictoryCelebration() {
 	}
 
 	/**
-	 * 승리 연출을 예약한다.
+	 * 엔딩을 예약한다.
 	 *
-	 * @param audience          연출을 볼 사람들. 보통 승리 팀원.
-	 * @param runNumber         회차 번호. 부제에 쓴다.
-	 * @param winningName       승리 팀 이름. 부제에 쓴다.
-	 * @param titleDelayTicks   처치 → 타이틀 지연
-	 * @param fireworkDelayTicks 타이틀 → 폭죽 지연
+	 * @param audience     연출을 볼 사람들. 보통 승리 팀원
+	 * @param runNumber    회차 번호
+	 * @param winningName  승리 팀 이름
+	 * @param summary      전체 회차 누적 기록. {@code null} 이면 가운데 세 장이 빠진다
+	 * @param firstDelayTicks 처치 → 첫 장
+	 * @param cardGapTicks 장이 넘어가는 간격
 	 */
 	public static void start(Collection<UUID> audience, int runNumber, String winningName,
-			int titleDelayTicks, int fireworkDelayTicks) {
+			@Nullable DamageLedger.VictorySummary summary,
+			int firstDelayTicks, int cardGapTicks) {
 		AUDIENCE.clear();
 		if (audience != null) {
 			AUDIENCE.addAll(audience);
 		}
-		VictoryCelebration.runNumber = Math.max(1, runNumber);
-		VictoryCelebration.winningName = winningName == null || winningName.isBlank()
-				? "모험가" : winningName;
-		if (AUDIENCE.isEmpty()) {
+		cards = buildCards(runNumber, winningName, summary);
+		VictoryCelebration.cardGapTicks = Math.max(1, cardGapTicks);
+		if (AUDIENCE.isEmpty() || cards.isEmpty()) {
 			SCHEDULE.cancel();
 			return;
 		}
-		SCHEDULE.start(titleDelayTicks, fireworkDelayTicks);
+		SCHEDULE.start(firstDelayTicks, VictoryCelebration.cardGapTicks, cards.size());
+	}
+
+	/**
+	 * 엔딩에 띄울 장들을 만든다.
+	 *
+	 * <p>셀 것이 없는 장은 넣지 않는다. 첫 장과 맺음말은 언제나 있다.
+	 */
+	static List<Card> buildCards(int runNumber, @Nullable String winningName,
+			@Nullable DamageLedger.VictorySummary summary) {
+		List<Card> built = new ArrayList<>(5);
+		String team = winningName == null || winningName.isBlank() ? "모험가" : winningName;
+		built.add(new Card(Math.max(1, runNumber) + "회차 승리", team, Tone.TRIUMPH));
+		if (summary != null && summary.hasDamage()) {
+			built.add(new Card("최다 피해",
+					summary.topDamageName() + "  "
+							+ String.format(Locale.ROOT, "%.1f", summary.topDamage()),
+					Tone.STAT));
+		}
+		if (summary != null && summary.hasDeaths()) {
+			built.add(new Card("최다 사망",
+					summary.mostDeathsName() + "  " + summary.mostDeaths() + "회", Tone.STAT));
+		}
+		if (summary != null && summary.totalPerks() > 0) {
+			built.add(new Card("고른 증강", "합계 " + summary.totalPerks() + "개", Tone.STAT));
+		}
+		built.add(new Card("수고하셨습니다", "제작자 카이렌", Tone.CLOSING));
+		return List.copyOf(built);
 	}
 
 	/** 매 서버 틱마다 불린다. 예약이 없으면 곧바로 빠져나간다. */
 	public static void tick(MinecraftServer server) {
-		Schedule.Step step = SCHEDULE.advance();
-		if (step == Schedule.Step.NONE) {
+		Schedule.Outcome outcome = SCHEDULE.advance();
+		if (outcome.isQuiet()) {
+			if (!SCHEDULE.isRunning()) {
+				// 마지막 장의 여운까지 끝났다. 재입장·재시작으로 다시 재생되지 않게 비운다.
+				AUDIENCE.clear();
+			}
 			return;
 		}
 		List<ServerPlayer> viewers = onlineAudience(server);
-		if (step == Schedule.Step.TITLE) {
-			showVictoryTitle(viewers);
-			return;
+		if (outcome.firework()) {
+			launchFireworks(viewers);
 		}
-		launchFireworks(viewers);
-		// 연출이 끝났으니 관객 목록을 비워 재입장·재시작으로 다시 재생되지 않게 한다.
-		AUDIENCE.clear();
+		if (outcome.cardIndex() >= 0 && outcome.cardIndex() < cards.size()) {
+			showCard(viewers, cards.get(outcome.cardIndex()), outcome.cardIndex() == 0);
+		}
 	}
 
 	/** 서버가 멈추거나 회차가 초기화될 때 예약을 지운다. */
 	public static void reset() {
 		SCHEDULE.cancel();
 		AUDIENCE.clear();
-		runNumber = 0;
-		winningName = "";
+		cards = List.of();
+		cardGapTicks = DEFAULT_FIREWORK_DELAY_TICKS;
 	}
 
 	/** 연출이 아직 남아 있는지. 테스트와 로그용. */
@@ -145,23 +193,28 @@ public final class VictoryCelebration {
 		return result;
 	}
 
-	private static void showVictoryTitle(List<ServerPlayer> viewers) {
-		Component title = Component.literal("엔더드래곤 토벌")
-				.withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD);
-		Component subtitle = Component.literal(runNumber + "회차 · " + winningName)
-				.withStyle(ChatFormatting.YELLOW);
-		TitleMessenger.showTitle(viewers, title, subtitle,
-				TITLE_FADE_IN_TICKS, TITLE_STAY_TICKS, TITLE_FADE_OUT_TICKS);
+	/**
+	 * 한 장을 띄운다.
+	 *
+	 * <p>떠 있는 시간을 간격에 맞춰 잡아, <b>다음 장이 올 때까지 화면에 남아 있게</b> 한다.
+	 * 짧게 잡으면 글이 사라진 빈 화면에 폭죽만 남는 순간이 생긴다.
+	 */
+	private static void showCard(List<ServerPlayer> viewers, Card card, boolean first) {
+		int stay = Math.max(1, cardGapTicks - TITLE_FADE_IN_TICKS - TITLE_FADE_OUT_TICKS);
+		TitleMessenger.showTitle(viewers,
+				Component.literal(card.title()).withStyle(card.tone().titleStyle()),
+				Component.literal(card.subtitle()).withStyle(card.tone().subtitleStyle()),
+				TITLE_FADE_IN_TICKS, stay, TITLE_FADE_OUT_TICKS);
 		for (ServerPlayer player : viewers) {
 			player.level().playSound(null, player.getX(), player.getY(), player.getZ(),
-					SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 1.0F, 1.0F);
+					first ? SoundEvents.UI_TOAST_CHALLENGE_COMPLETE : SoundEvents.NOTE_BLOCK_CHIME.value(),
+					SoundSource.PLAYERS, 1.0F, 1.0F);
 		}
-		SharedFateMod.LOGGER.info("[RUN] victory title shown viewers={}", viewers.size());
+		SharedFateMod.LOGGER.info("[RUN] victory card '{}' viewers={}", card.title(), viewers.size());
 	}
 
 	private static void launchFireworks(List<ServerPlayer> viewers) {
 		RandomGenerator random = ThreadLocalRandom.current();
-		int launched = 0;
 		for (ServerPlayer player : viewers) {
 			if (!(player.level() instanceof ServerLevel level)) {
 				continue;
@@ -170,15 +223,10 @@ public final class VictoryCelebration {
 				double x = player.getX() + (random.nextDouble() - 0.5) * 3.0;
 				double y = player.getY() + ROCKET_SPAWN_HEIGHT;
 				double z = player.getZ() + (random.nextDouble() - 0.5) * 3.0;
-				FireworkRocketEntity rocket =
-						new FireworkRocketEntity(level, rocketStack(random), x, y, z, false);
-				if (level.addFreshEntity(rocket)) {
-					launched++;
-				}
+				level.addFreshEntity(
+						new FireworkRocketEntity(level, rocketStack(random), x, y, z, false));
 			}
 		}
-		SharedFateMod.LOGGER.info("[RUN] victory fireworks viewers={} rockets={}",
-				viewers.size(), launched);
 	}
 
 	/** 무작위 색·모양의 폭죽 로켓 아이템을 만든다. 26.2 는 아이템 컴포넌트로 폭죽을 정의한다. */
@@ -194,62 +242,127 @@ public final class VictoryCelebration {
 		return stack;
 	}
 
+	/** 장의 성격. 색만 다르다. */
+	enum Tone {
+		/** 첫 장. 가장 크고 밝다. */
+		TRIUMPH(new ChatFormatting[] {ChatFormatting.GOLD, ChatFormatting.BOLD},
+				new ChatFormatting[] {ChatFormatting.YELLOW}),
+		/** 가운데 기록 장들. */
+		STAT(new ChatFormatting[] {ChatFormatting.AQUA, ChatFormatting.BOLD},
+				new ChatFormatting[] {ChatFormatting.WHITE}),
+		/** 맺음말. */
+		CLOSING(new ChatFormatting[] {ChatFormatting.WHITE, ChatFormatting.BOLD},
+				new ChatFormatting[] {ChatFormatting.GRAY});
+
+		private final ChatFormatting[] title;
+		private final ChatFormatting[] subtitle;
+
+		Tone(ChatFormatting[] title, ChatFormatting[] subtitle) {
+			this.title = title;
+			this.subtitle = subtitle;
+		}
+
+		ChatFormatting[] titleStyle() {
+			return title;
+		}
+
+		ChatFormatting[] subtitleStyle() {
+			return subtitle;
+		}
+	}
+
+	/** 엔딩의 한 장. */
+	record Card(String title, String subtitle, Tone tone) {
+	}
+
 	/**
-	 * 연출 단계를 틱 단위로 넘기는 순수 로직.
+	 * 엔딩을 틱 단위로 넘기는 순수 로직.
+	 *
+	 * <p>글과 폭죽을 <b>따로</b> 센다. 글은 간격마다 한 장씩, 폭죽은 그와 상관없이 1초마다
+	 * 한 무리다. 한 줄기로 묶으면 간격을 바꿀 때마다 폭죽이 성기거나 빽빽해진다.
 	 */
 	public static final class Schedule {
-		/** {@link #advance()}가 이번 틱에 할 일. */
-		public enum Step {
-			/** 할 일 없음. */
-			NONE,
-			/** 타이틀을 띄울 차례. */
-			TITLE,
-			/** 폭죽을 터뜨릴 차례. */
-			FIREWORK
+		/** 「이번 틱에 할 일 없음」을 나타내는 장 번호. */
+		public static final int NO_CARD = -1;
+
+		/**
+		 * 한 틱의 결과.
+		 *
+		 * @param firework  이번 틱에 폭죽 한 무리를 터뜨리는가
+		 * @param cardIndex 이번 틱에 띄울 장 번호. 없으면 {@link #NO_CARD}
+		 */
+		public record Outcome(boolean firework, int cardIndex) {
+			public static final Outcome QUIET = new Outcome(false, NO_CARD);
+
+			/** 이번 틱에 아무 일도 없는가. */
+			public boolean isQuiet() {
+				return !firework && cardIndex == NO_CARD;
+			}
 		}
 
-		private int remainingTicks;
-		private int fireworkDelayTicks;
-		private boolean awaitingTitle;
-		private boolean awaitingFirework;
+		private int cardCount;
+		private int gapTicks;
+		private int ticksToNextCard;
+		private int ticksToNextVolley;
+		private int shownCards;
+		private boolean running;
 
-		/** 두 단계를 예약한다. 0 이하가 들어오면 최소 1틱으로 올려 항상 다음 틱 이후에 터지게 한다. */
-		public void start(int titleDelayTicks, int fireworkDelayTicks) {
-			this.remainingTicks = Math.max(1, titleDelayTicks);
-			this.fireworkDelayTicks = Math.max(1, fireworkDelayTicks);
-			this.awaitingTitle = true;
-			this.awaitingFirework = true;
+		/**
+		 * 엔딩을 예약한다. 0 이하가 들어오면 최소 1틱으로 올려 항상 다음 틱 이후에 시작한다.
+		 *
+		 * @param firstDelayTicks 처치 → 첫 장
+		 * @param gapTicks        장 사이 간격
+		 * @param cardCount       띄울 장 수
+		 */
+		public void start(int firstDelayTicks, int gapTicks, int cardCount) {
+			this.cardCount = Math.max(0, cardCount);
+			this.gapTicks = Math.max(1, gapTicks);
+			this.ticksToNextCard = Math.max(1, firstDelayTicks);
+			// 폭죽도 첫 장과 함께 시작한다. 글보다 먼저 터지면 무슨 일인지 모른 채 하늘만 본다.
+			this.ticksToNextVolley = this.ticksToNextCard;
+			this.shownCards = 0;
+			this.running = this.cardCount > 0;
 		}
 
-		/** 한 틱 진행한다. 단계가 도래한 틱에만 {@link Step#TITLE} 또는 {@link Step#FIREWORK}를 돌려준다. */
-		public Step advance() {
-			if (!isRunning()) {
-				return Step.NONE;
+		/**
+		 * 한 틱 진행한다.
+		 *
+		 * <p>마지막 장을 띄운 뒤에도 <b>간격 하나만큼 더</b> 돈다. 그 여운 동안 폭죽이 계속
+		 * 터져 맺음말이 화면에 떠 있는 채로 끝난다.
+		 */
+		public Outcome advance() {
+			if (!running) {
+				return Outcome.QUIET;
 			}
-			if (--remainingTicks > 0) {
-				return Step.NONE;
+			boolean firework = false;
+			if (--ticksToNextVolley <= 0) {
+				firework = true;
+				ticksToNextVolley = VOLLEY_PERIOD_TICKS;
 			}
-			if (awaitingTitle) {
-				awaitingTitle = false;
-				remainingTicks = fireworkDelayTicks;
-				return Step.TITLE;
+			if (--ticksToNextCard > 0) {
+				return new Outcome(firework, NO_CARD);
 			}
-			awaitingFirework = false;
-			remainingTicks = 0;
-			return Step.FIREWORK;
+			if (shownCards >= cardCount) {
+				running = false;
+				return new Outcome(firework, NO_CARD);
+			}
+			ticksToNextCard = gapTicks;
+			return new Outcome(firework, shownCards++);
 		}
 
 		/** 남은 단계가 있는지. */
 		public boolean isRunning() {
-			return awaitingTitle || awaitingFirework;
+			return running;
 		}
 
 		/** 예약을 전부 지운다. */
 		public void cancel() {
-			remainingTicks = 0;
-			fireworkDelayTicks = 0;
-			awaitingTitle = false;
-			awaitingFirework = false;
+			cardCount = 0;
+			gapTicks = 0;
+			ticksToNextCard = 0;
+			ticksToNextVolley = 0;
+			shownCards = 0;
+			running = false;
 		}
 	}
 }

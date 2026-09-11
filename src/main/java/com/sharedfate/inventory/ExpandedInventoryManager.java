@@ -27,8 +27,10 @@ public final class ExpandedInventoryManager {
 	 * 아무 증강 없이 열려 있는 추가 칸. 두 줄이다.
 	 *
 	 * <p>바닐라 36칸과 합쳐 <b>9×6 = 54칸</b>이 기본이다. 나머지 아홉 칸은 「짐꾼」
-	 * ({@code inventory_slots})으로 연다 — 여섯 칸을 받고, 「가호 3」이 켜지면 아홉 칸이 되어
-	 * 9×7 = 63칸이 전부 열린다.
+	 * ({@code inventory_slots})이 한 줄째 통째로 열어 9×7 = 63칸이 된다.
+	 *
+	 * <p>열린 칸 수는 언제나 9의 배수다. 그 규칙은 {@link com.sharedfate.perk.PerkInventorySlots}
+	 * 가 지킨다 — 반쪽 줄이 생기면 칸 배경과 칸 자리가 어긋난다.
 	 */
 	public static final int BASE_EXTRA_SIZE = 18;
 	public static final int VANILLA_INVENTORY_MENU_SIZE = 46;

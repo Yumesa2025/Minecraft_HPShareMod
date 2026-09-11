@@ -84,9 +84,9 @@ public class SharedFateConfig {
 	 * 기존 설정 파일과의 호환을 위해 필드만 남겨 둔다.
 	 */
 	public int victoryCreditsDelayTicks = 100;
-	/** 드래곤 처치 후 "엔더드래곤 토벌" 타이틀이 뜰 때까지의 지연(틱). 100틱 = 5초. */
+	/** 드래곤 처치 후 엔딩의 첫 장이 뜰 때까지의 지연(틱). 100틱 = 5초. */
 	public int victoryTitleDelayTicks = 100;
-	/** 타이틀이 뜬 뒤 팀원 위치에 폭죽이 터질 때까지의 지연(틱). 100틱 = 5초. */
+	/** 엔딩의 장이 넘어가는 간격(틱). 100틱 = 5초. 폭죽은 그동안 계속 터진다. */
 	public int victoryFireworkDelayTicks = 100;
 	/** 위치 교환 몇 초 전부터 화면에 카운트다운을 띄울지. 0이면 카운트다운을 띄우지 않는다. */
 	public int positionSwapCountdownSeconds = 5;

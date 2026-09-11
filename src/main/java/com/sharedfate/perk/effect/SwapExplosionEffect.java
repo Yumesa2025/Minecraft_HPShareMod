@@ -21,7 +21,7 @@ import org.jetbrains.annotations.Nullable;
  * <h2>필드</h2>
  * <ul>
  *   <li>{@code radius} — 폭발 반경이자 바닐라 {@code power}. 블록이 부서지는 범위와 피해가
- *       줄어드는 거리 둘 다 이 값 하나로 정해진다({@code 0.5}~{@code 16.0}).</li>
+ *       줄어드는 거리 둘 다 이 값 하나로 정해진다({@code 0.5}~{@code 24.0}).</li>
  *   <li>{@code damage_multiplier}(={@code damageMultiplier}) — 반경과 별개로 피해량에만
  *       곱하는 배율({@code 0.0}~{@code 10.0}). 반경은 그대로 두고 아픈 정도만 줄이거나 늘릴 때
  *       쓴다.</li>
@@ -44,7 +44,13 @@ public final class SwapExplosionEffect implements PerkEffect {
 	public static final boolean DEFAULT_BREAK_BLOCKS = true;
 
 	static final float MIN_RADIUS = 0.5F;
-	static final float MAX_RADIUS = 16.0F;
+	/**
+	 * 반경 상한.
+	 *
+	 * <p>바닐라에서 가장 큰 폭발이 차지 크리퍼의 6 이라 원래 16 으로 두었지만, 「폭발 교환」이
+	 * 20 을 쓰면서 그 위로 올렸다. 블록을 부수지 않는 폭발이라 반경이 커도 지형은 그대로다.
+	 */
+	static final float MAX_RADIUS = 24.0F;
 	static final double MIN_DAMAGE_MULTIPLIER = 0.0;
 	static final double MAX_DAMAGE_MULTIPLIER = 10.0;
 

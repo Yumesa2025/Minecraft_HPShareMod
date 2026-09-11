@@ -174,6 +174,19 @@ public final class TeamBroadcaster {
 		}
 	}
 
+	/**
+	 * 다음 위치 교환까지 남은 초를 팀 전원에게 보낸다. 골드 「폭발 교환」의 혜택이다.
+	 *
+	 * <p>1초에 한 번만 부르는 것은 부르는 쪽({@link com.sharedfate.sync.PositionSwapManager})의
+	 * 책임이다. 여기서 다시 세면 「보낼 조건」이 두 곳으로 갈라진다.
+	 */
+	public static void broadcastSwapTimer(List<ServerPlayer> online, int remainingSeconds) {
+		SwapTimerPayload payload = new SwapTimerPayload(remainingSeconds);
+		for (ServerPlayer player : online) {
+			sendIfSupported(player, payload);
+		}
+	}
+
 	public static void broadcastDamageAlert(List<ServerPlayer> online, String victimName) {
 		DamageAlertPayload payload = new DamageAlertPayload(
 				victimName, SharedFateMod.config.damageAlertDurationTicks);

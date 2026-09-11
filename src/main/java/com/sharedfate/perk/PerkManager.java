@@ -721,6 +721,8 @@ public final class PerkManager {
 			PerkSetEffects.removeAll(online);
 		}
 		broadcastSync(server, team, state);
+		// 증강을 끄면 「짐꾼」이 열어 둔 칸도 함께 닫힌다. 그 사실도 알려야 창이 맞는다.
+		com.sharedfate.net.TeamBroadcaster.broadcast(server, team);
 	}
 
 	private static void applyToTeam(MinecraftServer server, ShareTeam team, TeamState state) {
@@ -730,6 +732,15 @@ public final class PerkManager {
 				refreshPlayer(online);
 			}
 		}
+		// 「짐꾼」이 고른 즉시 안 열리던 이유가 여기였다. 열린 칸 수는 TeamSyncPayload 를 타고
+		// 클라이언트로 가는데, 보유 목록이 바뀌었을 때 그 묶음을 보내는 사람이 아무도 없었다.
+		// 그래서 레벨이 우연히 달라져 정기 동기화가 도는 다음 순간까지, 심하면 재접속할
+		// 때까지 창이 옛 크기 그대로였다.
+		//
+		// 보유 목록이 바뀌는 길은 결국 전부 이 자리를 지난다(고르기·요행·환골탈태·켜고 끄기).
+		// 그래서 부르는 곳마다 따로 걸지 않고 여기 한 곳에서 보낸다. 이 안에서 서버 쪽 메뉴의
+		// 칸 자리도 함께 맞춰진다(TeamBroadcaster.refreshExpandedLayout).
+		com.sharedfate.net.TeamBroadcaster.broadcast(server, team);
 	}
 
 	/** 팀이 보유한 증강의 주는 피해 배율을 모두 곱한 값. */
