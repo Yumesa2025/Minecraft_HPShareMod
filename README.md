@@ -207,6 +207,7 @@ JAR 에서 읽으므로, 실행 중에 파일이 바뀌면 아직 읽지 않은 
 
 ```text
 /shareteam perktest status
+/shareteam perktest owner              「고른 사람만」 걸리는 증강의 지금 주인
 /shareteam perktest give <증강id>      (증강 id 는 자동 완성됩니다)
 /shareteam perktest remove <증강id>
 /shareteam perktest clear confirm
