@@ -16,13 +16,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  */
 class ServerMotdTest {
 
-	/** 지금 서버가 쓰고 있는 실제 MOTD. 두 줄이고 색 코드가 섞여 있다. */
-	private static final String REAL = "§6§lSharedFate §r§f운명을 나누는 하드코어\n"
+	/** 두 줄에 색 코드가 섞인 MOTD 한 벌. 가장 손대기 까다로운 모양을 본떴다. */
+	private static final String SAMPLE = "§6§lSharedFate §r§f운명을 나누는 하드코어\n"
 			+ "§7체력·허기·경험치 공유 §8· §7증강 82개 §8· §7세트 효과";
 
 	@Test
-	void 실제_MOTD_의_개수만_바뀌고_나머지는_그대로다() {
-		String updated = ServerMotd.withPerkCount(REAL, 94);
+	void 개수만_바뀌고_나머지는_그대로다() {
+		String updated = ServerMotd.withPerkCount(SAMPLE, 94);
 
 		assertEquals("§6§lSharedFate §r§f운명을 나누는 하드코어\n"
 				+ "§7체력·허기·경험치 공유 §8· §7증강 94개 §8· §7세트 효과", updated);
@@ -31,10 +31,10 @@ class ServerMotdTest {
 	/** 색 코드·줄바꿈·「세트 효과」는 한 글자도 건드리지 않는다. */
 	@Test
 	void 색과_줄바꿈과_다른_문구는_건드리지_않는다() {
-		String updated = ServerMotd.withPerkCount(REAL, 94);
+		String updated = ServerMotd.withPerkCount(SAMPLE, 94);
 
-		assertEquals(REAL.indexOf('\n'), updated.indexOf('\n'), "줄 구조가 바뀌면 안 된다");
-		assertEquals(REAL.replace("82", "94"), updated);
+		assertEquals(SAMPLE.indexOf('\n'), updated.indexOf('\n'), "줄 구조가 바뀌면 안 된다");
+		assertEquals(SAMPLE.replace("82", "94"), updated);
 	}
 
 	/**
@@ -51,7 +51,7 @@ class ServerMotdTest {
 
 	@Test
 	void 이미_맞는_숫자면_같은_문자열이_나온다() {
-		String already = REAL.replace("82", "94");
+		String already = SAMPLE.replace("82", "94");
 
 		assertEquals(already, ServerMotd.withPerkCount(already, 94));
 	}
@@ -60,8 +60,8 @@ class ServerMotdTest {
 	void 빈_값이나_이상한_개수는_건드리지_않는다() {
 		assertNull(ServerMotd.withPerkCount(null, 94));
 		assertNull(ServerMotd.withPerkCount("", 94));
-		assertNull(ServerMotd.withPerkCount(REAL, 0), "증강을 못 읽었으면 0개라고 적지 않는다");
-		assertNull(ServerMotd.withPerkCount(REAL, -1));
+		assertNull(ServerMotd.withPerkCount(SAMPLE, 0), "증강을 못 읽었으면 0개라고 적지 않는다");
+		assertNull(ServerMotd.withPerkCount(SAMPLE, -1));
 	}
 
 	/** 같은 모양이 두 번 나오면 둘 다 맞춘다. 한쪽만 고치면 더 헷갈린다. */
@@ -71,7 +71,7 @@ class ServerMotdTest {
 				ServerMotd.withPerkCount("증강 82개 · 증강 47개", 94));
 	}
 
-	/** 세 자리 수가 되어도 자리수에 상관없이 바뀐다. 증강 목표는 160개다. */
+	/** 자리수가 달라져도 바뀐다. 줄어드는 쪽도 마찬가지다. */
 	@Test
 	void 세_자리_개수도_맞춘다() {
 		assertEquals("증강 160개", ServerMotd.withPerkCount("증강 94개", 160));
