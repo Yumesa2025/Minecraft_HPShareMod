@@ -110,7 +110,8 @@ public abstract class ExpandedStandardMenuMixin implements ExpandedMenuLayout {
 							+ row * ExpandedInventoryManager.SLOT_PITCH));
 		}
 		ExpandedInventoryManager.updateMenuLayout(
-				(AbstractContainerMenu) (Object) this, extra.active());
+				(AbstractContainerMenu) (Object) this, extra.active(),
+				ExpandedInventoryManager.unlockedFor(inventory.player));
 	}
 
 	/**

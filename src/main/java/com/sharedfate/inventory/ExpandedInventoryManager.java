@@ -108,6 +108,9 @@ public final class ExpandedInventoryManager {
 
 	public static void clearNegotiatedClientLayout() {
 		negotiatedClientLayout = null;
+		// 다음 접속에 옛 칸 수를 물려주지 않는다. 서버가 보내 주기 전까지는 「두 줄」이 정직한
+		// 기본값이고, 틀리더라도 안 보이는 칸을 그리는 쪽이 아니라 덜 그리는 쪽으로 틀린다.
+		clientUnlockedSlots = BASE_EXTRA_SIZE;
 		if (clientPlayer != null) {
 			PLAYER_CONTAINERS.remove(clientPlayer);
 			clientPlayer = null;
@@ -195,11 +198,6 @@ public final class ExpandedInventoryManager {
 		}
 	}
 
-	/** 해금 수를 따로 주지 않으면 전부 열린 것으로 본다. 기존 호출자를 위한 자리다. */
-	public static void updateMenuLayout(AbstractContainerMenu menu, boolean expandedActive) {
-		updateMenuLayout(menu, expandedActive, expandedActive ? EXTRA_SIZE : 0);
-	}
-
 	/**
 	 * 메뉴 하나의 <b>핫바와 추가 27칸</b> 좌표를 다시 잡는다.
 	 *
@@ -244,5 +242,6 @@ public final class ExpandedInventoryManager {
 		PLAYER_CONTAINERS.clear();
 		negotiatedClientLayout = null;
 		clientPlayer = null;
+		clientUnlockedSlots = BASE_EXTRA_SIZE;
 	}
 }

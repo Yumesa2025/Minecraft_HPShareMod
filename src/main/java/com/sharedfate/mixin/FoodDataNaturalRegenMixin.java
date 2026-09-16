@@ -1,6 +1,7 @@
 package com.sharedfate.mixin;
 
 import com.sharedfate.perk.PerkRegenRules;
+import com.sharedfate.sync.SharedNaturalRegen;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.food.FoodData;
 import org.spongepowered.asm.mixin.Mixin;
@@ -35,12 +36,20 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  *
  * <p>{@link PerkRegenRules} 는 팀 미소속·증강 미사용을 먼저 걸러 내므로, 증강을 쓰지 않는
  * 서버에서는 이 우회가 원래 {@code isHurt} 를 그대로 돌려준다. 즉 바닐라와 완전히 같다.
+ *
+ * <h2>같은 자리가 「인원수만큼 곱해지는 회복」도 막는다</h2>
+ * <p>허기와 포만감이 공유라 회복 조건이 <b>팀원 전원에게 같은 틱에</b> 성립한다. 그대로 두면
+ * 네 명이 각자 회복해 공유 체력이 4인분씩 차오른다. {@link SharedNaturalRegen} 이 대표 한 명만
+ * 남기고 나머지를 여기서 되돌린다 — 회복 갈래에 아예 들어가지 않으므로 <b>허기 소모도 함께
+ * 1인분</b>이 된다. 자세한 이유는 그 클래스에 적어 두었다.
  */
 @Mixin(FoodData.class)
 public abstract class FoodDataNaturalRegenMixin {
 	@Redirect(method = "tick", at = @At(value = "INVOKE",
 			target = "Lnet/minecraft/server/level/ServerPlayer;isHurt()Z"))
 	private boolean sharedfate$blockNaturalRegen(ServerPlayer player) {
-		return player.isHurt() && !PerkRegenRules.blocksNaturalRegen(player);
+		return player.isHurt()
+				&& !PerkRegenRules.blocksNaturalRegen(player)
+				&& !SharedNaturalRegen.isDuplicate(player);
 	}
 }

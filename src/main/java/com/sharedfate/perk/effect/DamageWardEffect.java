@@ -47,7 +47,7 @@ import java.util.UUID;
  * 생긴다. 진입점에서 통째로 버리면 그런 흔적이 남지 않는다 — {@link ShieldFallImmunityEffect}
  * 와 같은 판단이다.
  */
-public final class DamageWardEffect implements PerkEffect {
+public final class DamageWardEffect implements PerkEffect, OwnerBoundEffect {
 	/** 기본 쿨타임(초). */
 	public static final int DEFAULT_COOLDOWN_SECONDS = 10;
 	/** 쿨타임 하한(초). 0 을 허용하면 몹 피해에 완전 면역이 된다. */

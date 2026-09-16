@@ -435,9 +435,10 @@ public final class PerkGearManager {
 			return 0;
 		}
 		int before = stack.getCount();
-		insertInto(state.mainItems, stack, Inventory.getSelectionSize());
+		insertInto(state.mainItems, stack, Inventory.getSelectionSize(), state.mainItems.size());
 		if (includeExtra) {
-			insertInto(state.extraItems, stack, 0);
+			// 추가 칸은 「열린 만큼만」이다. 잠긴 칸은 화면 밖이라 넣으면 꺼낼 수 없다.
+			insertInto(state.extraItems, stack, 0, PerkInventorySlots.unlockedFor(state));
 		}
 		return before - stack.getCount();
 	}
@@ -445,10 +446,14 @@ public final class PerkGearManager {
 	/**
 	 * 한 목록의 {@code from} 번 칸부터 같은 아이템에 합치고, 그래도 남으면 빈 칸에 넣는다.
 	 *
-	 * <p>{@code TeamState.restoreOverflow} 가 쓰는 규칙과 같되 시작 칸만 고를 수 있게 한 판이다.
+	 * <p>{@code TeamState.restoreOverflow} 가 쓰는 규칙과 같되 시작 칸과 한도를 고를 수 있게 한
+	 * 판이다.
+	 *
+	 * @param limit 이 칸 번호 <b>앞까지만</b> 쓴다. 추가 칸의 잠긴 자리를 건너뛰기 위한 한도다
 	 */
-	private static void insertInto(SharedItemList items, ItemStack stack, int from) {
-		for (int slot = from; slot < items.size() && !stack.isEmpty(); slot++) {
+	private static void insertInto(SharedItemList items, ItemStack stack, int from, int limit) {
+		int end = Math.max(0, Math.min(limit, items.size()));
+		for (int slot = from; slot < end && !stack.isEmpty(); slot++) {
 			ItemStack existing = items.get(slot);
 			if (existing.isEmpty() || !ItemStack.isSameItemSameComponents(existing, stack)) {
 				continue;
@@ -459,7 +464,7 @@ public final class PerkGearManager {
 				stack.shrink(moved);
 			}
 		}
-		for (int slot = from; slot < items.size() && !stack.isEmpty(); slot++) {
+		for (int slot = from; slot < end && !stack.isEmpty(); slot++) {
 			if (items.get(slot).isEmpty()) {
 				int moved = Math.min(stack.getCount(), stack.getMaxStackSize());
 				items.set(slot, stack.copyWithCount(moved));

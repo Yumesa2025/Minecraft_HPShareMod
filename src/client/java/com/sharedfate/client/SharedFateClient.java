@@ -14,6 +14,7 @@ import com.sharedfate.client.perk.DoubleJumpHandler;
 import com.sharedfate.client.perk.PerkClientState;
 import com.sharedfate.client.perk.PerkDrawScreen;
 import com.sharedfate.client.perk.PerkOfferScreen;
+import com.sharedfate.net.ClientVersionPayload;
 import com.sharedfate.net.StatSnapshotPayload;
 import com.sharedfate.net.DamageAlertPayload;
 import com.sharedfate.net.HandshakePayload;
@@ -136,6 +137,11 @@ public class SharedFateClient implements ClientModInitializer {
 				(payload, context) -> context.client().execute(
 						() -> ClientPerkSets.update(payload)));
 
+		// 접속하자마자 자기 판을 한 번 알린다. 서버는 로그에만 적는다 — 막는 일은 규약
+		// 번호가 하고, 이것은 「누가 어떤 클라이언트를 쓰는지」를 서버에서 볼 수 있게 하는
+		// 기록일 뿐이다. 그것이 없어서 화면이 안 보이던 원인을 찾는 데 오래 걸린 적이 있다.
+		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
+				ClientPlayNetworking.send(new ClientVersionPayload(sharedfate$modVersion())));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			ClientTeamState.clear();
 			ClientSwapTimer.clear();
@@ -204,6 +210,19 @@ public class SharedFateClient implements ClientModInitializer {
 	 * <p>감싸기만 하고 원래 요소를 버리지 않으므로, 증강이 없거나 잃은 뒤에는 바닐라가
 	 * 그대로 그린다. 다른 모드가 같은 요소를 이미 바꿔 놓았어도 그쪽 결과를 그대로 감싼다.
 	 */
+	/**
+	 * 이 클라이언트의 모드 판. 알 수 없으면 빈 문자열이다.
+	 *
+	 * <p>{@code fabric.mod.json} 의 값이라 {@code gradle.properties} 의 {@code mod_version} 과
+	 * 언제나 같다. 사람이 따로 적어 두는 상수를 만들면 판을 올릴 때 반드시 한 번은 어긋난다.
+	 */
+	private static String sharedfate$modVersion() {
+		return net.fabricmc.loader.api.FabricLoader.getInstance()
+				.getModContainer(SharedFateMod.MOD_ID)
+				.map(container -> container.getMetadata().getVersion().getFriendlyString())
+				.orElse("");
+	}
+
 	private static void hideWhenPerkSays(Identifier vanillaElement, HideHudEffect.Element element) {
 		HudElementRegistry.replaceElement(vanillaElement, original -> {
 			HudElement wrapped = (graphics, deltaTracker) -> {

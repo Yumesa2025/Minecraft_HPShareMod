@@ -5,26 +5,28 @@ Minecraft Java Edition 26.2 / Fabric용 협동 모드입니다. 최대 4명이 �
 팀 공유 레벨이 오르면 팀 전체에 적용되는 **증강**을 함께 고르고, 팀 전멸 뒤에는 다음 회차의
 새 월드를 시작하며, 엔더 드래곤을 처치하면 그 회차가 승리로 끝납니다.
 
-> 현재 버전은 **`0.25.0-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
+> 현재 버전은 **`0.26.1-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
 > SharedFate 버전을 사용해야 합니다.
 >
-> **0.24.0-dev 이하에서 올라오는 경우 서버와 모든 클라이언트를 함께 갱신하세요.** 통신 규약이
-> 24로 바뀌어 예전 클라이언트로는 접속할 수 없습니다.
+> **0.25.3-dev 이하에서 올라오는 경우 서버와 모든 클라이언트를 함께 갱신하세요.** 통신 규약이
+> 25로 바뀌어 예전 클라이언트로는 접속할 수 없습니다.
 > (참고: 0.4.0-dev 는 5, 0.5.x 는 10, 0.6.0-dev 는 11, 0.7.0-dev 는 12,
 > 0.8.0-dev~0.10.0-dev 는 13, 0.11.0-dev 는 14, 0.12.0-dev 는 15,
 > 0.13.0-dev~0.13.1-dev 는 16, 0.14.0-dev 는 17, 0.15.0-dev~0.18.0-dev 는 18,
 > 0.19.0-dev 는 19, 0.20.0-dev 는 20, 0.21.0-dev 는 21,
-> 0.22.0-dev~0.23.0-dev 는 22, 0.24.0-dev 는 23입니다.)
+> 0.22.0-dev~0.23.0-dev 는 22, 0.24.0-dev 는 23,
+> 0.25.0-dev~0.25.3-dev 는 24입니다.)
 
 ## 다운로드
 
 | 파일 | 용도 |
 |---|---|
-| [SharedFate-0.25.0-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.25.0-dev/SharedFate-0.25.0-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
-| [sharedfate-0.25.0-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.25.0-dev/sharedfate-0.25.0-dev.jar) | 서버 운영자·수동 설치용 모드 JAR |
-| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.25.0-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
+| [SharedFate-0.26.1-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.26.1-dev/SharedFate-0.26.1-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
+| [SharedFate-0.26.1-dev-server.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.26.1-dev/SharedFate-0.26.1-dev-server.zip) | 서버를 여는 사람용. 모드 두 개와 **재시작 루프 스크립트**, 설치 안내 포함 |
+| [sharedfate-0.26.1-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.26.1-dev/sharedfate-0.26.1-dev.jar) | 수동 설치용 모드 JAR 하나 |
+| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.26.1-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
 
-[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.25.0-dev)
+[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.26.1-dev)
 
 ### 클라이언트 설치
 
@@ -47,14 +49,31 @@ Java 25가 필요합니다. SharedFate JAR만 받았다면 Fabric API
 
 ## 서버 운영
 
-서버에도 Fabric Loader, Fabric API와 동일한 SharedFate JAR가 필요합니다. 자동 회차 서버는
-모드가 월드를 직접 삭제하지 않습니다. 팀 전멸 시 서버가 정상 저장·종료한 뒤
-`scripts/sharedfate-server-loop.ps1`이 표식에 기록된 서버 직속 월드 한 폴더만 검증해
-삭제하고 다시 시작합니다.
+설치부터 첫 회차 시작까지는 **[docs/서버-설치.md](docs/서버-설치.md)** 에 따로 적었습니다.
+바닐라 서버를 운영해 본 적이 없어도 그대로 따라 하면 됩니다.
 
-운영 월드는 먼저 백업하세요. 전체 서버 폴더, 심볼릭 링크·정션, 표식과 일치하지 않는 경로는
-초기화 대상으로 사용하면 안 됩니다. 표식 파일은 서버 루트에 있어야 하고, 표식에 기록된
-월드 경로는 서버 루트의 일반 하위 폴더 하나여야 합니다.
+요약하면 이렇습니다.
+
+1. Fabric 서버(**Minecraft 26.2 / Loader 0.19.3 이상**)를 준비합니다.
+2. `mods` 에 SharedFate JAR 와 Fabric API 를 넣습니다.
+3. **재시작 루프 스크립트로 켭니다.** 서버 ZIP 이나 저장소 `scripts/` 에 있습니다.
+   - Windows — `start-sharedfate-server.bat`
+   - Linux · macOS — `start-sharedfate-server.sh`
+
+**`java -jar` 로 직접 띄우면 안 됩니다.** 팀 전멸 시 모드는 월드를 직접 지우지 않고 서버
+루트에 표식 파일을 남기고 정상 종료할 뿐입니다. 표식에 적힌 월드 폴더를 지우고 서버를 다시
+켜는 일은 루프 스크립트가 하므로, 루프 없이 띄우면 전멸한 순간 서버가 꺼진 채로 남습니다.
+
+루프 스크립트는 표식에 적힌 경로가 **절대 경로이고, 부모가 정확히 서버 루트이고, 서버 루트
+자체가 아니고, 심볼릭 링크·정션이 아닌 실제 폴더**일 때만 지웁니다. 하나라도 어긋나면
+아무것도 지우지 않고 멈춥니다. 그래도 **운영 월드는 먼저 백업하세요.**
+
+**서버가 켜져 있는 동안 `mods` 의 JAR 를 바꾸지 마십시오.** Fabric 은 클래스를 필요할 때마다
+JAR 에서 읽으므로, 실행 중에 파일이 바뀌면 아직 읽지 않은 클래스를 찾는 순간 죽습니다.
+
+**판을 올릴 때는 `config/sharedfate-perks.json` 과 `config/sharedfate-sets.json` 을 둘 다
+지우십시오.** 두 파일은 JAR 안의 정의보다 우선하므로, 남겨 두면 이번 판에서 바뀐 증강과
+세트가 하나도 반영되지 않습니다. 하나만 지우면 반쪽이 옛 정의로 읽히는데 오류도 나지 않습니다.
 
 ## 주요 기능
 
@@ -69,6 +88,7 @@ Java 25가 필요합니다. SharedFate JAR만 받았다면 Fabric API
   효과는 팀 전체에 적용됩니다. 등급은 실버·골드·프리즘이며 15렙만 프리즘 고정입니다
 - **세트 효과**: 증강에는 채굴·화력·기동 같은 **유형**이 붙어 있고, 같은 유형을 임계값만큼
   모으면 추가 보상이 켜집니다. 진행 상황은 화면 왼쪽 위에 늘 보입니다
+- **팀 창고**: 인벤토리가 꽉 차 못 받은 물건이 창고에 쌓이고, `/창고` 로 꺼내 갑니다
 
 주손 선택 슬롯과 위치는 기본적으로 개인별입니다. 팀 가입 시 개인 아이템은 현재 위치에
 드랍되고 개인 경험치는 팀 공유 풀에 합쳐집니다. 일반 탈퇴자는 빈 인벤토리와 경험치 0으로
@@ -96,6 +116,7 @@ Java 25가 필요합니다. SharedFate JAR만 받았다면 Fabric API
 /shareteam difficulty status    난이도가 지금 몇 %까지 올랐는지
 /shareteam perk
 /shareteam perk list
+/shareteam storage            팀 창고를 엽니다 (`/창고` 로도 됩니다)
 /shareteam list
 /shareteam leave
 /shareteam disband confirm
@@ -215,6 +236,7 @@ Java 25가 필요합니다. SharedFate JAR만 받았다면 Fabric API
 
 | 문서 | 무엇 |
 |---|---|
+| [docs/서버-설치.md](docs/서버-설치.md) | 서버를 처음 여는 사람을 위한 설치·운영 안내 |
 | [CHANGELOG.md](CHANGELOG.md) | 판별로 무엇이 바뀌었는지 |
 | [docs/증강-목록.md](docs/증강-목록.md) | 증강 94개 전체 표 — 실버 34 · 골드 36 · 프리즘 24 |
 
@@ -231,14 +253,5 @@ $env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-25"
 `JAVA_HOME` 을 지정하지 않으면 시스템 기본 JDK 를 따라갑니다. 그것이 21 미만이면
 Fabric Loom 을 해석하지 못해 빌드가 시작조차 되지 않습니다. PATH 의 `java` 가 25 여도
 `JAVA_HOME` 이 다르면 실패하므로 위처럼 함께 지정하는 편이 안전합니다.
-
-## 서버 실행
-
-**반드시 `scripts/start-sharedfate-server.bat` 로 켜십시오.** 이 스크립트는 재시작 루프를
-거치는데, 모드가 팀 전멸 시 월드를 직접 지우지 않고 표식만 남기고 종료하기 때문입니다.
-`java -jar` 로 직접 띄우면 전멸 뒤 서버가 다시 켜지지 않습니다.
-
-**서버가 켜져 있는 동안 `mods` 의 JAR 를 바꾸지 마십시오.** Fabric 은 클래스를 필요할 때마다
-JAR 에서 읽으므로, 실행 중에 파일이 바뀌면 아직 읽지 않은 클래스를 찾는 순간 죽습니다.
 
 MIT License입니다.

@@ -1288,9 +1288,15 @@
       "id": "sharedfate:fortress_finder",
       "icon": "minecraft:compass",
       "name": "요새 탐지기",
-      "description": "네더에서 나침반이 가장 가까운 네더 요새를 가리킵니다.",
+      "description": "나침반을 받습니다. 네더에서 가장 가까운 네더 요새를 가리킵니다.",
       "rarity": "silver",
       "effects": [
+        {
+          "type": "item_grant",
+          "items": [
+            { "id": "minecraft:compass", "count": 1 }
+          ]
+        },
         {
           "type": "compass_target",
           "structure": "minecraft:fortress",

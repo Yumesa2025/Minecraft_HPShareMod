@@ -112,6 +112,50 @@ public final class PerkInventorySlots {
 		return 0;
 	}
 
+	/**
+	 * 증강이 더는 열어 주지 않는 칸의 물건을 <b>넘침 대기열로 빼낸다.</b>
+	 *
+	 * <h2>왜 빼내는가</h2>
+	 * <p>{@link #unlockedFor} 는 「물건이 든 칸은 반드시 연다」라서, 짐꾼을 잃어도 그 칸에 물건이
+	 * 있으면 줄이 그대로 열려 있었다. 창이 안 줄어들고 <b>사람이 그 칸을 손으로 다 비워야</b>
+	 * 그제야 닫혔다. 「증강을 잃었는데 칸은 그대로」가 눈에 이상하게 보인다.
+	 *
+	 * <p>이제 증강이 바뀌는 자리에서 한 번 빼내고 닫는다. 물건은 대기열로 가므로 <b>잃지
+	 * 않는다</b> — 대기열은 칸이 비는 대로 매 틱 다시 밀어 넣는다. 바로 이어서
+	 * {@link TeamState#restoreOverflow} 를 부르므로, 위에 자리가 있으면 그 자리에서 올라온다.
+	 *
+	 * <p>「물건이 든 칸은 반드시 연다」 규칙 자체는 그대로 둔다. 그것은 <b>여기를 지나지 않고</b>
+	 * 옛 저장이나 다른 경로로 아래 칸에 물건이 남은 경우의 마지막 그물이다.
+	 *
+	 * <h2>증강을 끈 팀은 건드리지 않는다</h2>
+	 * <p>{@code PerkManager.setPerksEnabled} 는 <b>껐다 켜는 것</b>으로 효과를 다시 맞춘다.
+	 * 그 잠깐 꺼진 순간에 빼내면 짐꾼을 그대로 가진 팀의 물건이 이유 없이 위로 튀어 오른다.
+	 *
+	 * @return 하나라도 빼냈으면 참
+	 */
+	public static boolean evacuateLockedSlots(@Nullable TeamState state) {
+		if (state == null || state.extraItems == null || !state.perksEnabled) {
+			return false;
+		}
+		int granted = ceilToRow(ExpandedInventoryManager.BASE_EXTRA_SIZE + bonusOf(state));
+		int size = Math.min(state.extraItems.size(), ExpandedInventoryManager.EXTRA_SIZE);
+		boolean moved = false;
+		for (int index = granted; index < size; index++) {
+			ItemStack stack = state.extraItems.get(index);
+			if (stack == null || stack.isEmpty()) {
+				continue;
+			}
+			state.overflowItems.add(stack);
+			state.extraItems.set(index, ItemStack.EMPTY);
+			moved = true;
+		}
+		if (moved) {
+			// 위에 자리가 있으면 그 자리에서 올려 준다. 대기열에 남은 것은 칸이 비는 대로 온다.
+			state.restoreOverflow(true);
+		}
+		return moved;
+	}
+
 	/** 계산 결과를 실제로 존재하는 칸 범위로 접는다. */
 	static int clamp(int unlocked) {
 		return Math.max(0, Math.min(ExpandedInventoryManager.EXTRA_SIZE, unlocked));

@@ -117,6 +117,8 @@ class EnchantmentDiamondCostTest {
 
 	@Test
 	void 인챈트_창에도_추가_27칸이_인벤토리_아래로_붙는다() throws Exception {
+		// 좌표를 재는 시험이라 27칸이 다 열린 팀을 가정한다. 잠긴 칸은 화면 밖으로 치워진다.
+		ExpandedInventoryManager.setClientUnlockedSlots(ExpandedInventoryManager.EXTRA_SIZE);
 		Player player = hollowPlayer(false);
 		ExpandedInventoryManager.extraFor(player).setClientActive(true);
 		EnchantmentMenu menu = readyMenu(player, 0);

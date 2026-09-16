@@ -126,13 +126,13 @@ class VictoryCelebrationTest {
 	@Test
 	void 기록이_다_있으면_다섯_장이_정해진_차례로_선다() {
 		List<Card> cards = VictoryCelebration.buildCards(3, "운명공동체",
-				new VictorySummary("Kairen", 412.5D, "Aoi", 2, 17));
+				new VictorySummary("플레이어1", 412.5D, "플레이어2", 2, 17));
 
-		assertEquals(List.of("3회차 승리", "최다 피해", "최다 사망", "고른 증강", "수고하셨습니다"),
+		assertEquals(List.of("3회차 승리", "받은 피해량", "최다 사망", "고른 증강", "수고하셨습니다"),
 				cards.stream().map(Card::title).toList());
 		assertEquals("운명공동체", cards.get(0).subtitle());
-		assertEquals("Kairen  412.5", cards.get(1).subtitle());
-		assertEquals("Aoi  2회", cards.get(2).subtitle());
+		assertEquals("플레이어1  412.5", cards.get(1).subtitle());
+		assertEquals("플레이어2  2회", cards.get(2).subtitle());
 		assertEquals("합계 17개", cards.get(3).subtitle());
 		assertEquals("제작자 카이렌", cards.getLast().subtitle());
 	}

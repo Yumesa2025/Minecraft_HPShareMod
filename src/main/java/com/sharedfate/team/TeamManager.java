@@ -287,10 +287,24 @@ public class TeamManager extends SavedData {
 		return true;
 	}
 
+	/**
+	 * 팀이 하나라도 있으면 저장을 더럽다고 표시한다. 매 서버 틱 불린다.
+	 *
+	 * <h2>⚠ 예전에는 여기서 넘침 대기열을 되돌렸다</h2>
+	 *
+	 * <p>매 틱 {@code state.restoreOverflow(...)} 를 불러 칸이 비는 순간 물건을 도로 밀어
+	 * 넣었다. 아이템을 잃지는 않았지만 <b>언제 돌아오는지 아무도 몰랐다.</b> 「보급을 받았다는
+	 * 채팅은 떴는데 인벤토리 어디에도 없다」가 그것이었다.
+	 *
+	 * <p>이제 넘친 물건은 {@code TeamStorage} 창고에 <b>쌓이기만 하고 사람이 꺼내 간다.</b>
+	 * 여기서 되돌리면 창고를 열기도 전에 물건이 빠져나가 창고가 늘 비어 보인다.
+	 *
+	 * <p>「지금 바로 넣어 보고 안 되면 창고행」 하는 자리(커서 아이템·「유산」 승계)는 스스로
+	 * {@code restoreOverflow} 를 부르므로 그대로 동작한다. 자리가 있는데도 굳이 창고로 가는
+	 * 일은 없다.
+	 */
 	public void markDirtyIfActive() {
 		if (!teams.isEmpty()) {
-			states.values().forEach(state -> state.restoreOverflow(
-					SharedFateMod.config != null && SharedFateMod.config.mainInventoryRows == 6));
 			setDirty();
 		}
 	}

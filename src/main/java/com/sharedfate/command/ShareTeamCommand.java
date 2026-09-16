@@ -100,9 +100,32 @@ public final class ShareTeamCommand {
 				.then(PerkCommand.node())
 				// 운영자 전용 증강 시험 명령. 권한이 없으면 이 가지는 아예 보이지 않는다.
 				.then(PerkTestCommand.node())
+				.then(Commands.literal("storage").executes(ShareTeamCommand::openStorage))
 				.then(Commands.literal("list").executes(ShareTeamCommand::list))
 				.then(Commands.literal("status").executes(context -> status(context, config))));
 		registerAlias(dispatcher, root);
+		registerStorageAlias(dispatcher);
+	}
+
+	/**
+	 * {@code /창고} 를 {@code /shareteam storage} 의 별칭으로 붙인다.
+	 *
+	 * <p>{@code /st} 와 달리 {@code redirect} 를 쓰지 않는다. 리다이렉트는 <b>가지 전체</b>를
+	 * 넘기는 장치라 {@code /창고 give …} 같은 것까지 따라붙는데, 창고는 인자가 없는 한 줄
+	 * 명령이다. 같은 동작을 곧바로 실행하는 편이 트리가 정직하다.
+	 *
+	 * <p>한글 이름을 쓰는 이유는 이것이 <b>플레이 중에 자주 치는</b> 명령이기 때문이다.
+	 * 영어 자판으로 바꿔 치게 하면 안 쓰게 된다.
+	 */
+	private static void registerStorageAlias(CommandDispatcher<CommandSourceStack> dispatcher) {
+		dispatcher.register(Commands.literal("창고").executes(ShareTeamCommand::openStorage));
+	}
+
+	/** 인벤토리가 꽉 차 못 받은 물건이 쌓이는 팀 창고를 연다. */
+	private static int openStorage(CommandContext<CommandSourceStack> context)
+			throws CommandSyntaxException {
+		return com.sharedfate.storage.TeamStorage.open(
+				context.getSource().getPlayerOrException()) ? 1 : 0;
 	}
 
 	/**

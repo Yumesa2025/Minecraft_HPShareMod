@@ -409,12 +409,29 @@ public class TeamState {
 				|| !enderContainer.isEmpty();
 	}
 
+	/**
+	 * 넘침 대기열을 인벤토리로 되돌린다.
+	 *
+	 * <h2>⚠ 추가 칸은 「열린 만큼만」이다</h2>
+	 * <p>{@link #extraItems} 는 언제나 27칸이지만 팀이 연 칸은 그보다 적을 수 있다(기본 18).
+	 * 잠긴 칸은 화면 밖에 있어 <b>물건이 들어가면 사라진 것처럼 보이고 꺼낼 수도 없다.</b>
+	 * 그래서 {@code ExpandedInventoryContainer.openSlots()} 와 <b>같은 한도</b>를 쓴다.
+	 *
+	 * <p>이 한도가 없던 시절, 「보급」이 온 팀에서 채팅에는 「보급 받음」이 뜨는데 인벤토리
+	 * 어디에도 없고 재접속해야 나타나는 일이 있었다. 덤으로
+	 * {@code PerkInventorySlots.occupiedFloor} 가 그 칸을 발견해 <b>짐꾼도 없는 팀에 27칸을
+	 * 열어 줬다.</b>
+	 *
+	 * <p>{@code unlockedFor} 는 「물건이 든 칸까지는 반드시 연다」를 포함하므로, 예전 월드에서
+	 * 이미 아래 칸에 있던 물건은 그대로 열린 것으로 세어 계속 쓸 수 있다.
+	 */
 	public void restoreOverflow(boolean includeExtra) {
+		int extraLimit = com.sharedfate.perk.PerkInventorySlots.unlockedFor(this);
 		for (var iterator = overflowItems.iterator(); iterator.hasNext();) {
 			ItemStack stack = iterator.next();
-			insertInto(mainItems, stack);
+			insertInto(mainItems, stack, mainItems.size());
 			if (includeExtra && !stack.isEmpty()) {
-				insertInto(extraItems, stack);
+				insertInto(extraItems, stack, extraLimit);
 			}
 			if (stack.isEmpty()) {
 				iterator.remove();
@@ -422,11 +439,15 @@ public class TeamState {
 		}
 	}
 
-	private static void insertInto(SharedItemList items, ItemStack stack) {
-		for (ItemStack existing : items) {
-			if (stack.isEmpty()) {
-				return;
-			}
+	/**
+	 * 같은 아이템에 먼저 합치고, 남으면 빈 칸에 넣는다.
+	 *
+	 * @param limit 이 칸 번호 <b>앞까지만</b> 쓴다. 잠긴 칸을 건너뛰기 위한 한도다
+	 */
+	private static void insertInto(SharedItemList items, ItemStack stack, int limit) {
+		int end = Math.max(0, Math.min(limit, items.size()));
+		for (int slot = 0; slot < end && !stack.isEmpty(); slot++) {
+			ItemStack existing = items.get(slot);
 			if (!existing.isEmpty() && ItemStack.isSameItemSameComponents(existing, stack)) {
 				int moved = Math.min(stack.getCount(), existing.getMaxStackSize() - existing.getCount());
 				if (moved > 0) {
@@ -435,7 +456,7 @@ public class TeamState {
 				}
 			}
 		}
-		for (int slot = 0; slot < items.size() && !stack.isEmpty(); slot++) {
+		for (int slot = 0; slot < end && !stack.isEmpty(); slot++) {
 			if (items.get(slot).isEmpty()) {
 				int moved = Math.min(stack.getCount(), stack.getMaxStackSize());
 				items.set(slot, stack.copyWithCount(moved));

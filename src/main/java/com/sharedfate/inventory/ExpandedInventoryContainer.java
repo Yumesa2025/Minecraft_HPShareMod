@@ -112,6 +112,31 @@ public final class ExpandedInventoryContainer implements Container, StackedConte
 		clientActive = active;
 	}
 
+	/**
+	 * 지금 물건을 <b>받을 수 있는</b> 칸의 개수.
+	 *
+	 * <p>칸은 언제나 {@link ExpandedInventoryManager#EXTRA_SIZE} 개가 만들어져 있고 팀이 연
+	 * 만큼만 화면에 보인다. 잠긴 칸은 화면 밖({@link ExpandedInventoryManager#HIDDEN_Y})에
+	 * 있으므로 <b>물건이 들어가면 사라진 것처럼 보인다.</b>
+	 *
+	 * <h2>{@code Slot.mayPlace} 만으로는 모자란다</h2>
+	 * <p>{@link ExpandedInventorySlot#mayPlace} 가 막는 것은 창에서 손으로 옮기는 길뿐이다. 바닥의
+	 * 물건을 <b>줍는</b> 길은 {@code Slot} 을 아예 지나지 않고
+	 * {@code Inventory.add} → {@link #addStack} 으로 곧장 들어온다. 그래서 넣는 쪽 두 곳이
+	 * 스스로 이 값을 봐야 한다.
+	 *
+	 * <p>새면 두 가지가 한꺼번에 일어난다 — 주운 물건이 안 보이는 칸으로 들어가고, 다음
+	 * 접속에서 {@code PerkInventorySlots.occupiedFloor} 가 그 칸을 찾아 <b>짐꾼도 없는 팀에
+	 * 27칸을 열어 준다.</b>
+	 *
+	 * <p>반대로 이미 물건이 든 잠긴 칸은 그 규칙이 <b>열어 두므로</b> 여기서도 열린 것으로
+	 * 나온다. 「환골탈태」로 짐꾼을 잃어도 그 칸의 물건을 꺼내고 합치는 데는 문제가 없다.
+	 */
+	private int openSlots() {
+		// unlockedFor 는 서버면 팀 상태에서 곧바로 세고, 아니면 서버가 보내 준 값을 쓴다.
+		return Math.min(getContainerSize(), ExpandedInventoryManager.unlockedFor(player));
+	}
+
 	public boolean addStack(ItemStack stack) {
 		if (!active() || stack.isEmpty()) {
 			return false;
@@ -131,7 +156,8 @@ public final class ExpandedInventoryContainer implements Container, StackedConte
 			return false;
 		}
 		int before = stack.getCount();
-		for (int slot = 0; slot < getContainerSize() && !stack.isEmpty(); slot++) {
+		int open = openSlots();
+		for (int slot = 0; slot < open && !stack.isEmpty(); slot++) {
 			ItemStack existing = getItem(slot);
 			if (existing.isEmpty() || !ItemStack.isSameItemSameComponents(existing, stack)) {
 				continue;
@@ -150,7 +176,8 @@ public final class ExpandedInventoryContainer implements Container, StackedConte
 	}
 
 	private void insertIntoEmptySlots(ItemStack stack) {
-		for (int slot = 0; slot < getContainerSize() && !stack.isEmpty(); slot++) {
+		int open = openSlots();
+		for (int slot = 0; slot < open && !stack.isEmpty(); slot++) {
 			if (getItem(slot).isEmpty()) {
 				ItemStack inserted = stack.copyAndClear();
 				inserted.setPopTime(5);

@@ -66,7 +66,7 @@ import java.util.UUID;
  * <p>{@link DamageWardEffect} 와 같다. {@code TeamState.perkOwners} 에 주인으로 적힌 사람이
  * 때릴 때만 걸리고, 고른 사람이라는 개념이 없는 세트 효과는 훑지 않는다.
  */
-public final class WeaponKnockbackEffect implements PerkEffect {
+public final class WeaponKnockbackEffect implements PerkEffect, OwnerBoundEffect {
 	/** 세기 하한. 0 은 「이 무기로는 넉백이 없다」는 뜻이라 그대로 살려 둔다. */
 	public static final double MIN_KNOCKBACK = 0.0;
 	/**

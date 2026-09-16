@@ -7,7 +7,6 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.DebugScreenOverlay;
 import net.minecraft.world.entity.player.Player;
 
 /**
@@ -90,7 +89,7 @@ public class PerkProgressHud implements HudElement {
 			return;
 		}
 		// F1 로 HUD 를 껐거나 F3 디버그 화면이 켜져 있으면 그리지 않는다.
-		if (client.gui.hud.isHidden() || isDebugScreenOpen(client)) {
+		if (client.gui.hud.isHidden() || DebugOverlay.coversScreen(client)) {
 			return;
 		}
 
@@ -108,8 +107,4 @@ public class PerkProgressHud implements HudElement {
 		}
 	}
 
-	private static boolean isDebugScreenOpen(Minecraft client) {
-		DebugScreenOverlay overlay = client.getDebugOverlay();
-		return overlay != null && overlay.showDebugScreen();
-	}
 }

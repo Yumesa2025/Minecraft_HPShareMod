@@ -55,7 +55,8 @@ public abstract class ExpandedInventoryMenuMixin {
 				ExpandedInventoryManager.VANILLA_INVENTORY_MENU_SIZE,
 				INVENTORY_TOP_Y);
 		ExpandedInventoryManager.updateMenuLayout(
-				(InventoryMenu) (Object) this, extra.active());
+				(InventoryMenu) (Object) this, extra.active(),
+				ExpandedInventoryManager.unlockedFor(owner));
 	}
 
 	/**

@@ -10,7 +10,6 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.DebugScreenOverlay;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.resources.Identifier;
@@ -113,7 +112,7 @@ public class CoordinateHud implements HudElement {
 			return;
 		}
 		// F1 로 HUD 를 껐거나 F3 디버그 화면이 켜져 있으면 그리지 않는다. 관전 중에도 뺀다.
-		if (client.gui.hud.isHidden() || isDebugScreenOpen(client) || player.isSpectator()) {
+		if (client.gui.hud.isHidden() || DebugOverlay.coversScreen(client) || player.isSpectator()) {
 			return;
 		}
 
@@ -200,8 +199,4 @@ public class CoordinateHud implements HudElement {
 				.orElse(null);
 	}
 
-	private static boolean isDebugScreenOpen(Minecraft client) {
-		DebugScreenOverlay overlay = client.getDebugOverlay();
-		return overlay != null && overlay.showDebugScreen();
-	}
 }

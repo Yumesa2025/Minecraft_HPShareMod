@@ -35,8 +35,8 @@ import java.util.random.RandomGenerator;
  *
  * <pre>
  * 3회차 승리        · 팀 이름
- * 최다 피해         · Kairen  412.5
- * 최다 사망         · Kairen  2회
+ * 받은 피해량        · 플레이어1  412.5
+ * 최다 사망         · 플레이어1  2회
  * 고른 증강         · 합계 17개
  * 수고하셨습니다      · 제작자 카이렌
  * </pre>
@@ -131,7 +131,7 @@ public final class VictoryCelebration {
 		String team = winningName == null || winningName.isBlank() ? "모험가" : winningName;
 		built.add(new Card(Math.max(1, runNumber) + "회차 승리", team, Tone.TRIUMPH));
 		if (summary != null && summary.hasDamage()) {
-			built.add(new Card("최다 피해",
+			built.add(new Card("받은 피해량",
 					summary.topDamageName() + "  "
 							+ String.format(Locale.ROOT, "%.1f", summary.topDamage()),
 					Tone.STAT));

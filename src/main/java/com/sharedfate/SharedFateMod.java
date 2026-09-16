@@ -84,6 +84,8 @@ public class SharedFateMod implements ModInitializer {
 			PerkManager.onServerStarted(server);
 			// 증강 시험 명령이 켜져 있으면 시끄럽게 알린다. 조용히 켜져 있는 것이 가장 위험하다.
 			com.sharedfate.command.PerkTestCommand.warnOnServerStarted(server);
+			// 서버 목록 설명의 증강 개수를 실제 값으로 맞춘다. 설정을 켠 전용 서버에서만 돈다.
+			com.sharedfate.sync.ServerMotd.onServerStarted(server);
 		});
 		ServerLifecycleEvents.SERVER_STOPPING.register(TeamRosterStore::onServerStopping);
 		// 종료 직전에 시간 정지를 되돌린다. reset 은 서버가 완전히 멈춘 뒤라 너무 늦다.
@@ -127,8 +129,13 @@ public class SharedFateMod implements ModInitializer {
 			com.sharedfate.net.StatSnapshotBroadcaster.reset();
 			com.sharedfate.net.PerkSetBroadcaster.reset();
 			EffectSync.reset();
+			com.sharedfate.storage.TeamStorage.reset();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(server -> TeamManager.get(server).markDirtyIfActive());
+		// 창고에 새로 들어온 것이 있으면 팀 전원에게 알린다. 물건이 창고로 가는 길이 열 곳이
+		// 넘는데 모두 「넣고 되돌려 보고 남는다」 모양이라, 부르는 곳마다 달지 않고 늘어난
+		// 것을 여기 한 곳에서 본다.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.storage.TeamStorage::tick);
 		ServerPlayerEvents.JOIN.register(player -> {
 			com.sharedfate.perk.PerkFlightCharm.onPlayerJoin(player);
 			TeamManager manager = TeamManager.get(player.level().getServer());

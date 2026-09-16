@@ -1,5 +1,6 @@
 package com.sharedfate.net;
 
+import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.PerkClientRules;
 import com.sharedfate.perk.PerkManager;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
@@ -74,7 +75,19 @@ public final class SharedFateNetworking {
 	// 24: 골드 「폭발 교환」의 혜택으로 다음 위치 교환까지 남은 시간을 화면 왼쪽 위에 늘
 	//     그린다(SwapTimerPayload 신설). 새 묶음이라 기존 형식은 그대로지만, 이 패킷을 모르는
 	//     클라이언트는 혜택 없이 대가만 치르게 되므로 악수 단계에서 걸러지도록 번호를 올린다.
-	public static final int PROTOCOL_VERSION = 24;
+	// 25: 두 가지 때문이다.
+	//     (1) 0.25.2-dev 가 고친 것이 「화면 왼쪽 위가 조용히 안 보이는」 클라이언트 버그인데
+	//         규약을 안 올렸다. 그래서 고장난 클라이언트가 그대로 접속할 수 있었고, 본인도
+	//         서버 운영자도 알아채지 못한 채 계속 플레이하게 된다. 17·24번과 똑같은
+	//         경우였으므로 그때 올렸어야 했다. 뒤늦게 여기서 올린다.
+	//     (2) ClientVersionPayload(C2S) 를 신설했다. 이 패킷을 모르는 클라이언트는 자기 판을
+	//         알리지 않아 서버 로그에 줄이 빠지는데, 「로그에 아무 줄도 없다」와 「이 사람은
+	//         옛 클라이언트다」를 구분할 수 없게 된다. 진단하려고 넣은 것이 진단을 헷갈리게
+	//         만드는 셈이라, 이 판부터는 모두가 보내는 것이 보장되어야 한다.
+	//
+	//     ★ 규칙: 클라이언트가 **조용히 덜 동작하는** 판은 형식이 안 바뀌어도 번호를 올린다.
+	//       「값이 안 보인다」는 「모드가 안 맞는다」보다 알아채기 훨씬 어렵다.
+	public static final int PROTOCOL_VERSION = 25;
 
 	private SharedFateNetworking() {
 	}
@@ -106,6 +119,8 @@ public final class SharedFateNetworking {
 		PayloadTypeRegistry.serverboundPlay().register(
 				PerkRerollC2SPayload.TYPE, PerkRerollC2SPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(DoubleJumpPayload.TYPE, DoubleJumpPayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(
+				ClientVersionPayload.TYPE, ClientVersionPayload.CODEC);
 		PayloadTypeRegistry.clientboundConfiguration().register(HandshakePayload.TYPE, HandshakePayload.CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(SelectedSlotC2SPayload.TYPE,
@@ -122,6 +137,12 @@ public final class SharedFateNetworking {
 		// 공중 점프 요청. 세기도 가능 여부도 전부 서버가 다시 따진다.
 		ServerPlayNetworking.registerGlobalReceiver(DoubleJumpPayload.TYPE,
 				(payload, context) -> PerkClientRules.onDoubleJumpRequest(context.player()));
+		// 클라이언트가 알려 준 자기 판. 로그에만 적고 아무 판단도 하지 않는다 — 막는 일은
+		// 규약 번호가 한다. 「누가 어떤 클라이언트를 쓰는지」를 서버에서 알 수 없어 진단이
+		// 오래 걸렸던 적이 있다.
+		ServerPlayNetworking.registerGlobalReceiver(ClientVersionPayload.TYPE,
+				(payload, context) -> SharedFateMod.LOGGER.info("[CLIENT] {} — sharedfate {}",
+						context.player().getPlainTextName(), sanitizeVersion(payload.version())));
 		ServerTickEvents.END_SERVER_TICK.register(TeamBroadcaster::flushSelectedSlots);
 		ServerTickEvents.END_SERVER_TICK.register(TeamBroadcaster::flushTeamLevels);
 		// 서버만 아는 능력치(공격력·받는 피해 배율·몹 배율). 팀에 속하지 않은 사람도
@@ -143,5 +164,27 @@ public final class SharedFateNetworking {
 			PerkSetBroadcaster.forget(handler.player.getUUID());
 		});
 		ClientModGate.register();
+	}
+
+	/**
+	 * 클라이언트가 보낸 판 문자열을 <b>로그에 적어도 안전한 모양</b>으로 다듬는다.
+	 *
+	 * <p>밖에서 온 문자열이다. 줄바꿈이 섞이면 로그 한 줄이 여러 줄로 쪼개져 <b>없던 줄을 지어낸
+	 * 것처럼</b> 보일 수 있다. 길이는 코덱이 이미 {@link ClientVersionPayload#MAX_LENGTH} 로
+	 * 자르지만, 눈에 보이지 않는 글자는 여기서 건다.
+	 */
+	static String sanitizeVersion(String raw) {
+		if (raw == null || raw.isBlank()) {
+			return "(알 수 없음)";
+		}
+		StringBuilder clean = new StringBuilder(raw.length());
+		raw.codePoints().forEach(code -> {
+			if (Character.isISOControl(code)) {
+				clean.append('?');
+			} else {
+				clean.appendCodePoint(code);
+			}
+		});
+		return clean.toString();
 	}
 }

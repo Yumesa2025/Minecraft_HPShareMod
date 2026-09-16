@@ -134,6 +134,114 @@ class ExpandedInventoryMenuTest {
 		assertTrue(extra.getItem(0).isEmpty(), "기존 스택보다 빈칸을 먼저 쓰면 안 된다");
 	}
 
+	// ------------------------------------------------------- 잠긴 칸에 물건이 새지 않기
+
+	/**
+	 * 바닥의 물건을 <b>줍는</b> 경로는 {@code Slot} 을 지나지 않는다.
+	 *
+	 * <p>{@code ExpandedInventorySlot.mayPlace} 가 막는 것은 창에서 손으로
+	 * 옮길 때만 걸린다. 줍기는 {@code Inventory.add} → {@link ExpandedInventoryContainer#addStack}
+	 * 로 곧장 들어오므로 여기서도 열린 칸만 봐야 한다.
+	 *
+	 * <p>이것이 새면 두 가지가 한꺼번에 일어난다 — 주운 물건이 화면 밖 칸으로 들어가 <b>사라진
+	 * 것처럼 보이고</b>, 다음 접속에서 {@code PerkInventorySlots.occupiedFloor} 가 그 칸을 찾아
+	 * <b>짐꾼도 없는 팀에 27칸을 열어 준다.</b>
+	 */
+	@Test
+	void 주운_물건은_잠긴_칸에_들어가지_않는다() {
+		ExpandedInventoryManager.setClientUnlockedSlots(ExpandedInventoryManager.BASE_EXTRA_SIZE);
+		ExpandedInventoryContainer extra = new ExpandedInventoryContainer(null);
+		extra.setClientActive(true);
+		for (int slot = 0; slot < ExpandedInventoryManager.BASE_EXTRA_SIZE; slot++) {
+			extra.setItem(slot, new ItemStack(Items.COBBLESTONE, 64));
+		}
+		ItemStack incoming = new ItemStack(Items.DIAMOND, 5);
+
+		assertFalse(extra.addStack(incoming), "열린 18칸이 다 찼으면 받지 못한다");
+		assertEquals(5, incoming.getCount(), "받지 못한 물건은 그대로 남아 바닥에 떨어진다");
+		for (int slot = ExpandedInventoryManager.BASE_EXTRA_SIZE;
+				slot < ExpandedInventoryManager.EXTRA_SIZE; slot++) {
+			assertTrue(extra.getItem(slot).isEmpty(), slot + "번 잠긴 칸에 물건이 들어갔다");
+		}
+	}
+
+	/** 짐꾼이 연 칸은 줍기로도 쓸 수 있어야 한다. 막는 것은 <b>잠긴</b> 칸뿐이다. */
+	@Test
+	void 짐꾼이_연_칸에는_주운_물건이_들어간다() {
+		ExpandedInventoryManager.setClientUnlockedSlots(ExpandedInventoryManager.EXTRA_SIZE);
+		ExpandedInventoryContainer extra = new ExpandedInventoryContainer(null);
+		extra.setClientActive(true);
+		for (int slot = 0; slot < ExpandedInventoryManager.BASE_EXTRA_SIZE; slot++) {
+			extra.setItem(slot, new ItemStack(Items.COBBLESTONE, 64));
+		}
+		ItemStack incoming = new ItemStack(Items.DIAMOND, 5);
+
+		assertTrue(extra.addStack(incoming));
+		assertTrue(incoming.isEmpty());
+		assertEquals(5, extra.getItem(ExpandedInventoryManager.BASE_EXTRA_SIZE).getCount());
+	}
+
+	/**
+	 * 창에서 옮기는 길도 잠긴 칸을 막아야 한다.
+	 *
+	 * <p>{@code ExpandedInventorySlot} 이 {@code Slot.mayPlace} 를 <b>재정의</b>하므로
+	 * {@code Slot.mayPlace} 에 건 믹스인은 여기에 닿지 못한다. 그래서 잠긴 칸 판정을 슬롯 자신이
+	 * 들고 있어야 한다.
+	 *
+	 * <p>이것이 없으면 화로·제작대 결과 칸을 쉬프트 클릭했을 때, 인벤토리와 핫바가 꽉 차 있으면
+	 * 물건이 <b>화면 밖 칸으로 빨려 들어간다.</b> 바닐라 {@code quickMoveStack} 이
+	 * {@code moveItemStackTo(플레이어 시작, +36)} 으로 부르고, 그것을
+	 * {@code ExpandedStandardMenuMixin} 이 추가 27칸까지 포함한 목록으로 바꿔 주기 때문이다.
+	 */
+	@Test
+	void 잠긴_칸은_창에서도_물건을_받지_않는다() {
+		ExpandedInventoryManager.setClientUnlockedSlots(ExpandedInventoryManager.BASE_EXTRA_SIZE);
+		ExpandedInventoryContainer extra = new ExpandedInventoryContainer(null);
+		extra.setClientActive(true);
+		ItemStack stack = new ItemStack(Items.DIAMOND);
+
+		for (int slot = 0; slot < ExpandedInventoryManager.BASE_EXTRA_SIZE; slot++) {
+			assertTrue(new ExpandedInventorySlot(extra, slot, 0, 0).mayPlace(stack),
+					slot + "번은 열린 칸이라 받아야 한다");
+		}
+		for (int slot = ExpandedInventoryManager.BASE_EXTRA_SIZE;
+				slot < ExpandedInventoryManager.EXTRA_SIZE; slot++) {
+			assertFalse(new ExpandedInventorySlot(extra, slot, 0, 0).mayPlace(stack),
+					slot + "번 잠긴 칸이 물건을 받는다 - 화면 밖으로 사라진다");
+		}
+	}
+
+	/** 잠긴 칸에 물건이 남아 있다면 꺼낼 수는 있어야 한다. 넣는 것만 막는다. */
+	@Test
+	void 잠긴_칸에서_꺼내는_것은_막지_않는다() {
+		ExpandedInventoryManager.setClientUnlockedSlots(ExpandedInventoryManager.BASE_EXTRA_SIZE);
+		ExpandedInventoryContainer extra = new ExpandedInventoryContainer(null);
+		extra.setClientActive(true);
+
+		assertTrue(new ExpandedInventorySlot(extra, 26, 0, 0).mayPickup(null),
+				"꺼내는 것까지 막으면 이미 들어간 물건이 갇힌다");
+	}
+
+	/**
+	 * 합치기도 열린 칸까지만 본다.
+	 *
+	 * <p>{@code Inventory.addResource} 는 빈칸을 찾기 전에 합칠 곳을 먼저 뒤진다
+	 * ({@code InventoryMixin.sharedfate$mergeExtraBeforeMainFreeSlot}). 여기가 열려 있으면
+	 * 잠긴 칸의 스택이 조용히 불어난다.
+	 */
+	@Test
+	void 잠긴_칸의_기존_스택에는_합치지_않는다() {
+		ExpandedInventoryManager.setClientUnlockedSlots(ExpandedInventoryManager.BASE_EXTRA_SIZE);
+		ExpandedInventoryContainer extra = new ExpandedInventoryContainer(null);
+		extra.setClientActive(true);
+		extra.setItem(20, new ItemStack(Items.DIAMOND, 60));
+		ItemStack incoming = new ItemStack(Items.DIAMOND, 3);
+
+		assertFalse(extra.mergeExisting(incoming));
+		assertEquals(3, incoming.getCount());
+		assertEquals(60, extra.getItem(20).getCount(), "잠긴 칸의 스택이 불어나면 안 된다");
+	}
+
 	@Test
 	void 추가_슬롯의_쉬프트_클릭은_빈_핫바를_먼저_채운다() {
 		// 바닐라는 인벤토리 세 줄에서 쉬프트 클릭하면 핫바로 보낸다. 추가 세 줄도 화면에서는
@@ -246,6 +354,8 @@ class ExpandedInventoryMenuTest {
 
 	@Test
 	void 제작대에도_기존_번호_뒤에_추가_27칸을_붙인다() {
+		// 좌표를 재는 시험이라 27칸이 다 열린 팀을 가정한다.
+		ExpandedInventoryManager.setClientUnlockedSlots(ExpandedInventoryManager.EXTRA_SIZE);
 		ExpandedInventoryManager.extraFor(null).setClientActive(true);
 		Inventory inventory = new Inventory(null, new EntityEquipment());
 		CraftingMenu menu = new CraftingMenu(1, inventory);
@@ -262,6 +372,8 @@ class ExpandedInventoryMenuTest {
 
 	@Test
 	void 플레이어_화면의_추가_27칸은_모두_활성이고_서로_다른_좌표를_가진다() {
+		// 27칸이 다 열린 팀을 가정한다. 잠긴 칸은 mayPlace 가 거짓이라 따로 시험한다.
+		ExpandedInventoryManager.setClientUnlockedSlots(ExpandedInventoryManager.EXTRA_SIZE);
 		ExpandedInventoryManager.extraFor(null).setClientActive(true);
 		Inventory inventory = new Inventory(null, new EntityEquipment());
 		InventoryMenu menu = new InventoryMenu(inventory, true, null);
@@ -362,6 +474,7 @@ class ExpandedInventoryMenuTest {
 	void 상자의_추가_27칸은_인벤토리_바로_아래_창_안쪽에_있다() {
 		// 창 밖(x 184~237)에 있으면 바닐라가 「창 밖을 눌렀다」로 읽고
 		// 들고 있던 아이템을 바닥에 버린다.
+		ExpandedInventoryManager.setClientUnlockedSlots(ExpandedInventoryManager.EXTRA_SIZE);
 		ExpandedInventoryManager.extraFor(null).setClientActive(true);
 		Inventory inventory = new Inventory(null, new EntityEquipment());
 		ChestMenu menu = ChestMenu.threeRows(1, inventory);

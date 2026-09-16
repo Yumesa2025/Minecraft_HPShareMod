@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -127,6 +128,86 @@ class PerkInventorySlotsTest {
 		state.perksEnabled = false;
 
 		assertEquals(18, PerkInventorySlots.unlockedFor(state));
+	}
+
+	// ------------------------------------------------- 짐꾼을 잃으면 칸이 바로 닫힌다
+
+	/**
+	 * 짐꾼을 잃으면 <b>셋째 줄의 물건을 빼내고 그 자리에서 닫는다.</b>
+	 *
+	 * <p>예전에는 「물건이 있으면 열어 둔다」였다. 그래서 짐꾼이 사라져도 창이 안 줄어들고,
+	 * 그 칸을 사람이 손으로 다 비워야 그제야 닫혔다. 「증강을 잃었는데 칸은 그대로」가 눈에
+	 * 이상하게 보인다.
+	 *
+	 * <p>물건은 넘침 대기열로 간다 — <b>잃지 않는다.</b> 대기열은 칸이 비는 대로 매 틱 다시
+	 * 밀어 넣는다.
+	 */
+	@Test
+	void 짐꾼을_잃으면_셋째_줄_물건을_빼내고_닫는다(@TempDir Path directory) throws IOException {
+		loadPool(directory, 9);
+		TeamState state = teamWith("sharedfate:porter");
+		state.extraItems.set(20, new ItemStack(Items.DIAMOND, 5));
+		state.ownedPerks.clear();
+
+		assertTrue(PerkInventorySlots.evacuateLockedSlots(state), "빼낸 것이 있어야 한다");
+
+		assertEquals(18, PerkInventorySlots.unlockedFor(state), "이제 두 줄이어야 한다");
+		assertTrue(state.extraItems.get(20).isEmpty(), "잠긴 칸이 비워져야 한다");
+	}
+
+	/** 빼낸 물건은 자리가 있으면 곧바로 돌아온다. 사람 눈에는 「위로 올라왔다」로 보인다. */
+	@Test
+	void 빼낸_물건은_빈_칸으로_돌아온다(@TempDir Path directory) throws IOException {
+		loadPool(directory, 9);
+		TeamState state = teamWith("sharedfate:porter");
+		state.extraItems.set(20, new ItemStack(Items.DIAMOND, 5));
+		state.ownedPerks.clear();
+
+		PerkInventorySlots.evacuateLockedSlots(state);
+
+		assertTrue(state.overflowItems.isEmpty(), "자리가 있으면 대기열에 남지 않는다");
+		assertEquals(5, state.mainItems.get(0).getCount(), "메인 첫 칸으로 돌아와야 한다");
+	}
+
+	/** 짐꾼을 그대로 갖고 있으면 아무것도 건드리지 않는다. */
+	@Test
+	void 짐꾼이_있는_동안에는_빼내지_않는다(@TempDir Path directory) throws IOException {
+		loadPool(directory, 9);
+		TeamState state = teamWith("sharedfate:porter");
+		state.extraItems.set(20, new ItemStack(Items.DIAMOND, 5));
+
+		assertFalse(PerkInventorySlots.evacuateLockedSlots(state));
+		assertEquals(5, state.extraItems.get(20).getCount());
+		assertEquals(27, PerkInventorySlots.unlockedFor(state));
+	}
+
+	/** 열린 두 줄 안쪽은 언제나 그대로다. */
+	@Test
+	void 기본_두_줄_안의_물건은_건드리지_않는다(@TempDir Path directory) throws IOException {
+		loadPool(directory, 9);
+		TeamState state = teamWith();
+		state.extraItems.set(5, new ItemStack(Items.DIAMOND, 5));
+
+		assertFalse(PerkInventorySlots.evacuateLockedSlots(state));
+		assertEquals(5, state.extraItems.get(5).getCount());
+	}
+
+	/**
+	 * 증강을 끈 팀은 건드리지 않는다.
+	 *
+	 * <p>{@code PerkTestCommand.reapply} 와 {@code PerkManager.setPerksEnabled} 는 <b>껐다
+	 * 켜는 것</b>으로 효과를 다시 맞춘다. 그 잠깐 꺼진 순간에 빼내 버리면 짐꾼을 그대로 가진
+	 * 팀의 물건이 이유 없이 위로 튀어 오른다.
+	 */
+	@Test
+	void 증강을_끈_팀은_건드리지_않는다(@TempDir Path directory) throws IOException {
+		loadPool(directory, 9);
+		TeamState state = teamWith("sharedfate:porter");
+		state.extraItems.set(20, new ItemStack(Items.DIAMOND, 5));
+		state.perksEnabled = false;
+
+		assertFalse(PerkInventorySlots.evacuateLockedSlots(state));
+		assertEquals(5, state.extraItems.get(20).getCount());
 	}
 
 	private static TeamState teamWith(String... perkIds) {

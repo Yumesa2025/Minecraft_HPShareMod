@@ -7,6 +7,7 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.MobPerkModifiers;
 import com.sharedfate.perk.Perk;
+import com.sharedfate.perk.PerkHolderManager;
 import com.sharedfate.perk.PerkManager;
 import com.sharedfate.perk.PerkRegistry;
 import com.sharedfate.team.ShareTeam;
@@ -26,6 +27,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * 증강을 하나씩 시험해 보기 위한 운영자 전용 명령({@code /shareteam perktest ...}).
@@ -84,7 +86,8 @@ public final class PerkTestCommand {
 						.then(Commands.literal("confirm").executes(PerkTestCommand::clear)))
 				.then(Commands.literal("list")
 						.executes(PerkTestCommand::listAll)
-						.then(Commands.literal("all").executes(PerkTestCommand::listAll)));
+						.then(Commands.literal("all").executes(PerkTestCommand::listAll)))
+				.then(Commands.literal("owner").executes(PerkTestCommand::owners));
 	}
 
 	// ------------------------------------------------------------------ 인자와 자동 완성
@@ -190,7 +193,7 @@ public final class PerkTestCommand {
 		context.getSource().sendSuccess(() -> Component.literal(
 				"증강 시험 명령이 켜져 있습니다 (등록된 증강 " + PerkRegistry.all().size() + "종)."
 						+ "\n" + mark
-						+ "\n/shareteam perktest give|remove <증강id> · clear confirm · list all"), false);
+						+ "\n/shareteam perktest give|remove <증강id> · clear confirm · list all · owner"), false);
 		return 1;
 	}
 
@@ -324,6 +327,56 @@ public final class PerkTestCommand {
 		String text = body.toString();
 		context.getSource().sendSuccess(() -> Component.literal(text), false);
 		return 1;
+	}
+
+	/**
+	 * 「고른 사람만」 걸리는 증강의 주인이 지금 누구인가.
+	 *
+	 * <h2>왜 이것만 따로 필요한가</h2>
+	 * <p>주인은 알림 액션바 한 번으로만 알려지고 <b>채팅에도 서버 로그에도 남지 않는다.</b>
+	 * 화면을 안 보고 있으면 그대로 놓치고 다시 볼 방법이 없었다. 그래서 「재시작해도 같은
+	 * 사람인가」 같은 것을 보려면 증강 효과를 하나하나 실연해야 했다 — 「열외」는 위치 교환
+	 * 주기까지 최대 5분을 기다려야 한다.
+	 *
+	 * <p>보유 목록을 하나도 건드리지 않으므로 {@code markUsed} 표식을 붙이지 않는다. 읽기만
+	 * 하는 것은 회차를 오염시키지 않는다.
+	 *
+	 * <p>{@code PerkHolderManager} 가 반 초마다 빈 주인을 채우므로, 「아직 주인 없음」이 보이는
+	 * 것은 팀원이 아무도 접속해 있지 않을 때뿐이다.
+	 */
+	private static int owners(CommandContext<CommandSourceStack> context) {
+		if (!enabled()) {
+			return disabledNotice(context);
+		}
+		TeamState state = stateOfSource(context.getSource());
+		if (state == null) {
+			context.getSource().sendFailure(Component.literal("팀이 없습니다."));
+			return 0;
+		}
+		MinecraftServer server = context.getSource().getServer();
+		StringBuilder body = new StringBuilder("주인이 정해지는 증강");
+		int count = 0;
+		for (String perkId : state.ownedPerks) {
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
+			if (!PerkHolderManager.needsOwner(perk)) {
+				continue;
+			}
+			count++;
+			UUID owner = state.perkOwners.get(perkId);
+			body.append("\n· ").append(perk.name()).append(" (").append(perkId).append(") — ")
+					.append(owner == null ? "아직 주인 없음" : nameOf(server, owner));
+		}
+		String text = count == 0
+				? "주인이 정해지는 증강을 하나도 가지고 있지 않습니다."
+				: body.toString();
+		context.getSource().sendSuccess(() -> Component.literal(text), false);
+		return 1;
+	}
+
+	/** 접속 중이면 이름, 아니면 UUID 앞 여덟 자. */
+	private static String nameOf(MinecraftServer server, UUID id) {
+		ServerPlayer player = server.getPlayerList().getPlayer(id);
+		return player != null ? player.getPlainTextName() : id.toString().substring(0, 8);
 	}
 
 	// ------------------------------------------------------------------ 공통

@@ -121,6 +121,25 @@ public class SharedFateConfig {
 	 */
 	public boolean mobSpawnRatePerks = true;
 
+	/**
+	 * 서버 목록에 뜨는 설명(MOTD)의 <b>증강 개수를 모드가 직접 맞춘다.</b> 기본값은 꺼짐.
+	 *
+	 * <p>손으로 적어 둔 개수는 판을 올릴 때마다 낡는다. 실제로 증강이 94개인데 MOTD 에는
+	 * 「82개」가 몇 판째 남아 있었다. 켜 두면 서버가 뜰 때 {@code PerkRegistry} 가 실제로 읽은
+	 * 개수로 그 숫자만 갈아 끼운다 — <b>사람이 세는 단계가 사라진다.</b>
+	 *
+	 * <p><b>⚠ 켜면 {@code server.properties} 의 {@code motd} 줄이 덮어써진다.</b> 전용 서버에서
+	 * {@code MinecraftServer.setMotd} 는 {@code DedicatedServerSettings.update} 를 거쳐 파일까지
+	 * 즉시 저장하기 때문이다. 직접 쓴 MOTD 를 지키고 싶으면 켜지 마라. 나중에 이 값을 꺼도
+	 * <b>마지막에 써진 MOTD 는 파일에 그대로 남는다</b> — 되돌리려면 손으로 고쳐야 한다.
+	 *
+	 * <p>그래서 기본값이 꺼짐이다. 이 모드를 받아 자기 서버를 여는 사람의 MOTD 를 멋대로
+	 * 덮어쓰면 안 된다.
+	 *
+	 * <p>참·거짓뿐이라 {@link #sanitize} 가 되돌릴 「범위를 벗어난 값」이 없다.
+	 */
+	public boolean overrideServerMotd = false;
+
 	public static SharedFateConfig loadOrCreate(Path file) {
 		if (Files.exists(file)) {
 			try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {

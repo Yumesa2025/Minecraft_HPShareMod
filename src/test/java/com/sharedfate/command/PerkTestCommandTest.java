@@ -107,11 +107,26 @@ class PerkTestCommandTest {
 	// ------------------------------------------------------------------ 트리 모양
 
 	@Test
-	void 하위_명령_넷이_모두_있다() {
+	void 하위_명령_다섯이_모두_있다() {
 		assertNotNull(perkTest().getChild("give"));
 		assertNotNull(perkTest().getChild("remove"));
 		assertNotNull(perkTest().getChild("clear"));
 		assertNotNull(perkTest().getChild("list"));
+		assertNotNull(perkTest().getChild("owner"));
+	}
+
+	/**
+	 * {@code owner} 는 <b>읽기만</b> 한다.
+	 *
+	 * <p>인자가 없어야 하고 곧바로 실행돼야 한다. 여기에 지우거나 바꾸는 가지가 붙으면 회차를
+	 * 오염시키는 명령이 되어 {@code markUsed} 표식 규칙까지 함께 손봐야 한다.
+	 */
+	@Test
+	void owner_는_인자_없이_바로_실행된다() {
+		CommandNode<CommandSourceStack> owner = perkTest().getChild("owner");
+
+		assertNotNull(owner.getCommand());
+		assertTrue(owner.getChildren().isEmpty(), "읽기 전용이므로 하위 가지가 없어야 한다");
 	}
 
 	@Test

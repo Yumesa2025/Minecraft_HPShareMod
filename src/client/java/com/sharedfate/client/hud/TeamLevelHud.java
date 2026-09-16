@@ -6,7 +6,6 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.DebugScreenOverlay;
 import net.minecraft.world.entity.player.Player;
 
 /**
@@ -31,7 +30,7 @@ public class TeamLevelHud implements HudElement {
 			return;
 		}
 		// F1 로 HUD 를 껐거나 F3 디버그 화면이 켜져 있으면 그리지 않는다.
-		if (client.gui.hud.isHidden() || isDebugScreenOpen(client)) {
+		if (client.gui.hud.isHidden() || DebugOverlay.coversScreen(client)) {
 			return;
 		}
 
@@ -50,8 +49,4 @@ public class TeamLevelHud implements HudElement {
 		graphics.text(font, "다음 증강까지 " + remaining, left, baseline, REMAINING_COLOR);
 	}
 
-	private static boolean isDebugScreenOpen(Minecraft client) {
-		DebugScreenOverlay overlay = client.getDebugOverlay();
-		return overlay != null && overlay.showDebugScreen();
-	}
 }

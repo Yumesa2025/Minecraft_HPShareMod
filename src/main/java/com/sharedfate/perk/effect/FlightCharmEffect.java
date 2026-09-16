@@ -69,7 +69,7 @@ import java.util.Optional;
  * <p>여기는 값과 아이템 모양만 들고 있는 자료 그릇이다. 우클릭을 잡고, 비행을 켜고 끄고,
  * 쿨타임을 걸고, 칸을 지키는 일은 전부 {@link com.sharedfate.perk.PerkFlightCharm} 이 한다.
  */
-public final class FlightCharmEffect implements PerkEffect {
+public final class FlightCharmEffect implements PerkEffect, OwnerBoundEffect {
 	/**
 	 * 기본 비행 시간(초).
 	 *

@@ -4,6 +4,7 @@ import com.sharedfate.SharedFateMod;
 import com.sharedfate.perk.effect.HolderEffect;
 import com.sharedfate.perk.effect.HolderEffect.HolderMode;
 import com.sharedfate.perk.effect.HolderEffect.ModeResolver;
+import com.sharedfate.perk.effect.OwnerBoundEffect;
 import com.sharedfate.sync.TitleMessenger;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamLookup;
@@ -334,6 +335,7 @@ public final class PerkHolderManager {
 						reconcile(server, team, state, owned);
 					}
 				}
+				assignMissingOwners(server, manager, team, state);
 			}
 			if (++cleanupCounter >= CLEANUP_INTERVAL_TICKS) {
 				cleanupCounter = 0;
@@ -378,6 +380,89 @@ public final class PerkHolderManager {
 			return;
 		}
 		assign(server, team, owned, holding, next, holding.holder, false);
+	}
+
+	/**
+	 * 「고른 사람만」 증강인데 주인이 없는 것들에게 <b>접속 중인 팀원 중 한 명을 무작위로</b>
+	 * 정해 주고, 팀 전원에게 누가 대상인지 알린다.
+	 *
+	 * <h2>왜 필요한가</h2>
+	 * <p>주인은 {@code PerkManager.commit} 이 <b>고른 사람이 있을 때만</b> 적는다. 「숨은 재능」·
+	 * 「하늘의 은총」·「요행」·「도박꾼」으로 덤으로 받거나 「환골탈태」로 갈아엎으면 주인이
+	 * 비어 있고, 그러면 {@code perkOwners.get(id)} 가 {@code null} 이라 <b>팀의 누구와도 같지
+	 * 않아 효과가 아무에게도 안 걸린다.</b> 「비행 부적」과 「열외」가 실제로 그랬다.
+	 *
+	 * <p>{@link HolderEffect} 를 가진 증강은 {@link #reconcileFixed} 가 이미 같은 일을 한다.
+	 * 여기서는 그 장치가 닿지 못하는 {@link OwnerBoundEffect} 들을 같은 규칙으로 구제한다.
+	 *
+	 * <h2>한 번 정하면 바뀌지 않는다</h2>
+	 * <p>{@code perkOwners} 에 적어 두고 저장까지 되므로, 서버를 껐다 켜도 같은 사람이다.
+	 * 「고른 사람」과 완전히 같은 취급이 된다.
+	 *
+	 * <p>접속한 팀원이 하나도 없으면 아무것도 하지 않는다. 누군가 들어오면 그때(반 초 이내)
+	 * 정해진다 — 아무도 없는 사이에 정하면 그 사실을 아무도 못 본다.
+	 */
+	private static void assignMissingOwners(MinecraftServer server, TeamManager manager,
+			ShareTeam team, TeamState state) {
+		List<UUID> online = null;
+		for (String perkId : List.copyOf(state.ownedPerks)) {
+			if (state.perkOwners.containsKey(perkId)) {
+				continue;
+			}
+			Perk perk = PerkRegistry.byId(perkId).orElse(null);
+			if (perk == null || !needsOwner(perk)) {
+				continue;
+			}
+			if (online == null) {
+				online = onlineMembers(server, team);
+			}
+			if (online.isEmpty()) {
+				return;
+			}
+			UUID owner = chooseNextHolder(null, online, randomOf(server));
+			if (owner == null) {
+				continue;
+			}
+			state.perkOwners.put(perkId, owner);
+			manager.setDirty();
+			announceOwner(server, team, perk, server.getPlayerList().getPlayer(owner));
+		}
+	}
+
+	/**
+	 * 이 증강이 <b>주인 한 명</b>을 필요로 하는가.
+	 *
+	 * <p>증강 id 를 하나도 적지 않는다. {@link OwnerBoundEffect} 표지를 단 효과가 하나라도 있으면
+	 * 참이다. 새 효과 타입이 같은 규칙을 쓰게 되면 표지만 달면 여기는 손대지 않아도 된다.
+	 *
+	 * <p>{@link HolderEffect} 는 보지 않는다. 그쪽은 {@link #reconcileFixed} 가 맡는다.
+	 */
+	public static boolean needsOwner(@Nullable Perk perk) {
+		if (perk == null) {
+			return false;
+		}
+		for (PerkEffect effect : perk.effects()) {
+			if (effect instanceof OwnerBoundEffect) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** 「이 증강은 OOO님에게 걸립니다」를 팀 전원의 액션바에 띄운다. */
+	private static void announceOwner(MinecraftServer server, ShareTeam team, Perk perk,
+			@Nullable ServerPlayer owner) {
+		if (owner == null) {
+			return;
+		}
+		Component message = Component.literal(
+				"[증강] " + perk.name() + ": " + owner.getPlainTextName() + "님에게 걸립니다.");
+		for (UUID member : team.members()) {
+			ServerPlayer online = server.getPlayerList().getPlayer(member);
+			if (online != null) {
+				TitleMessenger.showActionBar(online, message);
+			}
+		}
 	}
 
 	/**

@@ -63,7 +63,7 @@ import java.util.function.Function;
  * {@link com.sharedfate.sync.PositionSwapManager} 가,
  * 그 둘을 이어 주는 물음은 {@link com.sharedfate.perk.PerkSwapRules} 가 맡는다.
  */
-public final class SwapExemptEffect implements PerkEffect {
+public final class SwapExemptEffect implements PerkEffect, OwnerBoundEffect {
 	/** 교환 때마다 빨라지는 기본 시간(초). */
 	public static final int DEFAULT_ON_SWAP_SECONDS = 10;
 	public static final int MIN_ON_SWAP_SECONDS = 1;

@@ -27,8 +27,18 @@ public final class TeamBroadcaster {
 	/** 레벨 변화를 확인하는 주기. 매 틱 확인할 필요가 없다. */
 	private static final int LEVEL_SCAN_INTERVAL_TICKS = 10;
 
-	/** 팀별로 마지막에 보낸 (레벨, 다음 증강 레벨). 값이 바뀔 때만 다시 보낸다. */
-	private static final Map<UUID, Long> LAST_LEVELS = new HashMap<>();
+	/**
+	 * 팀별로 마지막에 보낸 <b>(레벨, 다음 증강 레벨, 열린 추가 칸)</b>. 하나라도 바뀌면 다시 보낸다.
+	 *
+	 * <p>⚠ <b>여기 안 담긴 값은 영영 다시 안 나간다.</b> 예전에는 레벨 둘만 담았는데, 클라이언트는
+	 * 열린 칸 수를 스스로 셀 수 없어 서버가 밀어 주는 값 하나만 믿는다. 그래서 「짐꾼」을 빼도
+	 * 레벨이 그대로라 키가 안 바뀌었고, <b>셋째 줄이 화면에서 안 사라졌다.</b> 나갔다 들어와도
+	 * 그대로였는데 그 줄에는 물건이 안 들어갔다 — 서버는 18칸으로 잠근 상태였기 때문이다.
+	 *
+	 * <p>칸 수를 넣으면 값이 달라지는 <b>모든</b> 길(증강 제거·환골탈태·가호 단계 변동·물건이 든
+	 * 마지막 칸 변동)이 이 한 곳을 지나 반 초 안에 스스로 복구된다.
+	 */
+	private static final Map<UUID, Long> LAST_SYNC_KEYS = new HashMap<>();
 	private static int levelScanCooldown;
 
 	private TeamBroadcaster() {
@@ -41,7 +51,8 @@ public final class TeamBroadcaster {
 
 	public static void broadcast(MinecraftServer server, ShareTeam team) {
 		TeamSyncPayload payload = build(server, team);
-		LAST_LEVELS.put(team.teamId(), packLevels(payload.xpLevel(), payload.nextPerkLevel()));
+		LAST_SYNC_KEYS.put(team.teamId(), packSyncKey(
+				payload.xpLevel(), payload.nextPerkLevel(), payload.unlockedExtraSlots()));
 		for (UUID member : team.members()) {
 			ServerPlayer player = server.getPlayerList().getPlayer(member);
 			if (player != null) {
@@ -135,14 +146,15 @@ public final class TeamBroadcaster {
 				continue;
 			}
 			living.add(team.teamId());
-			long levels = packLevels(Math.max(0, state.xpLevel), nextPerkLevel(state));
-			Long previous = LAST_LEVELS.get(team.teamId());
-			if (previous == null || previous != levels) {
+			long key = packSyncKey(Math.max(0, state.xpLevel), nextPerkLevel(state),
+					com.sharedfate.perk.PerkInventorySlots.unlockedFor(state));
+			Long previous = LAST_SYNC_KEYS.get(team.teamId());
+			if (previous == null || previous != key) {
 				broadcast(server, team);
 			}
 		}
 		// 해체된 팀의 기록은 버린다.
-		LAST_LEVELS.keySet().retainAll(living);
+		LAST_SYNC_KEYS.keySet().retainAll(living);
 	}
 
 	/**
@@ -160,8 +172,17 @@ public final class TeamBroadcaster {
 		return next > PerkMilestones.MAX ? 0 : next;
 	}
 
-	private static long packLevels(int xpLevel, int nextPerkLevel) {
-		return ((long) xpLevel << 32) | (nextPerkLevel & 0xFFFFFFFFL);
+	/**
+	 * 세 값을 키 하나로 접는다.
+	 *
+	 * <p>자리를 넉넉히 떼어 <b>서로를 덮지 않게</b> 한다. 겹치면 「레벨이 1 오르고 칸이 9 줄었다」
+	 * 같은 조합이 우연히 같은 키가 되어 그때만 복구가 안 되는데, 그런 버그는 재현이 거의
+	 * 불가능하다. 다음 증강 레벨은 40 이하, 열린 칸은 27 이하라 각각 한 바이트면 남는다.
+	 */
+	static long packSyncKey(int xpLevel, int nextPerkLevel, int unlockedExtraSlots) {
+		return ((long) xpLevel << 16)
+				| ((long) (nextPerkLevel & 0xFF) << 8)
+				| (unlockedExtraSlots & 0xFFL);
 	}
 
 	public static void onDisconnect(ServerPlayer player) {
