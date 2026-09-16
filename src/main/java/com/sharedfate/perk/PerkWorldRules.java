@@ -58,7 +58,7 @@ import java.util.OptionalInt;
  * <p>{@value #CHECK_INTERVAL_TICKS} 틱마다 되돌리면 시각은 목표와 목표+20 사이를 오간다.
  * 하루가 24000틱이므로 20틱은 하루의 0.083%, 해가 0.3도 움직이는 정도다. 눈으로 구분할 수
  * 없다. 게다가 값이 이미 맞으면 {@code setTotalTicks} 를 아예 부르지 않으므로,
- * {@code doDaylightCycle} 을 사용자가 직접 꺼 둔 서버에서는 첫 한 번 말고는 방송이 없다.
+ * {@code doDaylightCycle} 을 운영자가 직접 꺼 둔 서버에서는 첫 한 번 말고는 방송이 없다.
  */
 public final class PerkWorldRules {
 	/** 시각을 되돌리는 주기. {@code PerkManager} 와 같은 값이다. */
