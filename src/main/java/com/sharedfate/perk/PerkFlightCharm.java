@@ -128,10 +128,23 @@ public final class PerkFlightCharm {
 	private static final class Session {
 		private int remainingTicks;
 		private final boolean grantedByUs;
+		/** 비행이 끝날 때 걸 쿨타임(틱). 쓰는 순간의 정의 값을 그대로 들고 간다. */
+		private final int cooldownTicks;
+		/**
+		 * 쿨타임을 걸 때 넘길 묶음.
+		 *
+		 * <p>{@code ItemCooldowns} 는 {@code minecraft:use_cooldown} 의 <b>묶음 이름</b>만 읽으므로
+		 * 쓰던 묶음의 사본이면 충분하다. 인벤토리의 실물을 들고 있으면 그 사이에 부적이
+		 * 옮겨지거나 사라졌을 때 엉뚱한 것에 걸린다.
+		 */
+		private final ItemStack cooldownKey;
 
-		private Session(int remainingTicks, boolean grantedByUs) {
+		private Session(int remainingTicks, boolean grantedByUs, int cooldownTicks,
+				ItemStack cooldownKey) {
 			this.remainingTicks = remainingTicks;
 			this.grantedByUs = grantedByUs;
+			this.cooldownTicks = cooldownTicks;
+			this.cooldownKey = cooldownKey;
 		}
 	}
 
@@ -250,8 +263,9 @@ public final class PerkFlightCharm {
 
 		// 「가호 3」이 켜져 있으면 더 오래 난다. 판정은 부적을 쓰는 이 순간의 팀 상태로 한다 —
 		// 정의는 팀마다 공유되므로 미리 정해 두면 다른 팀의 시간까지 따라 바뀐다.
-		start(user, effect, effect.flightTicksFor(state));
-		user.getCooldowns().addCooldown(held, effect.cooldownTicks());
+		//
+		// 쿨타임은 여기서 걸지 않는다. 비행이 끝나는 순간부터 센다 — 아래 startCooldown 참고.
+		start(user, effect, effect.flightTicksFor(state), held.copy());
 		return InteractionResult.SUCCESS;
 	}
 
@@ -259,8 +273,10 @@ public final class PerkFlightCharm {
 	 * 비행을 켠다. 켜기 전 값을 기억해 두어야 나중에 되돌릴 수 있다.
 	 *
 	 * @param flightTicks 이번에 날 시간. 「가호 3」이면 정의의 강화값이 넘어온다
+	 * @param cooldownKey 비행이 끝날 때 쿨타임을 걸 묶음의 사본
 	 */
-	private static void start(ServerPlayer user, FlightCharmEffect effect, int flightTicks) {
+	private static void start(ServerPlayer user, FlightCharmEffect effect, int flightTicks,
+			ItemStack cooldownKey) {
 		boolean couldAlreadyFly = user.getAbilities().mayfly;
 		if (!couldAlreadyFly) {
 			user.getAbilities().mayfly = true;
@@ -268,7 +284,8 @@ public final class PerkFlightCharm {
 			// 두 번 뛰어도 날지 않는다. 바닐라 패킷이라 통신 규약이 올라가지 않는다.
 			user.onUpdateAbilities();
 		}
-		ACTIVE.put(user.getUUID(), new Session(flightTicks, !couldAlreadyFly));
+		ACTIVE.put(user.getUUID(),
+				new Session(flightTicks, !couldAlreadyFly, effect.cooldownTicks(), cooldownKey));
 
 		ServerLevel level = user.level();
 		level.playSound(null, user.getX(), user.getY(), user.getZ(),
@@ -395,18 +412,21 @@ public final class PerkFlightCharm {
 				// 참으로 남은 칸이 저장 자료로 새어 나가지 않도록 여기서 되돌려 둔다.
 				stop(player, session);
 				iterator.remove();
+				startCooldown(player, session);
 				continue;
 			}
 			if (findEffect(TeamLookup.stateOf(player.getUUID())) == null) {
 				// 회차가 넘어가거나 「환골탈태」로 증강을 잃었다. 즉시 걷어낸다.
 				stop(player, session);
 				iterator.remove();
+				startCooldown(player, session);
 				expire(player, "증강을 잃어 비행이 끝났습니다");
 				continue;
 			}
 			if (--session.remainingTicks <= 0) {
 				stop(player, session);
 				iterator.remove();
+				startCooldown(player, session);
 				expire(player, "비행이 끝났습니다");
 				continue;
 			}
@@ -426,6 +446,30 @@ public final class PerkFlightCharm {
 	private static void expire(ServerPlayer player, String reason) {
 		TitleMessenger.showActionBar(player,
 				Component.literal(PREFIX + "비행 부적 — " + reason).withStyle(ChatFormatting.GRAY));
+	}
+
+	/**
+	 * 비행이 끝난 <b>그 순간</b>부터 쿨타임을 센다.
+	 *
+	 * <h2>왜 쓸 때가 아니라 끝날 때인가</h2>
+	 *
+	 * <p>예전에는 우클릭하는 자리에서 걸었다. 그러면 비행 시간이 쿨타임 <b>안에서</b> 흘러,
+	 * 10초 날고 쿨 60초인 정의가 실제로는 「50초만 기다리면 다시 난다」가 된다. 정의에 적은
+	 * 숫자와 사람이 겪는 간격이 어긋나는 셈이라, 끝나는 자리로 옮겼다. 이제 한 판의 주기는
+	 * <b>비행 + 쿨타임</b>이다.
+	 *
+	 * <p>부르는 곳은 비행이 끝나는 세 자리다 — 시간 만료 · 죽음 · 증강 상실. 셋 다 건다.
+	 * 죽어서 끝난 것을 빼 주면 「죽으면 쿨타임이 없다」가 되어 죽는 것이 이득이 된다.
+	 *
+	 * <p><b>접속이 끊기면 걸지 않는다.</b> 바닐라의 {@code ItemCooldowns} 는 플레이어 저장
+	 * 자료에 안 적혀서 다시 접속하면 어차피 비기 때문이다. 예전 방식에서도 마찬가지였으므로
+	 * 이 판에서 새로 생긴 구멍은 아니다.
+	 */
+	private static void startCooldown(ServerPlayer player, Session session) {
+		if (session.cooldownTicks <= 0 || session.cooldownKey.isEmpty()) {
+			return;
+		}
+		player.getCooldowns().addCooldown(session.cooldownKey, session.cooldownTicks);
 	}
 
 	/**

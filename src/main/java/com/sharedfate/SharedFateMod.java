@@ -115,6 +115,7 @@ public class SharedFateMod implements ModInitializer {
 			com.sharedfate.sync.RallyShardManager.reset();
 			com.sharedfate.sync.RallyShardCooldown.reset();
 			com.sharedfate.perk.PerkFlightCharm.reset();
+			com.sharedfate.perk.PerkDiamondSundial.reset();
 			com.sharedfate.sync.SpreadDamageManager.reset();
 			com.sharedfate.sync.SwapExplosionScheduler.reset();
 			com.sharedfate.perk.PerkResonantMining.reset();
@@ -214,9 +215,9 @@ public class SharedFateMod implements ModInitializer {
 		// 나무를 광물로 바꾸는 증강(ore_exchange)의 등록 지점. 허공 우클릭에서만 발화한다.
 		net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(
 				com.sharedfate.perk.PerkOreExchange::onUseItem);
-		// 근처 다이아몬드 광석을 보여 주는 증강(diamond_sundial)의 등록 지점. 해시계를 들고
-		// 허공 우클릭했을 때만 발화한다. ore_exchange 와 같은 사건에 붙지만 서로 다른 아이템만
-		// 받으므로 부딪히지 않는다.
+		// 근처 다이아몬드 광석을 보여 주는 증강(diamond_sundial, 「엑스레이」)의 등록 지점.
+		// 그 시계를 들고 허공 우클릭했을 때만 발화한다. ore_exchange 와 같은 사건에 붙지만
+		// 서로 다른 아이템만 받으므로 부딪히지 않는다.
 		net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(
 				com.sharedfate.perk.PerkDiamondSundial::onUseItem);
 		// 팀원을 자기 자리로 부르는 증강(rally_shard)의 등록 지점. 소집의 조각을 들고 허공
@@ -240,6 +241,10 @@ public class SharedFateMod implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.RallyShardCooldown::tick);
 		// 비행 시간을 세고 핫바 1번 칸의 부적을 지킨다.
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.perk.PerkFlightCharm::tick);
+		// 「엑스레이」가 보여 주는 시간을 세고, 주기마다 다시 훑어 광석 표시를 갱신한다.
+		// 이 줄이 없으면 우클릭이 한 번 반짝이고 판이 영영 끝나지 않는다 — 쿨타임을 거는 것도
+		// 끝나는 자리라 쿨타임까지 함께 안 걸린다. 빌드도 로그도 조용하다.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.perk.PerkDiamondSundial::tick);
 		// 「완충」이 미뤄 둔 피해를 1초에 한 몫씩 넣는 지점.
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.SpreadDamageManager::tick);
 		// 쿨타임이 있는 증강 아이템을 들고 있을 때 남은 시간을 액션바에 적는 지점.

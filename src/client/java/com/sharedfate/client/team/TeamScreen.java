@@ -71,6 +71,13 @@ public class TeamScreen extends Screen {
 	private static final int TEXT_DIM = StatRow.COLOR_MASKED;
 	private static final int TEXT_GOOD = StatRow.COLOR_GOOD;
 	private static final int TEXT_WARN = 0xFFFFD24A;
+	/**
+	 * 증강 이름 뒤에 붙는 세트 유형 딱지의 색.
+	 *
+	 * <p>이름보다 흐리다. 유형은 <b>곁들이는 정보</b>지 증강의 이름이 아니라서, 같은 밝기로
+	 * 붙이면 어디까지가 이름인지 눈이 못 가른다.
+	 */
+	private static final int PERK_SET_TYPE = 0xFF7F8A99;
 	private static final int PANEL_BG = 0xC0101018;
 
 	/**
@@ -234,6 +241,18 @@ public class TeamScreen extends Screen {
 		super(Component.literal("SharedFate 팀"));
 	}
 
+	/**
+	 * 증강 탭을 편 채로 연다.
+	 *
+	 * <p>인벤토리의 「증강」 단추가 쓴다. 거기서는 <b>한 번 눌러 바로 목록</b>이 나와야 하는데,
+	 * 기본 탭으로 열면 「SharedFate → 증강」 두 번을 눌러야 한다.
+	 */
+	public static TeamScreen onPerks() {
+		TeamScreen screen = new TeamScreen();
+		screen.tab = Tab.PERKS;
+		return screen;
+	}
+
 	@Override
 	protected void init() {
 		lastSignature = signature();
@@ -352,7 +371,9 @@ public class TeamScreen extends Screen {
 		// 겹치면 초대하려다 시작을 누르게 되는데, 그것이 이 화면에서 가장 나쁜 사고다.
 		int inviteBottom = showStart ? this.height - 108 : this.height - 80;
 
-		if (ClientTeamState.isLeader()) {
+		// 회차가 시작된 뒤에는 아무도 못 부른다. 서버가 어차피 막지만, 단추가 그대로 남아
+		// 있으면 눌러 보고 나서야 알게 된다. 눌리지 않는 편이 정직하다.
+		if (ClientTeamState.isLeader() && !ClientTeamState.runStarted()) {
 			for (String name : invitableNames()) {
 				if (y > inviteBottom) {
 					break;
@@ -516,10 +537,18 @@ public class TeamScreen extends Screen {
 		int height = 0;
 		List<PerkSyncPayload.Owned> owned = PerkClientState.owned();
 		for (PerkSyncPayload.Owned perk : owned) {
-			perkLines.add(new PerkLine(
-					Component.literal("· " + perk.name()).getVisualOrderText(),
-					0, rarityColor(perk.rarity()), ROW_HEIGHT));
-			height += ROW_HEIGHT;
+			// 이름 뒤에 세트 유형을 흐린 글씨로 붙인다 — 「짐꾼 가호」처럼. 어디에도 안 들어가는
+			// 증강 열둘에는 안 붙는다.
+			Component title = Component.literal("· " + perk.name())
+					.withStyle(style -> style.withColor(rarityColor(perk.rarity())));
+			if (perk.hasSetTypes()) {
+				title = title.copy().append(Component.literal("  " + perk.setTypes())
+						.withStyle(style -> style.withColor(PERK_SET_TYPE)));
+			}
+			for (FormattedCharSequence line : this.font.split(title, PANEL_WIDTH - 8)) {
+				perkLines.add(new PerkLine(line, 0, rarityColor(perk.rarity()), ROW_HEIGHT));
+				height += ROW_HEIGHT;
+			}
 
 			// 설명은 폭에 맞춰 접는다. 이름만으로는 무엇을 들고 있는지 알 수 없다.
 			List<FormattedCharSequence> wrapped =

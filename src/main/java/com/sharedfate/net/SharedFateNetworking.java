@@ -87,7 +87,11 @@ public final class SharedFateNetworking {
 	//
 	//     ★ 규칙: 클라이언트가 **조용히 덜 동작하는** 판은 형식이 안 바뀌어도 번호를 올린다.
 	//       「값이 안 보인다」는 「모드가 안 맞는다」보다 알아채기 훨씬 어렵다.
-	public static final int PROTOCOL_VERSION = 25;
+	// 26: PerkSyncPayload.Owned 에 세트 유형 칸이 하나 늘었다. 보유 증강 목록에 「짐꾼 가호」
+	//     처럼 유형 딱지를 붙이려면 클라이언트가 그 값을 알아야 하는데, 클라이언트는 증강 풀을
+	//     읽지 않으므로 스스로 셀 수 없다. 칸이 늘어 형식이 바뀌었으니 옛 클라이언트는 이
+	//     패킷을 못 읽는다.
+	public static final int PROTOCOL_VERSION = 26;
 
 	private SharedFateNetworking() {
 	}

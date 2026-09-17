@@ -87,7 +87,7 @@ public final class RallyShardEffect implements PerkEffect {
 	/** 소집의 조각으로 쓰는 바닐라 아이템. 26.2 에 {@code assets/minecraft/items/echo_shard.json} 이 있다. */
 	public static final Identifier ITEM = Identifier.withDefaultNamespace("echo_shard");
 
-	/** {@code minecraft:custom_data} 에 남기는 표식의 키. 해시계와 같은 키를 값만 달리해 쓴다. */
+	/** {@code minecraft:custom_data} 에 남기는 표식의 키. 「엑스레이」와 같은 키를 값만 달리해 쓴다. */
 	public static final String MARKER_KEY = "sharedfate_item";
 	/** {@code minecraft:custom_data} 에 남기는 표식의 값. */
 	public static final String MARKER_VALUE = "rally_shard";

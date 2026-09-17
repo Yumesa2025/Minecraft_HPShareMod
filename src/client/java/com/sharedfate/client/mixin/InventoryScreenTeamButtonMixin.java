@@ -60,6 +60,15 @@ public abstract class InventoryScreenTeamButtonMixin {
 	@Unique
 	private Button sharedfate$teamButton;
 
+	/**
+	 * 「SharedFate」 옆에 나란히 서는 두 번째 단추. 누르면 <b>증강 탭이 펴진 채로</b> 열린다.
+	 *
+	 * <p>자리가 모자란 화면에서는 만들지 않는다 — 억지로 끼우면 둘 다 글자가 잘려 무엇을
+	 * 누르는지 알 수 없다.
+	 */
+	@Unique
+	private Button sharedfate$perkButton;
+
 	/** 이번 프레임에 그릴 능력치 줄들. {@code extractRenderState} 머리에서 다시 잰다. */
 	@Unique
 	private InventoryStatPanel.Layout sharedfate$stats;
@@ -76,8 +85,15 @@ public abstract class InventoryScreenTeamButtonMixin {
 				.bounds(0, 0, InventoryTeamButton.MIN_WIDTH, InventoryTeamButton.HEIGHT)
 				.tooltip(Tooltip.create(Component.literal(InventoryTeamButton.TOOLTIP)))
 				.build();
+		sharedfate$perkButton = Button.builder(
+						Component.literal(InventoryTeamButton.PERK_LABEL),
+						button -> sharedfate$openPerkList())
+				.bounds(0, 0, InventoryTeamButton.MIN_WIDTH, InventoryTeamButton.HEIGHT)
+				.tooltip(Tooltip.create(Component.literal(InventoryTeamButton.PERK_TOOLTIP)))
+				.build();
 		sharedfate$layOut();
 		((ScreenAccessor) this).sharedfate$addRenderableWidget(sharedfate$teamButton);
+		((ScreenAccessor) this).sharedfate$addRenderableWidget(sharedfate$perkButton);
 	}
 
 	@Inject(method = EXTRACT_RENDER_STATE, at = @At("HEAD"))
@@ -125,18 +141,31 @@ public abstract class InventoryScreenTeamButtonMixin {
 				self.width, window.sharedfate$getImageWidth(), window.sharedfate$getLeftPos());
 		int buttonWidth = InventoryTeamButton.buttonWidth(
 				font.width(InventoryTeamButton.LABEL), available);
+		int perkWidth = InventoryTeamButton.perkButtonWidth(
+				font.width(InventoryTeamButton.PERK_LABEL), available, buttonWidth);
+		int rowWidth = InventoryTeamButton.buttonRowWidth(buttonWidth, perkWidth);
 
 		List<List<StatRow>> groups = ClientStatRows.groups(Minecraft.getInstance().player);
 		sharedfate$stats = InventoryStatPanel.layout(groups, available,
 				InventoryTeamButton.statHeight(self.height, window.sharedfate$getTopPos()),
 				font::width);
 
-		int blockWidth = Math.max(buttonWidth, sharedfate$stats.width());
+		int blockWidth = Math.max(rowWidth, sharedfate$stats.width());
 		int left = InventoryTeamButton.blockLeft(available, blockWidth);
+		int buttonY = InventoryTeamButton.y(window.sharedfate$getTopPos());
 
 		sharedfate$teamButton.setWidth(buttonWidth);
-		sharedfate$teamButton.setPosition(
-				left, InventoryTeamButton.y(window.sharedfate$getTopPos()));
+		sharedfate$teamButton.setPosition(left, buttonY);
+		if (sharedfate$perkButton != null) {
+			// 자리가 모자라면 폭이 0으로 돌아온다. 그때는 아예 감춘다 — 0폭 단추는 안 보이지만
+			// 누를 수는 있어서, 엉뚱한 자리를 눌렀는데 창이 열리는 일이 생긴다.
+			sharedfate$perkButton.visible = perkWidth > 0;
+			if (perkWidth > 0) {
+				sharedfate$perkButton.setWidth(perkWidth);
+				sharedfate$perkButton.setPosition(
+						left + buttonWidth + InventoryTeamButton.BUTTON_GAP, buttonY);
+			}
+		}
 		sharedfate$statLeft = left;
 		sharedfate$statTop = InventoryTeamButton.statTop(window.sharedfate$getTopPos());
 	}
@@ -150,5 +179,16 @@ public abstract class InventoryScreenTeamButtonMixin {
 	@Unique
 	private void sharedfate$openTeamScreen() {
 		Minecraft.getInstance().setScreenAndShow(new TeamScreen());
+	}
+
+	/**
+	 * 증강 목록을 <b>한 번에</b> 연다.
+	 *
+	 * <p>같은 화면이지만 증강 탭이 펴진 채로 뜬다. 「SharedFate → 증강」 두 번을 누르지
+	 * 않으려고 둔 단추다.
+	 */
+	@Unique
+	private void sharedfate$openPerkList() {
+		Minecraft.getInstance().setScreenAndShow(TeamScreen.onPerks());
 	}
 }

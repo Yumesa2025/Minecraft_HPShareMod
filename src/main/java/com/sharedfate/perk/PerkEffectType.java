@@ -90,6 +90,7 @@ import com.sharedfate.perk.effect.SanctuaryEffect;
 import com.sharedfate.perk.effect.ShockwaveEffect;
 import com.sharedfate.perk.effect.SpreadDamageEffect;
 import com.sharedfate.perk.effect.EnchantCostEffect;
+import com.sharedfate.perk.effect.MobActionSpeedEffect;
 import com.sharedfate.perk.effect.MobSpawnRateEffect;
 import com.sharedfate.perk.effect.MobSpeedEffect;
 import org.jetbrains.annotations.Nullable;
@@ -115,6 +116,7 @@ public enum PerkEffectType {
 	MOB_HEALTH("mob_health", MobHealthEffect::fromJson),
 	MOB_DAMAGE("mob_damage", MobDamageEffect::fromJson),
 	MOB_SPEED("mob_speed", MobSpeedEffect::fromJson),
+	MOB_ACTION_SPEED("mob_action_speed", MobActionSpeedEffect::fromJson),
 	MOB_SPAWN_RATE("mob_spawn_rate", MobSpawnRateEffect::fromJson),
 	CONDITIONAL("conditional", ConditionalEffect::fromJson),
 	PERIODIC("periodic", PeriodicEffect::fromJson),

@@ -1,6 +1,6 @@
 package com.sharedfate.mixin;
 
-import com.sharedfate.sync.SanctuaryManager;
+import com.sharedfate.sync.MobTickRate;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
@@ -10,10 +10,16 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * 프리즘 「성역」이 몹의 <b>틱 자체</b>를 건너뛰거나 한 번 더 돌리는 자리.
+ * 몹의 <b>틱 자체</b>를 건너뛰거나 한 번 더 돌리는 자리.
  *
- * <p>「행동이 느려진다」는 이동 속도만이 아니다. 공격 간격·크리퍼 부풀기·활 쏘기가 전부 함께
- * 느려져야 한다. 그 넷은 바닐라에서 서로 다른 곳에 흩어져 있다.
+ * <p>클래스 이름에 「성역」이 남아 있는 것은 이 자리를 처음 연 증강이 프리즘 「성역」이기
+ * 때문이다. 지금은 몹의 시간을 늦추거나 당기는 증강이 둘 이상이고, <b>어느 증강이 무엇을
+ * 요구하든 답은 {@link MobTickRate} 가 하나로 합쳐</b> 낸다. 주입을 여기 하나로 묶어 두는
+ * 것이 핵심이다 — 가속은 같은 메서드를 다시 부르는 방식이라, 주입이 둘이면 서로의 재진입
+ * 깃발을 보지 못해 한 틱이 셋·넷으로 불어난다.
+ *
+ * <p>「행동이 느려진다(빨라진다)」는 이동 속도만이 아니다. 공격 간격·크리퍼 부풀기·활 쏘기가
+ * 전부 함께 따라와야 한다. 그 넷은 바닐라에서 서로 다른 곳에 흩어져 있다.
  *
  * <ul>
  *   <li>이동 — {@code Mob.aiStep} 아래의 이동 제어</li>
@@ -23,8 +29,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * </ul>
  *
  * <p>이 넷을 따로 건드리면 손댈 자리가 넷이고 새 몹이 생길 때마다 늘어난다. 대신
- * <b>몹의 틱을 통째로 확률로 건너뛰면</b> 넷이 한 자리에서 같은 비율로 느려진다. 40% 감속이면
- * 틱의 40%를 건너뛴다.
+ * <b>몹의 틱을 통째로 건너뛰거나 한 번 더 주면</b> 넷이 한 자리에서 같은 비율로 느려지고
+ * 빨라진다. 40% 감속이면 틱의 40%를 건너뛰고, 20% 가속이면 다섯 틱에 한 번을 더 준다.
+ * 어느 쪽인지 고르는 셈은 전부 {@link MobTickRate} 에 있다.
  *
  * <h2>왜 {@code ServerLevel.tickNonPassenger} 인가 — 여기가 아니면 크리퍼가 안 느려진다</h2>
  * <p>처음에는 {@code Mob.tick()} 을 자르려 했으나 26.2 바이트코드를 읽고 <b>버렸다.</b>
@@ -78,16 +85,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *   <li><b>탈것에 탄 몹은 탈것을 따라간다.</b> 위 57번 줄이 태우고 있는 것을 함께 돌리므로
  *       거미에 탄 스켈레톤은 거미와 같이 느려진다. 반대로 <b>보트·광산 수레에 탄 몹</b>은
  *       탈것이 {@code Mob} 이 아니라 느려지지 않는다. 드문 경우라 그대로 둔다.</li>
- *   <li><b>플레이어는 손대지 않는다.</b> 판정
- *       ({@code AuraDamageManager.hostile})이 {@code Mob} 이면서 {@code Enemy} 인 것만
- *       통과시킨다. 엔더 드래곤은 양쪽 모두 제외다.</li>
+ *   <li><b>플레이어는 손대지 않는다.</b> 판정이 {@code Mob} 이면서 {@code Enemy} 인 것만
+ *       통과시킨다. 엔더 드래곤은 어느 쪽에서도 제외다.</li>
  * </ul>
+ *
+ * <p>빠르게 하는 쪽의 부작용은 이 목록을 뒤집은 것이고, 낙하와 이동 보간에 무슨 일이
+ * 일어나는지까지 {@link MobTickRate} 주석에 적어 두었다.
  *
  * <h2>비용</h2>
  * <p>이 주입은 <b>모든 엔티티가 매 틱</b> 지난다. 그래서 두 진입점 모두 첫 줄이
- * {@code volatile boolean} 한 번 읽기로 끝난다({@code SanctuaryManager.active}). 성역을 가진
- * 팀이 없는 서버에서는 그 한 줄이 비용의 전부다. 나머지 계산이 어떻게 접히는지는
- * {@link SanctuaryManager} 주석에 적어 두었다.
+ * {@code volatile boolean} 한 번 읽기로 끝난다. 이 계열 증강을 가진 팀이 없는 서버에서는 그
+ * 한 줄이 비용의 전부다. 나머지 계산이 어떻게 접히는지는 {@link MobTickRate} 와
+ * {@code SanctuaryManager} 주석에 적어 두었다.
  *
  * <h2>재진입 막기</h2>
  * <p>가속은 <b>같은 메서드를 다시 부르는 것</b>이라 이 주입이 또 걸린다. 깃발을 세워 두 번째
@@ -96,7 +105,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * {@code NaturalSpawnerRateMixin} 이 추가 스폰을 도는 방식 그대로다.
  *
  * <p>refmap 이 없어 대상 서술자가 틀리면 <b>빌드는 통과하고 서버가 뜬 뒤 첫 틱에 터진다.</b>
- * 그것을 못박는 시험이 {@code SanctuaryTargetTest} 다.
+ * 그것을 못박는 시험이 {@code SanctuaryTargetTest} 와 {@code MobTickRateTest} 다.
  */
 @Mixin(ServerLevel.class)
 public abstract class ServerLevelSanctuaryTickMixin {
@@ -106,7 +115,7 @@ public abstract class ServerLevelSanctuaryTickMixin {
 	private static boolean sharedfate$extraTick;
 
 	/**
-	 * 성역 안의 몹이면 이번 틱을 통째로 건너뛴다.
+	 * 느려진 몹이면 이번 틱을 통째로 건너뛴다.
 	 *
 	 * <p>{@code Entity.tick()} 이 가상 호출되기 전이므로 {@code Creeper.tick()} 의 부풀기도
 	 * 함께 멈춘다. 바로 이것 때문에 이 자리를 골랐다.
@@ -114,17 +123,18 @@ public abstract class ServerLevelSanctuaryTickMixin {
 	@Inject(
 			method = "tickNonPassenger(Lnet/minecraft/world/entity/Entity;)V",
 			at = @At("HEAD"), cancellable = true)
-	private void sharedfate$slowMobsInSanctuary(Entity entity, CallbackInfo callbackInfo) {
+	private void sharedfate$skipSlowedMobTick(Entity entity, CallbackInfo callbackInfo) {
 		if (sharedfate$extraTick) {
 			return;
 		}
-		if (SanctuaryManager.shouldSkipTick((ServerLevel) (Object) this, entity)) {
+		if (MobTickRate.shouldSkipTick((ServerLevel) (Object) this, entity)) {
 			callbackInfo.cancel();
 		}
 	}
 
 	/**
-	 * 팀이 흩어져 있는 동안의 대가. 확률에 걸린 몹은 이번 틱을 한 번 더 돈다.
+	 * 빨라진 몹이면 이번 틱을 한 번 더 돈다. 「성역」의 대가든 {@code mob_action_speed} 든
+	 * 여기로 모인다.
 	 *
 	 * <p>{@code HEAD} 에서 취소된 틱에는 이 자리에 오지 않는다. 취소는 본문이 시작하기 전에
 	 * 돌아가므로 본문 끝의 {@code RETURN} 을 지날 일이 없기 때문이다. 즉 <b>같은 틱에 건너뛰기와
@@ -133,12 +143,12 @@ public abstract class ServerLevelSanctuaryTickMixin {
 	@Inject(
 			method = "tickNonPassenger(Lnet/minecraft/world/entity/Entity;)V",
 			at = @At("RETURN"))
-	private void sharedfate$hasteMobsWhileApart(Entity entity, CallbackInfo callbackInfo) {
+	private void sharedfate$giveExtraMobTick(Entity entity, CallbackInfo callbackInfo) {
 		if (sharedfate$extraTick) {
 			return;
 		}
 		ServerLevel level = (ServerLevel) (Object) this;
-		if (!SanctuaryManager.shouldRunExtraTick(level, entity)) {
+		if (!MobTickRate.shouldRunExtraTick(level, entity)) {
 			return;
 		}
 		sharedfate$extraTick = true;

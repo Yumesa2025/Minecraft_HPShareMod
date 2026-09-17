@@ -44,7 +44,7 @@ class ServerMotdTest {
 	 */
 	@Test
 	void 그_모양이_없으면_아무것도_하지_않는다() {
-		assertNull(ServerMotd.withPerkCount("우리 서버에 온 걸 환영합니다", 94));
+		assertNull(ServerMotd.withPerkCount("어서 오세요", 94));
 		assertNull(ServerMotd.withPerkCount("증강이 많습니다", 94));
 		assertNull(ServerMotd.withPerkCount("증강 개", 94));
 	}

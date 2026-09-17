@@ -701,9 +701,78 @@ public final class PerkManager {
 		}
 		for (UUID member : team.members()) {
 			ServerPlayer online = server.getPlayerList().getPlayer(member);
-			if (online == null) {
-				continue;
+			if (online != null) {
+				stripEffects(online, state);
 			}
+		}
+		broadcastSync(server, team, state);
+		// 증강을 끄면 「짐꾼」이 열어 둔 칸도 함께 닫힌다. 그 사실도 알려야 창이 맞는다.
+		com.sharedfate.net.TeamBroadcaster.broadcast(server, team);
+	}
+
+	/**
+	 * 팀에서 빠지는 사람에게 붙어 있던 증강 자국을 <b>전부</b> 걷어낸다.
+	 *
+	 * <h2>왜 필요한가</h2>
+	 *
+	 * <p>팀을 해체하거나 탈퇴하면 팀 상태는 통째로 사라지지만, <b>플레이어에게 붙여 둔
+	 * 것들은 아무도 걷어내지 않는다.</b> 속성 수정자와 상태이상은 플레이어 쪽에 적혀 있어
+	 * 팀이 없어져도 그대로 남고, 새 팀을 만들어도 옛 증강의 효과를 그대로 달고 다니게 된다.
+	 *
+	 * <p>화면도 마찬가지다. 보유 증강 목록은 {@link #broadcastSync} 가 <b>팀원에게만</b>
+	 * 보내므로, 팀이 사라진 순간 아무도 새 목록을 못 받고 <b>옛 목록이 화면에 영영 남는다.</b>
+	 * 그래서 빈 목록을 직접 보내 준다.
+	 *
+	 * <p>{@code ownedPerks} 를 비우지는 않는다 — 부르는 쪽이 팀 상태를 통째로 버리는 길이라
+	 * 여기서 손댈 것이 없고, 걷어낼 효과를 찾으려면 그 목록이 필요하다.
+	 *
+	 * @param state 빠져나가는 팀의 상태. 이미 사라졌으면 {@code null} 이어도 되고, 그때는
+	 *              세트 효과와 화면만 정리한다
+	 */
+	public static void detach(@Nullable ServerPlayer player, @Nullable TeamState state) {
+		if (player == null) {
+			return;
+		}
+		stripEffects(player, state);
+		ServerPlayNetworking.send(player, PerkSyncPayload.EMPTY);
+	}
+
+	/**
+	 * 팀에 <b>막 들어온</b> 사람에게 그 팀의 증강을 걸어 주고 목록을 보낸다. {@link #detach} 의 짝.
+	 *
+	 * <h2>왜 필요한가</h2>
+	 *
+	 * <p>증강은 팀이 고르는 순간 {@code applyToTeam} 이 <b>그때 접속해 있던 팀원</b>에게 붙인다.
+	 * 나중에 들어온 사람은 그 자리를 지나지 않았으므로 아무것도 안 붙어 있다. 접속을 끊었다
+	 * 다시 들어오면 {@link #onPlayerJoin} 이 붙여 주지만, <b>초대받아 들어온 그 순간부터</b>
+	 * 다시 접속할 때까지는 목록에는 증강이 보이는데 몸에는 아무 효과도 없는 상태가 된다.
+	 *
+	 * <p>{@code detach} 와 짝을 맞춰 여기 한 곳에서 붙인다.
+	 */
+	public static void attach(@Nullable ServerPlayer player) {
+		if (player == null) {
+			return;
+		}
+		MinecraftServer server = player.level().getServer();
+		if (server == null) {
+			return;
+		}
+		TeamManager manager = TeamManager.get(server);
+		ShareTeam team = manager.teamOf(player.getUUID());
+		TeamState state = manager.stateOf(player.getUUID());
+		if (team == null || state == null) {
+			return;
+		}
+		if (state.perksEnabled) {
+			refreshPlayer(player);
+		}
+		// 증강을 끈 팀에도 목록은 보낸다. 「무엇을 가졌는가」와 「지금 켜져 있는가」는 다른 값이다.
+		broadcastSync(server, team, state);
+	}
+
+	/** 한 사람에게 붙어 있는 증강 효과와 세트 효과를 걷어낸다. */
+	private static void stripEffects(ServerPlayer player, @Nullable TeamState state) {
+		if (state != null) {
 			for (String perkId : state.ownedPerks) {
 				Perk perk = PerkRegistry.byId(perkId).orElse(null);
 				if (perk == null) {
@@ -711,18 +780,15 @@ public final class PerkManager {
 				}
 				for (PerkEffect effect : perk.effects()) {
 					try {
-						effect.remove(online);
+						effect.remove(player);
 					} catch (RuntimeException error) {
 						SharedFateMod.LOGGER.warn("증강 '{}' 효과 해제에 실패했습니다.", perk.id(), error);
 					}
 				}
 			}
-			// 증강을 끄면 세트도 함께 꺼진다.
-			PerkSetEffects.removeAll(online);
 		}
-		broadcastSync(server, team, state);
-		// 증강을 끄면 「짐꾼」이 열어 둔 칸도 함께 닫힌다. 그 사실도 알려야 창이 맞는다.
-		com.sharedfate.net.TeamBroadcaster.broadcast(server, team);
+		// 증강이 꺼지면 세트도 함께 꺼진다.
+		PerkSetEffects.removeAll(player);
 	}
 
 	private static void applyToTeam(MinecraftServer server, ShareTeam team, TeamState state) {
@@ -809,9 +875,14 @@ public final class PerkManager {
 			Perk perk = PerkRegistry.byId(perkId).orElse(null);
 			// 정의가 사라진 증강도 보유 목록에는 남아 있다. 식별자라도 보여 준다.
 			lines.add(perk == null
-					? new PerkSyncPayload.Owned(perkId, "정의를 찾을 수 없는 증강입니다.", "silver")
+					? new PerkSyncPayload.Owned(perkId, "정의를 찾을 수 없는 증강입니다.", "silver", "")
 					: new PerkSyncPayload.Owned(perk.name(), perk.description(),
-							perk.rarity().name().toLowerCase(java.util.Locale.ROOT)));
+							perk.rarity().name().toLowerCase(java.util.Locale.ROOT),
+							// 카드에 적는 것과 같은 방식으로 잇는다. 무유형이면 빈 문자열이
+							// 되어 목록에 유형 딱지가 안 붙는다.
+							perk.setTypes().stream().map(PerkSetType::displayName)
+									.collect(java.util.stream.Collectors.joining(
+											PerkOfferPayload.PerkOption.SET_TYPE_JOINER))));
 		}
 		return lines;
 	}

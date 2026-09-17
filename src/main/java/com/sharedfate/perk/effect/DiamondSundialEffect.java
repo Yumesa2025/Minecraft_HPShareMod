@@ -25,38 +25,54 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Optional;
 
 /**
- * 「해시계」를 하나 지급하고, 그것을 우클릭하면 주변 다이아몬드 광석 자리에 파티클을 띄우고
- * 가장 가까운 한 자리의 좌표를 액션바에 적어 준다.
+ * 「엑스레이」를 하나 지급하고, 그것을 우클릭하면 정한 시간 동안 주변 다이아몬드 광석 자리에
+ * 파티클이 계속 뜨고 가장 가까운 한 자리의 좌표가 액션바에 이어서 적힌다.
  *
  * <p>JSON 형식:
  * <pre>
- * { "type": "diamond_sundial", "radius": 20, "cooldown_seconds": 30, "max_results": 16 }
+ * { "type": "diamond_sundial", "radius": 20, "duration_seconds": 10,
+ *   "cooldown_seconds": 30, "max_results": 16 }
  * </pre>
  *
- * <p>세 값 모두 생략할 수 있고, 생략하면 {@link #DEFAULT_RADIUS}·{@link #DEFAULT_COOLDOWN_SECONDS}·
- * {@link #DEFAULT_MAX_RESULTS} 다. 범위를 벗어난 값은 정의를 버리지 않고 범위 안으로 자른다.
+ * <p>네 값 모두 생략할 수 있고, 생략하면 {@link #DEFAULT_RADIUS}·{@link #DEFAULT_DURATION_SECONDS}·
+ * {@link #DEFAULT_COOLDOWN_SECONDS}·{@link #DEFAULT_MAX_RESULTS} 다. 범위를 벗어난 값은 정의를
+ * 버리지 않고 범위 안으로 자른다.
+ *
+ * <h2>타입 이름과 표식은 「해시계」 때 그대로다</h2>
+ * <p>증강의 이름만 「해시계」에서 「엑스레이」로 바뀌었다. 효과 타입 이름
+ * ({@code diamond_sundial}) · 표식 값 · 쿨타임 묶음 · 이 클래스와 메서드의 이름은 모두 예전
+ * 값이다. 그 이름들은 <b>이미 저장에 적혀 나가 있는 값</b>이라, 바꾸면 그 증강을 가진 팀의
+ * 저장이 깨지고 이미 나가 있는 시계가 아무 반응도 하지 않게 된다. 사람에게 보이는 이름은
+ * {@link #DISPLAY_NAME} 하나뿐이다.
  *
  * <h2>새 아이템을 등록하지 않는다</h2>
  * <p>아이템을 새로 등록하면 텍스처와 등록이 클라이언트에도 필요해져 「모드를 안 깐 사람도
- * 들어올 수 있다」는 전제가 깨진다. 그래서 해시계는 <b>바닐라 {@code minecraft:clock}</b> 에
+ * 들어올 수 있다」는 전제가 깨진다. 그래서 엑스레이는 <b>바닐라 {@code minecraft:clock}</b> 에
  * 이름과 표식을 붙인 것이다.
  *
  * <ul>
  *   <li><b>표식</b> — {@code minecraft:custom_data} 에 {@code {sharedfate_item: "diamond_sundial"}}
  *       를 넣는다. 이 컴포넌트는 생존 모드에서 플레이어가 붙일 방법이 없으므로, 시계를 모루에서
- *       「해시계」로 이름만 바꿔도 가짜가 만들어지지 않는다. 이름으로 판정하지 않는 이유가 이것이다.</li>
+ *       「엑스레이」로 이름만 바꿔도 가짜가 만들어지지 않는다. 이름으로 판정하지 않는 이유가 이것이다.</li>
  *   <li><b>쿨타임 묶음</b> — {@code minecraft:use_cooldown} 에 {@link #COOLDOWN_GROUP} 을 적는다.
  *       26.2 의 {@code ItemCooldowns.getCooldownGroup} 은 이 컴포넌트가 있으면 아이템 id 대신
- *       그 값을 쓰므로, 해시계에 건 쿨타임이 <b>평범한 시계까지 잠그지 않는다.</b> 이 컴포넌트는
+ *       그 값을 쓰므로, 엑스레이에 건 쿨타임이 <b>평범한 시계까지 잠그지 않는다.</b> 이 컴포넌트는
  *       값만 정해 둘 뿐 저절로 쿨타임을 걸지는 않는다 — 거는 것은
  *       {@link com.sharedfate.perk.PerkDiamondSundial} 이 {@code getCooldowns().addCooldown} 으로
- *       한다. 그래야 바닐라 쿨타임 표시(아이템 위 회색 게이지)가 그대로 뜬다.</li>
+ *       한다. 그래야 바닐라 쿨타임 표시(아이템 위 회색 게이지)가 그대로 뜬다. <b>거는 시점은
+ *       쓰는 순간이 아니라 지속이 끝나는 순간이다</b> — 까닭은 그쪽 클래스 문서에 있다.</li>
  * </ul>
+ *
+ * <h2>왜 그대로 시계인가</h2>
+ * <p>이름이 「엑스레이」가 되었어도 아이템은 시계로 둔다. 두 가지 까닭이다. 하나는 <b>이미 나가
+ * 있는 시계</b>가 그대로 쓰여야 하기 때문이고(아이템을 바꾸면 가진 사람의 것은 옛 시계로 남는다),
+ * 다른 하나는 <b>시계가 26.2 에서 허공 우클릭에 아무 동작이 없는 몇 안 되는 아이템</b>이기
+ * 때문이다. 망원경처럼 그럴싸한 것은 바닐라 사용 동작이 있어 우클릭을 가로채면 그 동작을 뺏는다.
  *
  * <h2>지급 시점</h2>
  * <p>{@link ItemGrantEffect} 와 똑같이 <b>{@link #apply}/{@link #remove} 에서는 아무 일도 하지
  * 않는다.</b> 두 메서드는 접속·부활·효과 갱신 때마다 다시 불리므로 거기서 주면 접속할 때마다
- * 해시계가 늘어난다. 지급은 {@code PerkManager.commit} → {@code PerkGrantChain.run} 이 지나는
+ * 시계가 늘어난다. 지급은 {@code PerkManager.commit} → {@code PerkGrantChain.run} 이 지나는
  * 한 곳뿐이고, 실제 전달은 {@link com.sharedfate.perk.PerkDiamondSundial#grantOnChoice} 가 맡는다.
  *
  * <h2>왜 {@code minecraft:end_rod} 파티클인가</h2>
@@ -81,10 +97,34 @@ public final class DiamondSundialEffect implements PerkEffect {
 	public static final int MAX_RADIUS = 48;
 
 	/**
+	 * 기본 지속 시간(초).
+	 *
+	 * <p>한 번 우클릭하면 이만큼 광석이 계속 보인다. 10초는 「비행 부적」의 기본 비행 시간과 같게
+	 * 잡았다 — 같은 지속형이므로 사람이 두 증강의 감각을 따로 익히지 않아도 된다.
+	 *
+	 * <p>값을 조절할 때는 <b>이 상수와 {@code sharedfate-perks-default.json} 의 값이 어긋나지
+	 * 않게</b> 같이 봐야 한다.
+	 */
+	public static final int DEFAULT_DURATION_SECONDS = 10;
+	/** 지속 하한(초). 1초보다 짧으면 파티클이 한 번 뜨고 끝나 지속형이 아니게 된다. */
+	public static final int MIN_DURATION_SECONDS = 1;
+	/**
+	 * 지속 상한(초).
+	 *
+	 * <p>1분이다. 지속이 길어질수록 훑기가 그만큼 여러 번 돌고
+	 * ({@code PerkDiamondSundial.REFRESH_INTERVAL_TICKS} 마다 한 번), 쿨타임 하한(1초)과 겹치는
+	 * 지점부터는 「잠깐 본다」가 아니라 상시 엑스레이라는 다른 증강이 된다.
+	 */
+	public static final int MAX_DURATION_SECONDS = 60;
+
+	/**
 	 * 기본 쿨타임(초).
 	 *
 	 * <p>정의에 {@code cooldown_seconds} 를 적으면 그쪽이 이긴다. 쿨타임을 조절할 때는
 	 * <b>이 상수와 {@code sharedfate-perks-default.json} 의 값이 어긋나지 않게</b> 같이 봐야 한다.
+	 *
+	 * <p>이 값은 <b>지속이 끝난 뒤부터</b> 도므로 한 판의 실제 주기는 지속 + 쿨타임이다. 정의의
+	 * 숫자를 고칠 때 그 점을 잊으면 체감 간격이 적은 것보다 길어진다.
 	 */
 	public static final int DEFAULT_COOLDOWN_SECONDS = 30;
 	public static final int MIN_COOLDOWN_SECONDS = 1;
@@ -98,16 +138,21 @@ public final class DiamondSundialEffect implements PerkEffect {
 
 	private static final int TICKS_PER_SECOND = 20;
 
-	/** 해시계로 쓰는 바닐라 아이템. 26.2 에 {@code assets/minecraft/items/clock.json} 이 있다. */
+	/** 엑스레이로 쓰는 바닐라 아이템. 26.2 에 {@code assets/minecraft/items/clock.json} 이 있다. */
 	public static final Identifier ITEM = Identifier.withDefaultNamespace("clock");
 
 	/** {@code minecraft:custom_data} 에 남기는 표식의 키. */
 	public static final String MARKER_KEY = "sharedfate_item";
-	/** {@code minecraft:custom_data} 에 남기는 표식의 값. */
+	/**
+	 * {@code minecraft:custom_data} 에 남기는 표식의 값.
+	 *
+	 * <p>이름이 「엑스레이」로 바뀐 뒤에도 옛 값 그대로다. 이미 나가 있는 시계에 이 문자열이
+	 * 적혀 있어, 바꾸면 그 시계들이 전부 평범한 시계가 된다.
+	 */
 	public static final String MARKER_VALUE = "diamond_sundial";
 
 	/** 아이템에 붙는 이름. 쿨타임 표시도 이 이름을 쓴다. */
-	public static final String DISPLAY_NAME = "해시계";
+	public static final String DISPLAY_NAME = "엑스레이";
 
 	/** 쿨타임 묶음. 평범한 시계와 갈라 두려고 모드 이름공간을 쓴다. */
 	public static final Identifier COOLDOWN_GROUP = SharedFateMod.id("diamond_sundial");
@@ -128,14 +173,16 @@ public final class DiamondSundialEffect implements PerkEffect {
 			Identifier.withDefaultNamespace("deepslate_diamond_ore");
 
 	private final int radius;
+	private final int durationTicks;
 	private final int cooldownTicks;
 	private final int maxResults;
 
 	/** 레지스트리에서 찾아 만든 견본. 처음 지급할 때 한 번 만들고 계속 쓴다. */
 	private @Nullable ItemStack template;
 
-	public DiamondSundialEffect(int radius, int cooldownTicks, int maxResults) {
+	public DiamondSundialEffect(int radius, int durationTicks, int cooldownTicks, int maxResults) {
 		this.radius = radius;
+		this.durationTicks = durationTicks;
 		this.cooldownTicks = cooldownTicks;
 		this.maxResults = maxResults;
 	}
@@ -149,18 +196,26 @@ public final class DiamondSundialEffect implements PerkEffect {
 	public static PerkEffect fromJson(String perkId, int index, JsonObject json) {
 		int radius = clamp(perkId, "radius",
 				PerkEffectType.readInt(json, "radius", DEFAULT_RADIUS), MIN_RADIUS, MAX_RADIUS);
+		int duration = clamp(perkId, "duration_seconds",
+				PerkEffectType.readInt(json, durationKey(json), DEFAULT_DURATION_SECONDS),
+				MIN_DURATION_SECONDS, MAX_DURATION_SECONDS);
 		int seconds = clamp(perkId, "cooldown_seconds",
 				PerkEffectType.readInt(json, cooldownKey(json), DEFAULT_COOLDOWN_SECONDS),
 				MIN_COOLDOWN_SECONDS, MAX_COOLDOWN_SECONDS);
 		int maxResults = clamp(perkId, "max_results",
 				PerkEffectType.readInt(json, "max_results", DEFAULT_MAX_RESULTS),
 				MIN_MAX_RESULTS, MAX_MAX_RESULTS);
-		return new DiamondSundialEffect(radius, seconds * TICKS_PER_SECOND, maxResults);
+		return new DiamondSundialEffect(radius, duration * TICKS_PER_SECOND,
+				seconds * TICKS_PER_SECOND, maxResults);
 	}
 
 	/** 카멜케이스로 적어도 읽어 준다. 다른 효과들이 {@code duration_minutes} 에서 쓰는 규칙과 같다. */
 	private static String cooldownKey(JsonObject json) {
 		return json != null && json.has("cooldownSeconds") ? "cooldownSeconds" : "cooldown_seconds";
+	}
+
+	private static String durationKey(JsonObject json) {
+		return json != null && json.has("durationSeconds") ? "durationSeconds" : "duration_seconds";
 	}
 
 	private static int clamp(String perkId, String key, int value, int min, int max) {
@@ -179,7 +234,12 @@ public final class DiamondSundialEffect implements PerkEffect {
 		return radius;
 	}
 
-	/** 쿨타임(틱). */
+	/** 한 번 우클릭했을 때 광석이 계속 보이는 시간(틱). */
+	public int durationTicks() {
+		return durationTicks;
+	}
+
+	/** 쿨타임(틱). 지속이 <b>끝난 뒤부터</b> 돈다. */
 	public int cooldownTicks() {
 		return cooldownTicks;
 	}
@@ -190,14 +250,14 @@ public final class DiamondSundialEffect implements PerkEffect {
 	}
 
 	/**
-	 * 이번 선택으로 지급할 해시계 하나.
+	 * 이번 선택으로 지급할 엑스레이 하나.
 	 *
 	 * <p>부를 때마다 새 사본을 돌려준다. 받는 쪽이 {@code shrink} 로 개수를 깎기 때문에 견본을
 	 * 그대로 넘기면 두 번째 지급 때 빈 묶음이 나간다. 아이템을 레지스트리에서 찾는 일은 정의를
 	 * 읽는 시점이 아니라 처음 지급할 때 한다 — 정의를 읽는 시점에는 레지스트리가 아직 준비되지
 	 * 않았을 수 있다.
 	 *
-	 * @return 해시계 한 개. 시계를 찾지 못했으면 null
+	 * @return 엑스레이 한 개. 시계를 찾지 못했으면 null
 	 */
 	public @Nullable ItemStack createItem() {
 		ItemStack cached = template;
@@ -216,24 +276,24 @@ public final class DiamondSundialEffect implements PerkEffect {
 		try {
 			Optional<Holder.Reference<Item>> found = BuiltInRegistries.ITEM.get(ITEM);
 			if (found.isEmpty()) {
-				SharedFateMod.LOGGER.warn("해시계로 쓸 아이템을 찾을 수 없습니다: {}", ITEM);
+				SharedFateMod.LOGGER.warn("엑스레이로 쓸 아이템을 찾을 수 없습니다: {}", ITEM);
 				return null;
 			}
 			item = found.get().value();
 		} catch (RuntimeException error) {
-			SharedFateMod.LOGGER.warn("해시계로 쓸 아이템 {} 을 찾다가 실패했습니다", ITEM, error);
+			SharedFateMod.LOGGER.warn("엑스레이로 쓸 아이템 {} 을 찾다가 실패했습니다", ITEM, error);
 			return null;
 		}
 		// 아이템 레지스트리는 기본값이 공기라 없는 이름도 공기로 돌아올 수 있다.
 		if (item == Items.AIR) {
-			SharedFateMod.LOGGER.warn("해시계로 쓸 아이템을 찾을 수 없습니다: {}", ITEM);
+			SharedFateMod.LOGGER.warn("엑스레이로 쓸 아이템을 찾을 수 없습니다: {}", ITEM);
 			return null;
 		}
 		return decorate(new ItemStack(item, 1), cooldownTicks / (float) TICKS_PER_SECOND);
 	}
 
 	/**
-	 * 시계 하나를 해시계로 만든다. 표식·이름·쿨타임 묶음을 붙인다.
+	 * 시계 하나를 엑스레이로 만든다. 표식·이름·쿨타임 묶음을 붙인다.
 	 *
 	 * @param cooldownSeconds {@code minecraft:use_cooldown} 에 적을 초. 이 컴포넌트는 <b>묶음 이름을
 	 *                        정하려고</b> 붙이는 것이라 실제로 쿨타임을 거는 것은 이 값이 아니다.
@@ -252,7 +312,7 @@ public final class DiamondSundialEffect implements PerkEffect {
 	}
 
 	/**
-	 * 이 묶음이 해시계인가.
+	 * 이 묶음이 엑스레이인가.
 	 *
 	 * <p>이름이 아니라 {@code minecraft:custom_data} 의 표식으로 판정한다.
 	 */

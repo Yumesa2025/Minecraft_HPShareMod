@@ -105,7 +105,7 @@ public final class FlightCharmEffect implements PerkEffect, OwnerBoundEffect {
 	/** 비행 부적으로 쓰는 바닐라 아이템. 26.2 에 {@code assets/minecraft/items/phantom_membrane.json} 이 있다. */
 	public static final Identifier ITEM = Identifier.withDefaultNamespace("phantom_membrane");
 
-	/** {@code minecraft:custom_data} 에 남기는 표식의 키. 해시계·소집의 조각과 같은 키를 값만 달리해 쓴다. */
+	/** {@code minecraft:custom_data} 에 남기는 표식의 키. 「엑스레이」·소집의 조각과 같은 키를 값만 달리해 쓴다. */
 	public static final String MARKER_KEY = "sharedfate_item";
 	/** {@code minecraft:custom_data} 에 남기는 표식의 값. */
 	public static final String MARKER_VALUE = "flight_charm";

@@ -1,5 +1,6 @@
 package com.sharedfate.sync;
 
+import com.sharedfate.perk.PerkManager;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.mixin.InventoryAccessor;
 import com.sharedfate.mixin.PlayerEnderChestAccessor;
@@ -125,6 +126,11 @@ public final class InventorySwapper {
 		}
 		if (SharedFateMod.config.shareExperience) {
 			team.members().forEach(manager::markExperienceClear);
+		}
+		// 팀 상태를 버리기 전에 증강 자국을 걷어낸다. 걷어낼 효과를 찾으려면 보유 목록이
+		// 필요한데, disband 가 상태를 통째로 지우고 나면 무엇이 붙어 있었는지 알 수 없다.
+		for (ServerPlayer online : onlineMembers) {
+			PerkManager.detach(online, state);
 		}
 		manager.disband(team.teamId());
 		for (ServerPlayer online : onlineMembers) {

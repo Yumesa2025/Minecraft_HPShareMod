@@ -4,6 +4,7 @@ import com.sharedfate.net.PerkChoiceC2SPayload;
 import com.sharedfate.net.PerkOfferPayload;
 import com.sharedfate.net.PerkRerollC2SPayload;
 import com.sharedfate.perk.PerkRarity;
+import com.sharedfate.ui.OwnedPerkPanelLayout;
 import com.sharedfate.ui.PerkCardDismiss;
 import com.sharedfate.ui.PerkCardFocus;
 import com.sharedfate.ui.PerkCardMetrics;
@@ -13,12 +14,14 @@ import com.sharedfate.ui.PerkSetLines;
 import com.sharedfate.ui.PerkSetPanelLayout;
 import com.sharedfate.ui.PerkSetTooltip;
 import com.sharedfate.ui.PerkSetTooltipLines;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -116,6 +119,14 @@ public class PerkOfferScreen extends Screen {
 
 	/** 결과를 보여 주는 동안 화면 전체에 씌우는 어둠. 고른 카드만 남기려는 것이다. */
 	private static final int RESULT_VEIL = 0x9C05050A;
+
+	/**
+	 * 「보유 증강」 판이 펴져 있는 동안 카드 위에 덮는 어둠.
+	 *
+	 * <p>{@link #RESULT_VEIL} 보다 옅다. 카드를 <b>못 고른다</b>는 것만 알리면 되지, 무엇이
+	 * 후보였는지까지 가릴 이유는 없다.
+	 */
+	private static final int OWNED_VEIL = 0x7005050A;
 	/**
 	 * 내려가는 카드 위에 덮는 어둠의 색. 투명도는 {@link PerkCardDismiss#shade} 가 정한다.
 	 *
@@ -259,6 +270,12 @@ public class PerkOfferScreen extends Screen {
 	private static final int MULTI_TYPE_MISSING_ROWS = 3;
 
 	/** 「다시 뽑기」 단추의 크기와 카드 아래 여백. */
+	/** 「보유 증강」 단추의 치수. 왼쪽 세트 판 폭에 맞춰 줄어든다. */
+	private static final int OWNED_BUTTON_HEIGHT = 14;
+	private static final int OWNED_BUTTON_WIDTH = 78;
+	/** 세트 판 아랫변과 단추 사이의 틈. */
+	private static final int OWNED_BUTTON_GAP = 4;
+
 	private static final int REROLL_HEIGHT = 16;
 	private static final int REROLL_WIDTH = 140;
 	private static final int REROLL_GAP = 5;
@@ -356,6 +373,13 @@ public class PerkOfferScreen extends Screen {
 	 * {@link #init()} 이 여기에 {@code null} 을 넣어 다음 프레임에 다시 재게 한다.
 	 */
 	private @Nullable String panelSignature;
+
+	/** 왼쪽 세트 판 아래의 「보유 증강」 단추. 자리가 없으면 만들지 않는다. */
+	private @Nullable Button ownedButton;
+	/** 그 단추가 펴는 겹판. 떠 있는 동안 카드 클릭이 막힌다. */
+	private final OwnedPerkPanel ownedPanel = new OwnedPerkPanel();
+	/** 겹판이 지금 펴져 있는가. */
+	private boolean ownedOpen;
 
 	public PerkOfferScreen(PerkOfferPayload payload) {
 		super(Component.literal("증강 선택"));
@@ -531,7 +555,103 @@ public class PerkOfferScreen extends Screen {
 		// 새로 잡아야 한다. 창이 열린 뒤에 세트 패킷이 오는 경로는 표시가 달라지므로 저절로
 		// 따라온다.
 		panelSignature = null;
+		placeOwnedButton();
 		refreshSetPanel();
+	}
+
+	/**
+	 * 왼쪽 열 <b>맨 아래</b>에 「보유 증강」 단추를 세운다.
+	 *
+	 * <p>세트 판은 열의 위에서부터 자라고 이 단추는 아래에 붙는다. 둘이 겹치지 않도록
+	 * {@link #fitSetPanel} 이 단추 자리를 미리 떼어 낸다.
+	 *
+	 * <p>왼쪽 열이 없는 화면(카드가 너무 좁아져 {@code PerkOfferCardRow.fit} 이 자리 떼기를
+	 * 포기한 경우)에서는 <b>단추를 만들지 않는다.</b> 카드 위에 걸치느니 없는 편이 낫다.
+	 */
+	private void placeOwnedButton() {
+		ownedButton = null;
+		ownedOpen = false;
+		int available = firstCardLeft - PANEL_CARD_GAP - SCREEN_MARGIN;
+		if (available < OWNED_BUTTON_WIDTH) {
+			return;
+		}
+		int y = ownedButtonTop();
+		if (y < cardTop) {
+			// 카드 띠가 단추 하나도 못 담을 만큼 낮다.
+			return;
+		}
+		ownedButton = Button.builder(Component.literal("현재 증강"), button -> toggleOwnedPanel())
+				.bounds(SCREEN_MARGIN, y, OWNED_BUTTON_WIDTH, OWNED_BUTTON_HEIGHT)
+				.build();
+		addRenderableWidget(ownedButton);
+	}
+
+	/** 「보유 증강」 단추의 윗변. 세트 판이 물러나야 하는 선이기도 하다. */
+	private int ownedButtonTop() {
+		int bottom = cardTop + cardHeight;
+		if (rerollButton != null) {
+			bottom = Math.min(bottom, rerollButton.getY() - 2);
+		}
+		return Math.min(bottom, this.height - SCREEN_MARGIN) - OWNED_BUTTON_HEIGHT;
+	}
+
+	/** 겹판을 폈다 접는다. 접는 쪽이 기본이라 다시 열면 언제나 맨 위부터 보인다. */
+	private void toggleOwnedPanel() {
+		if (!ownedOpen && !canOpenOwnedPanel()) {
+			// 여기 오면 안 된다. 열 자리가 없으면 단추가 이미 꺼져 있다.
+			return;
+		}
+		ownedOpen = !ownedOpen;
+		if (ownedOpen) {
+			ownedPanel.resetScroll();
+			layoutOwnedPanel();
+		}
+		refreshOwnedButton();
+	}
+
+	/**
+	 * 지금 화면에 모달이 설 자리가 있는가.
+	 *
+	 * <h2>왜 따로 묻는가</h2>
+	 *
+	 * <p>예전에는 누른 <b>뒤에</b> 자리를 재서, 자리가 없으면 열자마자 도로 닫고 조용히
+	 * 빠져나갔다. 화면에서는 <b>단추가 아예 안 눌리는 것처럼</b> 보인다 — 눌렀는데 아무 일도
+	 * 안 일어나고 까닭도 안 알려 주니, 무엇이 잘못됐는지 알 길이 없다.
+	 *
+	 * <p>그래서 미리 물어보고, 못 열면 <b>단추를 꺼 둔다.</b> 회색 단추는 「지금은 안 된다」를
+	 * 스스로 말한다.
+	 */
+	private boolean canOpenOwnedPanel() {
+		return OwnedPerkPanelLayout.fit(this.width, this.height, OwnedPerkPanel.SCREEN_MARGIN,
+				this.font.lineHeight, OwnedPerkPanel.PADDING).visible();
+	}
+
+	/**
+	 * 「보유 증강」 모달을 <b>화면 한가운데</b>에 세운다.
+	 *
+	 * <p>모달이므로 왼쪽 열에 매이지 않는다. 뒤의 화면은 그대로 두고 어둠 한 겹만 덮는다.
+	 */
+	private void layoutOwnedPanel() {
+		ownedPanel.layout(this.font, this.width, this.height);
+	}
+
+	/** 단추 글자를 지금 상태에 맞춘다. */
+	private void refreshOwnedButton() {
+		if (ownedButton == null) {
+			return;
+		}
+		ownedButton.setMessage(Component.literal(ownedOpen ? "닫기" : "현재 증강"));
+		// 열 자리가 없으면 꺼 둔다. 눌렀는데 아무 일도 안 일어나는 것보다 회색 단추가 낫다.
+		ownedButton.active = ownedOpen || canOpenOwnedPanel();
+		// 결과를 보여 주는 동안에는 왼쪽 판과 함께 접는다. 고른 카드 하나만 남기는 화면이다.
+		boolean hide = showingResult();
+		ownedButton.visible = !hide;
+		if (hide && ownedOpen) {
+			ownedOpen = false;
+			ownedButton.setMessage(Component.literal("현재 증강"));
+		}
+		// 다시 뽑기 단추의 보임 여부가 이 상태에 매여 있다. 한 곳에서 함께 맞춘다.
+		refreshRerollButton();
 	}
 
 	/**
@@ -542,12 +662,15 @@ public class PerkOfferScreen extends Screen {
 	 */
 	private int panelReserve() {
 		List<PerkSetLines.Line> lines = ClientPerkSets.lines(PANEL_MAX_ROWS);
-		if (lines.isEmpty()) {
-			return 0;
+		int setWidth = 0;
+		if (!lines.isEmpty()) {
+			setWidth = Math.max(PerkSetLines.blockWidth(lines, this.font::width, 0),
+					this.font.width(PANEL_TITLE)) + PANEL_PADDING * 2;
 		}
-		int widest = Math.max(PerkSetLines.blockWidth(lines, this.font::width, 0),
-				this.font.width(PANEL_TITLE));
-		return widest + PANEL_PADDING * 2 + PANEL_CARD_GAP;
+		// 세트 줄이 아직 하나도 없어도 「보유 증강」 단추는 서야 하므로, 둘 중 넓은 쪽으로
+		// 뗀다. 뗀 자리가 카드를 최소 폭 아래로 밀면 PerkOfferCardRow.fit 이 통째로 포기하고,
+		// 그때는 단추도 함께 사라진다.
+		return Math.max(setWidth, OWNED_BUTTON_WIDTH) + PANEL_CARD_GAP;
 	}
 
 	/**
@@ -598,6 +721,11 @@ public class PerkOfferScreen extends Screen {
 		if (rerollButton != null) {
 			bottom = Math.min(bottom, rerollButton.getY() - 2);
 		}
+		if (ownedButton != null) {
+			// 「보유 증강」 단추가 열 맨 아래에 붙어 있다. 그 자리를 떼지 않으면 세트 줄이
+			// 많은 팀에서 판이 단추를 덮는다.
+			bottom = Math.min(bottom, ownedButton.getY() - OWNED_BUTTON_GAP);
+		}
 		PerkSetPanelLayout.Room room = new PerkSetPanelLayout.Room(SCREEN_MARGIN,
 				firstCardLeft - PANEL_CARD_GAP, cardTop, bottom,
 				this.font.lineHeight, PANEL_PADDING, PANEL_HEADER_GAP);
@@ -616,7 +744,9 @@ public class PerkOfferScreen extends Screen {
 		if (rerollButton == null) {
 			return;
 		}
-		rerollButton.visible = !showingResult();
+		// 「보유 증강」 판이 펴져 있는 동안에도 감춘다. 단추는 위젯이라 이 화면이 그리는 것보다
+		// 나중에 올라와, 감추지 않으면 판 위에 단추만 동동 뜬다.
+		rerollButton.visible = !showingResult() && !ownedOpen;
 		rerollButton.active = PerkRerollButton.enabled(forced, canChoose, choiceSent, rerollSent,
 				showingResult(), rerollsRemaining);
 	}
@@ -687,7 +817,18 @@ public class PerkOfferScreen extends Screen {
 		if (!showingResult()) {
 			refreshSetPanel();
 			renderSetPanel(graphics);
-			renderSetTooltip(graphics, mouseX, mouseY);
+			// 「보유 증강」 모달이 떠 있으면 툴팁은 띄우지 않는다. 모달 뒤에서 튀어나온다.
+			if (!ownedOpen) {
+				renderSetTooltip(graphics, mouseX, mouseY);
+			}
+		}
+		refreshOwnedButton();
+		// 「보유 증강」은 모달이다 — 뒤의 화면을 <b>통째로</b> 한 겹 가라앉힌 뒤 그 위에 띄운다.
+		// 어둠이 카드와 세트 판을 함께 덮어야 「지금은 읽는 중」이라는 것이 전해진다. 그동안
+		// 카드는 눌러도 안 골라지므로, 눌릴 것처럼 보이면 안 된다.
+		if (ownedOpen) {
+			graphics.fill(0, 0, this.width, this.height, OWNED_VEIL);
+			ownedPanel.render(graphics, this.font);
 		}
 
 		super.extractRenderState(graphics, mouseX, mouseY, partialTick);
@@ -925,7 +1066,10 @@ public class PerkOfferScreen extends Screen {
 						(this.width - cardWidth) / 2)
 				: cardLeft(index);
 		int right = left + cardWidth;
-		boolean hovered = clickable() && isInside(mouseX, mouseY, left, right, cardTop + cardHeight);
+		// 「보유 증강」 판이 펴져 있으면 눌러도 안 골라진다. 그동안은 호버도 끈다 — 밝아지는
+		// 카드는 「지금 누르면 된다」는 뜻이라 거짓말이 된다.
+		boolean hovered = clickable() && !ownedOpen
+				&& isInside(mouseX, mouseY, left, right, cardTop + cardHeight);
 		// 강조한 카드는 호버와 같은 밝기를 쓰되, 아래의 빛과 두 겹 테두리로 한 단계 더 올린다.
 		boolean bright = hovered || highlighted;
 
@@ -1075,7 +1219,12 @@ public class PerkOfferScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		if (clickable() && event.button() == 0) {
+		// 겹판이 펴져 있으면 그 위의 클릭은 뒤로 새지 않는다. 목록을 보려고 누른 것이
+		// 카드 선택이 되어 버리면 되돌릴 방법이 없다.
+		if (ownedOpen && ownedPanel.contains(event.x(), event.y())) {
+			return true;
+		}
+		if (clickable() && !ownedOpen && event.button() == 0) {
 			for (int index = 0; index < cards.size(); index++) {
 				int left = cardLeft(index);
 				if (isInside(event.x(), event.y(), left, left + cardWidth,
@@ -1086,6 +1235,14 @@ public class PerkOfferScreen extends Screen {
 			}
 		}
 		return super.mouseClicked(event, doubleClick);
+	}
+
+	@Override
+	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+		if (ownedOpen && ownedPanel.contains(mouseX, mouseY) && ownedPanel.scroll(scrollY)) {
+			return true;
+		}
+		return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
 	}
 
 	/**
@@ -1108,9 +1265,23 @@ public class PerkOfferScreen extends Screen {
 
 	@Override
 	public boolean shouldCloseOnEsc() {
+		// 겹판이 펴져 있으면 ESC 는 겹판만 접는다. 창까지 함께 닫히면 「목록을 보다가 창을
+		// 잃는」 일이 생긴다.
+		if (ownedOpen) {
+			return false;
+		}
 		// 강제로 띄운 창은 ESC 로 닫을 수 없다. /shareteam perk 로 직접 연 창은 닫힌다.
 		// 마감이 한참 지나도록 서버가 닫아 주지 않으면 그때는 열어 준다. 갇히는 것보다 낫다.
 		return !forced || escapable();
+	}
+
+	@Override
+	public boolean keyPressed(KeyEvent event) {
+		if (ownedOpen && event.key() == InputConstants.KEY_ESCAPE) {
+			toggleOwnedPanel();
+			return true;
+		}
+		return super.keyPressed(event);
 	}
 
 	/** 서버가 닫아 주지 못했을 때 스스로 빠져나갈 수 있는 시점인지. */

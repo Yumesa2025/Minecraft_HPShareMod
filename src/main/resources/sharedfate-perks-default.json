@@ -2135,8 +2135,8 @@
     {
       "id": "sharedfate:diamond_sundial",
       "icon": "minecraft:clock",
-      "name": "해시계",
-      "description": "해시계를 얻습니다. 우클릭하면 32칸 안의 다이아몬드 광석이 보입니다(30초마다). 대신 받는 피해가 ×1.15 가 됩니다.",
+      "name": "엑스레이",
+      "description": "우클릭하면 10초 동안 32칸 안의 다이아몬드 광석이 보입니다(끝난 뒤 30초). 받는 피해가 ×1.15 가 됩니다.",
       "rarity": "gold",
       "set_types": [
         "mining"
@@ -2145,6 +2145,7 @@
         {
           "type": "diamond_sundial",
           "radius": 32,
+          "duration_seconds": 10,
           "cooldown_seconds": 30,
           "max_results": 16
         },
@@ -2158,7 +2159,7 @@
       "id": "sharedfate:final_movement",
       "icon": "minecraft:netherite_pickaxe",
       "name": "종결곡",
-      "description": "효율 VI · 내구성 X · 행운 III 이 붙은 네더라이트 곡괭이를 얻습니다. 대신 모든 몹의 이동 속도가 15% 빨라집니다.",
+      "description": "효율 V · 내구성 X · 행운 I 이 붙은 네더라이트 곡괭이를 얻습니다. 대신 모든 몹이 하는 모든 행동이 20% 빨라집니다.",
       "rarity": "prism",
       "set_types": [
         "mining"
@@ -2171,16 +2172,16 @@
               "id": "minecraft:netherite_pickaxe",
               "count": 1,
               "enchantments": {
-                "minecraft:efficiency": 6,
+                "minecraft:efficiency": 5,
                 "minecraft:unbreaking": 10,
-                "minecraft:fortune": 3
+                "minecraft:fortune": 1
               }
             }
           ]
         },
         {
-          "type": "mob_speed",
-          "multiplier": 1.15,
+          "type": "mob_action_speed",
+          "multiplier": 1.2,
           "excludes": [
             "minecraft:ender_dragon"
           ]

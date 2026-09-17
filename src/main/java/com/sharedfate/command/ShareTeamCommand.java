@@ -438,6 +438,15 @@ public final class ShareTeamCommand {
 			context.getSource().sendFailure(Component.literal("리더만 초대할 수 있습니다."));
 			return 0;
 		}
+		// 회차가 시작된 뒤에는 아무도 못 부른다. 까닭은 joinTeam 문서에 적어 두었다.
+		if (GameStartManager.started(manager.stateOf(self.getUUID()))) {
+			context.getSource().sendFailure(Component.literal(
+					"회차가 이미 시작되어 더 부를 수 없습니다."
+							+ "\n팀은 게임을 시작하기 전에 모아야 합니다."
+							+ "\n지금 사람을 바꾸려면 /shareteam disband confirm 으로 해체하고"
+							+ " 다시 만드십시오."));
+			return 0;
+		}
 		if (team.size() >= config.maxTeamSize) {
 			context.getSource().sendFailure(Component.literal(
 					"팀 정원이 찼습니다 (최대 " + config.maxTeamSize + "명)."));
@@ -463,6 +472,17 @@ public final class ShareTeamCommand {
 	 * 있다는 점이 유일한 안전장치라, 부르기 전에 정원과 소속을 모두 확인해 두어야 한다.
 	 * 그 확인은 {@link #invite} 가 이미 마친 뒤 여기로 넘어온다.
 	 *
+	 * <h2>회차가 시작된 뒤에는 부를 수 없다</h2>
+	 *
+	 * <p>도중에 들어오면 <b>같은 회차를 서로 다른 조건으로 겪게 된다.</b> 증강은 팀 레벨
+	 * 구간마다 고르는데 늦게 들어온 사람은 그 구간들을 지나지 않았고, 난이도 상승은 팀원이
+	 * 접속해 있던 시간만 세므로 남이 쌓아 둔 몫을 그대로 물려받는다. 피해·사망 기록도 회차
+	 * 단위라 중간 합류자의 몫만 비어 있다.
+	 *
+	 * <p>무엇보다 <b>공유 인벤토리가 이미 채워져 있다.</b> 들어오는 사람의 개인 아이템은
+	 * 드랍되고 남이 모은 것을 그대로 쓰게 되는데, 그것은 「함께 시작했다」와는 다른 게임이다.
+	 * 그래서 사람은 <b>시작 전에</b> 모으게 한다.
+	 *
 	 * <p>아이템을 드랍하는 {@code prepareJoin} 뒤에 {@code addMember} 가 실패하면 되돌릴
 	 * 방법이 없다. 그래서 실패 메시지가 드랍물을 주우라고 알린다.
 	 */
@@ -486,6 +506,9 @@ public final class ShareTeamCommand {
 		MaxHealthAttribute.apply(target, joinedState.maxHealth);
 		StatMirror.syncPlayerNow(team.teamId(), manager.stateOf(target.getUUID()), target);
 		EffectSync.refreshPlayer(target);
+		// 팀이 이미 가진 증강을 이 사람에게도 붙이고 목록을 보낸다. 빠뜨리면 목록에는 증강이
+		// 보이는데 몸에는 아무 효과도 없는 채로, 다시 접속할 때까지 그대로 간다.
+		com.sharedfate.perk.PerkManager.attach(target);
 		TeamBroadcaster.broadcast(context.getSource().getServer(), manager.teamOf(target.getUUID()));
 
 		target.sendSystemMessage(Component.literal(
@@ -514,6 +537,9 @@ public final class ShareTeamCommand {
 			return 1;
 		}
 
+		// 팀에서 빠지기 전에 증강 자국을 걷어낸다. 빠진 뒤에는 이 사람이 무엇을 달고 있었는지
+		// 알 방법이 없어, 속성과 상태이상이 그대로 남는다.
+		com.sharedfate.perk.PerkManager.detach(self, manager.stateOf(self.getUUID()));
 		InventorySwapper.prepareLeave(self);
 		manager.removeMember(self.getUUID());
 		InventorySwapper.finishLeave(self);
@@ -689,7 +715,7 @@ public final class ShareTeamCommand {
 				  누르기 전에는 증강 구간·위치 교환·난이도 상승이 돌지 않고 팀원은 죽지 않습니다.
 				  첫 회차 전에 한 번만 누릅니다. 다음 회차부터는 새 월드에서 저절로 시작됩니다.
 				/shareteam — 팀 화면을 엽니다 (모드가 있는 클라이언트)
-				/shareteam invite <플레이어> — 상대를 곧바로 팀에 넣습니다 (리더)
+				/shareteam invite <플레이어> — 상대를 곧바로 팀에 넣습니다 (리더, 시작 전에만)
 				/shareteam status — 지금 정해져 있는 설정을 봅니다
 				/shareteam list | leave | disband confirm
 				/shareteam swap status — 다음 위치 교환까지 남은 시간

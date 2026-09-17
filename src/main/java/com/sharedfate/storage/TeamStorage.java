@@ -1,12 +1,17 @@
 package com.sharedfate.storage;
 
+import com.sharedfate.sync.TitleMessenger;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.team.TeamLookup;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.inventory.ChestMenu;
@@ -169,7 +174,7 @@ public final class TeamStorage {
 	 * <h2>왜 여기 한 곳인가</h2>
 	 *
 	 * <p>물건이 창고로 가는 길은 열 곳이 넘는데(즉시 지급·보급·채굴 보너스·광물 교환·
-	 * 해시계·소집의 조각·비행 부적이 밀어낸 것·왼손 고정·커서·「유산」·잠긴 칸 비우기)
+	 * 엑스레이·소집의 조각·비행 부적이 밀어낸 것·왼손 고정·커서·「유산」·잠긴 칸 비우기)
 	 * <b>모두 같은 모양</b>이다 — 대기열에 넣고 되돌려 보고, 안 들어간 것이 남는다.
 	 *
 	 * <p>그래서 부르는 곳마다 알림을 다는 대신 <b>대기열이 늘어난 것</b>을 여기서 본다. 한 틱
@@ -221,15 +226,44 @@ public final class TeamStorage {
 		if (added.size() > 1) {
 			what.append(" 외 ").append(added.size() - 1).append("묶음");
 		}
+		// 「무엇이 들어갔나」는 평범한 글씨로, 「어떻게 꺼내나」는 노란색으로 가른다. 사람이
+		// 실제로 해야 하는 일은 뒤쪽 한 마디뿐인데, 한 색으로 붙여 놓으면 그게 안 보인다.
 		Component message = Component.literal(
-				"[창고] 인벤토리가 꽉 차 " + what + "을(를) 창고에 넣었습니다."
-						+ " 창고에 " + total + "묶음 — /창고 로 꺼내세요.");
+						"[창고] 인벤토리가 꽉 차 " + what + "을(를) 창고에 넣었습니다."
+								+ " 창고에 " + total + "묶음 — ")
+				.append(Component.literal("/창고 로 꺼내세요.")
+						.withStyle(ChatFormatting.YELLOW));
+		// 채팅은 전투 중에 위로 밀려 올라가 못 보고 지나치기 쉽다. 같은 일을 액션바에도
+		// 한 줄로 띄운다 — 화면 가운데 아래라 눈에 들어오고, 짧아야 하므로 개수만 적는다.
+		Component bar = Component.literal("[창고] " + total + "묶음 — /창고")
+				.withStyle(ChatFormatting.YELLOW);
 		for (UUID member : team.members()) {
 			ServerPlayer online = server.getPlayerList().getPlayer(member);
 			if (online != null) {
 				online.sendSystemMessage(message);
+				TitleMessenger.showActionBar(online, bar);
+				chime(online);
 			}
 		}
+	}
+
+	/**
+	 * 창고에 뭔가 들어왔다는 「띠링」.
+	 *
+	 * <h2>왜 월드에 소리를 놓지 않는가</h2>
+	 *
+	 * <p>{@code level.playSound} 는 <b>자리</b>에 소리를 놓는 것이라 둘이 문제가 된다. 팀원이
+	 * 흩어져 있으면 멀리 있는 사람은 못 듣고, 반대로 둘이 붙어 있으면 각자 자리에서 한 번씩
+	 * 나서 <b>두 번 들린다.</b> 그래서 사람마다 자기 자리에서 나는 소리를 <b>그 사람에게만</b>
+	 * 보낸다.
+	 *
+	 * <p>{@code PLAYERS} 가 아니라 {@code MASTER} 다. 이 소리는 「게임 안에서 난 소리」가
+	 * 아니라 화면 문구와 같은 것이라, 플레이어 소리 볼륨을 낮춰 둔 사람에게도 들려야 한다.
+	 */
+	private static void chime(ServerPlayer player) {
+		player.connection.send(new ClientboundSoundPacket(SoundEvents.NOTE_BLOCK_BELL,
+				SoundSource.MASTER, player.getX(), player.getY(), player.getZ(),
+				0.6F, 1.5F, player.getRandom().nextLong()));
 	}
 
 	/** 서버가 멈출 때 기준을 버린다. 남겨 두면 다음 월드의 첫 틱이 통째로 새 것으로 보인다. */

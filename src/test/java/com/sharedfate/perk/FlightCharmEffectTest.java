@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@link FlightCharmEffect#isFlightCharm}, {@link FlightCharmEffect#createItem})은 전부 여기서
  * 확인한다. 바닐라 자리를 못박는 일은 {@code FlightCharmTargetTest} 가 맡는다.
  *
- * <p><b>해시계·소집의 조각과 서로를 알아보지 않는지</b>도 여기서 못박는다. 셋은
+ * <p><b>엑스레이·소집의 조각과 서로를 알아보지 않는지</b>도 여기서 못박는다. 셋은
  * {@code minecraft:custom_data} 의 <b>같은 키</b>에 값만 달리해 표식을 남기므로, 판정이 값을
  * 보지 않고 키만 보게 되는 순간 부적을 우클릭했는데 광석 탐지가 도는 일이 생긴다.
  *
@@ -157,7 +157,7 @@ class FlightCharmEffectTest {
 
 	/** 쿨타임 묶음은 다른 부적 아이템과 갈라져 있어야 한다. 안 그러면 서로를 잠근다. */
 	@Test
-	void 쿨타임_묶음이_해시계_소집의_조각과_다르다() {
+	void 쿨타임_묶음이_엑스레이_소집의_조각과_다르다() {
 		assertNotEqualsGroup(FlightCharmEffect.COOLDOWN_GROUP, DiamondSundialEffect.COOLDOWN_GROUP);
 		assertNotEqualsGroup(FlightCharmEffect.COOLDOWN_GROUP, RallyShardEffect.COOLDOWN_GROUP);
 	}
@@ -201,7 +201,7 @@ class FlightCharmEffectTest {
 	 * 광석 탐지가 돌거나 팀원이 끌려오는 일이 생긴다.
 	 */
 	@Test
-	void 해시계_소집의_조각과_서로를_알아보지_않는다() {
+	void 엑스레이_소집의_조각과_서로를_알아보지_않는다() {
 		ItemStack charm = create("{ \"type\": \"flight_charm\" }").createItem();
 		ItemStack sundial = sundial();
 		ItemStack shard = shard();
@@ -210,9 +210,9 @@ class FlightCharmEffectTest {
 		assertNotNull(sundial);
 		assertNotNull(shard);
 		assertTrue(FlightCharmEffect.isFlightCharm(charm));
-		assertFalse(DiamondSundialEffect.isSundial(charm), "부적을 해시계로 보면 안 된다");
+		assertFalse(DiamondSundialEffect.isSundial(charm), "부적을 엑스레이로 보면 안 된다");
 		assertFalse(RallyShardEffect.isRallyShard(charm), "부적을 소집의 조각으로 보면 안 된다");
-		assertFalse(FlightCharmEffect.isFlightCharm(sundial), "해시계를 부적으로 보면 안 된다");
+		assertFalse(FlightCharmEffect.isFlightCharm(sundial), "엑스레이를 부적으로 보면 안 된다");
 		assertFalse(FlightCharmEffect.isFlightCharm(shard), "소집의 조각을 부적으로 보면 안 된다");
 		assertEquals(FlightCharmEffect.MARKER_KEY, DiamondSundialEffect.MARKER_KEY,
 				"키가 갈라지면 이 시험의 전제가 사라진다");

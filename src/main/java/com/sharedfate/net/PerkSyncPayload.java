@@ -26,14 +26,28 @@ public record PerkSyncPayload(List<Owned> owned, int pendingCount, String choose
 	 * @param name        증강 이름
 	 * @param description 고를 때 보여 준 설명 그대로
 	 * @param rarity      등급 이름. 화면에서 색을 고르는 데 쓴다
+	 * @param setTypes    이 증강이 속한 세트 유형 이름들을
+	 *                    {@link PerkOfferPayload.PerkOption#SET_TYPE_JOINER} 로 이은 것.
+	 *                    어디에도 안 들어가는 증강이 열두 개라 <b>빈 문자열이 정상</b>이다
 	 */
-	public record Owned(String name, String description, String rarity) {
+	public record Owned(String name, String description, String rarity, String setTypes) {
 		public static final StreamCodec<RegistryFriendlyByteBuf, Owned> CODEC =
 				StreamCodec.composite(
 						ByteBufCodecs.STRING_UTF8, Owned::name,
 						ByteBufCodecs.STRING_UTF8, Owned::description,
 						ByteBufCodecs.STRING_UTF8, Owned::rarity,
+						ByteBufCodecs.STRING_UTF8, Owned::setTypes,
 						Owned::new);
+
+		public Owned {
+			// 무유형 증강이 열두 개다. 서버 쪽 null 하나로 패킷 인코딩이 터지면 안 된다.
+			setTypes = setTypes == null ? "" : setTypes;
+		}
+
+		/** 이 증강이 어느 세트에도 안 들어가는가. */
+		public boolean hasSetTypes() {
+			return !setTypes.isEmpty();
+		}
 	}
 
 	/** 한 패킷에 담을 수 있는 보유 증강 수 상한. */

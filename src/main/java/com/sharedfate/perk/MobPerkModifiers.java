@@ -3,6 +3,7 @@ package com.sharedfate.perk;
 import com.google.gson.JsonObject;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.config.SharedFateConfig;
+import com.sharedfate.perk.effect.MobActionSpeedEffect;
 import com.sharedfate.perk.effect.MobDamageEffect;
 import com.sharedfate.perk.effect.MobHealthEffect;
 import com.sharedfate.perk.effect.MobSpawnRateEffect;
@@ -48,6 +49,11 @@ import java.util.concurrent.ConcurrentHashMap;
  *       {@code NaturalSpawnerRateMixin} 이 청크마다 {@link #spawnRateMultiplier} 를 물어
  *       적대 몹 스폰 시도를 몇 번 돌릴지 정한다. 붙였다 뗄 상태가 없으므로 증강을 잃으면
  *       그 다음 틱부터 바닐라 그대로다.</li>
+ *   <li>{@code mob_action_speed} 는 속성을 하나도 건드리지 않는다. <b>서버가 그 몹에게 틱을
+ *       주는 횟수</b>를 바꿔 이동·공격 간격·크리퍼 부풀기·활 쏘기를 한꺼번에 당기거나 늦춘다.
+ *       여기서는 몹 종류별 배율을 미리 계산해 두기만 하고({@link #actionSpeedMultiplier}),
+ *       어느 틱에 한 번 더 돌릴지 고르는 일은
+ *       {@code com.sharedfate.sync.MobTickRate} 가 맡는다. 역시 붙였다 뗄 상태가 없다.</li>
  * </ul>
  *
  * <h2>어느 팀의 증강을 몹에게 적용하는가</h2>
@@ -95,14 +101,19 @@ public final class MobPerkModifiers {
 	private static final Map<EntityType<?>, Double> HEALTH_CACHE = new ConcurrentHashMap<>();
 	private static final Map<EntityType<?>, Double> DAMAGE_CACHE = new ConcurrentHashMap<>();
 	private static final Map<EntityType<?>, Double> SPEED_CACHE = new ConcurrentHashMap<>();
+	private static final Map<EntityType<?>, Double> ACTION_SPEED_CACHE = new ConcurrentHashMap<>();
 
 	/**
-	 * 어느 속성의 배율을 묻는지.
+	 * 어느 몫의 배율을 묻는지.
+	 *
+	 * <p>{@link #SPEED} 는 이동 속도 <b>속성</b>이고 {@link #ACTION_SPEED} 는 <b>틱 수</b>다.
+	 * 이름이 비슷하지만 붙는 자리가 전혀 다르다.
 	 */
 	private enum Kind {
 		HEALTH,
 		DAMAGE,
-		SPEED
+		SPEED,
+		ACTION_SPEED
 	}
 
 	/**
@@ -114,6 +125,20 @@ public final class MobPerkModifiers {
 	 */
 	private static volatile double spawnRateValue = 1.0;
 	private static volatile boolean spawnRateKnown;
+
+	/**
+	 * 행동 속도를 건드리는 증강을 가진 팀이 하나라도 있는가.
+	 *
+	 * <p><b>매 틱, 월드의 모든 엔티티가 지나는 자리의 첫 줄이 읽는 깃발이다.</b> 아무도 이
+	 * 효과를 갖지 않은 서버에서 {@link #actionSpeedMultiplier} 의 비용은 {@code instanceof}
+	 * 한 번과 {@code volatile boolean} 한 번 읽기가 전부다. 종류별 배율 표를 뒤지는 일은 이 줄
+	 * 아래에 있다.
+	 *
+	 * <p>{@code actionSpeedKnown} 이 켜져 있을 때만 값을 믿는다. 증강 구성이 바뀌면
+	 * {@link #tick} 이 깃발을 내려 다음 물음에서 다시 세게 한다. 스폰율과 같은 방식이다.
+	 */
+	private static volatile boolean actionSpeedPresent;
+	private static volatile boolean actionSpeedKnown;
 
 	private static int tickCounter;
 	private static int signature;
@@ -161,7 +186,9 @@ public final class MobPerkModifiers {
 		HEALTH_CACHE.clear();
 		DAMAGE_CACHE.clear();
 		SPEED_CACHE.clear();
+		ACTION_SPEED_CACHE.clear();
 		spawnRateKnown = false;
+		actionSpeedKnown = false;
 		sweep(server);
 	}
 
@@ -184,8 +211,11 @@ public final class MobPerkModifiers {
 		HEALTH_CACHE.clear();
 		DAMAGE_CACHE.clear();
 		SPEED_CACHE.clear();
+		ACTION_SPEED_CACHE.clear();
 		spawnRateValue = 1.0;
 		spawnRateKnown = false;
+		actionSpeedPresent = false;
+		actionSpeedKnown = false;
 		tickCounter = 0;
 		signature = 0;
 		signatureKnown = false;
@@ -213,6 +243,77 @@ public final class MobPerkModifiers {
 	/** 이 몹의 이동 속도에 곱할 배율. */
 	public static double speedMultiplier(Mob mob) {
 		return lookup(SPEED_CACHE, mob, Kind.SPEED);
+	}
+
+	/**
+	 * 이 엔티티가 받을 <b>틱 수</b>에 곱할 배율. 1.2 면 몹이 하는 모든 것이 20% 빨라진다.
+	 *
+	 * <p>{@code com.sharedfate.sync.MobTickRate} 가 <b>모든 엔티티마다 매 틱</b> 부른다. 그래서
+	 * 순서가 중요하다.
+	 *
+	 * <ol>
+	 *   <li>{@code Mob} 이 아니면 곧바로 끝낸다. 화살·아이템·경험치 구슬·플레이어가 여기서
+	 *       걸러지고, 월드 엔티티의 큰 몫이 이쪽이다.</li>
+	 *   <li>{@link #actionSpeedPresent} 깃발을 본다. 이 효과를 가진 팀이 없으면 여기서 끝이다.</li>
+	 *   <li>그다음에야 몹 종류별 배율 표를 본다.</li>
+	 * </ol>
+	 *
+	 * <p>이동 속도 속성({@link #speedMultiplier})과는 아무 관계가 없다. 그쪽은 걸음의 <b>폭</b>을,
+	 * 이쪽은 걸음의 <b>수</b>를 바꾼다. 둘을 같은 배율로 함께 걸면 이동만 곱절로 빨라진다.
+	 */
+	public static double actionSpeedMultiplier(@Nullable Entity entity) {
+		if (!(entity instanceof Mob mob)) {
+			return 1.0;
+		}
+		if (!actionSpeedKnown) {
+			MinecraftServer server = mob.level().getServer();
+			if (server == null) {
+				return 1.0;
+			}
+			try {
+				// 값을 먼저 넣고 깃발을 나중에 올린다. 다른 스레드가 반쪽짜리를 보지 않게.
+				actionSpeedPresent = anyTeamHasActionSpeed(server);
+				actionSpeedKnown = true;
+			} catch (RuntimeException error) {
+				warnOnce(error);
+				return 1.0;
+			}
+		}
+		if (!actionSpeedPresent) {
+			return 1.0;
+		}
+		return lookup(ACTION_SPEED_CACHE, mob, Kind.ACTION_SPEED);
+	}
+
+	/**
+	 * {@code mob_action_speed} 를 가진 팀이 하나라도 있는지 센다. 증강 구성이 바뀐 뒤 딱 한 번
+	 * 돈다.
+	 *
+	 * <p>보는 범위가 {@link #teamMultiplier} 와 <b>글자 그대로 같아야 한다</b>. 여기서 세는 곳과
+	 * 배율을 곱하는 곳이 어긋나면, 깃발이 내려간 채로 실제 효과만 살아 있어 조용히 무동작이 된다.
+	 * 그래서 이쪽도 <b>보유 증강만</b> 본다 — 세트 효과는 체력·공격력·이동 속도와 마찬가지로
+	 * 이 계열이 보지 않는다.
+	 */
+	private static boolean anyTeamHasActionSpeed(MinecraftServer server) {
+		TeamManager manager = TeamManager.get(server);
+		for (ShareTeam team : manager.allTeams()) {
+			TeamState state = manager.stateByTeamId(team.teamId());
+			if (state == null || !state.perksEnabled || state.ownedPerks.isEmpty()) {
+				continue;
+			}
+			for (String perkId : state.ownedPerks) {
+				Perk perk = PerkRegistry.byId(perkId).orElse(null);
+				if (perk == null) {
+					continue;
+				}
+				for (PerkEffect effect : perk.effects()) {
+					if (effect instanceof MobActionSpeedEffect) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
 	}
 
 	// ------------------------------------------------------------------ 적대 몹 스폰율
@@ -439,8 +540,13 @@ public final class MobPerkModifiers {
 			}
 			chosen = stronger(chosen, teamMultiplier(state, type, hostile, kind));
 		}
-		// 이동 속도도 0 이 되면 몹이 제자리에 굳으므로 체력과 같은 하한을 쓴다.
-		return kind == Kind.DAMAGE ? sanitizeDamage(chosen) : sanitizeHealth(chosen);
+		return switch (kind) {
+			case DAMAGE -> sanitizeDamage(chosen);
+			// 행동 속도만 범위가 좁다. 까닭은 sanitizeActionSpeed 에 적어 두었다.
+			case ACTION_SPEED -> sanitizeActionSpeed(chosen);
+			// 이동 속도도 0 이 되면 몹이 제자리에 굳으므로 체력과 같은 하한을 쓴다.
+			case HEALTH, SPEED -> sanitizeHealth(chosen);
+		};
 	}
 
 	/** 한 팀이 보유한 증강들의 배율을 모두 곱한 값. */
@@ -468,6 +574,8 @@ public final class MobPerkModifiers {
 					&& mobDamage.appliesTo(type, hostile) ? mobDamage.multiplierFor() : 1.0;
 			case SPEED -> effect instanceof MobSpeedEffect mobSpeed
 					&& mobSpeed.appliesTo(type, hostile) ? mobSpeed.multiplierFor() : 1.0;
+			case ACTION_SPEED -> effect instanceof MobActionSpeedEffect actionSpeed
+					&& actionSpeed.appliesTo(type, hostile) ? actionSpeed.multiplierFor() : 1.0;
 		};
 	}
 
@@ -495,6 +603,25 @@ public final class MobPerkModifiers {
 			return 1.0;
 		}
 		return Math.max(MIN_HEALTH_MULTIPLIER, Math.min(MAX_MULTIPLIER, value));
+	}
+
+	/**
+	 * 행동 속도 배율은 다른 배율들보다 범위가 훨씬 좁다. 이상한 값은 1.0 으로 물러난다.
+	 *
+	 * <p>위쪽은 {@code MobActionSpeedEffect.MAX_MULTIPLIER}(×2.0)다. 실행부가 한 틱에 많아야
+	 * 한 번만 더 돌리므로 그 위는 <b>표현할 방법이 없고</b>, 허용하면 정의에 적힌 숫자와 실제가
+	 * 조용히 달라진다. 아래쪽은 {@code MIN_MULTIPLIER}(×0.1)다 — 0 이면 그 몹은 틱을 영영 돌지
+	 * 못해 불에 타지도 디스폰되지도 않고 월드에 굳은 채 쌓인다.
+	 *
+	 * <p>한 팀이 이 계열 증강을 여럿 가지면 배율이 곱해져 범위를 넘을 수 있다. 그때 잘리는
+	 * 자리가 여기다.
+	 */
+	static double sanitizeActionSpeed(double value) {
+		if (!Double.isFinite(value) || value <= 0.0) {
+			return 1.0;
+		}
+		return Math.max(MobActionSpeedEffect.MIN_MULTIPLIER,
+				Math.min(MobActionSpeedEffect.MAX_MULTIPLIER, value));
 	}
 
 	/** 피해 배율은 0 까지 허용한다. 이상한 값은 1.0 으로 물러난다. */

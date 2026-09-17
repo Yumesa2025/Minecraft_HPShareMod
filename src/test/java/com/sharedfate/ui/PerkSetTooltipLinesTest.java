@@ -67,7 +67,7 @@ class PerkSetTooltipLinesTest {
 		assertEquals(PROGRESS, rows.getFirst().color());
 	}
 
-	/** 요청받은 모습 그대로다 — {@code "2:  광물에 …"}. */
+	/** 단계 줄은 {@code "2:  광물에 …"} 꼴이다 — 단계 번호, 콜론, 두 칸, 그 단계의 설명. */
 	@Test
 	void 단계_줄은_개수와_설명을_잇는다() {
 		List<PerkSetTooltipLines.Row> rows =

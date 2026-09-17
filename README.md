@@ -5,28 +5,28 @@ Minecraft Java Edition 26.2 / Fabric용 협동 모드입니다. 최대 4명이 �
 팀 공유 레벨이 오르면 팀 전체에 적용되는 **증강**을 함께 고르고, 팀 전멸 뒤에는 다음 회차의
 새 월드를 시작하며, 엔더 드래곤을 처치하면 그 회차가 승리로 끝납니다.
 
-> 현재 버전은 **`0.26.1-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
+> 현재 버전은 **`0.26.2-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
 > SharedFate 버전을 사용해야 합니다.
 >
-> **0.25.3-dev 이하에서 올라오는 경우 서버와 모든 클라이언트를 함께 갱신하세요.** 통신 규약이
-> 25로 바뀌어 예전 클라이언트로는 접속할 수 없습니다.
+> **0.26.1-dev 이하에서 올라오는 경우 서버와 모든 클라이언트를 함께 갱신하세요.** 통신 규약이
+> 26으로 바뀌어 예전 클라이언트로는 접속할 수 없습니다.
 > (참고: 0.4.0-dev 는 5, 0.5.x 는 10, 0.6.0-dev 는 11, 0.7.0-dev 는 12,
 > 0.8.0-dev~0.10.0-dev 는 13, 0.11.0-dev 는 14, 0.12.0-dev 는 15,
 > 0.13.0-dev~0.13.1-dev 는 16, 0.14.0-dev 는 17, 0.15.0-dev~0.18.0-dev 는 18,
 > 0.19.0-dev 는 19, 0.20.0-dev 는 20, 0.21.0-dev 는 21,
 > 0.22.0-dev~0.23.0-dev 는 22, 0.24.0-dev 는 23,
-> 0.25.0-dev~0.25.3-dev 는 24입니다.)
+> 0.25.0-dev~0.25.3-dev 는 24, 0.25.4-dev~0.26.1-dev 는 25입니다.)
 
 ## 다운로드
 
 | 파일 | 용도 |
 |---|---|
-| [SharedFate-0.26.1-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.26.1-dev/SharedFate-0.26.1-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
-| [SharedFate-0.26.1-dev-server.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.26.1-dev/SharedFate-0.26.1-dev-server.zip) | 서버를 여는 사람용. 모드 두 개와 **재시작 루프 스크립트**, 설치 안내 포함 |
-| [sharedfate-0.26.1-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.26.1-dev/sharedfate-0.26.1-dev.jar) | 수동 설치용 모드 JAR 하나 |
-| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.26.1-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
+| [SharedFate-0.26.2-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.26.2-dev/SharedFate-0.26.2-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
+| [SharedFate-0.26.2-dev-server.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.26.2-dev/SharedFate-0.26.2-dev-server.zip) | 서버를 여는 사람용. 모드 두 개와 **재시작 루프 스크립트**, 설치 안내 포함 |
+| [sharedfate-0.26.2-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.26.2-dev/sharedfate-0.26.2-dev.jar) | 수동 설치용 모드 JAR 하나 |
+| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.26.2-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
 
-[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.26.1-dev)
+[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.26.2-dev)
 
 ### 클라이언트 설치
 
@@ -110,7 +110,7 @@ JAR 에서 읽으므로, 실행 중에 파일이 바뀌면 아직 읽지 않은 
                   [reroll <0~15>] <팀 이름>
 /shareteam start                무엇이 사라지는지 먼저 보여 줍니다 (리더)
 /shareteam start confirm        회차를 실제로 시작합니다. 되돌릴 수 없습니다
-/shareteam invite <플레이어>     상대를 곧바로 팀에 넣습니다 (리더)
+/shareteam invite <플레이어>     상대를 곧바로 팀에 넣습니다 (리더, 시작 전에만)
 /shareteam status               지금 정해져 있는 설정 전부
 /shareteam swap status          다음 위치 교환까지 남은 시간
 /shareteam difficulty status    난이도가 지금 몇 %까지 올랐는지
@@ -125,6 +125,10 @@ JAR 에서 읽으므로, 실행 중에 파일이 바뀌면 아직 읽지 않은 
 **초대에 수락 절차가 없습니다.** 리더가 `invite` 를 치면 상대가 곧바로 들어옵니다.
 그때 상대의 개인 아이템은 있던 자리에 드랍되고 개인 경험치는 공유 풀에 합쳐지므로,
 부르기 전에 미리 알려 주는 편이 좋습니다.
+
+**사람은 회차를 시작하기 전에 모읍니다.** 시작한 뒤에는 초대가 막힙니다 — 도중에 들어오면
+증강을 고르는 구간을 건너뛴 채로 남이 모은 인벤토리를 쓰게 되어 같은 회차를 서로 다른
+조건으로 겪습니다. 사람을 바꾸려면 팀을 해체하고 다시 만듭니다.
 
 ### 회차는 「게임 시작」으로 시작합니다
 
@@ -161,7 +165,7 @@ JAR 에서 읽으므로, 실행 중에 파일이 바뀌면 아직 읽지 않은 
 | 탭 | 하는 일 |
 |---|---|
 | 현황 | 회차 상태, 팀 이름, 접속 인원, 팀 레벨, 다음 증강까지 남은 레벨, 공유 체력, 교환 주기, 증강 사용 여부 |
-| 팀 | 팀 만들기(일곱 가지 설정), 접속자별 초대, 게임 시작, 나가기·해체 |
+| 팀 | 팀 만들기(일곱 가지 설정), 접속자별 초대(**시작 전에만**), 게임 시작, 나가기·해체 |
 | 설정 | 팀을 만들 때 정한 값을 보여 주기만 합니다 — **리더만** |
 | 증강 | 보유 증강 목록, 증강 선택창 열기 |
 | 능력치 | 증강이 능력치를 얼마나 바꿨는지 |

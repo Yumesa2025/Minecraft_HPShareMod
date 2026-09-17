@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@link RallyShardEffect#isRallyShard}, {@link RallyShardEffect#createItem})은 전부 여기서
  * 확인한다.
  *
- * <p><b>해시계와 서로를 알아보지 않는지</b>도 여기서 못박는다. 둘은
+ * <p><b>엑스레이와 서로를 알아보지 않는지</b>도 여기서 못박는다. 둘은
  * {@code minecraft:custom_data} 의 <b>같은 키</b>에 값만 달리해 표식을 남기므로, 판정이 값을
  * 보지 않고 키만 보게 되는 순간 조각을 우클릭했는데 광석 탐지가 도는 일이 생긴다.
  */
@@ -164,20 +164,20 @@ class RallyShardEffectTest {
 	}
 
 	/**
-	 * 해시계와 소집의 조각은 표식 키가 같고 값만 다르다. 판정이 값을 보지 않게 되는 순간
+	 * 엑스레이와 소집의 조각은 표식 키가 같고 값만 다르다. 판정이 값을 보지 않게 되는 순간
 	 * 조각을 우클릭했는데 광석 탐지가 도는 일이 생긴다.
 	 */
 	@Test
-	void 해시계와_소집의_조각은_서로를_알아보지_않는다() {
+	void 엑스레이와_소집의_조각은_서로를_알아보지_않는다() {
 		ItemStack shard = create("{ \"type\": \"rally_shard\" }").createItem();
 		ItemStack sundial = sundial();
 
 		assertNotNull(shard);
 		assertNotNull(sundial);
 		assertTrue(RallyShardEffect.isRallyShard(shard));
-		assertFalse(DiamondSundialEffect.isSundial(shard), "조각을 해시계로 보면 안 된다");
+		assertFalse(DiamondSundialEffect.isSundial(shard), "조각을 엑스레이로 보면 안 된다");
 		assertTrue(DiamondSundialEffect.isSundial(sundial));
-		assertFalse(RallyShardEffect.isRallyShard(sundial), "해시계를 조각으로 보면 안 된다");
+		assertFalse(RallyShardEffect.isRallyShard(sundial), "엑스레이를 조각으로 보면 안 된다");
 		assertEquals(RallyShardEffect.MARKER_KEY, DiamondSundialEffect.MARKER_KEY,
 				"키가 갈라지면 이 시험의 전제가 사라진다");
 	}

@@ -30,16 +30,17 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * {@code diamond_sundial}(골드 「해시계」)의 정의 읽기, 아이템 표식 판정, 블록 후보 판정,
- * 반경·상한 계산을 본다.
+ * {@code diamond_sundial}(골드 「엑스레이」)의 정의 읽기, 아이템 표식 판정, 블록 후보 판정,
+ * 반경·지속·상한 계산을 본다.
  *
  * <p>가장 가까운 한 자리를 고르는 규칙과 액션바 문구도 여기서 본다.
  *
- * <p>우클릭을 잡고 청크를 훑고 파티클을 보내는 부분은 살아 있는 서버와 월드가 있어야 하므로
- * 여기서 다루지 않는다. 대신 그 계산에서 실제로 판단을 내리는 조각
- * ({@link PerkDiamondSundial.Found}, {@link PerkDiamondSundial#nearest},
- * {@link PerkDiamondSundial#actionBarText}, {@link DiamondSundialEffect#isDiamondOre},
- * {@link DiamondSundialEffect#isSundial})은 월드를 읽지 않게 떼어 두었으므로 전부 여기서 확인한다.
+ * <p>우클릭을 잡고 청크를 훑고 파티클을 보내는 부분, 그리고 <b>지속이 끝난 뒤에 쿨타임이
+ * 걸리는지</b>는 살아 있는 서버와 월드가 있어야 하므로 여기서 다루지 않는다. 대신 그 계산에서
+ * 실제로 판단을 내리는 조각({@link PerkDiamondSundial.Found}, {@link PerkDiamondSundial#nearest},
+ * {@link PerkDiamondSundial#actionBarText}, {@link PerkDiamondSundial#seconds},
+ * {@link DiamondSundialEffect#isDiamondOre}, {@link DiamondSundialEffect#isSundial})은 월드를
+ * 읽지 않게 떼어 두었으므로 전부 여기서 확인한다.
  */
 class DiamondSundialEffectTest {
 
@@ -56,12 +57,14 @@ class DiamondSundialEffectTest {
 
 		assertEquals(DiamondSundialEffect.DEFAULT_RADIUS, effect.radius());
 		assertEquals(DiamondSundialEffect.DEFAULT_MAX_RESULTS, effect.maxResults());
+		assertEquals(DiamondSundialEffect.DEFAULT_DURATION_SECONDS * 20, effect.durationTicks());
 		assertEquals(DiamondSundialEffect.DEFAULT_COOLDOWN_SECONDS * 20, effect.cooldownTicks());
 	}
 
 	@Test
 	void 기본값이_설명과_맞는다() {
 		assertEquals(20, DiamondSundialEffect.DEFAULT_RADIUS, "반경 기본값은 20칸이다");
+		assertEquals(10, DiamondSundialEffect.DEFAULT_DURATION_SECONDS, "지속 기본값은 10초다");
 		assertEquals(30, DiamondSundialEffect.DEFAULT_COOLDOWN_SECONDS, "쿨타임 기본값은 30초다");
 		assertEquals(16, DiamondSundialEffect.DEFAULT_MAX_RESULTS, "한 번에 최대 16개다");
 	}
@@ -69,11 +72,25 @@ class DiamondSundialEffectTest {
 	@Test
 	void 적은_값을_그대로_읽는다() {
 		DiamondSundialEffect effect = create("{ \"type\": \"diamond_sundial\", \"radius\": 12,"
-				+ " \"cooldown_seconds\": 45, \"max_results\": 4 }");
+				+ " \"duration_seconds\": 8, \"cooldown_seconds\": 45, \"max_results\": 4 }");
 
 		assertEquals(12, effect.radius());
+		assertEquals(8 * 20, effect.durationTicks());
 		assertEquals(45 * 20, effect.cooldownTicks());
 		assertEquals(4, effect.maxResults());
+	}
+
+	/**
+	 * 지속과 쿨타임은 <b>서로 다른 값</b>이다. 한쪽 키를 다른 쪽이 읽어 버리면 「10초 보고 30초
+	 * 쉰다」가 조용히 「30초 보고 30초 쉰다」가 된다. 두 값을 일부러 어긋나게 적어 못박는다.
+	 */
+	@Test
+	void 지속과_쿨타임을_섞지_않는다() {
+		DiamondSundialEffect effect = create("{ \"type\": \"diamond_sundial\","
+				+ " \"duration_seconds\": 3, \"cooldown_seconds\": 90 }");
+
+		assertEquals(3 * 20, effect.durationTicks());
+		assertEquals(90 * 20, effect.cooldownTicks());
 	}
 
 	@Test
@@ -85,19 +102,42 @@ class DiamondSundialEffectTest {
 	}
 
 	@Test
+	void 카멜케이스로_적은_지속도_읽는다() {
+		DiamondSundialEffect effect =
+				create("{ \"type\": \"diamond_sundial\", \"durationSeconds\": 25 }");
+
+		assertEquals(25 * 20, effect.durationTicks());
+	}
+
+	@Test
 	void 범위를_벗어난_값은_버리지_않고_자른다() {
 		DiamondSundialEffect tooBig = create("{ \"type\": \"diamond_sundial\", \"radius\": 999,"
-				+ " \"cooldown_seconds\": 99999, \"max_results\": 999 }");
+				+ " \"duration_seconds\": 99999, \"cooldown_seconds\": 99999,"
+				+ " \"max_results\": 999 }");
 		DiamondSundialEffect tooSmall = create("{ \"type\": \"diamond_sundial\", \"radius\": 0,"
-				+ " \"cooldown_seconds\": 0, \"max_results\": 0 }");
+				+ " \"duration_seconds\": 0, \"cooldown_seconds\": 0, \"max_results\": 0 }");
 
 		assertEquals(DiamondSundialEffect.MAX_RADIUS, tooBig.radius());
+		assertEquals(DiamondSundialEffect.MAX_DURATION_SECONDS * 20, tooBig.durationTicks());
 		assertEquals(DiamondSundialEffect.MAX_COOLDOWN_SECONDS * 20, tooBig.cooldownTicks());
 		assertEquals(DiamondSundialEffect.MAX_MAX_RESULTS, tooBig.maxResults());
 
 		assertEquals(DiamondSundialEffect.MIN_RADIUS, tooSmall.radius());
+		assertEquals(DiamondSundialEffect.MIN_DURATION_SECONDS * 20, tooSmall.durationTicks());
 		assertEquals(DiamondSundialEffect.MIN_COOLDOWN_SECONDS * 20, tooSmall.cooldownTicks());
 		assertEquals(DiamondSundialEffect.MIN_MAX_RESULTS, tooSmall.maxResults());
+	}
+
+	/**
+	 * 지속이 0 이하로 읽히면 우클릭이 한 판을 열자마자 그 틱에 끝나 <b>예전의 한 번 반짝이는
+	 * 동작으로 조용히 돌아간다.</b> 하한이 그것을 막는 자리라 못박아 둔다.
+	 */
+	@Test
+	void 지속은_반드시_한_틱_이상이다() {
+		assertTrue(DiamondSundialEffect.MIN_DURATION_SECONDS >= 1,
+				"0초가 허용되면 지속형이 아니라 한 번 반짝이고 끝나는 옛 동작이 된다");
+		assertTrue(create("{ \"type\": \"diamond_sundial\", \"duration_seconds\": -5 }")
+				.durationTicks() > 0);
 	}
 
 	@Test
@@ -126,7 +166,7 @@ class DiamondSundialEffectTest {
 	// ------------------------------------------------------------------ 아이템 표식
 
 	@Test
-	void 지급한_해시계에_표식과_쿨타임_묶음이_붙는다() {
+	void 지급한_엑스레이에_표식과_쿨타임_묶음이_붙는다() {
 		DiamondSundialEffect effect = create("{ \"type\": \"diamond_sundial\" }");
 
 		ItemStack stack = effect.createItem();
@@ -158,30 +198,62 @@ class DiamondSundialEffectTest {
 	}
 
 	@Test
-	void 표식이_없는_시계는_해시계가_아니다() {
+	void 표식이_없는_시계는_엑스레이가_아니다() {
 		assertFalse(DiamondSundialEffect.isSundial(new ItemStack(Items.CLOCK)));
 	}
 
 	@Test
-	void 이름만_바꾼_시계는_해시계가_아니다() {
+	void 이름만_바꾼_시계는_엑스레이가_아니다() {
 		ItemStack fake = new ItemStack(Items.CLOCK);
-		fake.set(DataComponents.CUSTOM_NAME, Component.literal("해시계"));
+		fake.set(DataComponents.CUSTOM_NAME, Component.literal(DiamondSundialEffect.DISPLAY_NAME));
 
 		assertFalse(DiamondSundialEffect.isSundial(fake),
-				"모루로 이름만 바꿔서는 해시계가 만들어지지 않아야 한다");
+				"모루로 이름만 바꿔서는 엑스레이가 만들어지지 않아야 한다");
 	}
 
 	@Test
-	void 빈_묶음과_null_은_해시계가_아니다() {
+	void 빈_묶음과_null_은_엑스레이가_아니다() {
 		assertFalse(DiamondSundialEffect.isSundial(ItemStack.EMPTY));
 		assertFalse(DiamondSundialEffect.isSundial(null));
 	}
 
 	@Test
-	void 표식을_직접_붙여도_해시계로_읽는다() {
+	void 표식을_직접_붙여도_엑스레이로_읽는다() {
 		ItemStack stack = DiamondSundialEffect.decorate(new ItemStack(Items.CLOCK), 20.0F);
 
 		assertTrue(DiamondSundialEffect.isSundial(stack));
+	}
+
+	/**
+	 * 이름을 「해시계」에서 「엑스레이」로 바꿀 때 <b>표식 값과 쿨타임 묶음은 건드리지 않았다.</b>
+	 * 표식을 함께 바꿨다면 이미 나가 있는 시계가 전부 평범한 시계가 되고, 쿨타임 묶음을 바꿨다면
+	 * 예전 시계에 걸린 쿨타임이 영영 안 풀린 것처럼 보인다. 둘 다 빌드도 로그도 조용하다.
+	 *
+	 * <p>같은 까닭으로 증강 id({@code sharedfate:diamond_sundial})도 그대로 두었다 — 그쪽은
+	 * {@code DefaultPerkPoolValuesTest} 가 지킨다.
+	 */
+	@Test
+	void 이름만_바뀌었고_저장에_적히는_값은_그대로다() {
+		assertEquals("엑스레이", DiamondSundialEffect.DISPLAY_NAME);
+		assertEquals("diamond_sundial", DiamondSundialEffect.MARKER_VALUE,
+				"표식을 바꾸면 이미 나가 있는 시계가 전부 남의 물건이 된다");
+		assertEquals("sharedfate_item", DiamondSundialEffect.MARKER_KEY);
+		assertEquals("diamond_sundial", DiamondSundialEffect.COOLDOWN_GROUP.getPath());
+	}
+
+	/**
+	 * 쿨타임 표시가 읽는 이름이 아이템에 실제로 붙는 이름과 같아야 한다. 두 벌이 되면 한쪽만
+	 * 고쳐져 「엑스레이」를 들고 있는데 액션바에 옛 이름이 뜬다.
+	 */
+	@Test
+	void 쿨타임_표시가_아이템_이름과_같은_이름을_쓴다() {
+		ItemStack stack = DiamondSundialEffect.decorate(new ItemStack(Items.CLOCK), 30.0F);
+
+		assertEquals(DiamondSundialEffect.DISPLAY_NAME,
+				PerkItemCooldownDisplay.displayNameOf(stack));
+		assertNotNull(stack.get(DataComponents.CUSTOM_NAME));
+		assertEquals(DiamondSundialEffect.DISPLAY_NAME,
+				stack.get(DataComponents.CUSTOM_NAME).getString());
 	}
 
 	// ------------------------------------------------------------------ 블록 후보 판정
@@ -384,6 +456,53 @@ class DiamondSundialEffectTest {
 				"두 길이 다른 자리를 고르면 액션바 좌표와 파티클이 어긋난다");
 		assertTrue(PerkDiamondSundial.actionBarText(center, hits)
 				.contains(PerkDiamondSundial.positionLine(0, 60, 0)));
+	}
+
+	// ------------------------------------------------------------------ 남은 시간
+
+	/**
+	 * 지속형이 된 뒤로 액션바에 남은 시간이 함께 뜬다. 파티클만 보고는 「이게 언제 꺼지나」를
+	 * 알 수 없어, 캐러 가는 도중에 꺼지는 것과 아직 몇 초 남은 것을 사람이 가릴 수 없다.
+	 */
+	@Test
+	void 남은_시간을_좌표_뒤에_덧붙인다() {
+		String text = PerkDiamondSundial.actionBarText(new BlockPos(128, 30, -302),
+				List.of(new BlockPos(128, 12, -302)), 7 * 20);
+
+		assertEquals("[증강] 가장 가까운 다이아몬드: X 128  Y 12  Z -302 (18칸) · 7초", text);
+	}
+
+	@Test
+	void 하나도_못_찾아도_남은_시간은_뜬다() {
+		assertEquals("[증강] 근처에 다이아몬드가 없습니다 · 3초",
+				PerkDiamondSundial.actionBarText(new BlockPos(0, 64, 0), List.of(), 3 * 20));
+	}
+
+	/**
+	 * 남은 시간을 적지 않는 갈래를 남겨 둔 까닭은 <b>좌표와 개수를 적는 규칙이 두 벌이 되지
+	 * 않게</b> 하기 위해서다. 세 인자짜리는 두 인자짜리의 결과를 그대로 쓰고 뒤에만 붙인다.
+	 */
+	@Test
+	void 남은_시간이_0_이하면_아무것도_덧붙이지_않는다() {
+		BlockPos center = new BlockPos(128, 30, -302);
+		List<BlockPos> found = List.of(new BlockPos(128, 12, -302));
+
+		assertEquals(PerkDiamondSundial.actionBarText(center, found),
+				PerkDiamondSundial.actionBarText(center, found, 0));
+		assertEquals(PerkDiamondSundial.actionBarText(center, found),
+				PerkDiamondSundial.actionBarText(center, found, -40));
+	}
+
+	/**
+	 * 1초가 안 남았을 때 「0초」로 뜨면 아직 보이는데 끝난 것처럼 읽힌다. 바닥을 1로 두는 규칙을
+	 * 못박는다({@code PerkFlightCharm} 과 같은 규칙이다).
+	 */
+	@Test
+	void 남은_초는_1_아래로_내려가지_않는다() {
+		assertEquals(10, PerkDiamondSundial.seconds(10 * 20));
+		assertEquals(1, PerkDiamondSundial.seconds(20));
+		assertEquals(1, PerkDiamondSundial.seconds(1), "1틱이 남아도 0초라고 적지 않는다");
+		assertEquals(3, PerkDiamondSundial.seconds(79), "내림이다 — 3.95초는 3초로 적는다");
 	}
 
 	// ------------------------------------------------------------------ 도우미

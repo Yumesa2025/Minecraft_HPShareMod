@@ -86,6 +86,19 @@ public final class InventoryTeamButton {
 	/** 올려놓으면 뜨는 설명. 단추 글자가 말하지 않는 「무엇이 들었는지」를 여기서 적는다. */
 	public static final String TOOLTIP = "현황 · 팀 · 설정 · 증강 · 능력치 (/st)";
 
+	/**
+	 * 옆에 붙는 두 번째 단추의 글자. 누르면 증강 탭이 펴진 채로 열린다.
+	 *
+	 * <p>그냥 「증강」이 아니라 <b>「현재 증강」</b>이다. 「증강」만 적으면 증강을 <b>고르는</b>
+	 * 창처럼 읽힌다 — 이 단추가 여는 것은 지금 가진 것을 보는 목록이다. 선택 화면의 같은
+	 * 단추와도 글자를 맞춘다.
+	 */
+	public static final String PERK_LABEL = "현재 증강";
+	public static final String PERK_TOOLTIP = "지금 가진 증강 목록을 바로 엽니다";
+
+	/** 두 단추 사이의 틈. */
+	public static final int BUTTON_GAP = 2;
+
 	/** 조합법 책 판의 너비. 바닐라 {@code RecipeBookComponent.IMAGE_WIDTH}. */
 	private static final int RECIPE_BOOK_WIDTH = 147;
 	/** 조합법 책이 화면 가운데에서 왼쪽으로 물러나는 거리. 바닐라 {@code OFFSET_X_POSITION}. */
@@ -136,6 +149,36 @@ public final class InventoryTeamButton {
 			return MIN_WIDTH;
 		}
 		return Math.min(wanted, available);
+	}
+
+	/**
+	 * 「증강」 단추의 폭. 자리가 모자라면 <b>0</b> 이고, 그때는 단추를 아예 만들지 않는다.
+	 *
+	 * <p>두 단추는 한 줄에 나란히 서고 그 줄의 오른쪽 끝이 창에 붙는다. 그래서 먼저 선
+	 * {@link #LABEL} 단추가 쓰고 남은 폭 안에 들어가야 한다. 좁은 화면에서 억지로 끼우면
+	 * 둘 다 글자가 잘려 무엇을 누르는지 알 수 없게 되므로, 그때는 하나만 남긴다.
+	 *
+	 * @param labelWidth 폰트가 잰 {@link #PERK_LABEL} 의 폭
+	 * @param available  {@link #available} 이 돌려준 값
+	 * @param teamWidth  {@link #buttonWidth} 가 돌려준 값
+	 */
+	public static int perkButtonWidth(int labelWidth, int available, int teamWidth) {
+		int wanted = Math.max(MIN_WIDTH, labelWidth + LABEL_PADDING);
+		int room = available - teamWidth - BUTTON_GAP;
+		if (room < wanted) {
+			return 0;
+		}
+		return wanted;
+	}
+
+	/**
+	 * 두 단추가 한 줄로 차지하는 폭. 「증강」 단추가 없으면 첫 단추 폭 그대로다.
+	 *
+	 * @param teamWidth {@link #buttonWidth} 가 돌려준 값
+	 * @param perkWidth {@link #perkButtonWidth} 가 돌려준 값. 0이면 단추가 없다
+	 */
+	public static int buttonRowWidth(int teamWidth, int perkWidth) {
+		return perkWidth <= 0 ? teamWidth : teamWidth + BUTTON_GAP + perkWidth;
 	}
 
 	/**

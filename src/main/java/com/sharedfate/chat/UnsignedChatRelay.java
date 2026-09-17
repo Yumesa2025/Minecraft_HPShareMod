@@ -69,8 +69,8 @@ public final class UnsignedChatRelay {
 	 *
 	 * <p>바닐라 클라이언트가 {@code ChatListener.showMessageToPlayer} 에서 하는 것과 같은
 	 * 갈래다. 걸러진 데가 없으면 꾸며진 내용을 그대로, 있으면 서명된 원문에 가림표를 씌운다.
-	 * 지금 서버는 {@code text-filtering-config} 가 비어 있어 언제나 앞쪽으로 가지만, 나중에
-	 * 걸러내기를 켜더라도 표시가 어긋나지 않게 두 갈래를 다 둔다.
+	 * {@code text-filtering-config} 를 비워 둔 서버는 언제나 앞쪽으로 가지만, 걸러내기를
+	 * 켠 서버에서도 표시가 어긋나지 않게 두 갈래를 다 둔다.
 	 */
 	public static Component visibleContent(PlayerChatMessage message) {
 		FilterMask mask = message.filterMask();
