@@ -121,6 +121,18 @@ class PreStartRestrictionsTest {
 		assertTrue(PreStartRestrictions.runNotStarted(null));
 	}
 
+	/**
+	 * 적대 몹 스폰 차단은 월드보더·시계와 <b>같은 물음</b>을 본다.
+	 *
+	 * <p>스폰은 청크마다 도는 자리라 사람 하나가 아니라 서버 전체로 갈려야 한다. 셋이 같은
+	 * 판정을 쓰지 않으면 「보더는 좁은데 몹은 나온다」 같은 어긋난 상태가 생긴다.
+	 */
+	@Test
+	void 몹_스폰_차단은_서버_전체_판정을_본다() {
+		assertEquals(PreStartRestrictions.runNotStarted(null),
+				PreStartRestrictions.blocksHostileSpawns(null));
+	}
+
 	// ------------------------------------------------------------------ ③ 블록 파괴 알림 쿨다운
 
 	@Test

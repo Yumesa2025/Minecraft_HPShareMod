@@ -68,6 +68,7 @@ import java.util.UUID;
  *   <li><b>스폰에서 멀어지기</b> — 오버월드 월드보더가 스폰 반경 50칸으로 좁혀진다
  *       ({@code PreStartRestrictions.applySpawnBorder}). 시작하면 원래대로 돌아간다.</li>
  *   <li><b>블록 파괴</b> — {@code PreStartRestrictions.onBeforeBlockBreak} 가 막는다.</li>
+ *   <li><b>적대 몹</b> — 한 마리도 생기지 않는다({@code PreStartRestrictions.blocksHostileSpawns}).</li>
  *   <li><b>시각</b> — 아침에 붙들려 있다({@code PreStartRestrictions.applyMorningLock}).</li>
  *   <li><b>허기</b> — 줄지 않는다({@code PreStartRestrictions.freezeHunger}).</li>
  *   <li><b>승리 판정</b> — {@code RunProgressManager.onDeath} 가 시작하지 않은 팀의 드래곤
@@ -93,10 +94,14 @@ public final class GameStartManager {
 	// ------------------------------------------------------------------ 판정
 
 	/**
-	 * 이 팀 상태가 「시작 대기」인가.
+	 * 이 팀 상태가 「시작 대기」인가. <b>팀이 없으면 거짓이다.</b>
 	 *
-	 * <p>{@code null}(팀이 없음)은 대기가 아니다. 팀에 속하지 않은 사람에게는 회차라는 것이
-	 * 아예 없으므로, 여기서 참을 돌려주면 그 사람까지 무적이 되고 아무 이득도 없다.
+	 * <p>{@code null}(팀이 없음)은 대기가 아니다 — 팀에 속하지 않은 사람에게는 「대기 중인
+	 * 회차」라는 것이 아예 없기 때문이다. 승리 판정처럼 <b>회차라는 것이 있어야만 뜻이 서는</b>
+	 * 물음이 이것을 쓴다.
+	 *
+	 * <p>⚠ <b>「시작 전인가」를 묻고 싶다면 이것이 아니라 {@link #preStart} 다.</b> 둘을
+	 * 혼동해서 실제로 사고가 났다 — {@link #preStart} 의 설명을 보라.
 	 */
 	public static boolean waiting(@Nullable TeamState state) {
 		return state != null && !state.runStarted;
@@ -105,6 +110,27 @@ public final class GameStartManager {
 	/** 이 팀 상태의 회차가 진행 중인가. 팀이 없으면 참으로 본다 — 막을 것이 없다는 뜻이다. */
 	public static boolean started(@Nullable TeamState state) {
 		return state == null || state.runStarted;
+	}
+
+	/**
+	 * 이 사람에게 <b>회차가 아직 시작되지 않았는가.</b> 팀이 없어도 참이다.
+	 *
+	 * <p>시작 전에 무언가를 막거나 보호하는 규칙은 <b>예외 없이 이 판정을 쓴다.</b> 스폰 반경
+	 * 제한·블록 파괴 금지·시각 고정·허기 고정({@code PreStartRestrictions})과 무적
+	 * ({@link #blocksDamage})이 전부 여기서 갈린다.
+	 *
+	 * <h2>{@link #waiting} 과 무엇이 다른가 — 이것을 혼동해 사고가 났다</h2>
+	 * <p>{@link #waiting} 은 팀이 없으면 거짓이다. 그래서 그것으로 시작 전 보호를 판정하면
+	 * <b>팀을 만들기 전까지는 아무 보호도 받지 못한다.</b> 실제로 제한 넷은 이 판정으로 고치고
+	 * 무적만 {@link #waiting} 에 남겨 둔 적이 있는데, 그 결과 <b>스폰 50칸에 갇혀 블록도 못
+	 * 부수는 사람이 떨어져 죽는</b> 상태가 됐다. 막는 것과 지켜 주는 것의 기준이 어긋나면
+	 * 언제나 이런 모양이 된다.
+	 *
+	 * <p>그래서 두 물음을 한 자리에 두고 이름으로 갈랐다. <b>「회차가 있어야만 뜻이 서는
+	 * 물음」이면 {@link #waiting}, 「시작 전인가」면 이것이다.</b>
+	 */
+	public static boolean preStart(@Nullable TeamState state) {
+		return state == null || !state.runStarted;
 	}
 
 	/**
@@ -117,7 +143,12 @@ public final class GameStartManager {
 	 * 자체가 없어서 그 판정이 돌지 않는다. 넉백이나 산소 게이지처럼 피해가 아닌 것은 그대로
 	 * 도는데, 시작하는 순간 체력·허기가 전부 회차 처음 값으로 되돌아가므로 남는 것이 없다.
 	 *
-	 * <p>팀에 속하지 않은 사람과 몹은 첫 줄에서 곧바로 빠져나간다.
+	 * <p><b>팀이 없는 사람도 지켜 준다</b>({@link #preStart}). 그 사람은 아직 회차를 시작하지
+	 * 않았고, 시작 전 제한 넷({@code PreStartRestrictions})에 이미 똑같이 걸려 스폰 50칸 안에서
+	 * 블록도 못 부순다. 움직이지도 파지도 못하는데 죽기만 하는 것은 규칙이 아니라 구멍이다.
+	 * 무적이 되어 얻는 이득도 없다 — 팀을 만들고 「게임 시작」을 누르는 순간 넷과 함께 풀린다.
+	 *
+	 * <p>몹은 첫 줄에서 곧바로 빠져나간다.
 	 *
 	 * <h2>게임 오버 카운트다운 5초도 여기서 막는다</h2>
 	 * <p>전멸이 확정되고 서버가 종료되기까지의 5초 동안은 <b>사람이든 몹이든</b> 피해를 전부
@@ -133,7 +164,7 @@ public final class GameStartManager {
 		if (!(entity instanceof ServerPlayer player)) {
 			return false;
 		}
-		return waiting(TeamLookup.stateOf(player.getUUID()));
+		return preStart(TeamLookup.stateOf(player.getUUID()));
 	}
 
 	/**

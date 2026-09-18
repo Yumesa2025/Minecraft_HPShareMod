@@ -1,6 +1,7 @@
 package com.sharedfate.mixin;
 
 import com.sharedfate.perk.MobPerkModifiers;
+import com.sharedfate.sync.PreStartRestrictions;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.level.NaturalSpawner;
@@ -12,7 +13,13 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * 적대 몹의 자연 스폰 시도 횟수에 배율을 먹이는 자리({@code mob_spawn_rate}).
+ * 적대 몹의 자연 스폰을 가로채는 자리. 두 가지를 한다.
+ *
+ * <ul>
+ *   <li><b>회차가 시작되기 전에는 통째로 막는다</b>
+ *       ({@link com.sharedfate.sync.PreStartRestrictions#blocksHostileSpawns}).</li>
+ *   <li>시작한 뒤에는 스폰 <b>시도 횟수</b>에 배율을 먹인다({@code mob_spawn_rate}).</li>
+ * </ul>
  *
  * <p>배율을 정하는 규칙은 {@link MobPerkModifiers#spawnRateOf} 에, 설정 항목은
  * {@code SharedFateConfig.mobSpawnRatePerks} 에 있다. 여기는 「어디서 몇 번 도는가」만 정한다.
@@ -108,6 +115,12 @@ public abstract class NaturalSpawnerRateMixin {
 			CallbackInfo callbackInfo) {
 		// 뜨거운 자리다. 대부분의 호출은 아래 두 줄에서 끝난다.
 		if (category != MobCategory.MONSTER || sharedfate$spawningExtra) {
+			return;
+		}
+		// 회차가 시작되기 전에는 적대 몹이 한 마리도 생기지 않는다. 배율 계산보다 먼저 묻는다 —
+		// 증강이 배율을 아무리 올려 두었어도 시작 전이라면 답은 「생기지 않는다」 하나다.
+		if (PreStartRestrictions.blocksHostileSpawns(level.getServer())) {
+			callbackInfo.cancel();
 			return;
 		}
 		double multiplier = MobPerkModifiers.spawnRateMultiplier(level.getServer());

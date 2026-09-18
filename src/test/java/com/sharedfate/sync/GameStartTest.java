@@ -56,11 +56,44 @@ class GameStartTest {
 
 	@Test
 	void 팀이_없으면_대기도_아니다() {
-		// 팀에 속하지 않은 사람에게는 회차라는 것이 아예 없다. 여기서 대기로 보면 그 사람까지
-		// 무적이 되고 아무 이득도 없다.
+		// 「대기 중인 회차」라는 것이 없다는 뜻이다. 승리 판정처럼 회차가 있어야만 뜻이 서는
+		// 물음이 이것을 본다. 「시작 전인가」는 preStart 로 따로 묻는다 — 아래 시험을 보라.
 		assertFalse(GameStartManager.waiting(null));
 		assertTrue(GameStartManager.started(null));
+		// 엔티티가 아닌 null 은 사람이 아니므로 피해를 버리지 않는다.
 		assertFalse(GameStartManager.blocksDamage(null));
+	}
+
+	/**
+	 * <b>시작 전 보호는 팀이 없어도 걸린다.</b>
+	 *
+	 * <p>한때 막는 규칙(스폰 반경·블록 파괴·시각·허기)은 팀 없는 사람까지 걸면서 지켜 주는
+	 * 규칙(무적)만 {@code waiting} 에 남아 있었다. 그 결과 <b>스폰 50칸에 갇혀 블록도 못 부수는
+	 * 사람이 떨어져 죽었다.</b> 막는 것과 지켜 주는 것이 같은 물음을 보지 않으면 반드시 이런
+	 * 구멍이 생긴다. 그래서 {@code preStart} 하나로 모았고, 여기서 그것을 못박는다.
+	 */
+	@Test
+	void 시작_전_판정은_팀이_없어도_참이다() {
+		assertTrue(GameStartManager.preStart(null), "팀이 없는 사람도 회차를 시작하지 않았다");
+		assertTrue(GameStartManager.preStart(TeamState.fresh(20.0F)), "시작 대기 팀도 시작 전이다");
+
+		TeamState started = TeamState.fresh(20.0F);
+		started.runStarted = true;
+		assertFalse(GameStartManager.preStart(started), "시작한 팀은 시작 전이 아니다");
+	}
+
+	/** 시작 전 제한과 무적은 <b>반드시 같은 판정</b>을 봐야 한다. */
+	@Test
+	void 막는_규칙과_지켜_주는_규칙이_같은_판정을_본다() {
+		TeamState waiting = TeamState.fresh(20.0F);
+		TeamState started = TeamState.fresh(20.0F);
+		started.runStarted = true;
+
+		for (TeamState state : new TeamState[] {null, waiting, started}) {
+			assertEquals(GameStartManager.preStart(state),
+					PreStartRestrictions.blocksPreStartAction(state),
+					"두 판정이 갈리면 갇힌 채로 죽는 구멍이 생긴다");
+		}
 	}
 
 	// ------------------------------------------------------------------ 자동 시작

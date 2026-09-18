@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 「시작 대기」 중에만 걸리는 네 가지 제한.
+ * 회차가 시작되기 전에만 걸리는 제한들.
  *
  * <p>{@link GameStartManager} 가 이미 멈춰 둔 것들 — 증강 구간, 위치 교환, 난이도 상승, 전멸 판정
  * ({@link GameStartManager#blocksDamage}) — 에 더해, 시작 전에 팀원이 스폰을 벗어나거나 채집을
@@ -39,6 +39,7 @@ import java.util.UUID;
  *
  * <ul>
  *   <li>{@link #applySpawnBorder} — 오버월드 월드보더를 스폰 반경 50칸으로 좁힌다.</li>
+ *   <li>{@link #blocksHostileSpawns} — 적대 몹이 한 마리도 생기지 않는다.</li>
  *   <li>{@link #onBeforeBlockBreak} — 블록 파괴를 막고 이유를 액션바로 알린다.</li>
  *   <li>{@link #applyMorningLock} — 오버월드 시각을 1일차 아침(누적 0틱)에 붙든다.</li>
  *   <li>{@link #freezeHunger} — 공유 허기를 가득 찬 값(20 / 5.0F)에 붙든다.</li>
@@ -46,10 +47,11 @@ import java.util.UUID;
  *
  * <h2>기준은 「회차가 시작됐는가」 하나다 — 팀이 없어도 걸린다</h2>
  * <p>⚠ <b>{@link GameStartManager#waiting} 을 그대로 쓰면 안 된다.</b> 그 물음은 팀이 없으면
- * 거짓을 돌려준다 — 「대기 중인 회차」라는 것이 없기 때문이고, 그 답이 옳은 자리가 따로 있다
- * (시작 전 무적). 여기서 묻는 것은 다르다. <b>팀을 아직 만들지 않은 사람도 회차를 시작하지
- * 않은 것</b>이므로 똑같이 걸려야 한다. 그러지 않으면 팀을 만들기 전까지는 스폰 밖으로 나가
- * 땅을 파도 아무도 막지 않는다.
+ * 거짓을 돌려준다 — 「대기 중인 회차」라는 것이 없기 때문이다. <b>팀을 아직 만들지 않은 사람도
+ * 회차를 시작하지 않은 것</b>이므로 똑같이 걸려야 한다. 그러지 않으면 팀을 만들기 전까지는
+ * 스폰 밖으로 나가 땅을 파도 아무도 막지 않는다. 시작 전 규칙은 예외 없이
+ * {@link GameStartManager#preStart} 를 본다 — <b>막는 것과 지켜 주는 것(무적)이 같은 물음을
+ * 봐야 한다.</b> 한때 이 둘이 어긋나 갇힌 채로 떨어져 죽는 구멍이 났다.
  *
  * <p>그래서 판정이 둘이다.
  * <ul>
@@ -198,6 +200,29 @@ public final class PreStartRestrictions {
 		}
 	}
 
+	// ================================================================== ①-2 적대 몹 스폰 금지
+
+	/**
+	 * 지금 적대 몹의 자연 스폰을 막아야 하는가. <b>회차가 시작되기 전에는 한 마리도 생기지
+	 * 않는다.</b>
+	 *
+	 * <p>{@code NaturalSpawnerRateMixin} 이 청크마다 이 물음을 한 번씩 던진다. 시작 전에는
+	 * 아무도 죽지 않고({@link GameStartManager#blocksDamage}) 스폰 반경 50칸을 벗어날 수도
+	 * 없으므로, 그 안에 몹이 쌓이기만 한다. 「게임 시작」을 누르는 순간 준비도 안 된 팀이
+	 * 그동안 모인 몹에 둘러싸이는 것이 이 규칙이 없을 때의 모습이다.
+	 *
+	 * <h2>막는 것은 적대 몹뿐이다</h2>
+	 * <p>{@code MobCategory.MONSTER} 만 걸린다. 소·양·주민({@code CREATURE})과 물속 몹은 그대로
+	 * 생긴다 — 시작 전에 주변을 둘러보고 자리를 고르는 것이 이 시간에 할 일이고, 동물이 없으면
+	 * 그 판단을 할 수 없다. 막는 자리 자체가 갈래를 인자로 받으므로 참조 비교 한 번으로 갈린다.
+	 *
+	 * <p><b>이미 생겨 있는 몹은 지우지 않는다.</b> 월드가 만들어질 때 생긴 것들은 남아 있고,
+	 * 플레이어에게서 멀어지면 바닐라 규칙대로 사라진다. 여기서 막는 것은 「새로 생기는 것」뿐이다.
+	 */
+	public static boolean blocksHostileSpawns(@Nullable MinecraftServer server) {
+		return runNotStarted(server);
+	}
+
 	// ================================================================== ② 블록 파괴 금지
 
 	/** 블록 파괴가 막혔을 때 액션바에 뜨는 한 줄. {@code PerkWorldRules.SLEEP_DENIED} 와 같은 자리다. */
@@ -219,16 +244,13 @@ public final class PreStartRestrictions {
 	/**
 	 * 이 사람이 시작 전 제한에 걸리는가. <b>팀이 없어도 걸린다.</b>
 	 *
-	 * <p>{@link GameStartManager#waiting} 과 <b>일부러 다르다.</b> 그쪽은 팀이 없으면 거짓이다 —
-	 * 「대기 중인 회차」라는 것이 없기 때문이고, 그 판정이 옳은 자리가 따로 있다(시작 전 무적).
-	 * 여기서 묻는 것은 그것이 아니라 <b>「회차가 시작됐는가」</b> 하나다. 팀을 아직 만들지 않은
-	 * 사람은 회차를 시작하지 않은 것이므로 똑같이 걸린다.
-	 *
-	 * <p>이 구분을 놓치면 <b>팀을 만들기 전까지는 제한이 하나도 걸리지 않는다.</b> 회차를 시작할
-	 * 마음이 없는 사람이 스폰 밖으로 나가 땅을 파도 아무도 막지 않게 된다.
+	 * <p>판정은 {@link GameStartManager#preStart} 하나뿐이고 여기서는 이름만 빌려 준다.
+	 * <b>같은 사실을 두 곳에서 따로 세면 언젠가 어긋난다</b> — 실제로 한 번 어긋나서, 제한 넷은
+	 * 팀 없는 사람까지 막는데 무적만 막아 주지 않아 <b>갇힌 채로 떨어져 죽는</b> 상태가 됐다.
+	 * 막는 규칙과 지켜 주는 규칙은 반드시 같은 물음을 봐야 한다.
 	 */
 	static boolean blocksPreStartAction(@Nullable TeamState state) {
-		return state == null || !state.runStarted;
+		return GameStartManager.preStart(state);
 	}
 
 	/**
