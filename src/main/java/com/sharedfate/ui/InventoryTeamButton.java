@@ -7,6 +7,13 @@ package com.sharedfate.ui;
  * 정한다({@link #buttonWidth}) — 자원팩이 폰트를 바꾸거나 다른 언어로 옮겨도 글자가 넘치지
  * 않는다.
  *
+ * <h2>줄에 서는 단추는 팀이 있느냐에 따라 달라진다</h2>
+ * <p>팀이 있으면 {@link #LABEL} 과 {@link #PERK_LABEL} 둘이 나란히 서고, 팀이 없으면
+ * {@link #CREATE_LABEL} 하나만 선다. <b>줄 폭을 재는 규칙은 하나다</b> — 맨 앞 단추가
+ * {@link #buttonWidth} 로 남은 자리 안에서 제 폭을 잡고, 뒤에 붙는 단추만
+ * {@link #perkButtonWidth} 로 남은 것을 넘겨받는다. 하나뿐일 때는 뒤가 없으니 두 번째 계산을
+ * 부르지 않는 것이 전부다.
+ *
  * <p>창 <b>안</b>에는 빈자리가 없다. 왼쪽 위는 방어구 칸과 플레이어 미리보기, 오른쪽 위는
  * 조합칸, 아래는 인벤토리와 이 모드가 더한 추가 27칸이 전부 차지한다. 창 밖을 눌러도
  * 들고 있던 아이템이 떨어지지는 않는다 — {@code AbstractContainerScreen.mouseClicked} 는
@@ -96,6 +103,20 @@ public final class InventoryTeamButton {
 	public static final String PERK_LABEL = "현재 증강";
 	public static final String PERK_TOOLTIP = "지금 가진 증강 목록을 바로 엽니다";
 
+	/**
+	 * 팀이 없을 때 위의 둘을 <b>모두 밀어내고</b> 혼자 서는 단추.
+	 *
+	 * <p>팀이 없으면 위의 둘은 빈 화면을 연다 — 「SharedFate」는 「팀에 속해 있지 않습니다」
+	 * 한 줄이고, 「현재 증강」은 가진 것이 없으니 빈 목록이다. 그 자리에 <b>지금 할 수 있는
+	 * 단 하나</b>를 놓는다.
+	 *
+	 * <p>「팀 만들기」가 아니라 <b>「팀 생성」</b>이다. 팀 화면 안의 양식에 붙은 단추가
+	 * 「팀 만들기」라서, 같은 글자를 쓰면 이 단추를 누르는 것으로 팀이 만들어지는 줄 안다.
+	 * 이것은 <b>양식을 여는</b> 단추다.
+	 */
+	public static final String CREATE_LABEL = "팀 생성";
+	public static final String CREATE_TOOLTIP = "팀을 만드는 화면을 바로 엽니다";
+
 	/** 두 단추 사이의 틈. */
 	public static final int BUTTON_GAP = 2;
 
@@ -140,7 +161,17 @@ public final class InventoryTeamButton {
 	/**
 	 * 글자 폭에 맞춘 단추 폭. 남은 자리보다는 넓어지지 않는다.
 	 *
-	 * @param labelWidth 폰트가 잰 {@link #LABEL} 의 폭
+	 * <h2>줄에서 <b>맨 앞</b>에 서는 단추가 쓴다</h2>
+	 * <p>팀이 있으면 그것은 {@link #LABEL} 이고, 팀이 없으면 {@link #CREATE_LABEL} 이다.
+	 * 둘 다 뒤에 무엇이 오는지와 무관하게 <b>남은 자리 전부를 놓고</b> 잰다 — 뒤 단추 몫을
+	 * 떼어 두는 일은 {@link #perkButtonWidth} 한 곳에서만 한다. 그래서 「팀 생성」 하나만
+	 * 그릴 때 여기에 따로 손댈 것이 없다.
+	 *
+	 * <p>이 단추는 <b>0 을 돌려주지 않는다.</b> 자리가 {@link #MIN_WIDTH} 보다 좁아도 그만큼은
+	 * 남긴다. 맨 앞 단추까지 사라지면 그 화면에서 팀 화면으로 가는 길이 끊기고, 팀이 없을
+	 * 때는 팀을 만들 길까지 끊긴다. 글자는 바닐라가 알아서 잘라 보여 준다.
+	 *
+	 * @param labelWidth 폰트가 잰 맨 앞 단추 글자의 폭
 	 * @param available  {@link #available} 이 돌려준 값
 	 */
 	public static int buttonWidth(int labelWidth, int available) {

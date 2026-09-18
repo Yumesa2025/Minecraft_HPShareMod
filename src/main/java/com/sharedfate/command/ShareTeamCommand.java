@@ -10,7 +10,9 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.sharedfate.config.SharedFateConfig;
+import com.sharedfate.net.ClientVersionRegistry;
 import com.sharedfate.net.OpenTeamScreenPayload;
+import com.sharedfate.net.SharedFateNetworking;
 import com.sharedfate.sync.DifficultyEscalation;
 import com.sharedfate.sync.GameStartManager;
 import com.sharedfate.sync.InventorySwapper;
@@ -24,15 +26,19 @@ import com.sharedfate.team.TeamCreationSettings;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
 import com.sharedfate.ui.GameStartButton;
+import com.sharedfate.ui.VersionLines;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.Permissions;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -102,6 +108,14 @@ public final class ShareTeamCommand {
 				.then(PerkTestCommand.node())
 				.then(Commands.literal("storage").executes(ShareTeamCommand::openStorage))
 				.then(Commands.literal("list").executes(ShareTeamCommand::list))
+				// 내 클라이언트와 서버가 같은 판인지 게임 안에서 확인한다. all 은 접속 중인
+				// 전원을 보여 주므로 운영자만 쓴다 — 남의 판까지 볼 이유가 없다.
+				.then(Commands.literal("version")
+						.executes(ShareTeamCommand::version)
+						.then(Commands.literal("all")
+								.requires(source -> source.permissions()
+										.hasPermission(Permissions.COMMANDS_GAMEMASTER))
+								.executes(ShareTeamCommand::versionAll)))
 				.then(Commands.literal("status").executes(context -> status(context, config))));
 		registerAlias(dispatcher, root);
 		registerStorageAlias(dispatcher);
@@ -533,7 +547,7 @@ public final class ShareTeamCommand {
 		if (team.size() == 1) {
 			InventorySwapper.disbandTeam(self, team, manager.stateOf(self.getUUID()), manager);
 			context.getSource().sendSuccess(() -> Component.literal(
-					"마지막 멤버가 탈퇴해 팀을 해체하고 공유 아이템을 드랍했습니다."), false);
+					"마지막 멤버가 탈퇴해 팀을 해체하고 공유 아이템을 모두 없앴습니다."), false);
 			return 1;
 		}
 
@@ -574,7 +588,7 @@ public final class ShareTeamCommand {
 
 		InventorySwapper.disbandTeam(self, team, manager.stateOf(self.getUUID()), manager);
 		context.getSource().sendSuccess(() -> Component.literal(
-				"팀을 해체하고 공유 아이템을 모두 드랍했습니다."), false);
+				"팀을 해체하고 공유 아이템·경험치를 모두 없앴습니다."), false);
 		return 1;
 	}
 
@@ -659,7 +673,8 @@ public final class ShareTeamCommand {
 			return 0;
 		}
 		context.getSource().sendSuccess(() -> Component.literal(
-				"공유 아이템을 모두 드랍하고 팀을 해체하려면 /shareteam disband confirm 을 입력하세요."), false);
+				"공유 아이템·증강·경험치가 모두 사라집니다. 되돌릴 수 없습니다."
+						+ " 그래도 해체하려면 /shareteam disband confirm 을 입력하세요."), false);
 		return 1;
 	}
 
@@ -847,6 +862,46 @@ public final class ShareTeamCommand {
 		context.getSource().sendSuccess(
 				() -> Component.literal("팀 '" + team.name() + "' — " + members), false);
 		return 1;
+	}
+
+	/**
+	 * 내 클라이언트와 서버가 같은 판인지 보여 준다.
+	 *
+	 * <p>접속이 막히지는 않는데 화면 한쪽이 안 뜨거나 값이 이상할 때, 그것이 낡은 클라이언트
+	 * 때문인지 진짜 버그인지 가르는 것이 언제나 첫 단계였다. 그 답이 여태 <b>서버 로그에만</b>
+	 * 있어서, 서버를 켤 수 있는 사람이 아니면 자기 판조차 확인할 수 없었다.
+	 *
+	 * <p>이 명령은 권한을 요구하지 않는다 — 자기 판을 묻는 것뿐이다.
+	 */
+	private static int version(CommandContext<CommandSourceStack> context)
+			throws CommandSyntaxException {
+		ServerPlayer self = context.getSource().getPlayerOrException();
+		List<String> lines = VersionLines.self(
+				ClientVersionRegistry.serverModVersion(),
+				SharedFateNetworking.PROTOCOL_VERSION,
+				ClientVersionRegistry.versionOf(self.getUUID()));
+		lines.forEach(line -> context.getSource().sendSuccess(() -> Component.literal(line), false));
+		return 1;
+	}
+
+	/**
+	 * 접속 중인 <b>전원</b>의 판을 보여 준다. 운영자 전용이다.
+	 *
+	 * <p>여럿이 함께 노는 서버에서 「누가 안 바꿨나」를 찾는 자리다. 판이 서버와 다른 사람을
+	 * 먼저 적으므로 목록이 길어도 찾을 것이 맨 위에 있다.
+	 */
+	private static int versionAll(CommandContext<CommandSourceStack> context) {
+		MinecraftServer server = context.getSource().getServer();
+		List<VersionLines.Entry> entries = server.getPlayerList().getPlayers().stream()
+				.map(player -> new VersionLines.Entry(player.getPlainTextName(),
+						ClientVersionRegistry.versionOf(player.getUUID())))
+				.toList();
+		List<String> lines = VersionLines.all(
+				ClientVersionRegistry.serverModVersion(),
+				SharedFateNetworking.PROTOCOL_VERSION,
+				entries);
+		lines.forEach(line -> context.getSource().sendSuccess(() -> Component.literal(line), false));
+		return entries.size();
 	}
 
 	private static TeamManager manager(CommandContext<CommandSourceStack> context) {

@@ -120,6 +120,7 @@ public class SharedFateMod implements ModInitializer {
 			com.sharedfate.sync.SwapExplosionScheduler.reset();
 			com.sharedfate.perk.PerkResonantMining.reset();
 			PerkWorldRules.reset();
+			com.sharedfate.sync.PreStartRestrictions.reset();
 			PerkCompassTargets.reset();
 			com.sharedfate.perk.PerkGearManager.reset();
 			PerkLegacyGear.reset();
@@ -210,6 +211,10 @@ public class SharedFateMod implements ModInitializer {
 		ServerLivingEntityEvents.AFTER_DAMAGE.register(PerkHolderManager::onDamage);
 		// 블록 파괴 증강(bonus_drop / on_break)의 등록 지점. 팀 증강이 없으면 곧바로 빠져나간다.
 		PlayerBlockBreakEvents.AFTER.register(PerkBlockBreaks::onBlockBroken);
+		// 회차가 시작되기 전에는 블록을 부술 수 없다. false 를 돌려주면 파괴가 막힌다.
+		// AFTER 와 달리 BEFORE 라, 막힌 파괴는 위의 증강 처리까지 아예 도달하지 않는다.
+		PlayerBlockBreakEvents.BEFORE.register(
+				com.sharedfate.sync.PreStartRestrictions::onBeforeBlockBreak);
 		// 수면 차단 증강(no_sleep)의 집행 지점. null 을 돌려주면 평소대로 잔다.
 		EntitySleepEvents.ALLOW_SLEEPING.register(PerkWorldRules::onAllowSleep);
 		// 나무를 광물로 바꾸는 증강(ore_exchange)의 등록 지점. 허공 우클릭에서만 발화한다.
@@ -230,6 +235,15 @@ public class SharedFateMod implements ModInitializer {
 		EffectSync.register();
 		ServerTickEvents.END_SERVER_TICK.register(EffectSync::tick);
 		ServerTickEvents.END_SERVER_TICK.register(StatMirror::tick);
+		// 회차 시작 전에만 걸리는 제한들. 허기 되돌리기는 반드시 StatMirror 다음이어야 한다 —
+		// 자연 소모로 줄어든 값을 StatMirror 가 팀 상태에 적어 넣은 뒤에 되돌려야 같은 틱 안에서
+		// 맞춰진다. 앞에 두면 한 틱 늦게 따라가며 허기 막대가 미세하게 떨린다.
+		ServerTickEvents.END_SERVER_TICK.register(
+				com.sharedfate.sync.PreStartRestrictions::freezeHunger);
+		ServerTickEvents.END_SERVER_TICK.register(
+				com.sharedfate.sync.PreStartRestrictions::applySpawnBorder);
+		ServerTickEvents.END_SERVER_TICK.register(
+				com.sharedfate.sync.PreStartRestrictions::applyMorningLock);
 		ServerTickEvents.END_SERVER_TICK.register(WorldResetCoordinator::tick);
 		ServerTickEvents.END_SERVER_TICK.register(RunProgressManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PositionSwapManager::tick);

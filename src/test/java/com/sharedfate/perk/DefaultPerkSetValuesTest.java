@@ -183,10 +183,10 @@ class DefaultPerkSetValuesTest {
 	// ------------------------------------------------------------------ 값 여섯
 
 	@Test
-	void 화력_2단계는_공격력_1이다(@TempDir Path dir) throws IOException {
+	void 화력_2단계는_공격력_2다(@TempDir Path dir) throws IOException {
 		AttributeEffect attack = attribute(tier(dir, PerkSetType.POWER, 2), "minecraft:attack_damage");
 
-		assertEquals(1.0, attack.amount(), 1.0e-9);
+		assertEquals(2.0, attack.amount(), 1.0e-9);
 		assertEquals(AttributeModifier.Operation.ADD_VALUE, attack.operation());
 	}
 
@@ -220,11 +220,38 @@ class DefaultPerkSetValuesTest {
 	}
 
 	@Test
-	void 화력_3단계는_흡혈_5퍼센트다(@TempDir Path dir) throws IOException {
+	void 화력_3단계는_흡혈_15퍼센트다(@TempDir Path dir) throws IOException {
 		LifestealEffect lifesteal = assertInstanceOf(LifestealEffect.class,
 				tier(dir, PerkSetType.POWER, 3).effects().get(0));
 
-		assertEquals(0.05, lifesteal.fractionFor(), 1.0e-9);
+		assertEquals(0.15, lifesteal.fractionFor(), 1.0e-9);
+	}
+
+	/**
+	 * 화력 4단계는 근접 공격이 닿는 거리를 50% 늘린다.
+	 *
+	 * <p>{@code add_multiplied_total} 이라 배율은 {@code 1 + amount} 다. 26.2 의
+	 * {@code minecraft:entity_interaction_range} 는 기본값 3.0 · 범위 0~64 이므로 4.5 가 된다.
+	 *
+	 * <p><b>이 속성은 {@code setSyncable(true)} 로 등록되어 있다</b>(26.2 {@code Attributes}
+	 * 바이트코드에서 확인). 공격이 닿는지는 클라이언트가 먼저 재고 서버가 다시 재는데, 동기화가
+	 * 안 되는 속성이면 클라이언트가 3.0 으로 재서 <b>서버만 아는 값</b>이 된다 — 늘어난 거리에서
+	 * 휘둘러도 애초에 공격 패킷이 가지 않으므로 아무 일도 일어나지 않는다. {@code mining_speed}
+	 * 가 정확히 그 이유로 「느리게 하는 데만 쓸 수 있는」 타입이 됐다. 자동으로 내려가는 값이라
+	 * <b>새 패킷도 통신 규약 인상도 필요 없다.</b>
+	 *
+	 * <p><b>단계는 누적이다</b> — 넷을 모으면 2·3단계도 함께 켜진다. 그래서 4단계에 공격력이나
+	 * 흡혈을 또 적으면 앞 단계와 겹쳐 두 번 걸린다. 여기서 <b>효과가 하나뿐</b>인지까지 보는
+	 * 이유가 그것이다.
+	 */
+	@Test
+	void 화력_4단계는_근접_사거리_50퍼센트_증가뿐이다(@TempDir Path dir) throws IOException {
+		PerkSets.Tier tier = tier(dir, PerkSetType.POWER, 4);
+		AttributeEffect reach = attribute(tier, "minecraft:entity_interaction_range");
+
+		assertEquals(0.5, reach.amount(), 1.0e-9);
+		assertEquals(AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL, reach.operation());
+		assertEquals(1, tier.effects().size(), "화력 4단계에는 대가가 붙지 않는다");
 	}
 
 	/** 채굴 3단계는 다이아 광석에서 확정으로 2개를 더 준다. */

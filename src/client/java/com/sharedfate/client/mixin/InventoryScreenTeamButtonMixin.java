@@ -1,6 +1,7 @@
 package com.sharedfate.client.mixin;
 
 import com.sharedfate.client.ClientStatRows;
+import com.sharedfate.client.ClientTeamState;
 import com.sharedfate.client.team.TeamScreen;
 import com.sharedfate.ui.InventoryStatPanel;
 import com.sharedfate.ui.InventoryTeamButton;
@@ -27,9 +28,21 @@ import java.util.List;
  * <p>단추 이름과 자리, 자리가 모자랄 때 어떻게 물러나는지는 {@link InventoryTeamButton} 과
  * {@link InventoryStatPanel} 에 있다.
  *
- * <h2>팀이 없어도 보인다</h2>
- * <p>팀을 <b>만드는</b> 것도 그 화면에서 하는 일이므로, 팀이 없을 때 단추를 감추면 정작 필요한
- * 사람에게 없는 단추가 된다. 능력치도 마찬가지로 팀이 없어도 그린다.
+ * <h2>팀이 없으면 단추가 「팀 생성」 하나가 된다</h2>
+ * <p>팀이 없을 때 위의 둘은 빈 화면을 연다 — 「SharedFate」는 「팀에 속해 있지 않습니다」 한
+ * 줄이고, 「현재 증강」은 빈 목록이다. 그래서 그 자리에 <b>지금 할 수 있는 단 하나</b>인
+ * 「팀 생성」을 놓고, 그것은 팀 화면을 <b>「팀」 탭이 펴진 채로</b> 연다. 감추지 않고 바꾸는
+ * 것이 요점이다 — 아예 없애면 팀을 만들러 가는 길이 끊긴다. 능력치는 어느 쪽에서도 그린다.
+ *
+ * <p>팀이 있는지는 {@link ClientTeamState#inTeam()} 이 안다. 서버가 팀이 사라질 때
+ * {@code TeamBroadcaster.sendEmpty} 로 빈 것을 보내 주므로 <b>여기서 따로 물을 것이 없고, 물어서도
+ * 안 된다</b> — 화면 하나 때문에 통신 규약을 늘릴 이유가 없다.
+ *
+ * <p>단추 셋은 {@code init} 에서 <b>한꺼번에 만들어 두고</b> 자리를 잡을 때마다 보일 것만
+ * 보인다. 갈아 끼울 때 만들고 버리면 매 프레임 위젯을 새로 만들게 되고, 팀이 생기거나 사라지는
+ * 순간을 놓치면 「팀 생성」이 남아 있는 팀 화면을 열거나 그 반대가 된다. 감출 때는 폭을 0 으로
+ * 줄이는 것이 아니라 {@code visible} 을 내린다 — 26.2 의 {@code AbstractWidget.isActive()} 는
+ * {@code visible && active} 라, 폭만 0 인 단추는 <b>안 보이는데 눌린다.</b>
  *
  * <h2>왜 매 프레임 자리를 다시 잡는가</h2>
  * <p>조합법 책을 펼치면 바닐라는 창을 오른쪽으로 밀면서 <b>조합법 책 단추만</b> 새 자리로
@@ -69,6 +82,15 @@ public abstract class InventoryScreenTeamButtonMixin {
 	@Unique
 	private Button sharedfate$perkButton;
 
+	/**
+	 * 팀이 없을 때 위의 둘 대신 혼자 서는 단추. 누르면 <b>팀 탭이 펴진 채로</b> 열린다.
+	 *
+	 * <p>위의 둘과 <b>동시에 보이는 일이 없다.</b> 판정은 {@link #sharedfate$layOut()} 한 곳에서만
+	 * 한다 — 두 곳에서 하면 한쪽만 고쳐져 셋이 겹쳐 서는 프레임이 생긴다.
+	 */
+	@Unique
+	private Button sharedfate$createButton;
+
 	/** 이번 프레임에 그릴 능력치 줄들. {@code extractRenderState} 머리에서 다시 잰다. */
 	@Unique
 	private InventoryStatPanel.Layout sharedfate$stats;
@@ -91,9 +113,16 @@ public abstract class InventoryScreenTeamButtonMixin {
 				.bounds(0, 0, InventoryTeamButton.MIN_WIDTH, InventoryTeamButton.HEIGHT)
 				.tooltip(Tooltip.create(Component.literal(InventoryTeamButton.PERK_TOOLTIP)))
 				.build();
+		sharedfate$createButton = Button.builder(
+						Component.literal(InventoryTeamButton.CREATE_LABEL),
+						button -> sharedfate$openTeamTab())
+				.bounds(0, 0, InventoryTeamButton.MIN_WIDTH, InventoryTeamButton.HEIGHT)
+				.tooltip(Tooltip.create(Component.literal(InventoryTeamButton.CREATE_TOOLTIP)))
+				.build();
 		sharedfate$layOut();
 		((ScreenAccessor) this).sharedfate$addRenderableWidget(sharedfate$teamButton);
 		((ScreenAccessor) this).sharedfate$addRenderableWidget(sharedfate$perkButton);
+		((ScreenAccessor) this).sharedfate$addRenderableWidget(sharedfate$createButton);
 	}
 
 	@Inject(method = EXTRACT_RENDER_STATE, at = @At("HEAD"))
@@ -127,6 +156,12 @@ public abstract class InventoryScreenTeamButtonMixin {
 	 *
 	 * <p>단추와 줄들을 <b>한 덩어리</b>로 보고 그 오른쪽 끝을 창(또는 펼친 조합법 책)에
 	 * 붙인다. 덩어리 폭은 둘 중 넓은 쪽이라, 줄이 단추보다 길어도 창을 덮지 않는다.
+	 *
+	 * <p>팀이 있느냐 없느냐도 <b>여기서</b> 판정한다. 매 프레임 다시 묻는 것이 맞다 —
+	 * {@link ClientTeamState} 는 서버가 보낸 값을 그대로 든 정적 필드라 읽는 데 드는 것이 없고,
+	 * 팀이 생기거나 사라지는 순간은 인벤토리가 열려 있는 채로도 온다(초대를 받거나 리더가
+	 * 해체한다). 화면을 다시 만들 계기가 없으므로 여기서 보지 않으면 창을 닫을 때까지 옛 단추가
+	 * 남는다.
 	 */
 	@Unique
 	private void sharedfate$layOut() {
@@ -139,11 +174,17 @@ public abstract class InventoryScreenTeamButtonMixin {
 
 		int available = InventoryTeamButton.available(
 				self.width, window.sharedfate$getImageWidth(), window.sharedfate$getLeftPos());
-		int buttonWidth = InventoryTeamButton.buttonWidth(
-				font.width(InventoryTeamButton.LABEL), available);
-		int perkWidth = InventoryTeamButton.perkButtonWidth(
-				font.width(InventoryTeamButton.PERK_LABEL), available, buttonWidth);
-		int rowWidth = InventoryTeamButton.buttonRowWidth(buttonWidth, perkWidth);
+		boolean inTeam = ClientTeamState.inTeam();
+
+		// 맨 앞에 서는 단추의 글자는 팀이 있느냐에 따라 다르고, 폭은 그 글자를 재서 잡는다.
+		String leadLabel = inTeam ? InventoryTeamButton.LABEL : InventoryTeamButton.CREATE_LABEL;
+		int leadWidth = InventoryTeamButton.buttonWidth(font.width(leadLabel), available);
+		// 팀이 없으면 뒤에 붙을 것이 없다. 0 을 넘기면 buttonRowWidth 가 맨 앞 폭을 그대로 돌려준다.
+		int perkWidth = inTeam
+				? InventoryTeamButton.perkButtonWidth(
+						font.width(InventoryTeamButton.PERK_LABEL), available, leadWidth)
+				: 0;
+		int rowWidth = InventoryTeamButton.buttonRowWidth(leadWidth, perkWidth);
 
 		List<List<StatRow>> groups = ClientStatRows.groups(Minecraft.getInstance().player);
 		sharedfate$stats = InventoryStatPanel.layout(groups, available,
@@ -154,18 +195,21 @@ public abstract class InventoryScreenTeamButtonMixin {
 		int left = InventoryTeamButton.blockLeft(available, blockWidth);
 		int buttonY = InventoryTeamButton.y(window.sharedfate$getTopPos());
 
-		sharedfate$teamButton.setWidth(buttonWidth);
-		sharedfate$teamButton.setPosition(left, buttonY);
-		if (sharedfate$perkButton != null) {
-			// 자리가 모자라면 폭이 0으로 돌아온다. 그때는 아예 감춘다 — 0폭 단추는 안 보이지만
-			// 누를 수는 있어서, 엉뚱한 자리를 눌렀는데 창이 열리는 일이 생긴다.
-			sharedfate$perkButton.visible = perkWidth > 0;
-			if (perkWidth > 0) {
-				sharedfate$perkButton.setWidth(perkWidth);
-				sharedfate$perkButton.setPosition(
-						left + buttonWidth + InventoryTeamButton.BUTTON_GAP, buttonY);
-			}
+		// 감출 때 폭을 0 으로 줄이지 않는다. 0폭 단추는 안 보이지만 눌리는 자리가 남는다.
+		sharedfate$teamButton.visible = inTeam;
+		sharedfate$createButton.visible = !inTeam;
+		Button lead = inTeam ? sharedfate$teamButton : sharedfate$createButton;
+		lead.setWidth(leadWidth);
+		lead.setPosition(left, buttonY);
+
+		// 자리가 모자라면 폭이 0으로 돌아온다. 팀이 없을 때도 같은 길로 내려와 감춰진다.
+		sharedfate$perkButton.visible = perkWidth > 0;
+		if (perkWidth > 0) {
+			sharedfate$perkButton.setWidth(perkWidth);
+			sharedfate$perkButton.setPosition(
+					left + leadWidth + InventoryTeamButton.BUTTON_GAP, buttonY);
 		}
+
 		sharedfate$statLeft = left;
 		sharedfate$statTop = InventoryTeamButton.statTop(window.sharedfate$getTopPos());
 	}
@@ -190,5 +234,16 @@ public abstract class InventoryScreenTeamButtonMixin {
 	@Unique
 	private void sharedfate$openPerkList() {
 		Minecraft.getInstance().setScreenAndShow(TeamScreen.onPerks());
+	}
+
+	/**
+	 * 팀 만들기 양식을 <b>한 번에</b> 연다.
+	 *
+	 * <p>{@link #sharedfate$openPerkList()} 와 같은 길이다 — 탭을 미리 정해 둔 화면을 만들어
+	 * 넘긴다. 기본 탭으로 열면 「팀에 속해 있지 않습니다」를 읽고 「팀」을 한 번 더 눌러야 한다.
+	 */
+	@Unique
+	private void sharedfate$openTeamTab() {
+		Minecraft.getInstance().setScreenAndShow(TeamScreen.onTeam());
 	}
 }

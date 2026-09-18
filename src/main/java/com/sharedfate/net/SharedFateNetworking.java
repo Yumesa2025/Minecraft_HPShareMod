@@ -141,12 +141,18 @@ public final class SharedFateNetworking {
 		// 공중 점프 요청. 세기도 가능 여부도 전부 서버가 다시 따진다.
 		ServerPlayNetworking.registerGlobalReceiver(DoubleJumpPayload.TYPE,
 				(payload, context) -> PerkClientRules.onDoubleJumpRequest(context.player()));
-		// 클라이언트가 알려 준 자기 판. 로그에만 적고 아무 판단도 하지 않는다 — 막는 일은
-		// 규약 번호가 한다. 「누가 어떤 클라이언트를 쓰는지」를 서버에서 알 수 없어 진단이
-		// 오래 걸렸던 적이 있다.
+		// 클라이언트가 알려 준 자기 판. 로그에 적고 ClientVersionRegistry 에 기억해 둔다 —
+		// 이 값으로 아무 판단도 하지 않는 것은 그대로다. 막는 일은 규약 번호가 한다.
+		// 「누가 어떤 클라이언트를 쓰는지」를 서버에서 알 수 없어 진단이 오래 걸렸던 적이 있고,
+		// 로그는 서버를 켤 수 있는 사람만 본다. 기억해 두면 /shareteam version 이 게임 안에서
+		// 같은 물음에 답할 수 있다.
 		ServerPlayNetworking.registerGlobalReceiver(ClientVersionPayload.TYPE,
-				(payload, context) -> SharedFateMod.LOGGER.info("[CLIENT] {} — sharedfate {}",
-						context.player().getPlainTextName(), sanitizeVersion(payload.version())));
+				(payload, context) -> {
+					String version = sanitizeVersion(payload.version());
+					ClientVersionRegistry.remember(context.player().getUUID(), version);
+					SharedFateMod.LOGGER.info("[CLIENT] {} — sharedfate {}",
+							context.player().getPlainTextName(), version);
+				});
 		ServerTickEvents.END_SERVER_TICK.register(TeamBroadcaster::flushSelectedSlots);
 		ServerTickEvents.END_SERVER_TICK.register(TeamBroadcaster::flushTeamLevels);
 		// 서버만 아는 능력치(공격력·받는 피해 배율·몹 배율). 팀에 속하지 않은 사람도
@@ -166,6 +172,8 @@ public final class SharedFateNetworking {
 			PerkClientRules.forget(handler.player.getUUID());
 			StatSnapshotBroadcaster.forget(handler.player.getUUID());
 			PerkSetBroadcaster.forget(handler.player.getUUID());
+			// 나간 사람의 판을 남겨 두면 목록에 다시 들어오지 않은 사람의 옛 값이 계속 뜬다.
+			ClientVersionRegistry.forget(handler.player.getUUID());
 		});
 		ClientModGate.register();
 	}

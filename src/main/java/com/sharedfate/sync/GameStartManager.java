@@ -65,6 +65,11 @@ import java.util.UUID;
  *       시간이 주기 그대로 채워져 첫 교환은 시작으로부터 한 주기 뒤다.</li>
  *   <li><b>난이도 상승</b> — {@code DifficultyEscalation} 이 시간을 세지 않는다.</li>
  *   <li><b>전멸 판정</b> — {@link #blocksDamage} 로 <b>아예 죽지 않는다.</b></li>
+ *   <li><b>스폰에서 멀어지기</b> — 오버월드 월드보더가 스폰 반경 50칸으로 좁혀진다
+ *       ({@code PreStartRestrictions.applySpawnBorder}). 시작하면 원래대로 돌아간다.</li>
+ *   <li><b>블록 파괴</b> — {@code PreStartRestrictions.onBeforeBlockBreak} 가 막는다.</li>
+ *   <li><b>시각</b> — 아침에 붙들려 있다({@code PreStartRestrictions.applyMorningLock}).</li>
+ *   <li><b>허기</b> — 줄지 않는다({@code PreStartRestrictions.freezeHunger}).</li>
  *   <li><b>승리 판정</b> — {@code RunProgressManager.onDeath} 가 시작하지 않은 팀의 드래곤
  *       처치를 회차 승리로 세지 않는다.</li>
  * </ul>
@@ -274,6 +279,7 @@ public final class GameStartManager {
 
 		resetWorldClock(server);
 		wipeItems(state, online);
+		sweepGround(server);
 		restoreLegacyGear(state);
 		resetRunProgress(state);
 		teleportToSpawn(server, online);
@@ -319,8 +325,9 @@ public final class GameStartManager {
 	 *
 	 * <p>{@code InventorySwapper.drainSharedItems} 가 훑는 자리가 곧 이 팀이 가진 전부다 —
 	 * 공유 인벤토리 36칸, 추가 27칸, 방어구·오프핸드, 넘침 목록, 공유 엔더상자 27칸.
-	 * 팀 해체가 같은 메서드로 아이템을 <b>드랍</b>하는 것과 달리 여기서는 받는 쪽이 아무것도
-	 * 하지 않는다.
+	 * 받는 쪽이 아무것도 하지 않으므로 그대로 사라진다. <b>팀 해체도 같은 방식이다</b>
+	 * ({@code InventorySwapper.disbandTeam}) — 예전에는 해체만 아이템을 해체한 사람 발밑에
+	 * 쏟았는데, 지우기로 통일했다.
 	 *
 	 * <p>창을 먼저 닫는다. 상자나 조합대를 연 채로 밑바탕이 비면 클라이언트 쪽 칸이 실제와
 	 * 어긋난 채로 남고, 손에 쥐고 있던 스택은 아예 이 청소를 지나가지 않는다.
@@ -332,6 +339,25 @@ public final class GameStartManager {
 		}
 		InventorySwapper.drainSharedItems(state, stack -> {
 		});
+	}
+
+	/**
+	 * 바닥에 널려 있던 아이템과 경험치 오브를 치운다. <b>{@link #wipeItems} 바로 뒤, 「유산」을
+	 * 돌려주기 전이어야 한다.</b>
+	 *
+	 * <p>인벤토리를 비우는 것만으로는 모자라다. 시작을 기다리는 동안 버리거나 흘린 물건은 바닥에
+	 * 그대로 남아, 「전부 지웠다」고 안내해 놓고 주우러 다니면 되살아난다. 무엇을 지우고 무엇을
+	 * 남기는지는 {@link GroundItemSweeper} 에 적어 뒀다.
+	 *
+	 * <p><b>「유산」보다 먼저여야 한다.</b> 유산 장비는 바닥이 아니라 인벤토리로 들어가므로 이
+	 * 청소에 쓸려 나갈 일은 없지만, 자리가 모자라 넘친 몫이 바닥으로 떨어지는 길이 생기면 그때는
+	 * 순서가 곧 생사를 가른다.
+	 */
+	private static void sweepGround(MinecraftServer server) {
+		int swept = GroundItemSweeper.sweep(server);
+		if (swept > 0) {
+			SharedFateMod.LOGGER.info("[RUN] 게임 시작으로 월드에 떨어진 아이템 {}개를 치웠습니다.", swept);
+		}
 	}
 
 	/**

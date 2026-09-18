@@ -389,43 +389,35 @@
       "tiers": [
         {
           "count": 2,
-          "description": "공격력이 1 늘어납니다.",
+          "description": "공격력이 2 늘어납니다.",
           "effects": [
             {
               "type": "attribute",
               "attribute": "minecraft:attack_damage",
               "operation": "add_value",
-              "amount": 1.0
+              "amount": 2.0
             }
           ]
         },
         {
           "count": 3,
-          "description": "준 피해의 5% 만큼 팀 체력을 회복합니다.",
+          "description": "준 피해의 15% 만큼 팀 체력을 회복합니다.",
           "effects": [
             {
               "type": "lifesteal",
-              "fraction": 0.05
+              "fraction": 0.15
             }
           ]
         },
         {
           "count": 4,
-          "description": "흡혈이 15% 로 오르고 공격력이 0.5 더 늘어납니다. 대신 몹이 35% 더 많이 나옵니다.",
+          "description": "근접 공격이 닿는 거리가 50% 늘어납니다.",
           "effects": [
             {
-              "type": "lifesteal",
-              "fraction": 0.1
-            },
-            {
               "type": "attribute",
-              "attribute": "minecraft:attack_damage",
-              "operation": "add_value",
+              "attribute": "minecraft:entity_interaction_range",
+              "operation": "add_multiplied_total",
               "amount": 0.5
-            },
-            {
-              "type": "mob_spawn_rate",
-              "multiplier": 1.35
             }
           ]
         }

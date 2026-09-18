@@ -103,24 +103,22 @@ public final class InventorySwapper {
 
 	public static void disbandTeam(
 			ServerPlayer dropper, ShareTeam team, TeamState state, TeamManager manager) {
-		int sharedExperience = SharedFateMod.config.shareExperience ? state.totalExperience : 0;
 		List<ServerPlayer> onlineMembers = new ArrayList<>();
-		List<ItemStack> carriedItems = new ArrayList<>();
 		for (var memberId : team.members()) {
 			ServerPlayer online = dropper.level().getServer().getPlayerList().getPlayer(memberId);
 			if (online != null) {
-				ItemStack carried = online.containerMenu.getCarried();
-				if (!carried.isEmpty()) {
-					carriedItems.add(carried);
-					online.containerMenu.setCarried(ItemStack.EMPTY);
-				}
+				// 커서에 쥔 스택은 아래 drainSharedItems 가 훑는 자리 어디에도 없다. 비우지 않으면
+				// 팀이 사라진 뒤에도 클라이언트 커서에 유령 아이템이 남는다.
+				online.containerMenu.setCarried(ItemStack.EMPTY);
 				prepareLeave(online);
 				onlineMembers.add(online);
 			}
 		}
 
-		drainSharedItems(state, stack -> dropper.drop(stack, true, false));
-		carriedItems.forEach(stack -> dropper.drop(stack, true, false));
+		// 해체는 팀의 물건을 해체한 사람 발밑에 쏟지 않고 통째로 지운다 —
+		// GameStartManager.wipeItems 와 같은 방식으로, 받는 쪽이 아무것도 하지 않는다.
+		drainSharedItems(state, stack -> {
+		});
 		if (SharedFateMod.config.shareStatusEffects) {
 			team.members().forEach(manager::markEffectClear);
 		}
@@ -145,8 +143,18 @@ public final class InventorySwapper {
 			}
 			TeamBroadcaster.sendEmpty(online);
 		}
-		if (SharedFateMod.config.shareExperience) {
-			StatMirror.setTotalExperience(dropper, sharedExperience);
+		// 예전에는 여기서 해체한 사람에게 팀 경험치를 몰아줬다. 지금은 몰아주지 않는다 — 위
+		// 루프가 이미 dropper 를 포함한 onlineMembers 전원을 0 으로 만들었으므로, 여기서 다시
+		// 값을 써 넣으면 방금 지운 것을 그 사람에게만 되돌리는 셈이 된다. shareExperience 가
+		// 꺼진 서버에서는 애초에 경험치가 공유되지 않으므로 이 루프가 dropper 의 경험치를
+		// 건드리지 않는다 — 팀과 무관한 개인 경험치를 해체 한 번으로 빼앗는 것은 이 설정의
+		// 취지를 벗어난다.
+
+		// 인벤토리·엔더상자는 지웠어도 그전에 죽거나 버려서 바닥에 널려 있던 아이템은 그대로다.
+		// 로드된 청크 전체를 훑어 마저 치운다 — 자세한 이유는 GroundItemSweeper 를 보라.
+		int sweptEntities = GroundItemSweeper.sweep(dropper.level().getServer());
+		if (sweptEntities > 0) {
+			SharedFateMod.LOGGER.info("[RUN] 팀 해체로 월드에 떨어진 아이템 {}개를 치웠습니다.", sweptEntities);
 		}
 	}
 

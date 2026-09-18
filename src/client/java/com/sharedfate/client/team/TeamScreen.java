@@ -12,6 +12,7 @@ import com.sharedfate.ui.PerkSetLines;
 import com.sharedfate.ui.PerkSetTooltip;
 import com.sharedfate.ui.PerkSetTooltipLines;
 import com.sharedfate.ui.StatRow;
+import com.sharedfate.ui.TeamDisbandWarning;
 import com.sharedfate.ui.TeamNameInput;
 import com.sharedfate.ui.TeamCreationCycle;
 import com.sharedfate.ui.TeamCreationFlow;
@@ -253,6 +254,21 @@ public class TeamScreen extends Screen {
 		return screen;
 	}
 
+	/**
+	 * 팀 탭을 편 채로 연다.
+	 *
+	 * <p>인벤토리의 「팀 생성」 단추가 쓴다. 팀이 없을 때 그 단추가 대신 서는데, 기본 탭으로
+	 * 열면 「팀에 속해 있지 않습니다」만 읽고 다시 「팀」을 눌러야 만들기 양식에 닿는다.
+	 *
+	 * <p>팀이 <b>있을 때</b> 이 길로 들어와도 탈은 없다 — 그때 「팀」 탭은 팀원 목록이라 볼 것이
+	 * 있다. 그래서 단추가 사라지는 순간에 눌린 한 프레임을 따로 막지 않는다.
+	 */
+	public static TeamScreen onTeam() {
+		TeamScreen screen = new TeamScreen();
+		screen.tab = Tab.TEAM;
+		return screen;
+	}
+
 	@Override
 	protected void init() {
 		lastSignature = signature();
@@ -399,8 +415,9 @@ public class TeamScreen extends Screen {
 				.bounds(left, this.height - 54, PANEL_WIDTH / 2 - 2, BUTTON_HEIGHT).build());
 		if (ClientTeamState.isLeader()) {
 			addRenderableWidget(Button.builder(
-					Component.literal("팀 해체").withStyle(ChatFormatting.RED),
-					button -> run("disband confirm"))
+					Component.literal(TeamDisbandWarning.CONFIRM_LABEL)
+							.withStyle(ChatFormatting.RED),
+					button -> openDisbandConfirm())
 					.bounds(left + PANEL_WIDTH / 2 + 2, this.height - 54,
 							PANEL_WIDTH / 2 - 2, BUTTON_HEIGHT).build());
 		}
@@ -420,6 +437,28 @@ public class TeamScreen extends Screen {
 		}
 		startConfirming = false;
 		run(GameStartButton.CONFIRM_COMMAND);
+	}
+
+	/**
+	 * 「팀 해체」를 눌렀다. <b>아직 아무것도 보내지 않는다.</b>
+	 *
+	 * <p>경고창을 띄우고 거기서 한 번 더 확인을 받는다. 무엇이 사라지는지는
+	 * {@link TeamDisbandWarning} 이 적고, 그 창이 확인을 받으면 여기서 넘긴 일이 돈다.
+	 *
+	 * <h2>「게임 시작」처럼 두 번 누르기로 하지 않은 이유</h2>
+	 * <p>{@link #pressStart()} 는 단추 글자만 경고로 바꾸고 두 번째 누름에서 명령을 보낸다.
+	 * 해체는 사라지는 것이 넷이라 <b>단추 한 줄에 다 적을 수 없고</b>, 남는 팀조차 없어 시작과
+	 * 달리 「다시 하면 된다」가 통하지 않는다. 그리고 두 번 누르기는 <b>같은 자리를 두 번</b>
+	 * 누르게 해서, 딸깍이 겹치면 그대로 나간다. 창을 갈아 끼우면 두 번째 누름이 다른 자리로
+	 * 간다.
+	 */
+	private void openDisbandConfirm() {
+		Minecraft client = this.minecraft;
+		if (client == null) {
+			return;
+		}
+		client.setScreenAndShow(new TeamDisbandConfirmScreen(
+				this, () -> run(TeamDisbandWarning.CONFIRM_COMMAND)));
 	}
 
 	/** 설정 줄 {@code index} 의 y 좌표. 0부터 센다. */
