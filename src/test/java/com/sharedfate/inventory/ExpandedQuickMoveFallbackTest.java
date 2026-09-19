@@ -8,7 +8,6 @@ import net.minecraft.world.entity.EntityEquipment;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.AnvilMenu;
 import net.minecraft.world.inventory.CartographyTableMenu;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.CraftingMenu;
@@ -109,12 +108,19 @@ class ExpandedQuickMoveFallbackTest {
 	 * 바닐라가 추가 칸 번호를 어느 갈래에도 걸지 못해 아무 일도 하지 않던 화면들.
 	 *
 	 * <p>대장장이 작업대·양조대·직조기·석재 절단기·화로 계열은 생성자가 {@code inventory.player} 를 거쳐
-	 * 세계나 레지스트리를 찾으므로 살아 있는 세계 없이는 만들 수 없다. 대장장이 작업대는
-	 * 모루와 같은 {@code ItemCombinerMenu} 를 쓰므로 모루가 그 갈래를 대신 지킨다.
+	 * 세계나 레지스트리를 찾으므로 살아 있는 세계 없이는 만들 수 없다.
+	 *
+	 * <p>⚠ <b>모루는 여기서 빠졌다.</b> 모루에 다이아몬드 값을 붙이면서 전용 주입
+	 * ({@code AnvilMenuQuickMoveMixin})이 그 화면의 쉬프트 클릭을 직접 처리하게 됐고, 그래서
+	 * 「바닐라가 손을 놓는다」는 이 목록의 전제가 모루에는 더 이상 맞지 않는다.
+	 *
+	 * <p>그 대가로 <b>{@code ItemCombinerMenu} 갈래를 지키는 표본이 사라졌다.</b> 예전에는
+	 * 모루가 대장장이 작업대 몫까지 대신 지켰다. 그 전용 주입은
+	 * {@code instanceof AnvilMenu} 로 가르므로 대장장이 작업대는 여전히 이 폴백이 처리해야
+	 * 하는데, 그 화면은 세계 없이 만들 수 없어 시험이 닿지 않는다 — <b>눈으로 확인할 자리다.</b>
 	 */
 	private static Map<String, Function<Inventory, AbstractContainerMenu>> deadEndScreens() {
 		Map<String, Function<Inventory, AbstractContainerMenu>> screens = new LinkedHashMap<>();
-		screens.put("모루", inventory -> new AnvilMenu(1, inventory));
 		screens.put("연마석", inventory -> new GrindstoneMenu(1, inventory));
 		screens.put("지도 제작대", inventory -> new CartographyTableMenu(1, inventory));
 		return screens;
@@ -129,7 +135,7 @@ class ExpandedQuickMoveFallbackTest {
 	@Test
 	void 갈_곳이_없으면_빈_스택을_돌려주어_반복문이_끝난다() {
 		Inventory inventory = openInventory();
-		AnvilMenu menu = new AnvilMenu(1, inventory);
+		GrindstoneMenu menu = new GrindstoneMenu(1, inventory);
 		int player = playerStart(menu);
 		for (int index = player; index < player + 36; index++) {
 			menu.getSlot(index).set(new ItemStack(Items.COBBLESTONE, 64));
@@ -147,7 +153,7 @@ class ExpandedQuickMoveFallbackTest {
 	@Test
 	void 옮겼을_때만_원본_사본을_돌려준다() {
 		Inventory inventory = openInventory();
-		AnvilMenu menu = new AnvilMenu(1, inventory);
+		GrindstoneMenu menu = new GrindstoneMenu(1, inventory);
 		int extra = extraStart(menu);
 		menu.getSlot(extra).set(new ItemStack(Items.DIAMOND, 3));
 
@@ -321,7 +327,7 @@ class ExpandedQuickMoveFallbackTest {
 		SharedFateMod.config.mainInventoryRows = 3;
 		try {
 			Inventory inventory = new Inventory(null, new EntityEquipment());
-			AnvilMenu menu = new AnvilMenu(1, inventory);
+			GrindstoneMenu menu = new GrindstoneMenu(1, inventory);
 
 			assertEquals(ExpandedMenuLayout.NONE, extraStart(menu), "추가 칸이 붙지 않는다");
 			for (int index = 0; index < menu.slots.size(); index++) {
@@ -337,7 +343,7 @@ class ExpandedQuickMoveFallbackTest {
 	void 팀이_없으면_추가_칸에서_아무것도_나가지_않는다() {
 		ExpandedInventoryManager.extraFor(null).setClientActive(false);
 		Inventory inventory = new Inventory(null, new EntityEquipment());
-		AnvilMenu menu = new AnvilMenu(1, inventory);
+		GrindstoneMenu menu = new GrindstoneMenu(1, inventory);
 		int extra = extraStart(menu);
 		menu.getSlot(extra).set(new ItemStack(Items.DIAMOND, 3));
 
@@ -350,7 +356,7 @@ class ExpandedQuickMoveFallbackTest {
 	@Test
 	void 바닐라_칸에서_시작한_쉬프트_클릭은_손대지_않는다() {
 		Inventory inventory = openInventory();
-		AnvilMenu menu = new AnvilMenu(1, inventory);
+		GrindstoneMenu menu = new GrindstoneMenu(1, inventory);
 		int player = playerStart(menu);
 
 		assertFalse(ExpandedQuickMoveFallback.fromExtraSlot(menu, player));

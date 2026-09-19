@@ -13,6 +13,7 @@ import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -23,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 /**
  * 증강 정의 보관소.
@@ -174,6 +176,56 @@ public final class PerkRegistry {
 			}
 		}
 		SharedFateMod.LOGGER.info("증강 {}개를 읽었습니다 (건너뜀 {}개)", PERKS.size(), skipped);
+		warnIfCountDiffersFromBundle(file);
+	}
+
+	/**
+	 * 번들 기본 증강 풀의 개수와 실제로 읽은 개수를 견줘, 다르면 경고를 남긴다.
+	 *
+	 * <p>{@code config/sharedfate-perks.json} 은 한 번 만들어지면 판이 올라가도 절대 다시
+	 * 덮어써지지 않는다 — {@link #load} 의 {@code Files.exists} 검사가 그렇게 짜여 있고, 그건
+	 * 운영자가 값을 고쳐 쓸 수 있게 하려는 의도라 옳다. 문제는 그 대가로, 판을 올려 기본 증강이
+	 * 늘었는데 옛 파일을 그대로 들고 있어도 "건너뜀 0개" 로 정상처럼 보이는 로그만 남는다는
+	 * 것이다. 여기서 개수만 견줘 다르면 경고한다 — <b>막지는 않는다.</b> 운영자가 일부러
+	 * 증강을 줄여 쓰는 것일 수도 있어서다. 개수가 같으면 아무 말도 하지 않는다.
+	 */
+	private static void warnIfCountDiffersFromBundle(Path file) {
+		OptionalInt bundled = bundledPerkCount();
+		if (!DefaultDefinitionCount.isStale(bundled, PERKS.size())) {
+			return;
+		}
+		SharedFateMod.LOGGER.warn(
+				"증강 {}개를 읽었습니다. 이 판의 기본 정의는 {}개입니다 — {} 이 낡았을 수"
+						+ " 있습니다. 이 파일은 JAR 안의 기본 정의보다 우선합니다. 값을 직접 고쳐"
+						+ " 쓰는 중이 아니라면 {} 와 {} 를 둘 다 지우고 다시 켜십시오 — 하나만"
+						+ " 지우면 반쪽이 옛 정의로 읽히는데도 오류가 나지 않습니다.",
+				PERKS.size(), bundled.getAsInt(), file, FILE_NAME, PerkSetRegistry.FILE_NAME);
+	}
+
+	/**
+	 * JAR 안에 번들된 기본 증강 개수. {@code writeBundledDefault} 와 같은 리소스를 한 번 더
+	 * 읽어 개수만 센다 — 서버가 뜰 때 한 번뿐이라 비용은 무시해도 된다.
+	 *
+	 * <p>못 읽거나 파싱에 실패하면 경고를 내리지 않도록 빈 값을 돌려준다. 경고를 내려다 여기서
+	 * 새 오류를 만들면 안 된다.
+	 */
+	private static OptionalInt bundledPerkCount() {
+		try (InputStream bundled = PerkRegistry.class.getResourceAsStream("/" + DEFAULT_RESOURCE)) {
+			if (bundled == null) {
+				return OptionalInt.empty();
+			}
+			JsonElement root = JsonParser.parseReader(new InputStreamReader(bundled, StandardCharsets.UTF_8));
+			if (root == null || !root.isJsonObject()) {
+				return OptionalInt.empty();
+			}
+			JsonElement perksElement = root.getAsJsonObject().get("perks");
+			if (perksElement == null || !perksElement.isJsonArray()) {
+				return OptionalInt.empty();
+			}
+			return OptionalInt.of(perksElement.getAsJsonArray().size());
+		} catch (Exception error) {
+			return OptionalInt.empty();
+		}
 	}
 
 	/** 증강 하나를 읽는다. 어디 한 군데라도 잘못됐으면 경고를 남기고 null. */

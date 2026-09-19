@@ -91,7 +91,12 @@ public final class SharedFateNetworking {
 	//     처럼 유형 딱지를 붙이려면 클라이언트가 그 값을 알아야 하는데, 클라이언트는 증강 풀을
 	//     읽지 않으므로 스스로 셀 수 없다. 칸이 늘어 형식이 바뀌었으니 옛 클라이언트는 이
 	//     패킷을 못 읽는다.
-	public static final int PROTOCOL_VERSION = 26;
+	// 27: 모루에 다이아몬드 칸이 하나 늘었다. 인챈트 테이블을 다이아 값으로 바꾸며 규약을
+	//     19로 올렸던 것과 똑같은 이유다 — 메뉴의 칸 수는 서버와 클라이언트가 같아야 하고,
+	//     그 칸을 모르는 클라이언트는 칸 동기화가 어긋나 창이 깨지거나 아이템이 엉뚱한 자리로
+	//     간다. 형식이 바뀌는 것은 아니지만 **막지 않으면 조용히 망가지는** 쪽이라 번호를
+	//     올려 악수 단계에서 걸러낸다(위 ★ 규칙).
+	public static final int PROTOCOL_VERSION = 27;
 
 	private SharedFateNetworking() {
 	}

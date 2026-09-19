@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import com.sharedfate.SharedFateMod;
 
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -15,6 +16,8 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalInt;
 
 /**
  * 세트 보상 정의 보관소.
@@ -199,6 +202,81 @@ public final class PerkSetRegistry {
 		SharedFateMod.LOGGER.info(
 				"세트 {}종 {}단계를 읽었습니다 (건너뜀 {}개, 아직 효과가 비어 있는 단계 {}개)",
 				TIERS.size(), tierCount, skipped, placeholders);
+		warnIfCountDiffersFromBundle(TIERS.size(), tierCount, file);
+	}
+
+	/**
+	 * 번들 기본 세트 정의의 종·단계 개수와 실제로 읽은 개수를 견줘, 다르면 경고를 남긴다.
+	 *
+	 * <p>{@code config/sharedfate-sets.json} 도 {@link PerkRegistry} 의 증강 파일과 똑같은
+	 * 사고를 겪는다 — 한 번 만들어지면 판이 올라가도 절대 다시 덮어써지지 않아, 판을 올려 세트가
+	 * 늘었는데 옛 파일을 그대로 들고 있어도 "건너뜀 0개" 로 정상처럼 보이는 로그만 남는다.
+	 * 종과 단계 둘 다 견주는 이유는, 기존 유형에 단계만 추가되는 경우 종 개수만으로는 못
+	 * 잡기 때문이다. 여기서도 <b>막지는 않는다</b> — 개수가 같으면 아무 말도 하지 않는다.
+	 */
+	private static void warnIfCountDiffersFromBundle(int actualTypes, int actualTiers, Path file) {
+		Optional<BundledCounts> bundled = bundledCounts();
+		OptionalInt expectedTypes = bundled.map(counts -> OptionalInt.of(counts.types())).orElse(OptionalInt.empty());
+		OptionalInt expectedTiers = bundled.map(counts -> OptionalInt.of(counts.tiers())).orElse(OptionalInt.empty());
+		boolean stale = DefaultDefinitionCount.isStale(expectedTypes, actualTypes)
+				|| DefaultDefinitionCount.isStale(expectedTiers, actualTiers);
+		if (!stale) {
+			return;
+		}
+		SharedFateMod.LOGGER.warn(
+				"세트 {}종 {}단계를 읽었습니다. 이 판의 기본 정의는 {}종 {}단계입니다 — {} 이 낡았을"
+						+ " 수 있습니다. 이 파일은 JAR 안의 기본 정의보다 우선합니다. 값을 직접 고쳐"
+						+ " 쓰는 중이 아니라면 {} 와 {} 를 둘 다 지우고 다시 켜십시오 — 하나만"
+						+ " 지우면 반쪽이 옛 정의로 읽히는데도 오류가 나지 않습니다.",
+				actualTypes, actualTiers, expectedTypes.orElse(-1), expectedTiers.orElse(-1),
+				file, FILE_NAME, PerkRegistry.FILE_NAME);
+	}
+
+	/** 번들 세트 정의에서 견줄 두 개수를 함께 담는다. */
+	private record BundledCounts(int types, int tiers) {
+	}
+
+	/**
+	 * JAR 안에 번들된 기본 세트 정의의 종·단계 개수. {@code writeBundledDefault} 와 같은
+	 * 리소스를 한 번 더 읽어 개수만 센다 — 서버가 뜰 때 한 번뿐이라 비용은 무시해도 된다.
+	 *
+	 * <p>단계가 하나도 없는 유형은 {@link #readInto} 가 표에 넣지 않는 것과 맞춰, 여기서도
+	 * 종 수에서 뺀다. type·tiers 형식을 벗어난 항목까지 걸러내는 정식 검증은 하지 않는다 —
+	 * 번들 기본 정의는 항상 유효하다고 보고, 개수만 어림잡아도 경고 판정에는 충분하다.
+	 *
+	 * <p>못 읽거나 파싱에 실패하면 경고를 내리지 않도록 빈 값을 돌려준다. 경고를 내려다
+	 * 여기서 새 오류를 만들면 안 된다.
+	 */
+	private static Optional<BundledCounts> bundledCounts() {
+		try (InputStream bundled = PerkSetRegistry.class.getResourceAsStream("/" + DEFAULT_RESOURCE)) {
+			if (bundled == null) {
+				return Optional.empty();
+			}
+			JsonElement root = JsonParser.parseReader(new InputStreamReader(bundled, StandardCharsets.UTF_8));
+			if (root == null || !root.isJsonObject()) {
+				return Optional.empty();
+			}
+			JsonElement setsElement = root.getAsJsonObject().get("sets");
+			if (setsElement == null || !setsElement.isJsonArray()) {
+				return Optional.empty();
+			}
+			int types = 0;
+			int tiers = 0;
+			for (JsonElement element : setsElement.getAsJsonArray()) {
+				if (element == null || !element.isJsonObject()) {
+					continue;
+				}
+				JsonElement tiersElement = element.getAsJsonObject().get("tiers");
+				if (tiersElement == null || !tiersElement.isJsonArray() || tiersElement.getAsJsonArray().isEmpty()) {
+					continue;
+				}
+				types++;
+				tiers += tiersElement.getAsJsonArray().size();
+			}
+			return Optional.of(new BundledCounts(types, tiers));
+		} catch (Exception error) {
+			return Optional.empty();
+		}
 	}
 
 	/**

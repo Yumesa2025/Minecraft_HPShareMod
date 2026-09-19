@@ -49,6 +49,9 @@
     "BlockExperienceSourceMixin",
     "MobExperienceSourceMixin",
     "NaturalSpawnerRateMixin",
+    "AdvancementRewardsExperienceMixin",
+    "AnvilMenuDiamondMixin",
+    "AnvilMenuQuickMoveMixin",
     "ServerPlayerCritMixin",
     "ServerPlayerDeathMessageMixin",
     "SlotAccessor"

@@ -329,7 +329,7 @@
       "id": "sharedfate:vampire",
       "icon": "minecraft:glow_berries",
       "name": "흡혈귀",
-      "description": "준 피해의 일부를 체력으로 회복하고, 2분마다 흡수 III 이 다시 채워집니다. 대신 허기가 가득 차 있어도 체력이 자연 회복되지 않습니다.",
+      "description": "준 피해의 15%를 체력으로 회복하고, 2분마다 5초간 흡수 II 가 걸립니다. 대신 허기가 가득 차 있어도 체력이 자연 회복되지 않습니다.",
       "rarity": "prism",
       "set_types": [
         "recovery"
@@ -347,12 +347,12 @@
           "period_ticks": 2400,
           "phases": [
             {
-              "ticks": 2399,
+              "ticks": 100,
               "effects": [
                 {
                   "type": "status_effect",
                   "effect": "minecraft:absorption",
-                  "amplifier": 2
+                  "amplifier": 1
                 }
               ]
             }

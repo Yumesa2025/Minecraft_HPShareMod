@@ -16,11 +16,13 @@ import com.sharedfate.ui.TeamDisbandWarning;
 import com.sharedfate.ui.TeamNameInput;
 import com.sharedfate.ui.TeamCreationCycle;
 import com.sharedfate.ui.TeamCreationFlow;
+import com.sharedfate.ui.TeamCreationTooltips;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.client.player.LocalPlayer;
@@ -344,26 +346,31 @@ public class TeamScreen extends Screen {
 			int right = left + PANEL_WIDTH / 2 + 2;
 
 			addRenderableWidget(toggle(left, formRowY(0), half, "증강", newTeamPerks,
-					"사용", "사용 안 함", () -> newTeamPerks = !newTeamPerks));
+					"사용", "사용 안 함", TeamCreationTooltips.PERKS,
+					() -> newTeamPerks = !newTeamPerks));
 			addRenderableWidget(toggle(right, formRowY(0), half, "난이도 상승", newTeamDifficulty,
-					"켬", "끔", () -> newTeamDifficulty = !newTeamDifficulty));
+					"켬", "끔", TeamCreationTooltips.DIFFICULTY,
+					() -> newTeamDifficulty = !newTeamDifficulty));
 
 			addRenderableWidget(toggle(left, formRowY(1), half, "피격 알림", newTeamDamageAlert,
-					"켬", "끔", () -> newTeamDamageAlert = !newTeamDamageAlert));
+					"켬", "끔", TeamCreationTooltips.DAMAGE_ALERT,
+					() -> newTeamDamageAlert = !newTeamDamageAlert));
 			addRenderableWidget(toggle(right, formRowY(1), half, "사망 알림", newTeamDeathAlert,
-					"켬", "끔", () -> newTeamDeathAlert = !newTeamDeathAlert));
+					"켬", "끔", TeamCreationTooltips.DEATH_ALERT,
+					() -> newTeamDeathAlert = !newTeamDeathAlert));
 
 			// 숫자 셋은 누를 때마다 다음 값으로 굴러간다. 위 끝을 넘으면 아래 끝으로 돌아온다.
 			addRenderableWidget(cycle(left, formRowY(2), half,
-					"최대 체력 — " + newTeamMaxHealth,
+					"최대 체력 — " + newTeamMaxHealth, TeamCreationTooltips.MAX_HEALTH,
 					() -> newTeamMaxHealth = TeamCreationCycle.nextMaxHealth(
 							newTeamMaxHealth, MIN_HEALTH, MAX_HEALTH, HEALTH_STEP)));
 			addRenderableWidget(cycle(right, formRowY(2), half,
 					"위치 교환 — " + TeamCreationCycle.swapLabel(newTeamSwapMinutes),
+					TeamCreationTooltips.POSITION_SWAP,
 					() -> newTeamSwapMinutes =
 							TeamCreationCycle.nextSwapMinutes(newTeamSwapMinutes)));
 			addRenderableWidget(cycle(left, formRowY(3), half,
-					"다시 뽑기 — " + newTeamRerollCount + "회",
+					"다시 뽑기 — " + newTeamRerollCount + "회", TeamCreationTooltips.REROLL,
 					() -> newTeamRerollCount = TeamCreationCycle.nextRerollCount(
 							newTeamRerollCount,
 							TeamCreationSettings.MIN_REROLL_COUNT,
@@ -471,15 +478,20 @@ public class TeamScreen extends Screen {
 	 *
 	 * <p>글자만으로도 지금 값이 보이지만 색까지 바꾼다. 일곱을 훑을 때 무엇이 켜져 있는지
 	 * 한눈에 들어와야 한다.
+	 *
+	 * @param tooltip 마우스를 올리면 뜨는 설명. 이 설정이 실제로 무엇을 켜고 끄는지
+	 *                {@link TeamCreationTooltips} 가 확인한 그대로 적는다
 	 */
 	private Button toggle(int x, int y, int width, String label, boolean value,
-			String onText, String offText, Runnable flip) {
+			String onText, String offText, String tooltip, Runnable flip) {
 		Component text = Component.literal(label + " — " + (value ? onText : offText))
 				.withStyle(value ? ChatFormatting.GREEN : ChatFormatting.GRAY);
 		return Button.builder(text, button -> {
 			flip.run();
 			rebuild();
-		}).bounds(x, y, width, FORM_BUTTON_HEIGHT).build();
+		}).bounds(x, y, width, FORM_BUTTON_HEIGHT)
+				.tooltip(Tooltip.create(Component.literal(tooltip)))
+				.build();
 	}
 
 	/**
@@ -487,12 +499,16 @@ public class TeamScreen extends Screen {
 	 *
 	 * <p>켜고 끄기와 달리 색을 바꾸지 않는다. 어떤 값이 「켜짐」인지 정할 수 없는 값들이라,
 	 * 초록·회색으로 물들이면 없는 뜻이 생긴다.
+	 *
+	 * @param tooltip 마우스를 올리면 뜨는 설명. {@link #toggle} 과 같은 출처를 쓴다
 	 */
-	private Button cycle(int x, int y, int width, String label, Runnable next) {
+	private Button cycle(int x, int y, int width, String label, String tooltip, Runnable next) {
 		return Button.builder(Component.literal(label), button -> {
 			next.run();
 			rebuild();
-		}).bounds(x, y, width, FORM_BUTTON_HEIGHT).build();
+		}).bounds(x, y, width, FORM_BUTTON_HEIGHT)
+				.tooltip(Tooltip.create(Component.literal(tooltip)))
+				.build();
 	}
 
 	/**
