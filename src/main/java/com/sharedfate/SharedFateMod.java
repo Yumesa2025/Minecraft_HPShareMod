@@ -101,6 +101,9 @@ public class SharedFateMod implements ModInitializer {
 			TeamLookup.setServer(null);
 			ExpandedInventoryManager.clearRuntimeState();
 			WorldResetCoordinator.reset();
+			// 대기는 정적 상태라 한 프로세스에서 서버를 껐다 켜면 살아남는다. 다음 서버에서
+			// /yes 한 번에 초기화가 도는 일을 막는다.
+			com.sharedfate.command.RunResetCommand.reset();
 			RunProgressManager.reset();
 			PerkManager.reset();
 			PerkHealthRules.reset();
@@ -250,6 +253,8 @@ public class SharedFateMod implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(
 				com.sharedfate.sync.PreStartRestrictions::applyMorningLock);
 		ServerTickEvents.END_SERVER_TICK.register(WorldResetCoordinator::tick);
+		// 서버 초기화 되묻기의 30초를 세는 자리. 시간이 지나면 요청한 사람에게만 알린다.
+		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.command.RunResetCommand::tick);
 		ServerTickEvents.END_SERVER_TICK.register(RunProgressManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PositionSwapManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.sync.StaggeredSwapManager::tick);

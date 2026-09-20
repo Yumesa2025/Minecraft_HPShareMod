@@ -48,6 +48,9 @@ public final class RunProgressManager {
 			state = RunProgressState.firstRun();
 			SharedFateMod.LOGGER.error("회차 파일을 읽지 못해 메모리에서 1회차로 시작합니다: {}", stateFile, e);
 		}
+		// 운영자 초기화 표식이 있으면 여기서 회차를 1로 누른다. 보스바를 만들기 전이고
+		// TeamRosterStore.onServerStarted 보다도 앞이라, 명단 복원이 이미 1회차를 본다.
+		forceFirstRunIfRequested(server);
 		if (SharedFateMod.config.showRunBossBar) {
 			lastBossBarTitle = title(server);
 			bossBar = new ServerBossEvent(BOSS_EVENT_ID, lastBossBarTitle, color(server),
@@ -80,6 +83,32 @@ public final class RunProgressManager {
 		return state == null ? 1 : state.runNumber();
 	}
 
+	/**
+	 * 운영자 초기화가 남긴 표식을 보고 회차를 1로 되돌린다.
+	 *
+	 * <p>루프 스크립트가 월드를 지운 뒤 {@code runNumber++} 를 하므로, 초기화 명령이 종료 전에
+	 * 회차를 1로 적어 둘 수가 없다 — 적어 두면 다음 회차가 2가 된다. 스크립트는
+	 * {@code runNumber < 1} 을 보면 예외를 던지고 죽으므로 0 을 심어 두는 길도 막혀 있다.
+	 * 그래서 <b>다시 뜬 뒤인 지금</b> 누른다.
+	 *
+	 * <p>표식이 손상됐거나 남의 서버 것이면 {@link RunResetMarker#consume} 이 거짓을 돌려주고
+	 * 로그만 남긴다. 그때 회차를 건드리면 남의 진행이 사라진다.
+	 */
+	private static void forceFirstRunIfRequested(MinecraftServer server) {
+		if (!RunResetMarker.consume(server.getServerDirectory())) {
+			return;
+		}
+		int previous = state.runNumber();
+		state = RunProgressState.firstRun();
+		try {
+			state.save(stateFile);
+		} catch (IOException e) {
+			SharedFateMod.LOGGER.error("되돌린 회차를 저장하지 못했습니다: {}", stateFile, e);
+		}
+		SharedFateMod.LOGGER.warn(
+				"[RUN] 초기화 표식을 보고 회차를 {}에서 1로 되돌렸습니다.", previous);
+	}
+
 	public static void onDeath(LivingEntity entity, DamageSource source) {
 		if (!(entity instanceof EnderDragon dragon)
 				|| SharedFateMod.config == null
@@ -89,21 +118,27 @@ public final class RunProgressManager {
 		}
 
 		MinecraftServer server = dragon.level().getServer();
-		Player killer = dragon.getLastHurtByPlayer();
-		ShareTeam winningTeam = killer == null ? null : TeamManager.get(server).teamOf(killer.getUUID());
-		// 시작하지 않은 팀이 드래곤을 잡아도 회차 승리가 아니다. 시작 전에는 회차 자체가 없고,
-		// 여기서 승리로 세면 아무도 시작하지 않은 회차가 끝나 버린다.
-		if (winningTeam != null
-				&& GameStartManager.waiting(
-						TeamManager.get(server).stateByTeamId(winningTeam.teamId()))) {
+		// 처치자를 찾는 일은 통째로 VictoryTeamResolver 가 한다. 「간접 처치면 아무도 못 찾아
+		// 승리 책과 회차 기록이 통째로 빠진다」는 사고가 여기 있었다 — 왜 네 단계인지는 그
+		// 클래스 문서에 적어 뒀다. 「아직 시작하지 않은 팀은 승리로 세지 않는다」도 그쪽으로
+		// 옮겼다. 4단계가 이미 같은 규칙을 품고 있어, 두 곳에 두면 언젠가 어긋난다.
+		VictoryTeamResolver.Resolution resolved =
+				VictoryTeamResolver.resolve(server, dragon, source);
+		if (!resolved.victory()) {
 			SharedFateMod.LOGGER.info(
 					"[RUN] 아직 시작하지 않은 팀 '{}' 의 드래곤 처치라 승리로 세지 않습니다.",
-					winningTeam.name());
+					resolved.teamName());
 			return;
 		}
+		ShareTeam winningTeam = resolved.team();
+		Player killer = VictoryTeamResolver.killerPlayer(server, resolved);
 		String winningName = winningTeam != null
 				? winningTeam.name()
 				: killer != null ? killer.getPlainTextName() : "모험가";
+		// 간접 처치는 로그만 보고는 원인을 알 수 없던 종류라 어느 단계에서 찾았는지 남긴다.
+		SharedFateMod.LOGGER.info(
+				"[RUN] 드래곤 처치자 판정: outcome={} team={} killer={}",
+				resolved.outcome(), resolved.teamName(), resolved.killer());
 		declareVictory(server, winningTeam, killer, winningName);
 	}
 

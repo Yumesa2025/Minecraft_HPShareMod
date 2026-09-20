@@ -677,6 +677,26 @@ public final class DamageLedger {
 		PENDING_SOURCE.clear();
 	}
 
+	/**
+	 * 기록을 통째로 버리고 <b>「저장할 것이 있다」로 표시한다.</b> 서버 초기화가 쓰는 자리다.
+	 *
+	 * <p>파일을 지우지 않는다. 지워 봐야 {@link #flushIfDirty} 가 메모리에 있는 것을 그대로
+	 * 다시 적기 때문이다. 비우고 {@code dirty} 로 표시해 두면 <b>그다음 저장이 빈 파일을</b>
+	 * 남긴다 — 1초마다 도는 {@link #flushIfDue} 든 종료 때의 {@link #resetRuntime} 이든,
+	 * 어느 쪽이 먼저 닿아도 결과는 같다.
+	 *
+	 * <p>{@link #clearState} 와 다른 점은 <b>어느 파일에 적을지를 잊지 않는다</b>는 것이다.
+	 * 그쪽은 시험이 쓰는 자리라 {@code file} 까지 버리는데, 여기서 그러면 그 뒤의 저장이 아무
+	 * 데도 가지 않아 옛 기록이 담긴 파일이 그대로 살아남는다.
+	 */
+	public static void clearAllRecords() {
+		data = new LedgerFile();
+		// 적어 두기만 하고 아직 기록에 안 들어간 출처도 함께 버린다. 남겨 두면 초기화 직후의
+		// 첫 피해가 지운 회차의 출처를 물고 들어온다.
+		PENDING_SOURCE.clear();
+		dirty = true;
+	}
+
 	public static void resetRuntime() {
 		flushIfDirty();
 		clearState();

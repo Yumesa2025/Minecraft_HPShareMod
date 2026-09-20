@@ -26,6 +26,7 @@ import com.sharedfate.team.TeamCreationSettings;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.team.TeamState;
 import com.sharedfate.ui.GameStartButton;
+import com.sharedfate.ui.RunResetMessages;
 import com.sharedfate.ui.VersionLines;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.ChatFormatting;
@@ -116,8 +117,16 @@ public final class ShareTeamCommand {
 								.requires(source -> source.permissions()
 										.hasPermission(Permissions.COMMANDS_GAMEMASTER))
 								.executes(ShareTeamCommand::versionAll)))
-				.then(Commands.literal("status").executes(context -> status(context, config))));
+				.then(Commands.literal("status").executes(context -> status(context, config)))
+				// 서버를 처음 상태로 되돌린다. 되묻기와 수락은 RunResetCommand 가 맡는다.
+				// 확인 낱말을 하위 명령으로도 받아야 /st 수락 이 리다이렉트로 따라온다.
+				.then(RunResetCommand.node())
+				.then(RunResetCommand.confirmNode(RunResetMessages.CONFIRM_WORD_EN))
+				.then(RunResetCommand.confirmNode(RunResetMessages.CONFIRM_WORD_KO)));
 		registerAlias(dispatcher, root);
+		// /yes · /수락 은 최상위로도 받는다. 되돌릴 수 없는 것을 눈앞에 두고 /shareteam 부터
+		// 치게 하면 오타가 난다.
+		RunResetCommand.registerTopLevel(dispatcher);
 		registerStorageAlias(dispatcher);
 	}
 

@@ -72,7 +72,7 @@ Minecraft Java Edition 26.3 / Fabric 용입니다.
 > 바뀌지 않았지만 **그것과 무관하게** 마인크래프트 판이 다르면 함께 쓸 수 없습니다.
 > 26.2 에 머무를 분은 0.26.7-dev 를 그대로 쓰십시오.
 
-> 현재 버전은 **`0.27.1-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
+> 현재 버전은 **`0.28.0-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
 > SharedFate 버전을 사용해야 합니다.
 >
 > **0.26.4-dev 이하에서 올라오는 경우 서버와 모든 클라이언트를 함께 갱신하세요.** 통신 규약이
@@ -83,7 +83,7 @@ Minecraft Java Edition 26.3 / Fabric 용입니다.
 > 0.19.0-dev 는 19, 0.20.0-dev 는 20, 0.21.0-dev 는 21,
 > 0.22.0-dev~0.23.0-dev 는 22, 0.24.0-dev 는 23,
 > 0.25.0-dev~0.25.3-dev 는 24, 0.25.4-dev~0.26.1-dev 는 25,
-> 0.26.2-dev~0.26.4-dev 는 26, 0.26.5-dev~0.27.1-dev 는 27입니다.)
+> 0.26.2-dev~0.26.4-dev 는 26, 0.26.5-dev~0.28.0-dev 는 27입니다.)
 >
 > **누가 어떤 판을 쓰는지는 게임 안에서 `/shareteam version` 으로 확인할 수 있습니다.**
 
@@ -91,12 +91,12 @@ Minecraft Java Edition 26.3 / Fabric 용입니다.
 
 | 파일 | 용도 |
 |---|---|
-| [SharedFate-0.27.1-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.27.1-dev/SharedFate-0.27.1-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
-| [SharedFate-0.27.1-dev-server.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.27.1-dev/SharedFate-0.27.1-dev-server.zip) | 서버를 여는 사람용. 모드 두 개와 **재시작 루프 스크립트**, 설치 안내 포함 |
-| [sharedfate-0.27.1-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.27.1-dev/sharedfate-0.27.1-dev.jar) | 수동 설치용 모드 JAR 하나 |
-| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.27.1-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
+| [SharedFate-0.28.0-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.28.0-dev/SharedFate-0.28.0-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
+| [SharedFate-0.28.0-dev-server.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.28.0-dev/SharedFate-0.28.0-dev-server.zip) | 서버를 여는 사람용. 모드 두 개와 **재시작 루프 스크립트**, 설치 안내 포함 |
+| [sharedfate-0.28.0-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.28.0-dev/sharedfate-0.28.0-dev.jar) | 수동 설치용 모드 JAR 하나 |
+| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.28.0-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
 
-[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.27.1-dev)
+[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.28.0-dev)
 
 ### 클라이언트 설치
 
@@ -188,7 +188,17 @@ JAR 에서 읽으므로, 실행 중에 파일이 바뀌면 아직 읽지 않은 
 /shareteam version all          접속 중인 전원의 판 (운영자 전용)
 /shareteam leave
 /shareteam disband confirm
+/shareteam reset                서버를 처음 상태로 되돌립니다 (운영자 전용)
+/yes  ·  /수락                   위 초기화를 확정합니다 (30초 안에, 친 사람만)
 ```
+
+**`/shareteam reset` 은 서버를 통째로 되돌립니다.** 회차·팀·보유 증강·피해 기록·월드가 전부
+사라지고 1회차로 돌아갑니다. 무엇이 지워지는지 먼저 보여 주고 기다리며, 확정하면 5초 뒤
+서버가 종료되고 재시작 루프 스크립트가 새 월드로 다시 엽니다. `/shareteam yes` ·
+`/st 수락` 으로도 확정할 수 있습니다.
+
+> ⚠ **재시작 루프 스크립트로 켠 서버에서만 쓰십시오.** `java -jar` 로 직접 띄운 서버는
+> 꺼진 채로 돌아오지 않습니다.
 
 **초대에 수락 절차가 없습니다.** 리더가 `invite` 를 치면 상대가 곧바로 들어옵니다.
 그때 상대의 개인 아이템은 있던 자리에 드랍되고 개인 경험치는 공유 풀에 합쳐지므로,

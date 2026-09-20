@@ -4,6 +4,7 @@ import com.sharedfate.SharedFateMod;
 import com.sharedfate.team.ShareTeam;
 import com.sharedfate.net.WorldResetPayload;
 import com.sharedfate.ui.GameOverCountdown;
+import com.sharedfate.ui.RunResetMessages;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -48,6 +49,8 @@ import java.nio.file.StandardOpenOption;
 public final class WorldResetCoordinator {
 	public static final String MARKER_FILE_NAME = ".sharedfate-world-reset.pending";
 	public static final String MARKER_HEADER = "sharedfate-world-reset-v1";
+	/** 초기화 경로가 로그에 쓰는 이름. 전멸 경로의 팀 이름 자리에 들어간다. */
+	private static final String RUN_RESET_LABEL = "운영자 초기화";
 
 	private static MinecraftServer pendingServer;
 	private static int ticksRemaining;
@@ -88,23 +91,60 @@ public final class WorldResetCoordinator {
 		return pendingServer != null && ticksRemaining > 0;
 	}
 
+	/**
+	 * 운영자 초기화 명령이 쓰는 진입점.
+	 *
+	 * <p>{@link #request(MinecraftServer, ShareTeam)} 와 달리 {@code resetWorldOnTeamDeath}
+	 * 설정도 승리 여부도 보지 않는다. 그 둘은 「전멸로 월드를 갈아엎을 것인가」에 대한 답이지
+	 * 「운영자가 서버를 초기화할 수 있는가」에 대한 답이 아니다. 연출과 종료 절차는 전멸 경로와
+	 * <b>똑같은 것을 그대로</b> 쓴다 — 카운트다운이 끝나면 {@link #tick} 이 명단을 저장하고
+	 * 표식을 남기고 서버를 내린다.
+	 *
+	 * @return 걸린 카운트다운 길이(틱). 이미 예약된 종료가 있어 걸지 못했으면 0
+	 */
+	public static int requestRunReset(MinecraftServer server) {
+		if (pendingServer != null) {
+			return 0;
+		}
+		// 설정을 아직 못 읽었어도 초기화는 돌아야 한다. 그때는 모드 기본값 5초로 센다.
+		int delayTicks = SharedFateMod.config == null
+				? GameOverCountdown.DEFAULT_SECONDS * GameOverCountdown.TICKS_PER_SECOND
+				: SharedFateMod.config.worldResetDelayTicks;
+		arm(server, RUN_RESET_LABEL, delayTicks,
+				RunResetMessages.announcement(GameOverCountdown.secondsRemaining(delayTicks)));
+		SharedFateMod.LOGGER.warn(
+				"운영자 초기화로 서버 종료를 예약했습니다: delayTicks={}", delayTicks);
+		return delayTicks;
+	}
+
 	private static void request(MinecraftServer server, String teamName) {
 		if (pendingServer != null) {
 			return;
 		}
+		int delayTicks = SharedFateMod.config.worldResetDelayTicks;
+		int seconds = GameOverCountdown.secondsRemaining(delayTicks);
+		arm(server, teamName, delayTicks, GameOverCountdown.wipeAnnouncement(teamName, seconds));
+		SharedFateMod.LOGGER.warn(
+				"팀 전멸로 월드 초기화를 예약했습니다: team={}, delayTicks={}", teamName, delayTicks);
+	}
+
+	/**
+	 * 카운트다운을 실제로 건다. 전멸 경로와 초기화 경로가 <b>같은 절차</b>를 쓰게 하는 자리다.
+	 *
+	 * <p>여기가 갈라지면 한쪽만 고쳤을 때 다른 쪽이 조용히 다르게 돈다. 클라이언트는
+	 * {@code WorldResetPayload} 로 받은 길이를 스스로 세어 내려간다.
+	 */
+	private static void arm(MinecraftServer server, String label, int delayTicks,
+			String announcement) {
 		pendingServer = server;
-		ticksRemaining = SharedFateMod.config.worldResetDelayTicks;
-		pendingTeamName = teamName;
+		ticksRemaining = delayTicks;
+		pendingTeamName = label;
 		WorldResetPayload payload = new WorldResetPayload(
 				RunProgressManager.runNumber(), ticksRemaining);
 		for (var player : server.getPlayerList().getPlayers()) {
 			ServerPlayNetworking.send(player, payload);
 		}
-		int seconds = GameOverCountdown.secondsRemaining(ticksRemaining);
-		server.getPlayerList().broadcastSystemMessage(
-				Component.literal(GameOverCountdown.wipeAnnouncement(teamName, seconds)), false);
-		SharedFateMod.LOGGER.warn(
-				"팀 전멸로 월드 초기화를 예약했습니다: team={}, delayTicks={}", teamName, ticksRemaining);
+		server.getPlayerList().broadcastSystemMessage(Component.literal(announcement), false);
 	}
 
 	public static void tick(MinecraftServer server) {
