@@ -1217,6 +1217,23 @@ public class PerkOfferScreen extends Screen {
 		return Math.round(ENTRY_RISE * remaining * remaining * remaining);
 	}
 
+	/**
+	 * 카드를 고르는 버튼인가.
+	 *
+	 * <p><b>숫자를 박으면 안 된다.</b> 26.3 이 GLFW 를 SDL 로 바꾸면서 버튼 번호가 통째로
+	 * 달라졌다 — 왼쪽이 {@code 0} 에서 {@code 1} 로, 오른쪽이 {@code 1} 에서 {@code 3} 으로
+	 * 갔다. 예전에 {@code button == 0} 으로 적어 둔 탓에 26.3 에서 <b>카드가 한 번도 눌리지
+	 * 않았다.</b> 빌드도 시험도 통과하고 화면도 멀쩡히 떠서, 눌러 봐야만 아는 실패였다.
+	 *
+	 * <p>키 코드도 같이 바뀌었다({@code KEY_ESCAPE} 가 256 → 41). 입력 값은 언제나
+	 * {@link InputConstants} 를 거쳐 쓴다.
+	 *
+	 * <p>순수 함수로 떼어 둔 것은 {@code PerkOfferScreenClickTest} 가 붙들기 위해서다.
+	 */
+	static boolean isSelectClick(int button) {
+		return button == InputConstants.MOUSE_BUTTON_LEFT;
+	}
+
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 		// 겹판이 펴져 있으면 그 위의 클릭은 뒤로 새지 않는다. 목록을 보려고 누른 것이
@@ -1224,7 +1241,7 @@ public class PerkOfferScreen extends Screen {
 		if (ownedOpen && ownedPanel.contains(event.x(), event.y())) {
 			return true;
 		}
-		if (clickable() && !ownedOpen && event.button() == 0) {
+		if (clickable() && !ownedOpen && isSelectClick(event.button())) {
 			for (int index = 0; index < cards.size(); index++) {
 				int left = cardLeft(index);
 				if (isInside(event.x(), event.y(), left, left + cardWidth,
