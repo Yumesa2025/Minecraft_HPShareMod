@@ -24,21 +24,30 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 /**
  * 증강 정의 보관소.
  *
- * <p>{@code config/sharedfate-perks.json} 에서 읽은 목록과 Java로 등록한 custom 핸들러를
- * 합쳐서 id로 찾을 수 있게 해 준다.
+ * <p>모드 안에 들어 있는 기본 정의와 Java로 등록한 custom 핸들러를 합쳐서 id로 찾을 수 있게
+ * 해 준다.
  *
- * <p>이 클래스는 어떤 경우에도 예외를 위로 던지지 않는다. 파일이 없으면 빈 풀로,
- * 파일이 깨졌으면 읽을 수 있는 것만으로 시작한다. 잘못된 증강 하나가 서버를 멈추면 안 된다.
+ * <p><b>0.26.7-dev 부터 {@code config/} 에 정의 파일을 만들지도 읽지도 않는다.</b> 예전에는
+ * 파일이 없을 때만 꺼내 놓고 그다음부터는 그 파일만 읽었는데, 판을 올려도 덮어쓰지 않아
+ * <b>판마다 사람이 손으로 지워야 했다.</b> 하나만 지우면 반쪽이 옛 정의로 읽히는데 오류도
+ * 나지 않아 되풀이해서 당하던 자리다. 정의를 모드 안에만 두면 그 사고가 통째로 사라진다.
+ *
+ * <p>이 클래스는 어떤 경우에도 예외를 위로 던지지 않는다. 정의를 못 읽으면 빈 풀로,
+ * 깨졌으면 읽을 수 있는 것만으로 시작한다. 잘못된 증강 하나가 서버를 멈추면 안 된다.
  */
 public final class PerkRegistry {
-	/** 설정 폴더 안의 증강 정의 파일 이름. */
+	/**
+	 * 예전에 설정 폴더에 만들어 두던 증강 정의 파일 이름.
+	 *
+	 * <p>지금은 <b>읽지 않는다.</b> 남아 있는 파일을 알아보고 「이제 안 쓴다」고 알려 주는 데와
+	 * ({@link LegacyDefinitionFiles}), 시험이 임의의 풀을 주입하는 데만 쓴다.
+	 */
 	public static final String FILE_NAME = "sharedfate-perks.json";
-	/** 모드 안에 들어 있는 기본 증강 풀. 설정 파일이 없으면 이걸 꺼내 놓는다. */
+	/** 모드 안에 들어 있는 기본 증강 풀. 생산 경로는 언제나 이것을 읽는다. */
 	private static final String DEFAULT_RESOURCE = "sharedfate-perks-default.json";
 
 	private static final Map<String, Perk> PERKS = new LinkedHashMap<>();
@@ -49,13 +58,47 @@ public final class PerkRegistry {
 	}
 
 	/**
-	 * {@code configDir/sharedfate-perks.json} 을 읽어 증강 풀을 다시 만든다.
-	 * 파일이 없으면 빈 풀로 시작한다. custom 핸들러 등록은 그대로 유지된다.
+	 * 모드 안의 기본 증강 풀을 읽어 풀을 다시 만든다. <b>생산 경로는 이것 하나뿐이다.</b>
+	 *
+	 * <p>설정 폴더를 보지 않으므로 「옛 정의 파일이 남아 있어 새 증강이 안 들어온다」는 사고가
+	 * 일어날 수 없다. custom 핸들러 등록은 그대로 유지된다.
 	 */
-	public static synchronized void load(Path configDir) {
+	public static synchronized void loadBundled() {
 		PERKS.clear();
 		// 대가 표시는 효과 객체의 신원으로 걸려 있다. 정의를 다시 읽으면 객체가 통째로 새로
 		// 만들어지므로 옛 표시는 아무도 가리키지 않는 쓰레기가 된다.
+		PerkDrawbacks.clear();
+		loaded = true;
+
+		try (InputStream bundled = PerkRegistry.class.getResourceAsStream("/" + DEFAULT_RESOURCE)) {
+			if (bundled == null) {
+				SharedFateMod.LOGGER.error("모드 안에 기본 증강 풀이 없어 빈 풀로 시작합니다: {}",
+						DEFAULT_RESOURCE);
+				return;
+			}
+			JsonElement root =
+					JsonParser.parseReader(new InputStreamReader(bundled, StandardCharsets.UTF_8));
+			readInto(root, DEFAULT_RESOURCE);
+		} catch (Exception error) {
+			SharedFateMod.LOGGER.error("기본 증강 풀을 읽지 못해 빈 풀로 시작합니다: {}",
+					DEFAULT_RESOURCE, error);
+			PERKS.clear();
+		}
+	}
+
+	/**
+	 * 주어진 폴더의 {@link #FILE_NAME} 을 읽어 증강 풀을 다시 만든다.
+	 *
+	 * <p><b>생산 경로가 아니다.</b> 서버도 클라이언트도 이것을 부르지 않는다 —
+	 * {@link #loadBundled()} 만 부른다. 이 메서드는 <b>시험이 임의의 증강 풀을 주입하는
+	 * 주입구</b>로만 남아 있다. 여기를 다시 생산 경로로 끌어오면 판을 올릴 때마다 정의 파일을
+	 * 손으로 지워야 하는 옛 사고가 그대로 돌아온다 —
+	 * {@code SharedFateModDefinitionSourceTest} 가 그것을 막는다.
+	 *
+	 * <p>파일이 없어도 <b>만들지 않는다.</b> 빈 풀로 시작할 뿐이다.
+	 */
+	public static synchronized void load(Path configDir) {
+		PERKS.clear();
 		PerkDrawbacks.clear();
 		loaded = true;
 
@@ -65,40 +108,17 @@ public final class PerkRegistry {
 		}
 
 		Path file = configDir.resolve(FILE_NAME);
-		if (!Files.exists(file) && !writeBundledDefault(file)) {
+		if (!Files.exists(file)) {
 			SharedFateMod.LOGGER.info("증강 정의 파일이 없어 빈 풀로 시작합니다: {}", file);
 			return;
 		}
 
 		try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
 			JsonElement root = JsonParser.parseReader(reader);
-			readInto(root, file);
+			readInto(root, file.toString());
 		} catch (Exception error) {
 			SharedFateMod.LOGGER.warn("증강 정의 파일을 읽지 못해 빈 풀로 시작합니다: {}", file, error);
 			PERKS.clear();
-		}
-	}
-
-	/**
-	 * 모드에 들어 있는 기본 증강 풀을 설정 폴더로 꺼내 놓는다.
-	 *
-	 * @return 꺼내 놓기에 성공했으면 true
-	 */
-	private static boolean writeBundledDefault(Path file) {
-		try (InputStream bundled = PerkRegistry.class.getResourceAsStream("/" + DEFAULT_RESOURCE)) {
-			if (bundled == null) {
-				return false;
-			}
-			Path parent = file.getParent();
-			if (parent != null) {
-				Files.createDirectories(parent);
-			}
-			Files.copy(bundled, file);
-			SharedFateMod.LOGGER.info("기본 증강 풀을 만들었습니다: {}", file);
-			return true;
-		} catch (Exception error) {
-			SharedFateMod.LOGGER.warn("기본 증강 풀을 만들지 못했습니다: {}", file, error);
-			return false;
 		}
 	}
 
@@ -146,14 +166,14 @@ public final class PerkRegistry {
 		loaded = false;
 	}
 
-	private static void readInto(JsonElement root, Path file) {
+	private static void readInto(JsonElement root, String source) {
 		if (root == null || !root.isJsonObject()) {
-			SharedFateMod.LOGGER.warn("증강 정의 파일의 최상위가 객체가 아닙니다: {}", file);
+			SharedFateMod.LOGGER.warn("증강 정의의 최상위가 객체가 아닙니다: {}", source);
 			return;
 		}
 		JsonElement perksElement = root.getAsJsonObject().get("perks");
 		if (perksElement == null || !perksElement.isJsonArray()) {
-			SharedFateMod.LOGGER.warn("증강 정의 파일에 perks 배열이 없습니다: {}", file);
+			SharedFateMod.LOGGER.warn("증강 정의에 perks 배열이 없습니다: {}", source);
 			return;
 		}
 
@@ -176,56 +196,6 @@ public final class PerkRegistry {
 			}
 		}
 		SharedFateMod.LOGGER.info("증강 {}개를 읽었습니다 (건너뜀 {}개)", PERKS.size(), skipped);
-		warnIfCountDiffersFromBundle(file);
-	}
-
-	/**
-	 * 번들 기본 증강 풀의 개수와 실제로 읽은 개수를 견줘, 다르면 경고를 남긴다.
-	 *
-	 * <p>{@code config/sharedfate-perks.json} 은 한 번 만들어지면 판이 올라가도 절대 다시
-	 * 덮어써지지 않는다 — {@link #load} 의 {@code Files.exists} 검사가 그렇게 짜여 있고, 그건
-	 * 운영자가 값을 고쳐 쓸 수 있게 하려는 의도라 옳다. 문제는 그 대가로, 판을 올려 기본 증강이
-	 * 늘었는데 옛 파일을 그대로 들고 있어도 "건너뜀 0개" 로 정상처럼 보이는 로그만 남는다는
-	 * 것이다. 여기서 개수만 견줘 다르면 경고한다 — <b>막지는 않는다.</b> 운영자가 일부러
-	 * 증강을 줄여 쓰는 것일 수도 있어서다. 개수가 같으면 아무 말도 하지 않는다.
-	 */
-	private static void warnIfCountDiffersFromBundle(Path file) {
-		OptionalInt bundled = bundledPerkCount();
-		if (!DefaultDefinitionCount.isStale(bundled, PERKS.size())) {
-			return;
-		}
-		SharedFateMod.LOGGER.warn(
-				"증강 {}개를 읽었습니다. 이 판의 기본 정의는 {}개입니다 — {} 이 낡았을 수"
-						+ " 있습니다. 이 파일은 JAR 안의 기본 정의보다 우선합니다. 값을 직접 고쳐"
-						+ " 쓰는 중이 아니라면 {} 와 {} 를 둘 다 지우고 다시 켜십시오 — 하나만"
-						+ " 지우면 반쪽이 옛 정의로 읽히는데도 오류가 나지 않습니다.",
-				PERKS.size(), bundled.getAsInt(), file, FILE_NAME, PerkSetRegistry.FILE_NAME);
-	}
-
-	/**
-	 * JAR 안에 번들된 기본 증강 개수. {@code writeBundledDefault} 와 같은 리소스를 한 번 더
-	 * 읽어 개수만 센다 — 서버가 뜰 때 한 번뿐이라 비용은 무시해도 된다.
-	 *
-	 * <p>못 읽거나 파싱에 실패하면 경고를 내리지 않도록 빈 값을 돌려준다. 경고를 내려다 여기서
-	 * 새 오류를 만들면 안 된다.
-	 */
-	private static OptionalInt bundledPerkCount() {
-		try (InputStream bundled = PerkRegistry.class.getResourceAsStream("/" + DEFAULT_RESOURCE)) {
-			if (bundled == null) {
-				return OptionalInt.empty();
-			}
-			JsonElement root = JsonParser.parseReader(new InputStreamReader(bundled, StandardCharsets.UTF_8));
-			if (root == null || !root.isJsonObject()) {
-				return OptionalInt.empty();
-			}
-			JsonElement perksElement = root.getAsJsonObject().get("perks");
-			if (perksElement == null || !perksElement.isJsonArray()) {
-				return OptionalInt.empty();
-			}
-			return OptionalInt.of(perksElement.getAsJsonArray().size());
-		} catch (Exception error) {
-			return OptionalInt.empty();
-		}
 	}
 
 	/** 증강 하나를 읽는다. 어디 한 군데라도 잘못됐으면 경고를 남기고 null. */

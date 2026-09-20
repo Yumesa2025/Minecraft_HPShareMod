@@ -41,24 +41,31 @@ class PerkRegistryTest {
 		PerkRegistry.clear();
 	}
 
+	/**
+	 * 파일이 없으면 빈 풀이고, <b>파일을 만들지도 않는다.</b>
+	 *
+	 * <p>0.26.6-dev 까지는 여기서 번들 기본 풀을 설정 폴더로 꺼내 놓았다. 그래서 한 번 만들어진
+	 * 파일이 판을 올려도 덮어써지지 않아 <b>판마다 사람이 손으로 지워야 했다.</b> 이제 정의는
+	 * 모드 안에만 있다 — {@link PerkRegistry#loadBundled()}.
+	 */
 	@Test
-	void 파일이_없으면_기본_풀을_꺼내_놓는다(@TempDir Path dir) {
+	void 파일이_없으면_빈_풀이고_파일도_만들지_않는다(@TempDir Path dir) {
 		PerkRegistry.load(dir);
 
 		assertTrue(PerkRegistry.isLoaded(), "파일이 없어도 로드는 끝난 것으로 본다");
-		assertTrue(Files.exists(dir.resolve(PerkRegistry.FILE_NAME)),
-				"모드에 들어 있는 기본 풀이 설정 폴더로 나와야 한다");
-		assertFalse(PerkRegistry.all().isEmpty(), "기본 풀에는 증강이 들어 있다");
+		assertFalse(Files.exists(dir.resolve(PerkRegistry.FILE_NAME)),
+				"정의 파일을 꺼내 놓으면 판을 올릴 때마다 손으로 지워야 하는 옛 사고가 돌아온다");
+		assertTrue(PerkRegistry.all().isEmpty(), "읽을 것이 없으면 빈 풀이다");
 		assertTrue(PerkRegistry.byId("sharedfate:없는것").isEmpty());
 	}
 
 	@Test
-	void 꺼내_놓은_기본_풀을_그대로_다시_읽는다(@TempDir Path dir) {
-		PerkRegistry.load(dir);
+	void 모드_안의_정의는_거듭_읽어도_같다() {
+		PerkRegistry.loadBundled();
 		int first = PerkRegistry.all().size();
+		assertFalse(PerkRegistry.all().isEmpty(), "기본 풀에는 증강이 들어 있다");
 
-		// 두 번째 로드는 파일이 이미 있으므로 덮어쓰지 않고 그대로 읽어야 한다.
-		PerkRegistry.load(dir);
+		PerkRegistry.loadBundled();
 
 		assertEquals(first, PerkRegistry.all().size());
 	}

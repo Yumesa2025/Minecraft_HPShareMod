@@ -177,9 +177,9 @@ class FoodNutritionEffectTest {
 	}
 
 	@Test
-	void 기본_풀에_실린_음식_허기_증강_셋이_그대로_읽힌다(@TempDir Path dir) {
-		// 설정 파일이 없으면 모드에 들어 있는 기본 풀이 그대로 꺼내진다.
-		PerkRegistry.load(dir);
+	void 기본_풀에_실린_음식_허기_증강_셋이_그대로_읽힌다() {
+		// 정의는 모드 안에만 있다. 설정 폴더를 보지 않는다.
+		PerkRegistry.loadBundled();
 
 		TeamState state = TeamState.fresh(20.0F);
 		state.perksEnabled = true;

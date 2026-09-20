@@ -344,10 +344,9 @@ class BlockBreakPerkTest {
 	// ------------------------------------------------------------------ 증강 풀 통합
 
 	@Test
-	void 기본_풀의_두_증강이_읽힌다(@TempDir Path dir) throws IOException {
-		// 모드에 들어 있는 기본 풀을 그대로 꺼내 읽는다. 정의 파일이 없으면 PerkRegistry 가
-		// 번들 기본값을 복사해 놓는다.
-		PerkRegistry.load(dir);
+	void 기본_풀의_두_증강이_읽힌다() {
+		// 모드 안의 기본 풀을 그대로 읽는다. 설정 폴더는 보지 않는다.
+		PerkRegistry.loadBundled();
 
 		Perk greedy = PerkRegistry.byId("sharedfate:greedy_pickaxe").orElseThrow();
 		assertEquals("욕심 많은 곡괭이", greedy.name());

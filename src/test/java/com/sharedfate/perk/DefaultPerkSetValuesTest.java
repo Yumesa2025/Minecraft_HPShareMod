@@ -69,7 +69,7 @@ class DefaultPerkSetValuesTest {
 	 */
 	@Test
 	void 기본_세트_정의는_하나도_버려지지_않고_읽힌다(@TempDir Path dir) throws IOException {
-		load(dir);
+		load();
 		JsonObject raw = bundled();
 
 		int declaredTypes = 0;
@@ -140,7 +140,7 @@ class DefaultPerkSetValuesTest {
 	 */
 	@Test
 	void 세트_수정자_id는_증강_것과_겹치지_않는다(@TempDir Path dir) throws IOException {
-		load(dir);
+		load();
 
 		Set<Identifier> perkIds = new HashSet<>();
 		for (Perk perk : PerkRegistry.all()) {
@@ -168,7 +168,7 @@ class DefaultPerkSetValuesTest {
 	/** 유형이 둘인 증강은 실제 풀에서도 양쪽에 세어진다. */
 	@Test
 	void 원정_준비물과_피의_대가는_두_유형에_다_세어진다(@TempDir Path dir) throws IOException {
-		load(dir);
+		load();
 
 		Map<PerkSetType, Integer> counts = PerkSets.countByType(
 				List.of("sharedfate:expedition_kit", "sharedfate:price_of_blood"),
@@ -184,7 +184,7 @@ class DefaultPerkSetValuesTest {
 
 	@Test
 	void 화력_2단계는_공격력_2다(@TempDir Path dir) throws IOException {
-		AttributeEffect attack = attribute(tier(dir, PerkSetType.POWER, 2), "minecraft:attack_damage");
+		AttributeEffect attack = attribute(tier(PerkSetType.POWER, 2), "minecraft:attack_damage");
 
 		assertEquals(2.0, attack.amount(), 1.0e-9);
 		assertEquals(AttributeModifier.Operation.ADD_VALUE, attack.operation());
@@ -198,7 +198,7 @@ class DefaultPerkSetValuesTest {
 	 */
 	@Test
 	void 생존_2단계는_max_health_bonus_로_체력_2다(@TempDir Path dir) throws IOException {
-		PerkSets.Tier tier = tier(dir, PerkSetType.SURVIVAL, 2);
+		PerkSets.Tier tier = tier(PerkSetType.SURVIVAL, 2);
 		MaxHealthBonusEffect bonus =
 				assertInstanceOf(MaxHealthBonusEffect.class, tier.effects().get(0));
 
@@ -213,7 +213,7 @@ class DefaultPerkSetValuesTest {
 	@Test
 	void 기동_3단계는_낙하_피해_80퍼센트_감소다(@TempDir Path dir) throws IOException {
 		AttributeEffect fall =
-				attribute(tier(dir, PerkSetType.MOBILITY, 3), "minecraft:fall_damage_multiplier");
+				attribute(tier(PerkSetType.MOBILITY, 3), "minecraft:fall_damage_multiplier");
 
 		assertEquals(-0.8, fall.amount(), 1.0e-9);
 		assertEquals(AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL, fall.operation());
@@ -222,7 +222,7 @@ class DefaultPerkSetValuesTest {
 	@Test
 	void 화력_3단계는_흡혈_15퍼센트다(@TempDir Path dir) throws IOException {
 		LifestealEffect lifesteal = assertInstanceOf(LifestealEffect.class,
-				tier(dir, PerkSetType.POWER, 3).effects().get(0));
+				tier(PerkSetType.POWER, 3).effects().get(0));
 
 		assertEquals(0.15, lifesteal.fractionFor(), 1.0e-9);
 	}
@@ -246,7 +246,7 @@ class DefaultPerkSetValuesTest {
 	 */
 	@Test
 	void 화력_4단계는_근접_사거리_50퍼센트_증가뿐이다(@TempDir Path dir) throws IOException {
-		PerkSets.Tier tier = tier(dir, PerkSetType.POWER, 4);
+		PerkSets.Tier tier = tier(PerkSetType.POWER, 4);
 		AttributeEffect reach = attribute(tier, "minecraft:entity_interaction_range");
 
 		assertEquals(0.5, reach.amount(), 1.0e-9);
@@ -258,7 +258,7 @@ class DefaultPerkSetValuesTest {
 	@Test
 	void 채굴_3단계는_다이아를_2개_더_준다(@TempDir Path dir) throws IOException {
 		BonusDropEffect bonus = assertInstanceOf(BonusDropEffect.class,
-				tier(dir, PerkSetType.MINING, 3).effects().get(0));
+				tier(PerkSetType.MINING, 3).effects().get(0));
 
 		assertEquals(1.0, bonus.chanceFor(), 1.0e-9);
 		assertEquals(2, bonus.extra());
@@ -273,7 +273,7 @@ class DefaultPerkSetValuesTest {
 	@Test
 	void 교환_2단계는_4초짜리_버프_넷이다(@TempDir Path dir) throws IOException {
 		OnSwapEffect onSwap = assertInstanceOf(OnSwapEffect.class,
-				tier(dir, PerkSetType.SWAP, 2).effects().get(0));
+				tier(PerkSetType.SWAP, 2).effects().get(0));
 
 		assertEquals(4, onSwap.grants().size());
 		for (OnSwapEffect.Grant grant : onSwap.grants()) {
@@ -291,7 +291,7 @@ class DefaultPerkSetValuesTest {
 	 */
 	@Test
 	void 무기에도_보상이_있다(@TempDir Path dir) throws IOException {
-		load(dir);
+		load();
 
 		List<PerkSets.Tier> tiers = PerkSetRegistry.tiersOf(PerkSetType.WEAPON);
 		assertFalse(tiers.isEmpty(), "무기에 단계가 하나도 없으면 여섯을 모아도 아무 일이 없다");
@@ -303,17 +303,13 @@ class DefaultPerkSetValuesTest {
 
 	// ------------------------------------------------------------------ 도우미
 
-	/** 번들 기본 정의를 임시 폴더에 풀어 두 레지스트리에 모두 올린다. */
-	private static void load(Path dir) throws IOException {
+	/** 모드 안의 기본 정의를 두 레지스트리에 모두 올린다. */
+	private static void load() {
 		if (!PerkRegistry.isLoaded()) {
-			try (InputStream bundled = DefaultPerkSetValuesTest.class
-					.getResourceAsStream("/sharedfate-perks-default.json")) {
-				Files.copy(bundled, dir.resolve(PerkRegistry.FILE_NAME));
-			}
-			PerkRegistry.load(dir);
+			PerkRegistry.loadBundled();
 		}
 		if (!PerkSetRegistry.isLoaded()) {
-			PerkSetRegistry.load(dir);
+			PerkSetRegistry.loadBundled();
 		}
 	}
 
@@ -327,8 +323,8 @@ class DefaultPerkSetValuesTest {
 		}
 	}
 
-	private static PerkSets.Tier tier(Path dir, PerkSetType type, int count) throws IOException {
-		load(dir);
+	private static PerkSets.Tier tier(PerkSetType type, int count) {
+		load();
 		return PerkSetRegistry.tiersOf(type).stream()
 				.filter(candidate -> candidate.count() == count)
 				.findFirst()

@@ -488,8 +488,8 @@ class ItemGrantEffectTest {
 	// ------------------------------------------------------------------ 기본 풀
 
 	@Test
-	void 기본_풀의_즉시_지급_증강_두_개를_읽는다(@TempDir Path dir) {
-		PerkRegistry.load(dir);
+	void 기본_풀의_즉시_지급_증강_두_개를_읽는다() {
+		PerkRegistry.loadBundled();
 
 		Perk ration = PerkRegistry.byId("sharedfate:emergency_ration").orElseThrow();
 		assertEquals("비상식량", ration.name());

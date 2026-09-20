@@ -225,8 +225,8 @@ class SneakSpeedEffectTest {
 	 * 풀에서 빠지거나 아무 일도 안 하는 정의</b>가 되므로, 그것을 여기서 붙들어 둔다.
 	 */
 	@Test
-	void 기본_풀의_숨죽인_걸음이_이_효과를_쓴다(@TempDir Path dir) throws IOException {
-		PerkRegistry.load(dir);
+	void 기본_풀의_숨죽인_걸음이_이_효과를_쓴다() {
+		PerkRegistry.loadBundled();
 
 		Perk perk = PerkRegistry.byId("sharedfate:hushed_step").orElseThrow(
 				() -> new AssertionError("증강이 풀에서 빠졌다. sneak_speed 가 등록돼 있는지 본다"));

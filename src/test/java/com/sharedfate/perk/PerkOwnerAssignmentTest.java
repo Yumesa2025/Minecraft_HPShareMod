@@ -37,8 +37,8 @@ class PerkOwnerAssignmentTest {
 
 	/** 기본 풀에서 실제로 겪은 둘. {@code OwnerBoundEffect} 표지가 붙어 있어야 한다. */
 	@Test
-	void 비행_부적과_열외는_주인이_필요하다(@TempDir Path directory) {
-		loadDefaults(directory);
+	void 비행_부적과_열외는_주인이_필요하다() {
+		loadDefaults();
 
 		assertTrue(needsOwner("sharedfate:flight_charm"), "비행 부적");
 		assertTrue(needsOwner("sharedfate:swap_exempt"), "열외");
@@ -46,8 +46,8 @@ class PerkOwnerAssignmentTest {
 
 	/** 「호위」는 {@code damage_ward} 로, 「몽둥이찜질」은 넉백 교체로 주인을 본다. */
 	@Test
-	void 호위와_몽둥이찜질도_주인이_필요하다(@TempDir Path directory) {
-		loadDefaults(directory);
+	void 호위와_몽둥이찜질도_주인이_필요하다() {
+		loadDefaults();
 
 		assertTrue(needsOwner("sharedfate:bodyguard"), "호위");
 	}
@@ -59,24 +59,24 @@ class PerkOwnerAssignmentTest {
 	 * 나쁜 결과라, 반대 방향도 반드시 못박는다.
 	 */
 	@Test
-	void 팀_전체_증강은_주인을_잡지_않는다(@TempDir Path directory) {
-		loadDefaults(directory);
+	void 팀_전체_증강은_주인을_잡지_않는다() {
+		loadDefaults();
 
 		assertFalse(needsOwner("sharedfate:porter"), "짐꾼은 팀 전체의 칸을 연다");
 		assertFalse(needsOwner("sharedfate:excavator"), "굴착기는 팀 전체가 빨라진다");
 	}
 
 	@Test
-	void 모르는_증강은_주인을_잡지_않는다(@TempDir Path directory) {
-		loadDefaults(directory);
+	void 모르는_증강은_주인을_잡지_않는다() {
+		loadDefaults();
 
 		assertFalse(PerkHolderManager.needsOwner(null));
 		assertFalse(needsOwner("sharedfate:그런것은없다"));
 	}
 
-	/** jar 안의 기본 풀을 임시 폴더에 만들어 읽힌다. 파일이 없으면 PerkRegistry 가 기본값을 쓴다. */
-	private static void loadDefaults(Path directory) {
-		PerkRegistry.load(directory);
+	/** 모드 안의 기본 풀을 읽힌다. 설정 폴더는 보지 않는다. */
+	private static void loadDefaults() {
+		PerkRegistry.loadBundled();
 	}
 
 	private static boolean needsOwner(String perkId) {

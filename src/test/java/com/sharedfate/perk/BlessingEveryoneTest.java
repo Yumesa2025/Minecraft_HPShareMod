@@ -62,7 +62,7 @@ class BlessingEveryoneTest {
 
 	@Test
 	void 셋까지는_고른_사람에게만_걸린다(@TempDir Path dir) throws IOException {
-		TeamState state = 가호를가진팀(dir, 3);
+		TeamState state = 가호를가진팀(3);
 
 		assertTrue(PerkBlessingSet.appliesTo(state, "sharedfate:cudgel", 주인));
 		assertFalse(PerkBlessingSet.appliesTo(state, "sharedfate:cudgel", 남),
@@ -73,7 +73,7 @@ class BlessingEveryoneTest {
 
 	@Test
 	void 넷을_모으면_전원에게_걸린다(@TempDir Path dir) throws IOException {
-		TeamState state = 가호를가진팀(dir, 4);
+		TeamState state = 가호를가진팀(4);
 
 		assertTrue(PerkBlessingSet.appliesTo(state, "sharedfate:cudgel", 주인));
 		assertTrue(PerkBlessingSet.appliesTo(state, "sharedfate:cudgel", 남),
@@ -85,7 +85,7 @@ class BlessingEveryoneTest {
 
 	@Test
 	void 가호가_아닌_증강은_언제나_고른_사람만이다(@TempDir Path dir) throws IOException {
-		TeamState state = 가호를가진팀(dir, 4);
+		TeamState state = 가호를가진팀(4);
 		state.ownedPerks.add("sharedfate:rotating_buff");
 		state.perkOwners.put("sharedfate:rotating_buff", 주인);
 
@@ -96,7 +96,7 @@ class BlessingEveryoneTest {
 
 	@Test
 	void 넷을_모으면_팀_전원이_교환에서_빠진다(@TempDir Path dir) throws IOException {
-		TeamState state = 가호를가진팀(dir, 4);
+		TeamState state = 가호를가진팀(4);
 
 		SwapExemptEffect everyone = SwapExemptEffect.everyoneIn(state);
 		assertNotNull(everyone, "「가호 4」면 열외가 팀 전원에게 걸린다");
@@ -107,7 +107,7 @@ class BlessingEveryoneTest {
 	@Test
 	void 셋까지는_고른_사람만_교환에서_빠진다(@TempDir Path dir) throws IOException {
 		// 셋만 모은 팀에도 열외 자체는 들어 있다(위 목록의 맨 앞).
-		TeamState state = 가호를가진팀(dir, 3);
+		TeamState state = 가호를가진팀(3);
 
 		assertNull(SwapExemptEffect.everyoneIn(state), "셋이면 전원에게 걸리지 않는다");
 		assertEquals(List.of(남), PerkSwapRules.swapParticipantIds(state, List.of(주인, 남)),
@@ -116,7 +116,7 @@ class BlessingEveryoneTest {
 
 	@Test
 	void 증강을_꺼_둔_팀에는_아무것도_걸리지_않는다(@TempDir Path dir) throws IOException {
-		TeamState state = 가호를가진팀(dir, 4);
+		TeamState state = 가호를가진팀(4);
 		state.perksEnabled = false;
 
 		assertNull(SwapExemptEffect.everyoneIn(state));
@@ -129,8 +129,8 @@ class BlessingEveryoneTest {
 	 *
 	 * <p>세트 판정은 {@code ownedPerks} 를 매번 다시 세므로 목록에 넣는 것만으로 단계가 켜진다.
 	 */
-	private TeamState 가호를가진팀(Path dir, int count) throws IOException {
-		loadDefaultPool(dir);
+	private TeamState 가호를가진팀(int count) {
+		loadDefaultPool();
 		TeamState state = TeamState.fresh(20.0F);
 		state.perksEnabled = true;
 		for (int i = 0; i < count; i++) {
@@ -142,21 +142,17 @@ class BlessingEveryoneTest {
 	}
 
 	/**
-	 * 번들 기본 정의를 임시 폴더에 풀어 <b>두 레지스트리에 모두</b> 올린다.
+	 * 모드 안의 기본 정의를 <b>두 레지스트리에 모두</b> 올린다.
 	 *
 	 * <p>세트 정의를 함께 올리지 않으면 가호 단계가 하나도 안 켜져 언제나 {@code NORMAL} 이
 	 * 된다 — 판정이 세트 정의에 적힌 단계를 읽기 때문이다.
 	 */
-	private static void loadDefaultPool(Path dir) throws IOException {
+	private static void loadDefaultPool() {
 		if (!PerkRegistry.isLoaded()) {
-			try (InputStream bundled = BlessingEveryoneTest.class
-					.getResourceAsStream("/sharedfate-perks-default.json")) {
-				Files.copy(bundled, dir.resolve(PerkRegistry.FILE_NAME));
-			}
-			PerkRegistry.load(dir);
+			PerkRegistry.loadBundled();
 		}
 		if (!PerkSetRegistry.isLoaded()) {
-			PerkSetRegistry.load(dir);
+			PerkSetRegistry.loadBundled();
 		}
 	}
 }

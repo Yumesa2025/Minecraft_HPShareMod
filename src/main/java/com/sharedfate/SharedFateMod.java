@@ -62,8 +62,12 @@ public class SharedFateMod implements ModInitializer {
 	public void onInitialize() {
 		config = SharedFateConfig.loadOrCreate(
 				FabricLoader.getInstance().getConfigDir().resolve("sharedfate.json"));
-		PerkRegistry.load(FabricLoader.getInstance().getConfigDir());
-		PerkSetRegistry.load(FabricLoader.getInstance().getConfigDir());
+		// 정의는 모드 안에만 있다. config/ 를 보지 않으므로 「옛 정의 파일이 남아 새 증강이 안
+		// 들어온다」는 사고가 일어날 수 없다. 남아 있는 옛 파일은 읽지 않고 한 번 알리기만 한다.
+		PerkRegistry.loadBundled();
+		PerkSetRegistry.loadBundled();
+		com.sharedfate.perk.LegacyDefinitionFiles.noticeIfPresent(
+				FabricLoader.getInstance().getConfigDir());
 		SharedFateNetworking.register();
 		// 「가호」 세트가 holder 증강의 모드를 정한다. 판정기를 꽂지 않으면 언제나 NORMAL 이라
 		// 세트 3·4 단계가 아무 일도 하지 않는다.
