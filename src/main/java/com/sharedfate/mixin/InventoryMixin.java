@@ -100,7 +100,7 @@ public abstract class InventoryMixin {
 
 	@Inject(method = "clearOrCountMatchingItems", at = @At("RETURN"), cancellable = true)
 	private void sharedfate$clearOrCountExtraItems(
-			Predicate<ItemStack> predicate, int maximum, Container other,
+			Predicate<ItemStack> predicate, boolean simulate, int maximum, Container other,
 			CallbackInfoReturnable<Integer> cir) {
 		if (!ExpandedInventoryManager.enabled() || !(this.player instanceof ServerPlayer)) {
 			return;
@@ -111,7 +111,7 @@ public abstract class InventoryMixin {
 		}
 		int remaining = maximum == 0 ? 0 : maximum - counted;
 		int extra = ExpandedInventoryManager.extraFor(this.player)
-				.clearOrCountMatchingItems(predicate, remaining, maximum == 0);
+				.clearOrCountMatchingItems(predicate, remaining, simulate);
 		cir.setReturnValue(counted + extra);
 	}
 

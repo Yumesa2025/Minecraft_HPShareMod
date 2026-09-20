@@ -3,6 +3,7 @@ package com.sharedfate.mixin;
 import com.sharedfate.sync.ExperienceBonus;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -78,27 +79,27 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Block.class)
 public abstract class BlockExperienceSourceMixin {
 	@Inject(
-			method = "playerDestroy(Lnet/minecraft/world/level/Level;"
-					+ "Lnet/minecraft/world/entity/player/Player;"
+			method = "playerDestroy(Lnet/minecraft/server/level/ServerLevel;"
+					+ "Lnet/minecraft/server/level/ServerPlayer;"
 					+ "Lnet/minecraft/core/BlockPos;"
 					+ "Lnet/minecraft/world/level/block/state/BlockState;"
 					+ "Lnet/minecraft/world/level/block/entity/BlockEntity;"
 					+ "Lnet/minecraft/world/item/ItemStack;)V",
 			at = @At("HEAD"))
-	private void sharedfate$beginBlockExperience(Level level, Player player, BlockPos pos,
+	private void sharedfate$beginBlockExperience(ServerLevel level, ServerPlayer player, BlockPos pos,
 			BlockState state, BlockEntity blockEntity, ItemStack tool, CallbackInfo callback) {
 		ExperienceBonus.beginBlockExperience(player, pos, state);
 	}
 
 	@Inject(
-			method = "playerDestroy(Lnet/minecraft/world/level/Level;"
-					+ "Lnet/minecraft/world/entity/player/Player;"
+			method = "playerDestroy(Lnet/minecraft/server/level/ServerLevel;"
+					+ "Lnet/minecraft/server/level/ServerPlayer;"
 					+ "Lnet/minecraft/core/BlockPos;"
 					+ "Lnet/minecraft/world/level/block/state/BlockState;"
 					+ "Lnet/minecraft/world/level/block/entity/BlockEntity;"
 					+ "Lnet/minecraft/world/item/ItemStack;)V",
 			at = @At("RETURN"))
-	private void sharedfate$endBlockExperience(Level level, Player player, BlockPos pos,
+	private void sharedfate$endBlockExperience(ServerLevel level, ServerPlayer player, BlockPos pos,
 			BlockState state, BlockEntity blockEntity, ItemStack tool, CallbackInfo callback) {
 		ExperienceBonus.endBlockExperience();
 	}

@@ -89,7 +89,12 @@ class SpreadDamageTargetTest {
 				"Entity.invulnerableTime 이 사라졌거나 이름이 바뀌었다");
 
 		assertEquals(int.class, field.getType());
-		assertTrue(Modifier.isPublic(field.getModifiers()), "직접 읽고 쓰는 칸이다");
 		assertFalse(Modifier.isFinal(field.getModifiers()));
+
+		// 26.3 에서 칸이 private 이 되고 접근자가 생겼다. 우리는 그 접근자로 읽고 쓴다.
+		assertDoesNotThrow(() -> Entity.class.getMethod("getInvulnerableTime"),
+				"무적 시간을 읽을 길이 없어졌다");
+		assertDoesNotThrow(() -> Entity.class.getMethod("setInvulnerableTime", int.class),
+				"무적 시간을 되돌릴 길이 없어졌다");
 	}
 }

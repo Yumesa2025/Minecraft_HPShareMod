@@ -1,7 +1,7 @@
 # SharedFate
 
 체력 하나, 인벤토리 하나로 최대 네 명이 엔더 드래곤을 잡는 협동 로그라이크입니다.
-Minecraft Java Edition 26.2 / Fabric 용입니다.
+Minecraft Java Edition 26.3 / Fabric 용입니다.
 
 전멸하면 월드가 통째로 사라지고 새 월드에서 다음 회차가 시작됩니다. 엔더 드래곤을 잡으면
 그 회차가 승리로 끝납니다. 그사이 팀은 공유 레벨이 오를 때마다 **증강**을 하나씩 골라,
@@ -67,7 +67,12 @@ Minecraft Java Edition 26.2 / Fabric 용입니다.
 - 인벤토리가 꽉 차 못 받은 물건이 쌓이는 팀 창고 (`/창고`)
 - 화면 왼쪽 위의 좌표·바이옴 표시와, 인벤토리 왼쪽의 능력치 여덟 줄
 
-> 현재 버전은 **`0.26.5-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
+> ⚠ **0.27.0-dev 부터는 마인크래프트 26.3 전용입니다. 26.2 에서는 아예 켜지지 않습니다.**
+> 서버와 모든 클라이언트가 **마인크래프트 자체를 26.3 으로** 올려야 합니다. 통신 규약(27)은
+> 바뀌지 않았지만 **그것과 무관하게** 마인크래프트 판이 다르면 함께 쓸 수 없습니다.
+> 26.2 에 머무를 분은 0.26.7-dev 를 그대로 쓰십시오.
+
+> 현재 버전은 **`0.27.0-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
 > SharedFate 버전을 사용해야 합니다.
 >
 > **0.26.4-dev 이하에서 올라오는 경우 서버와 모든 클라이언트를 함께 갱신하세요.** 통신 규약이
@@ -86,16 +91,16 @@ Minecraft Java Edition 26.2 / Fabric 용입니다.
 
 | 파일 | 용도 |
 |---|---|
-| [SharedFate-0.26.5-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.26.5-dev/SharedFate-0.26.5-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
-| [SharedFate-0.26.5-dev-server.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.26.5-dev/SharedFate-0.26.5-dev-server.zip) | 서버를 여는 사람용. 모드 두 개와 **재시작 루프 스크립트**, 설치 안내 포함 |
-| [sharedfate-0.26.5-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.26.5-dev/sharedfate-0.26.5-dev.jar) | 수동 설치용 모드 JAR 하나 |
-| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.26.5-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
+| [SharedFate-0.27.0-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.27.0-dev/SharedFate-0.27.0-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
+| [SharedFate-0.27.0-dev-server.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.27.0-dev/SharedFate-0.27.0-dev-server.zip) | 서버를 여는 사람용. 모드 두 개와 **재시작 루프 스크립트**, 설치 안내 포함 |
+| [sharedfate-0.27.0-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.27.0-dev/sharedfate-0.27.0-dev.jar) | 수동 설치용 모드 JAR 하나 |
+| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.27.0-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
 
-[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.26.5-dev)
+[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.27.0-dev)
 
 ### 클라이언트 설치
 
-1. Minecraft 26.2와 Fabric Loader 0.19.3 이상을 설치합니다.
+1. Minecraft 26.3과 Fabric Loader 0.19.5 이상을 설치합니다.
 2. 게임과 런처를 완전히 종료합니다.
 3. 클라이언트 ZIP을 풀어 안내 파일을 읽습니다.
 4. `%appdata%\.minecraft\mods`에서 이전 `sharedfate-*.jar`를 제거합니다.
@@ -103,7 +108,7 @@ Minecraft Java Edition 26.2 / Fabric 용입니다.
 6. Fabric 프로필로 게임을 실행해 같은 버전의 서버에 접속합니다.
 
 Java 25가 필요합니다. SharedFate JAR만 받았다면 Fabric API
-`0.156.0+26.2` 이상도 직접 설치해야 합니다.
+`0.161.0+26.3` 이상도 직접 설치해야 합니다.
 
 ### 업데이트와 제거
 
@@ -119,7 +124,7 @@ Java 25가 필요합니다. SharedFate JAR만 받았다면 Fabric API
 
 요약하면 이렇습니다.
 
-1. Fabric 서버(**Minecraft 26.2 / Loader 0.19.3 이상**)를 준비합니다.
+1. Fabric 서버(**Minecraft 26.3 / Loader 0.19.5 이상**)를 준비합니다.
 2. `mods` 에 SharedFate JAR 와 Fabric API 를 넣습니다.
 3. **재시작 루프 스크립트로 켭니다.** 서버 ZIP 이나 저장소 `scripts/` 에 있습니다.
    - Windows — `start-sharedfate-server.bat`

@@ -222,7 +222,7 @@ public abstract class LivingEntityPerkDamageMixin {
 	 * 규칙을 바꾸면 여기도 함께 바뀌어야 한다.
 	 */
 	private float effectiveAmount(LivingEntity self, DamageSource source, float amount) {
-		if (self.invulnerableTime > 10 && !source.is(DamageTypeTags.BYPASSES_COOLDOWN)) {
+		if (self.getInvulnerableTime() > 10 && !source.is(DamageTypeTags.BYPASSES_COOLDOWN)) {
 			return amount - this.lastHurt;
 		}
 		return amount;

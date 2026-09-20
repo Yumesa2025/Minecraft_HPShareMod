@@ -387,7 +387,7 @@ public final class SpreadDamageManager {
 		}
 		ServerLevel level = victim.level();
 		DamageSource actual = source != null ? source : victim.damageSources().generic();
-		int saved = victim.invulnerableTime;
+		int saved = victim.getInvulnerableTime();
 		// 피격 표시도 함께 되돌린다. 한 번 맞은 것이 여러 몫으로 나뉘어 들어오는데 몫마다
 		// 화면이 붉어지고 소리가 나면 여덟 번 맞은 것처럼 보인다. 소리는 값을 되돌리는 것으로
 		// 막을 수 없어 LivingEntityHurtSoundMixin 이 따로 삼킨다.
@@ -395,11 +395,11 @@ public final class SpreadDamageManager {
 		int savedHurtDuration = victim.hurtDuration;
 		DELIVERING.set(Boolean.TRUE);
 		try {
-			victim.invulnerableTime = 0;
+			victim.setInvulnerableTime(0);
 			victim.hurtServer(level, actual, amount);
 		} finally {
 			DELIVERING.set(Boolean.FALSE);
-			victim.invulnerableTime = saved;
+			victim.setInvulnerableTime(saved);
 			victim.hurtTime = savedHurtTime;
 			victim.hurtDuration = savedHurtDuration;
 		}

@@ -289,7 +289,7 @@ public final class PerkClientRules {
 		}
 		LAST_CORRECTED_TICK.put(playerId, now);
 		player.setDeltaMovement(player.getKnownMovement());
-		player.hurtMarked = true;
+		player.syncVelocity = true;
 	}
 
 	/**

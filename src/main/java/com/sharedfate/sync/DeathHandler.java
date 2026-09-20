@@ -1,5 +1,6 @@
 package com.sharedfate.sync;
 
+import net.minecraft.util.Prediction;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.net.TeamBroadcaster;
 import com.sharedfate.team.ShareTeam;
@@ -70,11 +71,11 @@ public final class DeathHandler {
 					var carried = player.containerMenu.getCarried();
 					if (!carried.isEmpty()) {
 						player.containerMenu.setCarried(net.minecraft.world.item.ItemStack.EMPTY);
-						dead.drop(carried, true, false);
+						dead.drop(carried, true, Prediction.SERVER_ONLY);
 					}
 				}
 				InventorySwapper.drainDeathDrops(state,
-						stack -> dead.drop(stack, true, false));
+						stack -> dead.drop(stack, true, Prediction.SERVER_ONLY));
 			} else {
 				for (UUID member : team.members()) {
 					ServerPlayer player = server.getPlayerList().getPlayer(member);

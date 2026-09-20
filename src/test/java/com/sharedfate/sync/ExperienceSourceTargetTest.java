@@ -3,6 +3,7 @@ package com.sharedfate.sync;
 import com.sharedfate.TestBootstrap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.valueproviders.IntProvider;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ExperienceOrb;
@@ -74,7 +75,7 @@ class ExperienceSourceTargetTest {
 	@Test
 	void 블록을_사람이_캐는_자리가_그대로_있다() {
 		Method playerDestroy = declared(Block.class, "playerDestroy",
-				Level.class, Player.class, BlockPos.class, BlockState.class,
+				ServerLevel.class, ServerPlayer.class, BlockPos.class, BlockState.class,
 				BlockEntity.class, ItemStack.class);
 
 		assertEquals(void.class, playerDestroy.getReturnType());

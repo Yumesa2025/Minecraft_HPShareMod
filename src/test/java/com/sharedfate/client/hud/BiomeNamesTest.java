@@ -98,8 +98,8 @@ class BiomeNamesTest {
 	}
 
 	@Test
-	void 표는_예순여섯_개다() {
-		assertEquals(66, BiomeNames.size());
+	void 표는_예순일곱_개다() {
+		assertEquals(67, BiomeNames.size());
 	}
 
 	/** 옮겨 적다가 이름을 비워 두거나 영어를 그대로 남기지 않았는지. */

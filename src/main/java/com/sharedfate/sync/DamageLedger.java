@@ -1,5 +1,6 @@
 package com.sharedfate.sync;
 
+import net.minecraft.util.Prediction;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.sharedfate.SharedFateMod;
@@ -408,7 +409,7 @@ public final class DamageLedger {
 			}
 			ItemStack book = template.copy();
 			if (!player.addItem(book)) {
-				player.drop(book, false);
+				player.drop(book, false, Prediction.SERVER_ONLY);
 			}
 		}
 		flushIfDirty();

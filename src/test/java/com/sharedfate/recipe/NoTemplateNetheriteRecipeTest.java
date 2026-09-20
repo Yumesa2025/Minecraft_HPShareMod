@@ -232,7 +232,8 @@ class NoTemplateNetheriteRecipeTest {
 		RegistryOps<JsonElement> ops = TestBootstrap.registries()
 				.createSerializationContext(JsonOps.INSTANCE);
 		Recipe<?> recipe = Recipe.CODEC.parse(ops, 태그를_뺀)
-				.getOrThrow(message -> new AssertionError(이름 + " 를 레시피로 읽지 못했다: " + message));
+				.getOrThrow(message -> new AssertionError(이름 + " 를 레시피로 읽지 못했다: " + message))
+				.value();
 		assertTrue(recipe instanceof SmithingRecipe, 이름 + " 이 대장장이 레시피가 아니다");
 		return (SmithingRecipe) recipe;
 	}

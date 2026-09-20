@@ -1,5 +1,6 @@
 package com.sharedfate.perk;
 
+import net.minecraft.util.Prediction;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.inventory.ExpandedInventoryManager;
 import com.sharedfate.perk.effect.EquipBanEffect;
@@ -261,7 +262,7 @@ public final class PerkGearManager {
 			return;
 		}
 		// 떨어뜨리는 일은 쿨다운을 보지 않는다. 알림만 재운다.
-		player.drop(stack, true, false);
+		player.drop(stack, true, Prediction.SERVER_ONLY);
 		notify(player, GearNoticeCooldown.Kind.DROPPED, reason);
 	}
 

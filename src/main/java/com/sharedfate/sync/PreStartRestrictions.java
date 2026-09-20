@@ -340,7 +340,7 @@ public final class PreStartRestrictions {
 				return;
 			}
 			ServerClockManager clocks = server.clockManager();
-			long current = clocks.getTotalTicks(clock);
+			long current = clocks.getInstance(clock).totalTicks();
 			long target = lockedMorningTicks(current);
 			if (current == target) {
 				// 이미 아침이면 방송도 캐시 무효화도 하지 않는다.

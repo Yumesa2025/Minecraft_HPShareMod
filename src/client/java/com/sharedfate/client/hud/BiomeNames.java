@@ -71,6 +71,7 @@ public final class BiomeNames {
 		put(names, "flower_forest", "꽃 숲");
 		put(names, "birch_forest", "자작나무 숲");
 		put(names, "dark_forest", "어두운 숲");
+		put(names, "dappled_forest", "얼룩빛 숲");
 		put(names, "pale_garden", "창백한 정원");
 		put(names, "old_growth_birch_forest", "자작나무 원시림");
 		put(names, "old_growth_pine_taiga", "소나무 원시 타이가");

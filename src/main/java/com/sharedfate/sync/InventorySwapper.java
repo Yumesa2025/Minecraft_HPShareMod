@@ -1,5 +1,6 @@
 package com.sharedfate.sync;
 
+import net.minecraft.util.Prediction;
 import com.sharedfate.perk.PerkManager;
 import com.sharedfate.SharedFateMod;
 import com.sharedfate.mixin.InventoryAccessor;
@@ -204,7 +205,7 @@ public final class InventorySwapper {
 		for (int slot = 0; slot < container.getContainerSize(); slot++) {
 			ItemStack stack = container.getItem(slot);
 			if (!stack.isEmpty()) {
-				player.drop(stack, true, false);
+				player.drop(stack, true, Prediction.SERVER_ONLY);
 				container.setItem(slot, ItemStack.EMPTY);
 			}
 		}

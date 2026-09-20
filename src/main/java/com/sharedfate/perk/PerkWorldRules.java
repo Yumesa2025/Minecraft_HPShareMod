@@ -220,7 +220,7 @@ public final class PerkWorldRules {
 				return;
 			}
 			ServerClockManager clocks = server.clockManager();
-			long current = clocks.getTotalTicks(clock);
+			long current = clocks.getInstance(clock).totalTicks();
 			long target = lockedTotalTicks(current, locked.getAsInt());
 			if (current == target) {
 				// 이미 맞아 있으면 방송도 캐시 무효화도 하지 않는다.

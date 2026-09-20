@@ -21,7 +21,7 @@ public final class TestBootstrap {
 		SharedConstants.tryDetectVersion();
 		Bootstrap.bootStrap();
 
-		registries = VanillaRegistries.createLookup();
+		registries = VanillaRegistries.createWorldLookup();
 		for (DataComponentInitializers.PendingComponents<?> pending
 				: BuiltInRegistries.DATA_COMPONENT_INITIALIZERS.build(registries)) {
 			pending.apply();
