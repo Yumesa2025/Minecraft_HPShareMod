@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.sharedfate.SharedFateMod;
+import com.sharedfate.perk.effect.AbsorptionRechargeEffect;
 import com.sharedfate.perk.effect.AttributeEffect;
 import com.sharedfate.perk.effect.BonusDropEffect;
 import com.sharedfate.perk.effect.ConditionalEffect;
@@ -120,6 +121,7 @@ public enum PerkEffectType {
 	MOB_SPAWN_RATE("mob_spawn_rate", MobSpawnRateEffect::fromJson),
 	CONDITIONAL("conditional", ConditionalEffect::fromJson),
 	PERIODIC("periodic", PeriodicEffect::fromJson),
+	ABSORPTION_RECHARGE("absorption_recharge", AbsorptionRechargeEffect::fromJson),
 	ON_KILL("on_kill", OnKillEffect::fromJson),
 	NO_FOOD_HUNGER("no_food_hunger", NoFoodHungerEffect::fromJson),
 	ITEM_GRANT("item_grant", ItemGrantEffect::fromJson),

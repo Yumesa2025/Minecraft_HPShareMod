@@ -84,10 +84,28 @@ public class SharedFateConfig {
 	 * 기존 설정 파일과의 호환을 위해 필드만 남겨 둔다.
 	 */
 	public int victoryCreditsDelayTicks = 100;
-	/** 드래곤 처치 후 엔딩의 첫 장이 뜰 때까지의 지연(틱). 100틱 = 5초. */
-	public int victoryTitleDelayTicks = 100;
-	/** 엔딩의 장이 넘어가는 간격(틱). 100틱 = 5초. 폭죽은 그동안 계속 터진다. */
+	/**
+	 * 드래곤 처치 후 엔딩의 첫 장이 뜰 때까지의 지연(틱). 200틱 = 10초.
+	 *
+	 * <p>처치 직후에는 승리 채팅과 책 지급이 쏟아지고 드래곤이 아직 떨어지고 있다. 그 위에
+	 * 정산을 얹으면 아무도 읽지 않는다.
+	 */
+	public int victoryTitleDelayTicks = 200;
+	/**
+	 * 엔딩의 부제가 뜬 뒤 다음 장으로 넘어가기까지의 간격(틱). 100틱 = 5초. 폭죽은 그동안
+	 * 계속 터진다.
+	 *
+	 * <p>이름과 달리 폭죽 주기가 아니라 <b>장 사이 간격</b>이다. 설정 파일 호환 때문에 이름을
+	 * 그대로 둔다.
+	 */
 	public int victoryFireworkDelayTicks = 100;
+	/**
+	 * 엔딩 한 장에서 제목이 뜬 뒤 부제가 따라 붙기까지의 지연(틱). 70틱 = 3.5초.
+	 *
+	 * <p>제목과 부제를 한꺼번에 띄우면 어느 쪽을 볼지 정하기도 전에 장이 넘어간다. 한 장의
+	 * 전체 길이는 {@code victorySubtitleDelayTicks + victoryFireworkDelayTicks} 다.
+	 */
+	public int victorySubtitleDelayTicks = 70;
 	/** 위치 교환 몇 초 전부터 화면에 카운트다운을 띄울지. 0이면 카운트다운을 띄우지 않는다. */
 	public int positionSwapCountdownSeconds = 5;
 	/**
@@ -199,12 +217,17 @@ public class SharedFateConfig {
 		}
 		if (victoryTitleDelayTicks < MIN_VICTORY_STAGE_TICKS
 				|| victoryTitleDelayTicks > MAX_VICTORY_STAGE_TICKS) {
-			victoryTitleDelayTicks = 100;
+			victoryTitleDelayTicks = 200;
 			changed = true;
 		}
 		if (victoryFireworkDelayTicks < MIN_VICTORY_STAGE_TICKS
 				|| victoryFireworkDelayTicks > MAX_VICTORY_STAGE_TICKS) {
 			victoryFireworkDelayTicks = 100;
+			changed = true;
+		}
+		if (victorySubtitleDelayTicks < MIN_VICTORY_STAGE_TICKS
+				|| victorySubtitleDelayTicks > MAX_VICTORY_STAGE_TICKS) {
+			victorySubtitleDelayTicks = 70;
 			changed = true;
 		}
 		if (positionSwapCountdownSeconds < 0

@@ -134,15 +134,15 @@ class EnchantmentDiamondCostTest {
 	}
 
 	@Test
-	void 다이아몬드가_네_개면_레벨이_아무리_있어도_세_칸_모두_막힌다() throws Exception {
+	void 다이아몬드가_아홉_개면_레벨이_아무리_있어도_세_칸_모두_막힌다() throws Exception {
 		Player player = hollowPlayer(false);
 		player.experienceLevel = 100;
 		EnchantmentMenu menu = readyMenu(player, 3);
-		giveToSlot(menu, 4);
+		giveToSlot(menu, EnchantmentDiamondCost.DIAMONDS_PER_ENCHANT - 1);
 
 		for (int slot = 0; slot < 3; slot++) {
 			assertFalse(menu.clickMenuButton(player, slot),
-					slot + "번 칸이 다이아몬드 4개로 눌리면 안 된다");
+					slot + "번 칸이 다이아몬드 9개로 눌리면 안 된다");
 		}
 	}
 
@@ -157,15 +157,15 @@ class EnchantmentDiamondCostTest {
 	}
 
 	@Test
-	void 다이아몬드가_다섯_개면_레벨이_0이어도_세_칸_모두_눌린다() throws Exception {
+	void 다이아몬드가_열_개면_레벨이_0이어도_세_칸_모두_눌린다() throws Exception {
 		Player player = hollowPlayer(false);
 		player.experienceLevel = 0;
 		EnchantmentMenu menu = readyMenu(player, 3);
-		giveToSlot(menu, 5);
+		giveToSlot(menu, EnchantmentDiamondCost.DIAMONDS_PER_ENCHANT);
 
 		for (int slot = 0; slot < 3; slot++) {
 			assertTrue(menu.clickMenuButton(player, slot),
-					slot + "번 칸이 레벨 0·다이아몬드 5개로 눌려야 한다");
+					slot + "번 칸이 레벨 0·다이아몬드 10개로 눌려야 한다");
 		}
 	}
 
@@ -187,11 +187,11 @@ class EnchantmentDiamondCostTest {
 		// 줄면 서버와 즉시 어긋난다 — 차감이 execute 람다 밖으로 새어 나온 것이다.
 		Player player = hollowPlayer(false);
 		EnchantmentMenu menu = readyMenu(player, 3);
-		giveToSlot(menu, 9);
+		giveToSlot(menu, 12);
 
 		assertTrue(menu.clickMenuButton(player, 0));
 
-		assertEquals(9, EnchantmentDiamondCost.countIn(menu), "람다가 돌지 않았으면 걷지 않아야 한다");
+		assertEquals(12, EnchantmentDiamondCost.countIn(menu), "람다가 돌지 않았으면 걷지 않아야 한다");
 		assertEquals(3, menu.getGoldCount(), "청금석도 그대로여야 한다");
 	}
 
@@ -269,12 +269,12 @@ class EnchantmentDiamondCostTest {
 	void 다이아몬드는_칸에서만_걷고_남은_것은_그대로_남는다() throws Exception {
 		Player player = hollowPlayer(false);
 		EnchantmentMenu menu = readyMenu(player, 0);
-		giveToSlot(menu, 12);
+		giveToSlot(menu, 14);
 
-		assertEquals(5, EnchantmentDiamondCost.consume(
+		assertEquals(10, EnchantmentDiamondCost.consume(
 				player, EnchantmentDiamondCost.containerOf(menu), 0));
 
-		assertEquals(7, EnchantmentDiamondCost.countIn(menu), "5개만 걷어야 한다");
+		assertEquals(4, EnchantmentDiamondCost.countIn(menu), "10개만 걷어야 한다");
 	}
 
 	@Test
@@ -292,15 +292,17 @@ class EnchantmentDiamondCostTest {
 
 	@Test
 	void 단추_숫자는_요구_레벨_대신_다이아몬드_개수가_되고_빈_칸은_0으로_남는다() {
-		assertArrayEqualsInt(new int[] {5, 5, 5}, EnchantmentDiamondCost.displayCosts(new int[] {3, 12, 27}));
-		assertArrayEqualsInt(new int[] {0, 5, 0}, EnchantmentDiamondCost.displayCosts(new int[] {0, 9, 0}));
+		assertArrayEqualsInt(new int[] {10, 10, 10},
+				EnchantmentDiamondCost.displayCosts(new int[] {3, 12, 27}));
+		assertArrayEqualsInt(new int[] {0, 10, 0},
+				EnchantmentDiamondCost.displayCosts(new int[] {0, 9, 0}));
 	}
 
 	@Test
 	void 세_칸의_다이아몬드_요구량이_같다() {
-		assertEquals(5, EnchantmentDiamondCost.forSlot(0));
-		assertEquals(5, EnchantmentDiamondCost.forSlot(1));
-		assertEquals(5, EnchantmentDiamondCost.forSlot(2));
+		assertEquals(10, EnchantmentDiamondCost.forSlot(0));
+		assertEquals(10, EnchantmentDiamondCost.forSlot(1));
+		assertEquals(10, EnchantmentDiamondCost.forSlot(2));
 	}
 
 	@Test
@@ -312,7 +314,7 @@ class EnchantmentDiamondCostTest {
 		try {
 			int index = costDataSlotOf(menu);
 			assertNotEquals(-1, index, "요구 개수를 실어 보낼 데이터 칸이 있어야 한다");
-			assertEquals(5, dataSlotsOf(menu).get(index).get(), "증강이 없으면 기본값을 보낸다");
+			assertEquals(10, dataSlotsOf(menu).get(index).get(), "증강이 없으면 기본값을 보낸다");
 
 			// 클라이언트가 꾸러미를 받았을 때와 같은 자리다.
 			menu.setData(index, 1);

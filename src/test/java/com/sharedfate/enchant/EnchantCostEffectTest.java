@@ -35,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li>증강이 없는 팀은 지금까지와 완전히 같다 —
  *       {@value EnchantmentDiamondCost#DIAMONDS_PER_ENCHANT} 개</li>
  *   <li>증강을 가진 팀만 그 값이 된다</li>
- *   <li><b>툴팁에 적히는 숫자도 함께</b> 바뀐다. 5개라고 써 놓고 1개만 걷으면 버그로 보인다</li>
+ *   <li><b>툴팁에 적히는 숫자도 함께</b> 바뀐다. 10개라고 써 놓고 2개만 걷으면 버그로 보인다</li>
  * </ul>
  *
  * <p>실제로 인챈트 탁자에서 걷는 부분은 {@link EnchantmentDiamondCostTest} 가 진짜 메뉴로
@@ -44,6 +44,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EnchantCostEffectTest {
 	/** 증강이 없을 때의 값. 이 숫자가 달라지면 시험이 아니라 게임이 바뀐 것이다. */
 	private static final int DEFAULT_COST = EnchantmentDiamondCost.DIAMONDS_PER_ENCHANT;
+
+	/**
+	 * 실제 기본 풀에 적혀 있는 그대로다 — <b>프리즘</b>, 다이아몬드 <b>2개</b>.
+	 *
+	 * <p>여기를 실물과 다르게 적어 두면 「증강을 가진 팀이 얼마를 내는가」라는 이 시험의
+	 * 물음이 뜻을 잃는다. 개수는 {@code sharedfate-perks-default.json} 의
+	 * {@code sharedfate:arcane_workshop} 과 맞춰 둔다.
+	 */
+	private static final String ARCANE_WORKSHOP = """
+			{ "id": "sharedfate:arcane_workshop", "rarity": "prism", "name": "비술 공방",
+			  "effects": [ { "type": "enchant_cost", "diamonds": 2 } ] }
+			""";
 
 	@BeforeAll
 	static void setUp() {
@@ -95,10 +107,7 @@ class EnchantCostEffectTest {
 
 	@Test
 	void 증강을_가진_팀만_값이_바뀐다(@TempDir Path dir) throws IOException {
-		loadPool(dir, """
-				{ "id": "sharedfate:arcane_workshop", "rarity": "gold", "name": "비술 공방",
-				  "effects": [ { "type": "enchant_cost", "diamonds": 1 } ] }
-				""");
+		loadPool(dir, ARCANE_WORKSHOP);
 
 		TeamState without = perkTeam();
 		TeamState with = perkTeam();
@@ -106,15 +115,12 @@ class EnchantCostEffectTest {
 
 		assertEquals(DEFAULT_COST, EnchantmentDiamondCost.forState(without),
 				"증강이 없는 팀은 지금과 완전히 같아야 한다");
-		assertEquals(1, EnchantmentDiamondCost.forState(with));
+		assertEquals(2, EnchantmentDiamondCost.forState(with));
 	}
 
 	@Test
 	void 증강을_꺼_두었으면_기본값이다(@TempDir Path dir) throws IOException {
-		loadPool(dir, """
-				{ "id": "sharedfate:arcane_workshop", "rarity": "gold", "name": "비술 공방",
-				  "effects": [ { "type": "enchant_cost", "diamonds": 1 } ] }
-				""");
+		loadPool(dir, ARCANE_WORKSHOP);
 
 		TeamState state = perkTeam();
 		state.ownedPerks.add("sharedfate:arcane_workshop");
@@ -131,7 +137,7 @@ class EnchantCostEffectTest {
 				{ "id": "sharedfate:cheaper", "rarity": "gold", "name": "더 싼 쪽",
 				  "effects": [ { "type": "enchant_cost", "diamonds": 0 } ] },
 				{ "id": "sharedfate:pricey", "rarity": "gold", "name": "비싼 쪽",
-				  "effects": [ { "type": "enchant_cost", "diamonds": 9 } ] }
+				  "effects": [ { "type": "enchant_cost", "diamonds": 12 } ] }
 				""");
 
 		TeamState state = perkTeam();

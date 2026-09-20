@@ -1,5 +1,6 @@
 package com.sharedfate.perk;
 
+import com.sharedfate.perk.effect.AbsorptionRechargeEffect;
 import com.sharedfate.perk.effect.ConditionalEffect;
 import com.sharedfate.perk.effect.HolderEffect;
 import com.sharedfate.perk.effect.PeriodicEffect;
@@ -100,6 +101,11 @@ public final class PerkStatusEffects {
 		}
 		if (effect instanceof PeriodicEffect periodic) {
 			return periodic.statusEffects();
+		}
+		if (effect instanceof AbsorptionRechargeEffect recharge) {
+			// 「흡혈귀」의 충전되는 흡수 방패. 여기 적어 두지 않으면 EffectSync 가 그 흡수를
+			// 팀 공유 풀로 퍼 나르고, 증강을 잃은 뒤에도 노란 하트가 되살아난다.
+			return recharge.statusEffects();
 		}
 		if (effect instanceof ConditionalEffect conditional) {
 			// 지금 어느 쪽이 붙어 있든 둘 다 증강분이므로 양쪽 하위 효과를 모두 본다.

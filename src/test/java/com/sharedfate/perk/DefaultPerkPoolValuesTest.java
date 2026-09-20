@@ -447,8 +447,8 @@ class DefaultPerkPoolValuesTest {
 		long gold = PerkRegistry.all().stream().filter(p -> p.rarity() == PerkRarity.GOLD).count();
 		long prism = PerkRegistry.all().stream().filter(p -> p.rarity() == PerkRarity.PRISM).count();
 		assertEquals(34, silver, "실버");
-		assertEquals(36, gold, "골드");
-		assertEquals(24, prism, "프리즘");
+		assertEquals(35, gold, "골드");
+		assertEquals(25, prism, "프리즘");
 
 		// 등록을 빠뜨리면 여기서 먼저 걸린다.
 		for (String id : new String[] {"sharedfate:grounded_guard", "sharedfate:arcane_workshop",

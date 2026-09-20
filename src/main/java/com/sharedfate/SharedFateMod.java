@@ -102,6 +102,7 @@ public class SharedFateMod implements ModInitializer {
 			PerkHealthRules.reset();
 			ConditionalPerkManager.reset();
 			PeriodicPerkManager.reset();
+			com.sharedfate.sync.AbsorptionRechargeManager.reset();
 			com.sharedfate.perk.PerkSupplyDrops.reset();
 			PerkHolderManager.reset();
 			TeamGathering.reset();
@@ -288,6 +289,12 @@ public class SharedFateMod implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(ConditionalPerkManager::tick);
 		// 주기로 켜졌다 꺼지는 증강(periodic)의 주기 평가 지점.
 		ServerTickEvents.END_SERVER_TICK.register(PeriodicPerkManager::tick);
+		// 주기마다 꽉 차는 흡수 보호막(absorption_recharge)의 충전 지점.
+		// 반드시 StatMirror 보다 뒤여야 한다 — 앞에 두면 StatMirror 가 우리가 올려 둔 흡수량을
+		// 「이번 틱에 새로 얻은 보호막」으로 보고 공유 풀에 한 번 더 더한다. 뒤에서 채운 뒤
+		// syncPlayerNow 로 직전 스냅샷까지 갱신해야 다음 틱 변화량이 0 이 된다.
+		ServerTickEvents.END_SERVER_TICK.register(
+				com.sharedfate.sync.AbsorptionRechargeManager::tick);
 		// 「보급」 세트가 주기마다 팀에게 무작위 아이템을 내려 주는 지점. 단계가 여럿 켜져도
 		// PerkSupplyDrops 가 그중 하나만 고르므로 보급은 한 회에 한 번만 온다.
 		ServerTickEvents.END_SERVER_TICK.register(com.sharedfate.perk.PerkSupplyDrops::tick);

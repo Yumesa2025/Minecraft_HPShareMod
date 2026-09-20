@@ -1,6 +1,8 @@
 package com.sharedfate.enchant;
 
 import com.sharedfate.TestBootstrap;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.inventory.AnvilScreen;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AnvilMenu;
 import net.minecraft.world.inventory.DataSlot;
@@ -11,8 +13,11 @@ import net.minecraft.world.item.ItemStack;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -20,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 모루 다이아몬드 Mixin 두 개가 <b>바닐라 쪽 사실</b>에 기대고 있다. 그 사실이 바뀌면
+ * 모루 다이아몬드 Mixin 세 개가 <b>바닐라 쪽 사실</b>에 기대고 있다. 그 사실이 바뀌면
  * 여기서 먼저 터진다.
  *
  * <p>{@code sharedfate.mixins.json} 에는 refmap 이 없어 <b>대상 서술자가 틀려도 빌드가 그냥
@@ -31,6 +36,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       onTake·createResult·getCost)</li>
  *   <li>{@code AnvilMenuQuickMoveMixin} — {@code ItemCombinerMenu} 에 건다(quickMoveStack·
  *       removed). {@code AnvilMenu} 가 그 둘을 재정의하지 <b>않기</b> 때문이다</li>
+ *   <li>{@code AnvilScreenMixin} — {@code AnvilScreen.extractLabels} 안의 비용 라벨을
+ *       「다이아몬드 10개」로 갈아 끼운다</li>
  * </ul>
  */
 class AnvilMenuTargetTest {
@@ -99,6 +106,62 @@ class AnvilMenuTargetTest {
 
 		Method removed = ItemCombinerMenu.class.getDeclaredMethod("removed", Player.class);
 		assertEquals(void.class, removed.getReturnType());
+	}
+
+	// -------------------------------------------------- AnvilScreen 에 거는 자리
+
+	/**
+	 * {@code AnvilScreenMixin} 이 무는 메서드. 서술자가 바뀌면 모루를 여는 순간 터진다.
+	 *
+	 * <p><b>{@code AnvilScreen} 자신이 갖고 있어야 한다.</b> 부모
+	 * ({@code ItemCombinerScreen})에만 있게 되면 우리 주입은 아무 데도 붙지 않고, 자식이
+	 * 생겨 재정의하면 조용히 실행되지 않는다.
+	 */
+	@Test
+	void extractLabels_가_AnvilScreen_자신의_메서드다() throws Exception {
+		Method extractLabels = AnvilScreen.class.getDeclaredMethod(
+				"extractLabels", GuiGraphicsExtractor.class, int.class, int.class);
+		assertEquals(void.class, extractLabels.getReturnType());
+		assertFalse(Modifier.isStatic(extractLabels.getModifiers()));
+	}
+
+	/**
+	 * 그 안에서 <b>번역 열쇠로</b> 비용 라벨을 만든다는 사실. {@code AnvilScreenMixin} 은
+	 * {@code Component.translatable} 호출을 가로채 글월을 갈아 끼우고,
+	 * {@code AnvilDiamondLabel} 은 열쇠를 보고 그것이 비용 라벨인지 가린다.
+	 *
+	 * <p>상수 풀은 아스키라 클래스 파일 바이트를 그대로 훑어도 찾을 수 있다. 바닐라가 이
+	 * 열쇠를 버리거나 글월 조립 방식을 바꾸면 여기서 먼저 터진다.
+	 */
+	@Test
+	void AnvilScreen_이_container_repair_cost_를_translatable_로_만든다() throws IOException {
+		assertTrue(classBytesOf(AnvilScreen.class).contains(AnvilDiamondLabel.REPAIR_COST),
+				"비용 라벨의 번역 열쇠가 사라졌다 — AnvilDiamondLabel 이 아무것도 못 고친다");
+		assertTrue(classBytesOf(AnvilScreen.class).contains(
+						"(Ljava/lang/String;[Ljava/lang/Object;)"
+								+ "Lnet/minecraft/network/chat/MutableComponent;"),
+				"Component.translatable 서술자가 바뀌었다 — @At 대상이 틀린다");
+	}
+
+	/**
+	 * 「비용이 너무 비쌉니다」는 <b>호출이 아니라 정적 밭</b>이다. 그래서 위 주입이
+	 * {@code allow = 1} 로 딱 하나만 걸린다.
+	 */
+	@Test
+	void 너무_비쌉니다_는_정적_밭이라_translatable_호출이_아니다() throws Exception {
+		var field = AnvilScreen.class.getDeclaredField("TOO_EXPENSIVE_TEXT");
+		assertTrue(Modifier.isStatic(field.getModifiers()));
+		assertEquals(net.minecraft.network.chat.Component.class, field.getType());
+	}
+
+	private static String classBytesOf(Class<?> type) throws IOException {
+		String path = "/" + type.getName().replace('.', '/') + ".class";
+		try (InputStream in = type.getResourceAsStream(path)) {
+			if (in == null) {
+				throw new IOException("클래스 파일을 찾지 못했습니다: " + path);
+			}
+			return new String(in.readAllBytes(), StandardCharsets.ISO_8859_1);
+		}
 	}
 
 	/**

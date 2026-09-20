@@ -329,7 +329,7 @@
       "id": "sharedfate:vampire",
       "icon": "minecraft:glow_berries",
       "name": "흡혈귀",
-      "description": "준 피해의 15%를 체력으로 회복하고, 2분마다 5초간 흡수 II 가 걸립니다. 대신 허기가 가득 차 있어도 체력이 자연 회복되지 않습니다.",
+      "description": "준 피해의 15%를 체력으로 회복하고, 흡수 방패 4하트가 5분마다 가득 찹니다. 대신 체력이 자연 회복되지 않습니다.",
       "rarity": "prism",
       "set_types": [
         "recovery"
@@ -343,20 +343,9 @@
           "type": "no_natural_regen"
         },
         {
-          "type": "periodic",
-          "period_ticks": 2400,
-          "phases": [
-            {
-              "ticks": 100,
-              "effects": [
-                {
-                  "type": "status_effect",
-                  "effect": "minecraft:absorption",
-                  "amplifier": 1
-                }
-              ]
-            }
-          ]
+          "type": "absorption_recharge",
+          "amplifier": 1,
+          "period_ticks": 6000
         }
       ]
     },
@@ -2100,8 +2089,8 @@
       "id": "sharedfate:arcane_workshop",
       "icon": "minecraft:enchanting_table",
       "name": "비술 공방",
-      "description": "인챈트 탁자와 서고 30개를 얻고, 인챈트 값이 다이아몬드 1개가 됩니다. 대신 모든 몹의 체력이 ×1.2 가 됩니다.",
-      "rarity": "gold",
+      "description": "인챈트 탁자와 서고 30개를 얻고, 인챈트 값이 다이아몬드 2개가 됩니다. 대신 모든 몹의 체력이 ×1.2 가 됩니다.",
+      "rarity": "prism",
       "set_types": [
         "supply"
       ],
@@ -2121,7 +2110,7 @@
         },
         {
           "type": "enchant_cost",
-          "diamonds": 1
+          "diamonds": 2
         },
         {
           "type": "mob_health",

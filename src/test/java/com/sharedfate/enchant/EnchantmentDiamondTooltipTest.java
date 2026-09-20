@@ -28,21 +28,21 @@ class EnchantmentDiamondTooltipTest {
 	@Test
 	void 모자랄_때는_다이아몬드가_몇_개_필요한지_빨갛게_말한다() {
 		Component line = Component
-				.translatable("container.enchant.level.requirement", 5)
+				.translatable("container.enchant.level.requirement", 10)
 				.withStyle(ChatFormatting.RED);
 
 		Component rewritten = EnchantmentDiamondTooltip.rewriteLine(line);
 
-		assertEquals("다이아몬드 5개가 필요합니다", rewritten.getString());
+		assertEquals("다이아몬드 10개가 필요합니다", rewritten.getString());
 		assertEquals(TextColor.fromLegacyFormat(ChatFormatting.RED), rewritten.getStyle().getColor());
 	}
 
 	@Test
 	void 소모하는_레벨을_알리던_줄이_다이아몬드_개수로_바뀐다() {
-		assertEquals("다이아몬드 5개",
+		assertEquals("다이아몬드 10개",
 				EnchantmentDiamondTooltip.rewriteLine(
 						Component.translatable("container.enchant.level.one")).getString());
-		assertEquals("다이아몬드 5개",
+		assertEquals("다이아몬드 10개",
 				EnchantmentDiamondTooltip.rewriteLine(
 						Component.translatable("container.enchant.level.many", 3)).getString());
 	}
@@ -69,6 +69,6 @@ class EnchantmentDiamondTooltipTest {
 		assertEquals(4, rewritten.size());
 		assertSame(lines.get(0), rewritten.get(0));
 		assertSame(lines.get(2), rewritten.get(2));
-		assertEquals("다이아몬드 5개", rewritten.get(3).getString());
+		assertEquals("다이아몬드 10개", rewritten.get(3).getString());
 	}
 }

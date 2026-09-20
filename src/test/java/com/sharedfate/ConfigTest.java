@@ -37,6 +37,12 @@ class ConfigTest {
 		assertTrue(config.showRunBossBar);
 		assertTrue(config.dragonKillEndsRun);
 		assertEquals(100, config.victoryCreditsDelayTicks);
+		// 드래곤을 잡고 10초 뒤에 정산이 시작된다.
+		assertEquals(200, config.victoryTitleDelayTicks);
+		// 제목이 뜨고 3.5초 뒤에 부제가 따라 붙는다.
+		assertEquals(70, config.victorySubtitleDelayTicks);
+		// 부제가 뜬 뒤 다음 장까지 5초.
+		assertEquals(100, config.victoryFireworkDelayTicks);
 		assertEquals(1.2, config.experienceMultiplier, 1.0e-9, "경험치는 기본 1.2배로 들어온다");
 		assertTrue(Files.exists(file), "설정 파일이 생성되어야 한다");
 	}
@@ -163,6 +169,60 @@ class ConfigTest {
 		assertEquals(30, config.damageAlertDurationTicks);
 		assertEquals(100, config.worldResetDelayTicks);
 		assertEquals(100, config.victoryCreditsDelayTicks);
+	}
+
+	/**
+	 * 승리 연출의 세 단계는 각각 설정으로 조절할 수 있어야 한다.
+	 *
+	 * <p>이 프로젝트는 연출 길이를 자주 만진다. 값이 파일에 남고 다시 읽히는지만 본다.
+	 */
+	@Test
+	void 승리_연출_단계는_설정으로_조절할_수_있다(@TempDir Path dir) throws Exception {
+		Path file = dir.resolve("sharedfate.json");
+		Files.writeString(file, """
+				{
+				  "victoryTitleDelayTicks": 400,
+				  "victorySubtitleDelayTicks": 40,
+				  "victoryFireworkDelayTicks": 160
+				}
+				""", StandardCharsets.UTF_8);
+
+		SharedFateConfig config = SharedFateConfig.loadOrCreate(file);
+
+		assertEquals(400, config.victoryTitleDelayTicks);
+		assertEquals(40, config.victorySubtitleDelayTicks);
+		assertEquals(160, config.victoryFireworkDelayTicks);
+		config.save(file);
+		assertEquals(40, SharedFateConfig.loadOrCreate(file).victorySubtitleDelayTicks);
+	}
+
+	@Test
+	void 승리_연출_단계가_범위를_벗어나면_기본값으로_되돌린다(@TempDir Path dir) throws Exception {
+		Path file = dir.resolve("sharedfate.json");
+		Files.writeString(file, """
+				{
+				  "victoryTitleDelayTicks": -1,
+				  "victorySubtitleDelayTicks": 1201,
+				  "victoryFireworkDelayTicks": 99999
+				}
+				""", StandardCharsets.UTF_8);
+
+		SharedFateConfig config = SharedFateConfig.loadOrCreate(file);
+
+		assertEquals(200, config.victoryTitleDelayTicks);
+		assertEquals(70, config.victorySubtitleDelayTicks);
+		assertEquals(100, config.victoryFireworkDelayTicks);
+
+		// 범위의 양끝 자체는 그대로 받는다.
+		Files.writeString(file, """
+				{
+				  "victorySubtitleDelayTicks": 0,
+				  "victoryTitleDelayTicks": 1200
+				}
+				""", StandardCharsets.UTF_8);
+		SharedFateConfig edge = SharedFateConfig.loadOrCreate(file);
+		assertEquals(0, edge.victorySubtitleDelayTicks);
+		assertEquals(1200, edge.victoryTitleDelayTicks);
 	}
 
 	@Test

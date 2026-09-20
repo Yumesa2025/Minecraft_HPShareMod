@@ -54,7 +54,7 @@ public final class EnchantmentDiamondCost {
 	public static final int SLOT_COUNT = 3;
 
 	/** 인챈트 한 번에 드는 다이아몬드 개수. {@code enchant_cost} 증강이 없을 때의 값이다. */
-	public static final int DIAMONDS_PER_ENCHANT = 5;
+	public static final int DIAMONDS_PER_ENCHANT = 10;
 
 	/**
 	 * 화면이 그릴 개수. 서버가 메뉴의 데이터 칸으로 내려보낸 값이다.
