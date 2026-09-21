@@ -94,7 +94,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * {@code LivingEntity.getKnockback} 이 마침 이 mixin 이 이미 잡고 있는 클래스에 있어,
  * 새 mixin 을 만들고 등록하는 대신 여기에 붙였다.
  *
- * <p>HEAD 에서 인자를 갈아 끼우므로 방패({@code applyItemBlocking})·방어구·흡수·무적시간
+ * <p>HEAD 에서 인자를 갈아 끼우므로 방패({@code applyItemBlocking})·방어구·흡수·피격 쿨타임
  * 비교({@code lastHurt})가 모두 배율이 반영된 값을 본다. 공유 체력을 맞추는
  * {@code StatMirror} 는 다음 틱에 체력 변화량을 관측하는 방식이라, 이미 배율이 반영되고 난
  * 결과만 본다. 즉 배율이 두 번 곱해질 여지가 없다.
@@ -103,22 +103,47 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class LivingEntityPerkDamageMixin {
 
 	/**
-	 * 직전에 받은 피해량. 무적시간 안에 들어온 공격이 <b>실제로 얼마나 아픈지</b>를 재는 데
+	 * 직전에 받은 피해량. 피격 쿨타임 안에 들어온 공격이 <b>실제로 얼마나 아픈지</b>를 재는 데
 	 * 쓴다.
 	 *
 	 * <p>{@code hurtServer} 는 {@code LivingEntity.damageCooldownTime > 10} 이고
 	 * {@code BYPASSES_COOLDOWN} 이 아니면 <b>{@code amount - lastHurt} 만</b> 실제 피해로 치고,
 	 * 그 값이 0 이하이면 통째로 버린다(바이트코드 206~216행). 「호위」가 그 버려질 한 대를
 	 * 막았다고 치고 쿨타임을 쓰면 정작 아픈 대를 못 막는다.
-	 *
-	 * <p><b>세는 칸이 갈렸다.</b> 예전에는 {@code Entity.invulnerableTime} 하나가 이 판정을
-	 * 맡았지만, 지금은 {@code LivingEntity.damageCooldownTime} 이 따로 있고 {@code hurtServer}
-	 * 가 읽고 쓰는 것은 <b>그쪽</b>이다. {@code Entity.invulnerableTime} 은 피해 쿨타임과 상관이
-	 * 없어져 {@code commonTick} 에서만 줄어드는 별개의 칸이 됐다. 이 갈림이 아래
-	 * {@link #effectiveAmount} 에 그대로 남아 있다 — 자세한 것은 그쪽 머리말에 있다.
 	 */
 	@Shadow
 	protected float lastHurt;
+
+	/**
+	 * 남은 피격 쿨타임(틱). <b>26.3 에서 새로 생긴 칸이고, {@code hurtServer} 가 보는 것은
+	 * 이쪽이다.</b>
+	 *
+	 * <p>26.2 까지는 {@code Entity.invulnerableTime} 하나가 이 판정을 맡았다. 26.3 이 그것을
+	 * 둘로 쪼갰다 — {@code LivingEntity.damageCooldownTime} 이 {@code public int} 로 새로 생겨
+	 * {@code hurtServer} 가 읽고({@code >10}) 쓰고({@code =20}), {@code Entity.invulnerableTime}
+	 * 은 {@code private} 이 되면서 <b>피해와 상관이 없어졌다</b>. 그쪽은 이제
+	 * {@code Entity.commonTick} 에서 줄어들고 NBT 로 오가며 {@code isTemporarilyInvulnerable()}
+	 * 이 읽을 뿐이다. 26.3 {@code LivingEntity} 클래스 파일에는 {@code invulnerableTime} 이라는
+	 * 이름이 <b>한 번도 나오지 않는다.</b>
+	 *
+	 * <p>두 판의 {@code hurtServer} 가 <b>같은 오프셋에서 서로 다른 칸</b>을 만지기 때문에 이
+	 * 갈림은 눈에 잘 띄지 않는다.
+	 *
+	 * <pre>
+	 * 26.2  185: getfield invulnerableTime      248: putfield invulnerableTime
+	 * 26.3  185: getfield damageCooldownTime    248: putfield damageCooldownTime
+	 * </pre>
+	 *
+	 * <p>실제로 0.27.0-dev 로 26.3 에 올릴 때 {@code Entity.invulnerableTime} 이
+	 * {@code private} 이 되어 컴파일이 깨졌고, 접근자 {@code getInvulnerableTime()} 으로 바꾸는
+	 * 것으로 끝냈다. <b>컴파일은 통과했고 판정만 조용히 죽었다.</b> 같은 실수가 다시 들어오지
+	 * 못하게 {@code SpreadDamageTargetTest} 가 두 칸을 나란히 붙들고 있다.
+	 *
+	 * <p>{@code @Shadow} 는 접근 제어자까지 대상과 맞아야 하므로 {@code public} 이다.
+	 */
+	@Shadow
+	public int damageCooldownTime;
+
 	/**
 	 * 버려야 할 피해를 여기서 전부 걸러낸다.
 	 *
@@ -176,10 +201,10 @@ public abstract class LivingEntityPerkDamageMixin {
 		// 「호위」는 맨 마지막이다. 참을 돌려주는 순간 그 사람의 쿨타임이 시작되므로, 앞에서 이미
 		// 버려질 피해에 한 번을 낭비하지 않으려면 다른 모든 검사 뒤여야 한다.
 		//
-		// 그리고 바닐라가 무적시간 안에서 버릴 몫도 미리 덜어 낸다. 좀비 셋에게 동시에 맞으면
+		// 그리고 바닐라가 피격 쿨타임 안에서 버릴 몫도 미리 덜어 낸다. 좀비 셋에게 동시에 맞으면
 		// 실제로 아픈 것은 첫 대뿐인데, 그 판정 없이는 「호위」가 어차피 0 이 될 두 번째 대에
-		// 소모될 수 있다.
-		if (effectiveAmount(self, source, amount) > 0.0F
+		// 소모된다.
+		if (effectiveAmount(source, amount) > 0.0F
 				&& PerkDamage.blocksMobDamage(level, self, source, amount)) {
 			callback.setReturnValue(false);
 		}
@@ -270,24 +295,20 @@ public abstract class LivingEntityPerkDamageMixin {
 	}
 
 	/**
-	 * 이번 공격이 <b>실제로</b> 줄 피해. 무적시간에 걸려 버려질 몫을 덜어 낸 값이다.
+	 * 이번 공격이 <b>실제로</b> 줄 피해. 피격 쿨타임에 걸려 버려질 몫을 덜어 낸 값이다.
 	 *
-	 * <p>{@code LivingEntity.hurtServer} 의 판정을 베껴 온 것이라, 마인크래프트가 그 규칙을
-	 * 바꾸면 여기도 함께 바뀌어야 한다.
+	 * <p>판정 자체는 {@link PerkDamage#effectiveAmount} 에 순수 계산으로 떼어 두었다. 믹스인
+	 * 안의 {@code private} 메서드는 밖에서 부를 길이 없어 시험이 닿지 않고, 닿지 않는 판정은
+	 * 판올림 때 조용히 썩는다 — 실제로 그렇게 한 번 썩었다. 이 저장소가
+	 * {@code GameOverCountdown}·{@code VictoryTeamResolver.resolve} 에서 쓰는 방식과 같다.
 	 *
-	 * <p><b>지금 그 둘이 어긋나 있다.</b> 바닐라 {@code hurtServer} 가 보는 것은
-	 * {@code LivingEntity.damageCooldownTime} 인데, 여기서 묻는 것은
-	 * {@code Entity.getInvulnerableTime()} 이다. 예전에는 한 칸이었으나 지금은 갈라진 별개의
-	 * 값이고 뒤쪽은 얻어맞아도 올라가지 않는다. 그래서 이 함수는 사실상 늘 {@code amount} 를
-	 * 그대로 돌려주고, <b>「바닐라가 어차피 버릴 한 대에 「호위」를 낭비하지 않는다」는 위의
-	 * 약속이 지켜지지 않는다.</b> 아직 고치지 않았다 — 고치면 「호위」가 소모되는 시점이
-	 * 달라지므로 값 조정과 함께 봐야 한다.
+	 * <p>여기 남는 것은 <b>{@code @Shadow} 로 끌어온 두 칸을 읽어 넘기는 일</b>뿐이다.
+	 * {@link #damageCooldownTime} 이 어떤 칸이고 왜 {@code Entity.invulnerableTime} 이 아닌지는
+	 * 그쪽 머리말에 있다.
 	 */
-	private float effectiveAmount(LivingEntity self, DamageSource source, float amount) {
-		if (self.getInvulnerableTime() > 10 && !source.is(DamageTypeTags.BYPASSES_COOLDOWN)) {
-			return amount - this.lastHurt;
-		}
-		return amount;
+	private float effectiveAmount(DamageSource source, float amount) {
+		return PerkDamage.effectiveAmount(amount, this.lastHurt, this.damageCooldownTime,
+				source.is(DamageTypeTags.BYPASSES_COOLDOWN));
 	}
 
 }

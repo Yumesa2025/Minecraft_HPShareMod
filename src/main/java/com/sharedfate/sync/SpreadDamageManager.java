@@ -377,9 +377,21 @@ public final class SpreadDamageManager {
 	/**
 	 * 미뤄 둔 몫 하나를 실제로 넣는다.
 	 *
-	 * <p>넣기 직전에 무적시간을 0 으로 만들었다가 <b>원래 값으로 되돌린다</b>. 0 으로 만드는 것은
-	 * 이 몫이 직전 피격의 무적시간에 삼켜지지 않게 하기 위해서고, 되돌리는 것은 몫을 넣을 때마다
-	 * 무적시간이 새로 차서 「분산 중에는 몹에게 맞지 않는다」가 되지 않게 하기 위해서다.
+	 * <p>넣기 직전에 피격 쿨타임을 0 으로 만들었다가 <b>원래 값으로 되돌린다</b>. 0 으로 만드는
+	 * 것은 이 몫이 직전 피격의 쿨타임에 삼켜지지 않게 하기 위해서고, 되돌리는 것은 몫을 넣을
+	 * 때마다 쿨타임이 새로 차서 「분산 중에는 몹에게 맞지 않는다」가 되지 않게 하기 위해서다.
+	 *
+	 * <h2>⚠ 만지는 칸이 26.3 에서 바뀌었다</h2>
+	 * <p>26.2 까지는 {@code Entity.invulnerableTime} 하나가 이 일을 맡았다. 26.3 은
+	 * {@code LivingEntity.damageCooldownTime} 을 따로 만들었고 <b>{@code hurtServer} 가 보는
+	 * 것은 그쪽</b>이다. {@code invulnerableTime} 은 피해 쿨타임과 상관이 없어져
+	 * {@code commonTick} 에서만 줄어드는 별개의 칸이 됐다.
+	 *
+	 * <p>0.27.0-dev 로 26.3 에 올릴 때 {@code invulnerableTime} 이 {@code private} 이 되어
+	 * 접근자로 갈아 끼웠는데, <b>바닐라가 그 값의 쓰임 자체를 옮긴 것</b>은 보지 못했다. 그래서
+	 * 위 두 줄이 <b>둘 다 아무 일도 하지 않았다</b> — 컴파일은 통과한다. 결과는 의도와 정반대로,
+	 * 몫을 넣을 때마다 쿨타임이 20 으로 차서 <b>분산 중에는 몹 피해가 부당하게 막혔다.</b>
+	 * 같은 뿌리의 회귀가 {@code PerkDamage.effectiveAmount} 에도 있었다.
 	 */
 	private static void deliver(ServerPlayer victim, @Nullable DamageSource source, float amount) {
 		if (!(amount > 0.0F)) {
@@ -387,7 +399,7 @@ public final class SpreadDamageManager {
 		}
 		ServerLevel level = victim.level();
 		DamageSource actual = source != null ? source : victim.damageSources().generic();
-		int saved = victim.getInvulnerableTime();
+		int saved = victim.damageCooldownTime;
 		// 피격 표시도 함께 되돌린다. 한 번 맞은 것이 여러 몫으로 나뉘어 들어오는데 몫마다
 		// 화면이 붉어지고 소리가 나면 여덟 번 맞은 것처럼 보인다. 소리는 값을 되돌리는 것으로
 		// 막을 수 없어 LivingEntityHurtSoundMixin 이 따로 삼킨다.
@@ -395,11 +407,11 @@ public final class SpreadDamageManager {
 		int savedHurtDuration = victim.hurtDuration;
 		DELIVERING.set(Boolean.TRUE);
 		try {
-			victim.setInvulnerableTime(0);
+			victim.damageCooldownTime = 0;
 			victim.hurtServer(level, actual, amount);
 		} finally {
 			DELIVERING.set(Boolean.FALSE);
-			victim.setInvulnerableTime(saved);
+			victim.damageCooldownTime = saved;
 			victim.hurtTime = savedHurtTime;
 			victim.hurtDuration = savedHurtDuration;
 		}

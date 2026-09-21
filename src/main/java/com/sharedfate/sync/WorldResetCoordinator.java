@@ -64,6 +64,10 @@ public final class WorldResetCoordinator {
 	 * <p><b>{@link #pendingTeamName} 으로 가르지 않는다.</b> 그 값은 화면과 로그에 적는 이름이라
 	 * 팀 이름이 {@link #RUN_RESET_LABEL} 과 똑같으면 두 경로가 섞인다. 판단의 근거를 표시용
 	 * 문자열에 얹으면 이름이 바뀌는 날 조용히 틀린다.
+	 *
+	 * <p>클라이언트에 보내는 {@link GameOverCountdown.Reason} 과 묻는 것이 다르다. 저쪽은
+	 * 「화면에 무슨 글자를 적을까」이고 이쪽은 「회차 표식을 거둬야 할까」다. 값을 여기서
+	 * {@link #arm} 이 한 번만 뽑아 두므로 둘이 어긋날 자리는 없다.
 	 */
 	private static boolean pendingRunReset;
 
@@ -166,7 +170,7 @@ public final class WorldResetCoordinator {
 				: SharedFateMod.config.worldResetDelayTicks;
 		arm(server, RUN_RESET_LABEL, delayTicks,
 				RunResetMessages.announcement(GameOverCountdown.secondsRemaining(delayTicks)),
-				true);
+				GameOverCountdown.Reason.RUN_RESET);
 		SharedFateMod.LOGGER.warn(
 				"운영자 초기화로 서버 종료를 예약했습니다: delayTicks={}", delayTicks);
 		return delayTicks;
@@ -179,7 +183,7 @@ public final class WorldResetCoordinator {
 		int delayTicks = SharedFateMod.config.worldResetDelayTicks;
 		int seconds = GameOverCountdown.secondsRemaining(delayTicks);
 		arm(server, teamName, delayTicks, GameOverCountdown.wipeAnnouncement(teamName, seconds),
-				false);
+				GameOverCountdown.Reason.TEAM_WIPE);
 		SharedFateMod.LOGGER.warn(
 				"팀 전멸로 월드 초기화를 예약했습니다: team={}, delayTicks={}", teamName, delayTicks);
 	}
@@ -190,17 +194,23 @@ public final class WorldResetCoordinator {
 	 * <p>여기가 갈라지면 한쪽만 고쳤을 때 다른 쪽이 조용히 다르게 돈다. 클라이언트는
 	 * {@code WorldResetPayload} 로 받은 길이를 스스로 세어 내려간다.
 	 *
-	 * @param runReset 이것이 <b>운영자 초기화</b> 경로인가. {@link #tick} 이 실패했을 때 회차
-	 *                 표식을 되돌릴지 정하는 근거다. 전멸 경로에는 회차 표식이 없다
+	 * <p><b>절차는 같아도 화면에 적는 글자는 달라야 한다.</b> 그래서 {@code reason} 을 묶음에
+	 * 실어 보낸다 — 회차도 남은 틱도 두 경로가 똑같이 채우므로 받는 쪽에는 가를 근거가 없다.
+	 * 이 칸이 없던 동안 운영자가 서버를 초기화하면 살아 있는 팀원 전원의 화면에
+	 * 「게임 오버」가 떴다.
+	 *
+	 * @param reason 이것이 <b>운영자 초기화</b> 경로인가 전멸 경로인가. 두 곳에 쓰인다 —
+	 *               클라이언트가 그릴 글자를 고르는 근거이자, {@link #tick} 이 실패했을 때
+	 *               회차 표식을 되돌릴지 정하는 근거다. 전멸 경로에는 회차 표식이 없다
 	 */
 	private static void arm(MinecraftServer server, String label, int delayTicks,
-			String announcement, boolean runReset) {
+			String announcement, GameOverCountdown.Reason reason) {
 		pendingServer = server;
 		ticksRemaining = delayTicks;
 		pendingTeamName = label;
-		pendingRunReset = runReset;
+		pendingRunReset = reason == GameOverCountdown.Reason.RUN_RESET;
 		WorldResetPayload payload = new WorldResetPayload(
-				RunProgressManager.runNumber(), ticksRemaining);
+				RunProgressManager.runNumber(), ticksRemaining, reason);
 		for (var player : server.getPlayerList().getPlayers()) {
 			ServerPlayNetworking.send(player, payload);
 		}

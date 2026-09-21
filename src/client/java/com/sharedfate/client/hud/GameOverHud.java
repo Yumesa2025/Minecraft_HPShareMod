@@ -25,10 +25,16 @@ import org.joml.Matrix3x2fStack;
  * {@value #COUNTDOWN_Y} 를 골랐다. 여기는 어떤 GUI 크기에서도 비어 있다.
  *
  * <h2>죽지 않은 사람에게는 앞뒤 줄도 함께 적는다</h2>
- * <p>사망 화면이 떠 있으면 그 화면이 이미 제목 「게임 오버 · N회차」와 사인 줄을 그리므로
+ * <p>사망 화면이 떠 있으면 그 화면이 이미 제목과 사인 줄을 그리므로
  * ({@code GameOverClientDisplay}) 숫자만 있으면 된다. 팀에 속하지 않은 접속자처럼 죽지 않은
- * 사람에게는 그 두 줄이 없으므로, 숫자 위에 「게임 오버」를, 아래에 무엇을 세는 숫자인지를
+ * 사람에게는 그 두 줄이 없으므로, 숫자 위에 제목을, 아래에 무엇을 세는 숫자인지를
  * 함께 적는다. 사망 화면에서 이 두 줄을 그리면 화면의 제목·사인 줄과 글자가 겹친다.
+ *
+ * <h2>제목은 <b>왜 내려가는지</b>에 따라 다르다</h2>
+ * <p>운영자가 {@code /shareteam reset} 을 쳐도 이 카운트다운이 돈다. 그때는 아무도 죽지
+ * 않았으므로 여기 「게임 오버」를 그리면 <b>살아 있는 팀원 전원이 전멸한 줄 안다.</b> 실제로
+ * 그랬고, 고친 자리가 이 두 줄이다 — 서버가 이유를 실어 보내고({@code WorldResetPayload})
+ * 글자는 {@code GameOverCountdown} 이 고른다.
  */
 public class GameOverHud implements HudElement {
 	/** 숫자의 윗변 y. 사망 화면 제목(30~48)과 사인 줄(85) 사이의 빈 자리다. */
@@ -59,13 +65,15 @@ public class GameOverHud implements HudElement {
 		int centerX = graphics.guiWidth() / 2;
 		Matrix3x2fStack pose = graphics.pose();
 		boolean onGameOverScreen = client.gui.screen() instanceof DeathScreen;
+		GameOverCountdown.Reason reason = GameOverClientDisplay.reason();
 
 		if (!onGameOverScreen) {
 			pose.pushMatrix();
 			pose.translate(centerX, TITLE_Y);
 			pose.scale(TITLE_SCALE, TITLE_SCALE);
 			graphics.centeredText(client.font,
-					Component.literal(GameOverCountdown.TITLE).withStyle(ChatFormatting.BOLD),
+					Component.literal(GameOverCountdown.title(reason))
+							.withStyle(ChatFormatting.BOLD),
 					0, 0, TITLE_COLOR);
 			pose.popMatrix();
 		}
@@ -84,7 +92,7 @@ public class GameOverHud implements HudElement {
 		// 사망 화면의 사인 줄이 쓰고 있어서 글자가 겹친다.
 		if (!onGameOverScreen) {
 			graphics.centeredText(client.font,
-					Component.literal(GameOverCountdown.shutdownNotice(seconds)),
+					Component.literal(GameOverCountdown.shutdownNotice(reason, seconds)),
 					centerX, NOTICE_Y, NOTICE_COLOR);
 		}
 	}

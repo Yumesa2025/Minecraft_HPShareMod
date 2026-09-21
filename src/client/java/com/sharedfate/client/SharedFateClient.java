@@ -76,9 +76,11 @@ public class SharedFateClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(DamageAlertPayload.TYPE,
 				(payload, context) -> DamageAlertHud.show(
 						payload.playerName(), payload.durationTicks()));
+		// 서버 종료 예고. 전멸인지 운영자 초기화인지가 함께 오고, 화면에 적을 글자는 그것으로
+		// 갈린다 — 회차도 남은 틱도 두 경로가 똑같이 채우므로 이 칸 말고는 가를 근거가 없다.
 		ClientPlayNetworking.registerGlobalReceiver(WorldResetPayload.TYPE,
 				(payload, context) -> GameOverClientDisplay.show(
-						payload.runNumber(), payload.delayTicks()));
+						payload.runNumber(), payload.delayTicks(), payload.reason()));
 		ClientPlayNetworking.registerGlobalReceiver(TeamWipePayload.TYPE,
 				(payload, context) -> GameOverClientDisplay.showVictim(payload.victimName()));
 		// 「폭발 교환」의 혜택. 받은 숫자를 그대로 들고 있다가 왼쪽 위에 그린다.

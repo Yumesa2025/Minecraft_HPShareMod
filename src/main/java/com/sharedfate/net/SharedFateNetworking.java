@@ -106,7 +106,17 @@ public final class SharedFateNetworking {
 	//     ★ 규칙과 이유가 다르다는 것을 알고 올린 것이니, 다음에 이 줄을 근거로
 	//       「기능이 서버 안쪽이어도 번호를 올린다」고 일반화하지 말 것. 판을 강제로 맞출
 	//       이유가 있을 때만 그렇게 한다.
-	public static final int PROTOCOL_VERSION = 28;
+	// 29: WorldResetPayload 에 「왜 서버가 내려가는가」 칸이 하나 늘었다
+	//     (GameOverCountdown.Reason — 전멸 / 운영자 초기화).
+	//     28에서 넣은 /shareteam reset 이 전멸 연출을 그대로 빌려 쓰는 바람에, 운영자가 서버를
+	//     초기화하면 **살아 있는 팀원 전원의 화면 한가운데에 「게임 오버」가 크게 떴다.** 아무도
+	//     죽지 않았는데 전멸한 줄 아는 것이다. 클라이언트에는 두 경로를 가를 근거가 없었다 —
+	//     회차도 남은 틱도 양쪽이 똑같이 채우므로 받는 쪽에서는 구분할 방법이 아예 없었고,
+	//     그래서 글자를 가르려면 서버가 이유를 실어 보내는 수밖에 없다.
+	//     칸이 하나 늘어 형식 자체가 바뀌었으므로 옛 클라이언트는 이 묶음을 읽지 못한다.
+	//     값을 숫자가 아니라 이름("team_wipe"/"run_reset")으로 싣는 이유는
+	//     GameOverCountdown.Reason.id() 에 적어 두었다.
+	public static final int PROTOCOL_VERSION = 29;
 
 	private SharedFateNetworking() {
 	}

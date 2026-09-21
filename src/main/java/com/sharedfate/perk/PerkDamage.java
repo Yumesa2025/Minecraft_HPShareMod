@@ -39,6 +39,15 @@ public final class PerkDamage {
 	 */
 	static final int FALL_BLOCK_DURABILITY_FACTOR = 10;
 
+	/**
+	 * 바닐라가 「아직 피격 쿨타임 안이다」로 보는 경계. {@code damageCooldownTime > 10} 이다.
+	 *
+	 * <p>26.3 {@code LivingEntity.hurtServer} 바이트코드에 {@code 10.0F} 가 그대로 박혀 있다
+	 * (상수 {@code DAMAGE_COOLDOWN_DURATION = 20} 의 절반이지만 그 상수를 쓰지는 않는다).
+	 * {@code SpreadDamageManager.INVULNERABLE_GATE_TICKS} 와 같은 값이고 같은 규칙이다.
+	 */
+	static final int DAMAGE_COOLDOWN_GATE_TICKS = 10;
+
 	/** 조회가 한 번 터지면 매 피해마다 로그가 쌓이므로 한 번만 남긴다. */
 	private static volatile boolean warned;
 
@@ -260,6 +269,58 @@ public final class PerkDamage {
 		}
 	}
 
+	// ------------------------------------------------------------------ 바닐라 피격 쿨타임 판정
+
+	/**
+	 * 이 공격이 바닐라 피격 쿨타임을 통과하고 <b>실제로</b> 줄 피해.
+	 *
+	 * <p>{@code LivingEntity.hurtServer} 의 판정을 그대로 베낀 <b>순수 계산</b>이다. 월드도
+	 * 엔티티도 보지 않으므로 살아 있는 서버 없이 시험할 수 있고, 믹스인 안에 갇혀 있던 판정이
+	 * 조용히 썩는 것을 막는다. {@code SpreadDamageManager.gate} 와 같은 방식이다.
+	 *
+	 * <p>26.3 바이트코드({@code hurtServer} 181~248행)를 그대로 옮기면 이렇다.
+	 *
+	 * <pre>{@code
+	 * if ((float) this.damageCooldownTime > 10.0F && !source.is(BYPASSES_COOLDOWN)) {
+	 *     if (!(amount > this.lastHurt)) {
+	 *         return false;                                  // 통째로 버린다
+	 *     }
+	 *     this.actuallyHurt(level, source, amount - this.lastHurt);   // 넘치는 만큼만 들어간다
+	 *     this.lastHurt = amount;
+	 * } else {
+	 *     this.lastHurt = amount;
+	 *     this.damageCooldownTime = 20;
+	 * }
+	 * }</pre>
+	 *
+	 * <p><b>세는 칸이 무엇인지가 판 사이에 바뀌었다.</b> 26.2 까지는
+	 * {@code Entity.invulnerableTime} 하나가 이 판정을 맡았으나, 26.3 에서
+	 * {@code LivingEntity.damageCooldownTime}({@code public int})이 새로 생겨 그쪽으로 옮겨 갔다.
+	 * {@code Entity.invulnerableTime} 은 {@code private} 이 되면서 피해와 상관이 없어졌고,
+	 * 이제 {@code Entity.commonTick} 에서 줄어들고 NBT 로 오가며
+	 * {@code isTemporarilyInvulnerable()} 이 읽을 뿐이다. 두 칸을 같은 것으로 착각한 채 판을
+	 * 올려 이 판정이 한동안 죽어 있었고, 그 사실은
+	 * {@code SpreadDamageTargetTest.피해_판정은_무적시간_칸을_보지_않는다} 가 붙들고 있다.
+	 *
+	 * <p>경계는 {@code > 10} 이다. 바닐라가 쿨타임을 20 으로 채우므로 <b>맞은 뒤 앞의 0.5초</b>가
+	 * 이 구간이고, 그 사이에 들어온 공격은 직전 피해를 넘는 몫만 실제로 들어간다.
+	 *
+	 * @param amount             이번에 들어온 피해량
+	 * @param lastHurt           직전에 받아들인 피해량({@code LivingEntity.lastHurt})
+	 * @param damageCooldownTime 남은 피격 쿨타임({@code LivingEntity.damageCooldownTime})
+	 * @param bypassesCooldown   피해 종류가 {@code #minecraft:bypasses_cooldown} 인가
+	 * @return 실제로 들어갈 피해량. 바닐라가 통째로 버릴 한 대면 0
+	 */
+	public static float effectiveAmount(float amount, float lastHurt, int damageCooldownTime,
+			boolean bypassesCooldown) {
+		if (damageCooldownTime > DAMAGE_COOLDOWN_GATE_TICKS && !bypassesCooldown) {
+			// 바닐라는 amount <= lastHurt 이면 false 를 돌려주고 아무것도 바꾸지 않는다. 그 몫은
+			// 「들어가지 않은 피해」이므로 음수가 아니라 0 이 맞다.
+			return Math.max(0.0F, amount - lastHurt);
+		}
+		return amount;
+	}
+
 	// ------------------------------------------------------------------ 몹 피해 한 번 막기
 
 	/**
@@ -281,10 +342,12 @@ public final class PerkDamage {
 	 *   <li>쿨타임이 찼는가 — {@link DamageWardTracker#tryConsume}.</li>
 	 * </ol>
 	 *
-	 * <p>무적시간(피격 뒤 0.5초) 안에 들어와 어차피 버려질 피해까지는 가려내지 못한다. 그 판정에
-	 * 필요한 {@code LivingEntity.lastHurt} 가 이 자리에서 읽히지 않기 때문이다. 그래서 몹이 여럿
-	 * 달라붙은 상황에서는 「호위」가 이미 무효인 한 대에 쓰일 수 있다. 반대로 막아야 할 한 대를
-	 * 놓치는 일은 없다.
+	 * <p><b>피격 쿨타임(맞은 뒤 0.5초) 안에 들어와 어차피 버려질 피해는 이 자리까지 오지
+	 * 않는다.</b> 그 판정에 필요한 {@code LivingEntity.lastHurt} 와
+	 * {@code LivingEntity.damageCooldownTime} 은 여기서 읽을 수 없어,
+	 * {@code LivingEntityPerkDamageMixin} 이 {@code @Shadow} 로 두 칸을 읽어
+	 * {@link #effectiveAmount} 에 넣고 그 값이 0 보다 클 때만 이것을 부른다. 그래서 몹이 여럿
+	 * 달라붙어도 「호위」는 <b>실제로 아픈 첫 대</b>에만 쓰인다.
 	 *
 	 * @param level  피해가 처리되는 월드. 지금 시각(게임 시간)을 여기서 읽는다
 	 * @param victim 피해를 받는 대상

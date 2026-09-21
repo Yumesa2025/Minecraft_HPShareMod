@@ -8,9 +8,12 @@ import net.minecraft.world.entity.LivingEntity;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -81,6 +84,11 @@ class SpreadDamageTargetTest {
 	 * <p>{@code SpreadDamageManager} 가 미뤄 둔 몫을 넣기 직전에 이 값을 0 으로 두었다가 되돌린다.
 	 * 되돌리지 않으면 나뉘어 들어오는 동안 몹에게 거의 맞지 않는 증강이 된다.
 	 * {@code public int} 가 아니게 되면 컴파일이 깨지므로 여기서 미리 붙든다.
+	 *
+	 * <p><b>이 칸은 더 이상 피해 쿨타임이 아니다.</b> 26.3 에서 피해 쿨타임이
+	 * {@code LivingEntity.damageCooldownTime} 으로 갈라져 나갔고, 그쪽을 붙드는 것이 아래
+	 * {@link #피격_쿨타임_칸이_그대로_있다} 다. 두 시험이 나란히 있는 것은 <b>둘을 같은 것으로
+	 * 착각해 생긴 회귀</b>가 실제로 있었기 때문이다.
 	 */
 	@Test
 	void 무적_시간_칸이_그대로_있다() {
@@ -96,5 +104,95 @@ class SpreadDamageTargetTest {
 				"무적 시간을 읽을 길이 없어졌다");
 		assertDoesNotThrow(() -> Entity.class.getMethod("setInvulnerableTime", int.class),
 				"무적 시간을 되돌릴 길이 없어졌다");
+	}
+
+	// -------------------------------------------------- 피격 쿨타임 칸 (26.3 에서 갈라져 나왔다)
+
+	/**
+	 * 피격 쿨타임 칸. {@code LivingEntityPerkDamageMixin} 이 {@code @Shadow} 로 끌어다 쓴다.
+	 *
+	 * <p>{@code @Shadow} 는 <b>이름·타입·접근 제어자가 대상과 어긋나면 발화 시점에 터진다.</b>
+	 * refmap 이 없어 빌드는 그냥 통과하므로 여기서 미리 붙든다 — 특히 {@code public} 이 아니게
+	 * 되면 {@code @Shadow} 쪽 선언도 함께 바꿔야 한다.
+	 */
+	@Test
+	void 피격_쿨타임_칸이_그대로_있다() {
+		Field field = assertDoesNotThrow(
+				() -> LivingEntity.class.getDeclaredField("damageCooldownTime"),
+				"LivingEntity.damageCooldownTime 이 사라졌거나 이름이 바뀌었다. "
+						+ "hurtServer 가 무엇으로 쿨타임을 세는지 바이트코드로 다시 확인할 것");
+
+		assertEquals(int.class, field.getType(), "@Shadow 의 타입이 이것과 같아야 한다");
+		assertTrue(Modifier.isPublic(field.getModifiers()),
+				"@Shadow 의 접근 제어자가 이것과 같아야 한다");
+		assertFalse(Modifier.isStatic(field.getModifiers()));
+		assertFalse(Modifier.isFinal(field.getModifiers()));
+	}
+
+	/**
+	 * <b>피해 판정이 어느 칸을 보는가</b>를 클래스 파일째로 붙든다. 이번 회귀를 정확히 잡는
+	 * 한 줄이다.
+	 *
+	 * <p>26.3 {@code LivingEntity} 의 상수 풀에는 {@code invulnerableTime} 이라는 이름이
+	 * <b>한 번도 나오지 않는다.</b> 즉 {@code hurtServer} 가 그 칸을 볼 길 자체가 없다. 반대로
+	 * {@code damageCooldownTime} 은 거기 있고, 바이트코드로 보면 {@code hurtServer} 가
+	 * 185번째에서 읽고 248번째에서 20 으로 되채운다.
+	 *
+	 * <p>0.27.0-dev 로 26.3 에 올릴 때 {@code Entity.invulnerableTime} 이 {@code private} 이 되어
+	 * 컴파일이 깨졌고, 접근자 {@code getInvulnerableTime()} 으로 바꾸는 것으로 끝냈다. 그런데
+	 * <b>바닐라가 그 값의 쓰임 자체를 다른 칸으로 옮긴 것</b>은 보지 못했다. 컴파일은 통과했고
+	 * 시험이 없어 아무도 모른 채 「호위」의 낭비 방지가 죽어 있었다.
+	 *
+	 * <p>{@code DebugOverlayCheckTest} 와 같은 방식이다 — 상수 풀에 이름이 아스키로 들어가므로
+	 * 살아 있는 서버 없이 바이트를 훑어 확인한다.
+	 */
+	@Test
+	void 피해_판정은_무적시간_칸을_보지_않는다() throws IOException {
+		String livingEntity = classFileOf(LivingEntity.class, LivingEntity.class.getName());
+
+		assertTrue(livingEntity.contains("damageCooldownTime"),
+				"LivingEntity 가 피격 쿨타임 칸을 아예 모른다. hurtServer 판정이 다시 바뀌었다");
+		assertFalse(livingEntity.contains("invulnerableTime"),
+				"LivingEntity 가 다시 invulnerableTime 을 본다. 26.3 에서 갈라진 두 칸이 합쳐졌는지, "
+						+ "아니면 다른 쓰임이 생겼는지 바이트코드로 확인하고 effectiveAmount 를 맞출 것");
+	}
+
+	/**
+	 * 우리 쪽이 다시 무적시간 칸으로 돌아가지 않았는가.
+	 *
+	 * <p>{@code Entity.getInvulnerableTime()} 은 <b>지금도 멀쩡히 컴파일되는 호출</b>이라, 같은
+	 * 실수가 「컴파일이 되니까 맞겠지」로 다시 들어올 수 있다. 그 길을 막는다.
+	 *
+	 * <p>믹스인 클래스를 {@code .class} 로 직접 참조하지 않고 이름으로 읽는다. 믹스인 클래스를
+	 * 그대로 불러오면 믹스인 환경이 「믹스인은 직접 참조할 수 없다」로 막기 때문이다.
+	 */
+	@Test
+	void 증강_피해_믹스인은_무적시간_칸을_묻지_않는다() throws IOException {
+		String mixin = classFileOf(PerkDamage.class,
+				"com.sharedfate.mixin.LivingEntityPerkDamageMixin");
+
+		assertTrue(mixin.contains("damageCooldownTime"),
+				"믹스인이 피격 쿨타임 칸을 @Shadow 로 끌어오지 않는다");
+		assertFalse(mixin.contains("InvulnerableTime"),
+				"믹스인이 다시 무적시간 접근자를 부른다. 그 칸은 얻어맞아도 올라가지 않으므로 "
+						+ "「어차피 버려질 한 대」를 못 가려내고 「호위」가 헛되이 소모된다");
+	}
+
+	/**
+	 * 클래스 파일의 바이트를 그대로 문자열로 읽는다.
+	 *
+	 * <p>상수 풀에 이름이 아스키로 들어가므로 {@code ISO_8859_1} 로 훑으면 찾을 수 있다.
+	 *
+	 * @param nearby   자원을 찾을 클래스로더를 빌려 올 클래스
+	 * @param binary   읽고 싶은 클래스의 이름
+	 */
+	private static String classFileOf(Class<?> nearby, String binary) throws IOException {
+		String path = "/" + binary.replace('.', '/') + ".class";
+		try (InputStream in = nearby.getResourceAsStream(path)) {
+			if (in == null) {
+				throw new IOException("클래스 파일을 찾지 못했습니다: " + path);
+			}
+			return new String(in.readAllBytes(), StandardCharsets.ISO_8859_1);
+		}
 	}
 }

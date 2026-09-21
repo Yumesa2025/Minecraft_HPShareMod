@@ -76,4 +76,51 @@ class PerkDamageTest {
 				Float.floatToRawIntBits(PerkDamage.combine(original, 1.0)),
 				"1.0 배는 부동소수 반올림조차 일으키지 않아야 한다");
 	}
+
+	// ------------------------------------------------------------------ 바닐라 피격 쿨타임 판정
+
+	/**
+	 * 쿨타임 밖이면 바닐라는 아무것도 깎지 않는다. <b>경계값 10 도 아직 밖이다</b> — 바닐라가
+	 * {@code > 10} 으로 묻기 때문이다. 한 칸 밀리면 「호위」가 한 틱 동안 엉뚱하게 판단한다.
+	 */
+	@Test
+	void 피격_쿨타임_밖에서는_받은_값_그대로다() {
+		assertEquals(6.0F, PerkDamage.effectiveAmount(6.0F, 4.0F, 0, false), 0.0F);
+		assertEquals(6.0F, PerkDamage.effectiveAmount(6.0F, 4.0F, 10, false), 0.0F);
+	}
+
+	/** 쿨타임 안에서는 직전 피해를 넘는 몫만 실제로 들어간다. */
+	@Test
+	void 쿨타임_안에서는_직전보다_넘치는_만큼만_남는다() {
+		assertEquals(2.0F, PerkDamage.effectiveAmount(6.0F, 4.0F, 11, false), 0.0F);
+		assertEquals(2.0F, PerkDamage.effectiveAmount(6.0F, 4.0F, 20, false), 0.0F);
+	}
+
+	/**
+	 * 「호위」가 낭비되지 않아야 하는 바로 그 상황이다. 좀비 셋에게 동시에 맞으면 둘째·셋째 대는
+	 * 바닐라가 통째로 버리므로 여기서 0 이 나와야 하고, 그래야 부르는 쪽의 {@code > 0} 검사가
+	 * 쿨타임을 쓰지 않는다.
+	 */
+	@Test
+	void 쿨타임_안에서_직전보다_약한_대는_통째로_버려진다() {
+		assertEquals(0.0F, PerkDamage.effectiveAmount(3.0F, 4.0F, 20, false), 0.0F);
+		assertEquals(0.0F, PerkDamage.effectiveAmount(4.0F, 4.0F, 20, false), 0.0F,
+				"같은 값이면 바닐라는 amount > lastHurt 가 거짓이라 버린다");
+	}
+
+	/** {@code bypasses_cooldown} 은 쿨타임을 아예 보지 않는다. 독·굶주림·마법 피해가 그렇다. */
+	@Test
+	void 쿨타임을_무시하는_피해는_깎이지_않는다() {
+		assertEquals(6.0F, PerkDamage.effectiveAmount(6.0F, 4.0F, 20, true), 0.0F);
+		assertEquals(3.0F, PerkDamage.effectiveAmount(3.0F, 4.0F, 20, true), 0.0F);
+	}
+
+	/**
+	 * 쿨타임을 한 번도 안 겪은 사람({@code lastHurt} 가 0)에게는 아무 영향이 없다. 이 함수가
+	 * 평소 피해를 조용히 깎아 버리는 일이 없다는 뜻이다.
+	 */
+	@Test
+	void 직전_피해가_없으면_깎이지_않는다() {
+		assertEquals(6.0F, PerkDamage.effectiveAmount(6.0F, 0.0F, 20, false), 0.0F);
+	}
 }
