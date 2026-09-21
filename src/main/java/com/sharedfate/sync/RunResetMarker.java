@@ -5,8 +5,10 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
 
@@ -64,11 +66,76 @@ public final class RunResetMarker {
 	 * 여기서는 덮어쓴다. 내용이 언제나 같은 두 줄이라 덮어쓰기가 손해를 낳지 않고, 거절하면
 	 * 어쩌다 남은 표식 하나 때문에 <b>그 서버는 영영 초기화할 수 없게</b> 된다 — 숨김 파일을
 	 * 손으로 지우라고 시키는 것이 이 명령이 없애려던 바로 그 일이다.
+	 *
+	 * <h2>임시 파일에 쓴 뒤 옮긴다</h2>
+	 * <p>{@code RunProgressState.save}·{@code TeamRosterStore.save} 와 같은 방식이다. 곧장
+	 * 덮어쓰면 그 사이에 프로세스가 죽었을 때 <b>반쯤 쓰인 표식</b>이 남는데, 그것은 머리글
+	 * 검사에서 걸려 {@link #consume} 이 회차를 되돌리지 않는다. 그때는 이미 월드도 팀도 사라진
+	 * 뒤라 회차만 잘못된 채로 굳는다. 옮기기가 끝나야 표식이 생기므로 <b>「있으면 온전하다」</b>가
+	 * 성립한다.
 	 */
 	public static void write(Path serverDirectory) throws IOException {
-		Files.writeString(markerFile(serverDirectory), markerContents(serverDirectory),
-				StandardCharsets.UTF_8, StandardOpenOption.CREATE,
-				StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+		Path marker = markerFile(serverDirectory);
+		Path temporary = marker.resolveSibling(marker.getFileName() + ".tmp");
+		Files.writeString(temporary, markerContents(serverDirectory), StandardCharsets.UTF_8,
+				StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING,
+				StandardOpenOption.WRITE);
+		try {
+			Files.move(temporary, marker, StandardCopyOption.REPLACE_EXISTING,
+					StandardCopyOption.ATOMIC_MOVE);
+		} catch (AtomicMoveNotSupportedException ignored) {
+			// 파일 시스템이 원자적 옮기기를 못 하는 경우. 그래도 「쓰다 만 파일」보다는 낫다.
+			Files.move(temporary, marker, StandardCopyOption.REPLACE_EXISTING);
+		}
+	}
+
+	/**
+	 * 방금 쓴 표식을 <b>거둔다.</b> 초기화가 중간에 멈췄을 때 쓴다.
+	 *
+	 * <h2>왜 필요한가</h2>
+	 * <p>초기화는 이 표식을 먼저 쓰고, 5초 뒤에 {@link WorldResetCoordinator#tick} 이 월드
+	 * 표식을 쓰면서 서버를 내린다. 뒤쪽이 실패하면 서버는 <b>그대로 돈다.</b> 그때 이 표식을
+	 * 남겨 두면 다음에 서버를 켤 때 회차가 1 로 눌린다 — 초기화는 일어나지도 않았는데 회차만
+	 * 사라진다.
+	 *
+	 * <h2>내 것만 지운다</h2>
+	 * <p>{@link #consume} 과 같은 기준으로 본다. 되돌림은 <b>방금 내가 쓴 표식</b>을 거두는
+	 * 일이라, 형식이나 경로가 다른 파일은 애초에 내가 쓴 것이 아니다. 지우면 무엇이 잘못됐는지
+	 * 사람이 볼 것이 사라진다.
+	 *
+	 * @return 실제로 지웠으면 참. 지울 것이 없었거나 내 것이 아니었으면 거짓
+	 */
+	public static boolean rollback(Path serverDirectory) {
+		Path marker = markerFile(serverDirectory);
+		if (!Files.isRegularFile(marker)) {
+			return false;
+		}
+		String contents;
+		try {
+			contents = Files.readString(marker, StandardCharsets.UTF_8);
+		} catch (IOException e) {
+			SharedFateMod.LOGGER.error(
+					"회차 되돌림 표식을 읽지 못해 거두지 못했습니다."
+							+ " 그대로 두면 다음 기동에서 회차가 1로 눌립니다. 손으로 지워 주세요: {}",
+					marker, e);
+			return false;
+		}
+		if (!matches(contents, serverDirectory)) {
+			SharedFateMod.LOGGER.error(
+					"회차 되돌림 표식이 이 서버의 것이 아니라 거두지 않았습니다."
+							+ " 사람이 보도록 남깁니다: {}", marker);
+			return false;
+		}
+		try {
+			Files.delete(marker);
+		} catch (IOException e) {
+			SharedFateMod.LOGGER.error(
+					"회차 되돌림 표식을 지우지 못했습니다."
+							+ " 그대로 두면 다음 기동에서 회차가 1로 눌립니다. 손으로 지워 주세요: {}",
+					marker, e);
+			return false;
+		}
+		return true;
 	}
 
 	/**

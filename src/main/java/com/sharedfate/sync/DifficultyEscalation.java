@@ -178,7 +178,8 @@ public final class DifficultyEscalation {
 	 * 팀별로 흐른 시간을 올리고, 단계가 바뀌었으면 이미 올라와 있는 몹을 다시 계산한다.
 	 *
 	 * <p>팀이 여럿이면 <b>가장 높은 단계</b>를 쓴다. 몹은 어느 팀에도 속하지 않아 팀별로 다른
-	 * 체력을 줄 수 없기 때문이다. 실제 운영에서는 팀이 하나뿐이라 그 팀의 값이 그대로 쓰인다.
+	 * 체력을 줄 수 없기 때문이다. {@code singleTeamOnly} 를 켜 둔 서버는 팀이 하나뿐이라 그 팀의
+	 * 값이 그대로 쓰인다.
 	 */
 	public static void tick(@Nullable MinecraftServer server) {
 		if (server == null) {

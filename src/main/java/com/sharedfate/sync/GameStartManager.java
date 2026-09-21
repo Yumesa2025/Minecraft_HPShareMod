@@ -335,7 +335,7 @@ public final class GameStartManager {
 	 *
 	 * <p><b>시계는 서버에 하나뿐이다.</b> 팀이 여럿이면 나중에 시작한 팀이 먼저 시작한 팀의
 	 * 시각까지 되돌린다. 이 모드는 {@code singleTeamOnly} 로 팀을 하나만 만들게 하므로
-	 * ({@code TeamManager.canCreateNewTeam}) 실제 운영에서는 일어나지 않고, 그 설정을 끈
+	 * ({@code TeamManager.canCreateNewTeam}) 그 설정을 켜 둔 서버에서는 일어나지 않고, 끈
 	 * 서버에서는 {@code time_lock} 증강이 이미 같은 성질을 갖고 있다.
 	 */
 	private static void resetWorldClock(MinecraftServer server) {

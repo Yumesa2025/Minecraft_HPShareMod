@@ -6,7 +6,6 @@ import com.mojang.brigadier.context.CommandContext;
 import com.sharedfate.sync.RunProgressManager;
 import com.sharedfate.sync.RunResetConfirmation;
 import com.sharedfate.sync.RunResetCoordinator;
-import com.sharedfate.sync.WorldResetCoordinator;
 import com.sharedfate.team.TeamManager;
 import com.sharedfate.ui.RunResetMessages;
 import net.minecraft.ChatFormatting;
@@ -97,6 +96,10 @@ public final class RunResetCommand {
 	 *
 	 * <p>이 명령 자체로는 <b>아무것도 바뀌지 않는다.</b> 실제로 지우는 것은 {@link #confirm}
 	 * 이고, 거기 닿으려면 확인 낱말을 직접 쳐야 한다.
+	 *
+	 * <p><b>못 할 일이면 되묻기도 띄우지 않는다.</b> 「되돌릴 수 없습니다」를 읽히고 수락까지
+	 * 받아 낸 다음에 「사실 이 서버에서는 안 됩니다」라고 말하는 것은 나쁘다. 그러고 나면
+	 * 되묻기는 이미 비워진 뒤라 처음부터 다시 쳐야 한다.
 	 */
 	private static int prompt(CommandContext<CommandSourceStack> context) {
 		ServerPlayer self = context.getSource().getPlayer();
@@ -104,9 +107,11 @@ public final class RunResetCommand {
 			context.getSource().sendFailure(Component.literal(RunResetMessages.playerOnly()));
 			return 0;
 		}
-		if (WorldResetCoordinator.countingDown()) {
-			context.getSource().sendFailure(
-					Component.literal(RunResetMessages.alreadyCountingDown()));
+		MinecraftServer server = context.getSource().getServer();
+		RunResetCoordinator.Result blocked = RunResetCoordinator.blocker(server);
+		if (blocked != null) {
+			context.getSource().sendFailure(Component.literal(
+					blocked.failureText(RunResetCoordinator.worldMarkerPath(server))));
 			return 0;
 		}
 		if (PENDING.pending() && !PENDING.isRequester(self.getUUID())) {
@@ -116,7 +121,7 @@ public final class RunResetCommand {
 		}
 
 		PENDING.request(self.getUUID(), self.getPlainTextName());
-		int teams = TeamManager.get(context.getSource().getServer()).allTeams().size();
+		int teams = TeamManager.get(server).allTeams().size();
 		String text = RunResetMessages.confirmation(RunProgressManager.runNumber(), teams,
 				RunResetConfirmation.TIMEOUT_SECONDS);
 		context.getSource().sendSuccess(
@@ -148,19 +153,17 @@ public final class RunResetCommand {
 			}
 		}
 
-		RunResetCoordinator.Result result =
-				RunResetCoordinator.reset(context.getSource().getServer(), self);
-		switch (result) {
-			case STARTED -> {
-				// 전원에게 나가는 공지는 카운트다운이 이미 뿌렸다. 여기서 또 적으면 친 사람에게만
-				// 두 번 보인다.
-				return 1;
-			}
-			case MARKER_FAILED -> context.getSource().sendFailure(
-					Component.literal(RunResetMessages.markerFailed()));
-			case ALREADY_RUNNING -> context.getSource().sendFailure(
-					Component.literal(RunResetMessages.alreadyCountingDown()));
+		MinecraftServer server = context.getSource().getServer();
+		RunResetCoordinator.Result result = RunResetCoordinator.reset(server, self);
+		if (result.started()) {
+			// 전원에게 나가는 공지는 카운트다운이 이미 뿌렸다. 여기서 또 적으면 친 사람에게만
+			// 두 번 보인다.
+			return 1;
 		}
+		// 실패 문구는 값마다 RunResetCoordinator.Result 가 들고 있다. 여기서 switch 를 또 쓰면
+		// 값이 늘 때 한쪽만 고쳐져, 되돌릴 수 없는 명령이 아무 말도 없이 실패한다.
+		context.getSource().sendFailure(Component.literal(
+				result.failureText(RunResetCoordinator.worldMarkerPath(server))));
 		return 0;
 	}
 

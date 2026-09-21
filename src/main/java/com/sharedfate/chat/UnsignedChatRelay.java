@@ -10,13 +10,13 @@ import net.minecraft.server.dedicated.DedicatedServer;
  * 서명 없는 채팅을 「위장 채팅」으로 바꿔 내보내기 위한 판단 두 가지.
  *
  * <h2>무엇을 고치나</h2>
- * <p>이 서버는 {@code online-mode=false} 로 돈다. 오프라인 계정은 Mojang 이 서명한 프로필
+ * <p>{@code online-mode=false} 로 도는 서버가 대상이다. 오프라인 계정은 Mojang 이 서명한 프로필
  * 공개키가 없어서 채팅에 서명을 붙이지 못한다. 그러면 접속 직후 클라이언트가
  * 「대화 메시지를 검증할 수 없습니다」({@code multiplayer.unsecureserver.toast.title}) 토스트를
  * 띄운다.
  *
  * <p>그 토스트는 <b>서버가 로그인 패킷에 실어 보낸 한 비트</b>만 보고 뜬다 —
- * {@code ClientboundLoginPacket.enforcesSecureChat()}. 26.2 의 {@code ClientPacketListener}
+ * {@code ClientboundLoginPacket.enforcesSecureChat()}. {@code ClientPacketListener}
  * 는 {@code handleLogin} 끝에서 이 값이 거짓이면 토스트를 한 번 띄우고 표시를 남긴다.
  * 그래서 고치는 자리는 「경고를 그리는 곳」이 아니라 <b>그 비트를 정하는 곳</b>이다.
  *
@@ -34,7 +34,7 @@ import net.minecraft.server.dedicated.DedicatedServer;
  * {@code ChatType.Bound} 를 그대로 싣기 때문에 클라이언트가 {@code <이름> 내용} 꼴로 똑같이
  * 꾸며 준다.
  *
- * <p>서버에서 {@code ClientboundPlayerChatPacket} 을 만드는 자리는 26.2 통틀어
+ * <p>서버에서 {@code ClientboundPlayerChatPacket} 을 만드는 자리는 공통 jar 을 통틀어
  * {@code ServerGamePacketListenerImpl.sendPlayerChatMessage} 하나뿐이다(그 밖의 참조는 패킷
  * 등록표와 클라이언트 쪽뿐). 그 한 자리만 막으면 새는 곳이 없다.
  */
@@ -44,7 +44,7 @@ public final class UnsignedChatRelay {
 	}
 
 	/**
-	 * 지금 이 서버에서 손을 대야 하는가. <b>두 믹스인이 똑같이 이것만 본다</b> — 한쪽만
+	 * 지금 돌고 있는 서버에서 손을 대야 하는가. <b>두 믹스인이 똑같이 이것만 본다</b> — 한쪽만
 	 * 켜지면 채팅이 통째로 사라지므로 판단을 나눠 두면 안 된다.
 	 *
 	 * <p>조건은 둘이다.
@@ -55,8 +55,8 @@ public final class UnsignedChatRelay {
 	 *       본다). 싱글플레이는 애초에 뜨지 않으므로 건드릴 까닭이 없고, 건드리면 제 채팅에
 	 *       회색 표시줄만 하나 더 생긴다.</li>
 	 *   <li><b>서버가 서명을 강제하지 못할 것.</b> 강제할 수 있으면(정품 인증 + 서비스 키)
-	 *       바닐라가 이미 옳다. 나중에 {@code online-mode=true} 로 바꾸면 이 판단 하나로
-	 *       모드가 스스로 물러나고 채팅 신고까지 되살아난다.</li>
+	 *       바닐라가 이미 옳다. {@code online-mode=true} 로 도는 서버에서는, 또 돌던 서버를
+	 *       그렇게 바꾼 뒤에는, 이 판단 하나로 모드가 스스로 물러나고 채팅 신고까지 되살아난다.</li>
 	 * </ul>
 	 */
 	public static boolean active(MinecraftServer server) {

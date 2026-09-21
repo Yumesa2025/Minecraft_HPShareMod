@@ -31,11 +31,58 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * 회복 쪽은 피해와 상관없어 보이지만, <b>미뤄 둔 몫과 회복 금지는 한 몸</b>이라 갈라 두면 한쪽만
  * 고쳐지는 사고가 난다. 자세한 까닭은 {@link SpreadDamageManager} 머리말에 있다.
  *
- * <p>26.2 의 서버측 피해 진입점은
- * {@code LivingEntity.hurtServer(ServerLevel, DamageSource, float)} 하나다.
- * {@code ServerPlayer.hurtServer} → {@code Player.hurtServer} → {@code LivingEntity.hurtServer}
- * 로 이어지는 사슬의 끝이라, 여기 한 곳만 잡으면 플레이어든 몹이든 피해당 정확히 한 번만
- * 배율이 걸린다. ({@code Avatar} 는 {@code hurtServer} 를 재정의하지 않는다.)
+ * <p>이 믹스인이 무는 것은 {@code LivingEntity.hurtServer(ServerLevel, DamageSource, float)}
+ * <b>본문</b>이다. 「서버측 피해 진입점이 그 하나」라는 뜻이 <b>아니다</b> — 바닐라 공통 jar 에만
+ * {@code hurtServer} 를 선언하는 클래스가 쉰 곳이 넘는다. 다만 {@code LivingEntity} 를 물려받은
+ * 것들의 재정의는 <b>둘만 빼고 전부</b> 끝에서 {@code super.hurtServer} 를 부르므로 결국 이
+ * 본문으로 돌아오고, 그래서 여기 한 곳만 잡으면 피해당 한 번만 배율이 걸린다. 플레이어가 그
+ * 전형이다 — {@code ServerPlayer.hurtServer} → {@code Player.hurtServer} →
+ * {@code LivingEntity.hurtServer} 로 곧장 이어진다({@code Avatar} 는 {@code hurtServer} 를
+ * 재정의하지 않는다).
+ *
+ * <p>super 를 부르지 않는 그 둘이 {@code ArmorStand} 와 {@code EnderDragon} 이다. 갑옷 거치대는
+ * 증강이 걸릴 일이 없어 상관없지만, <b>드래곤은 회차를 끝내는 상대라 그냥 넘길 수 없다.</b>
+ *
+ * <h2>엔더 드래곤은 오는 길이 다르다</h2>
+ * <p><b>걸리기는 걸린다. 다만 길이 다르고 단서가 셋 붙는다.</b> 「드래곤에게도 평범하게
+ * 걸리겠거니」 하고 그 위에 설계하면 어긋난다.
+ *
+ * <p>{@code EnderDragon.hurtServer} 는 {@code super} 를 부르지 않는다 — 바이트코드에
+ * {@code invokespecial} 이 하나도 없고, 받은 것을 그대로
+ * {@code hurt(ServerLevel, EnderDragonPart, DamageSource, float)} 로 넘길 뿐이다. 그런데도 이
+ * 본문에 닿는 것은 그 뒤가 이렇게 이어지기 때문이다.
+ *
+ * <pre>{@code
+ * EnderDragonPart.hurtServer        // EnderDragonPart 는 Entity 라 이 믹스인이 닿지 않는다
+ *   → EnderDragon.hurt(level, part, source, amount)
+ *   → EnderDragon.reallyHurt
+ *   → invokespecial Mob.hurtServer  // Mob 은 hurtServer 를 선언하지 않는다
+ *   → LivingEntity.hurtServer       // ← 여기서 이 믹스인이 발화한다
+ * }</pre>
+ *
+ * <ol>
+ *   <li><b>플레이어가 때린 것만 온다.</b> {@code reallyHurt} 는 {@code source.getEntity()} 가
+ *       {@code Player} 이거나 피해원이 {@code ALWAYS_HURTS_ENDER_DRAGONS} 일 때만 불린다. 몹이나
+ *       환경이 드래곤에게 준 피해는 이 본문에 <b>아예 닿지 않는다.</b> 「드래곤이 <i>받는</i>
+ *       피해」를 이 자리에서 만지는 것은 무엇이든 플레이어가 낸 피해에만 듣는다는 뜻이다.
+ *       (드래곤이 <i>주는</i> 피해는 얘기가 다르다. 그때 맞는 쪽은 플레이어이므로 평범하게
+ *       {@code ServerPlayer.hurtServer} 사슬을 타고 내려오고, {@code mob_damage} 가 걸릴 길도
+ *       막혀 있지 않다. 증강 쪽에서 드래곤을 {@code excludes} 로 빼 두었는지는 별개 문제다.)</li>
+ *   <li><b>이미 깎인 값이 온다.</b> {@code EnderDragon.hurt} 가 먼저
+ *       {@code phase.onHurt(source, amount)} 로 깎고, 머리·목이 아닌 부위였으면
+ *       {@code amount / 4 + min(amount, 1)} 로 한 번 더 깎는다. 팀원의 {@code damage_dealt} 는
+ *       <b>그렇게 깎이고 남은 값</b>에 곱해진다.</li>
+ *   <li><b>아예 안 오는 경우가 있다.</b> 단계가 {@code DYING} 이거나 깎은 값이 {@code 0.01}
+ *       미만이면 {@code hurt} 가 먼저 빠져나간다.</li>
+ * </ol>
+ *
+ * <p>취소도 반만 듣는다. HEAD 에서 {@code false} 를 돌려주면 피해는 막히지만
+ * {@code EnderDragon.reallyHurt} 가 그 반환값을 {@code pop} 으로 버리기 때문에, 드래곤 쪽
+ * 뒷정리(앉은 자세 피해 누적, {@code TAKEOFF} 전환)는 그대로 돈다.
+ *
+ * <p>근거는 공통 jar 을 {@code javap -p -c} 로 읽은 것이다. <b>26.2 와 26.3 이 완전히 같다</b> —
+ * 판올림 회귀가 아니라 처음부터 이 모양이었으므로, 판 번호로 외울 것이 아니라 모양으로 외워야
+ * 한다.
  *
  * <p>몹이 주는 피해를 깎는 {@code mob_damage} 증강도 여기를 지난다. 가해자를 보는 자리가
  * 이미 있으므로 별도의 mixin 을 두지 않고 {@link PerkDamage} 안에서 팀원의
@@ -43,8 +90,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * {@link com.sharedfate.perk.MobPerkModifiers} 참고.
  *
  * <p>피해가 아닌 것이 하나 섞여 있다. 「몽둥이찜질」({@code weapon_knockback})의 넉백을 갈아
- * 끼우는 {@link #sharedfate$applyPerkWeaponKnockback} 다. 26.2 에서 근접 공격의 추가 넉백이
- * 정해지는 {@code LivingEntity.getKnockback} 이 마침 이 mixin 이 이미 잡고 있는 클래스에 있어,
+ * 끼우는 {@link #sharedfate$applyPerkWeaponKnockback} 다. 근접 공격의 추가 넉백이 정해지는
+ * {@code LivingEntity.getKnockback} 이 마침 이 mixin 이 이미 잡고 있는 클래스에 있어,
  * 새 mixin 을 만들고 등록하는 대신 여기에 붙였다.
  *
  * <p>HEAD 에서 인자를 갈아 끼우므로 방패({@code applyItemBlocking})·방어구·흡수·무적시간
@@ -59,10 +106,16 @@ public abstract class LivingEntityPerkDamageMixin {
 	 * 직전에 받은 피해량. 무적시간 안에 들어온 공격이 <b>실제로 얼마나 아픈지</b>를 재는 데
 	 * 쓴다.
 	 *
-	 * <p>26.2 의 {@code hurtServer} 는 {@code invulnerableTime > 10} 이고
+	 * <p>{@code hurtServer} 는 {@code LivingEntity.damageCooldownTime > 10} 이고
 	 * {@code BYPASSES_COOLDOWN} 이 아니면 <b>{@code amount - lastHurt} 만</b> 실제 피해로 치고,
 	 * 그 값이 0 이하이면 통째로 버린다(바이트코드 206~216행). 「호위」가 그 버려질 한 대를
 	 * 막았다고 치고 쿨타임을 쓰면 정작 아픈 대를 못 막는다.
+	 *
+	 * <p><b>세는 칸이 갈렸다.</b> 예전에는 {@code Entity.invulnerableTime} 하나가 이 판정을
+	 * 맡았지만, 지금은 {@code LivingEntity.damageCooldownTime} 이 따로 있고 {@code hurtServer}
+	 * 가 읽고 쓰는 것은 <b>그쪽</b>이다. {@code Entity.invulnerableTime} 은 피해 쿨타임과 상관이
+	 * 없어져 {@code commonTick} 에서만 줄어드는 별개의 칸이 됐다. 이 갈림이 아래
+	 * {@link #effectiveAmount} 에 그대로 남아 있다 — 자세한 것은 그쪽 머리말에 있다.
 	 */
 	@Shadow
 	protected float lastHurt;
@@ -166,8 +219,9 @@ public abstract class LivingEntityPerkDamageMixin {
 	/**
 	 * 피해를 나누어 받는 동안에는 회복되지 않는다. 「완충」이 치르는 대가다.
 	 *
-	 * <p>26.2 의 회복 진입점은 {@code LivingEntity.heal(float)} 하나라, 자연 회복도 재생
-	 * 상태이상도 금사과도 모두 여기를 지난다. 그래서 한 지점만 막으면 대가가 성립한다.
+	 * <p>회복 진입점은 {@code LivingEntity.heal(float)} 하나라 — 공통 jar 을 통틀어 이 서술자를
+	 * 선언하는 클래스가 {@code LivingEntity} 뿐이다 — 자연 회복도 재생 상태이상도 금사과도 모두
+	 * 여기를 지난다. 그래서 한 지점만 막으면 대가가 성립한다.
 	 *
 	 * <p>취소해도 {@code heal} 은 {@code void} 라 호출자에게 아무 신호도 가지 않는다.
 	 * 재생 상태이상은 아이콘도 입자도 그대로 남고 회복량만 사라진다.
@@ -185,7 +239,7 @@ public abstract class LivingEntityPerkDamageMixin {
 	/**
 	 * 「몽둥이찜질」({@code weapon_knockback})의 넉백을 이 자리에서 갈아 끼운다.
 	 *
-	 * <p>26.2 에서 근접 공격의 추가 넉백이 정해지는 자리는
+	 * <p>근접 공격의 추가 넉백이 정해지는 자리는
 	 * {@code LivingEntity.getKnockback(Entity, DamageSource)} 하나다. 바이트코드로 보면
 	 * {@code Player.attack} 이 {@code causeExtraKnockback(대상, getKnockback(대상, 피해원) + 질주보정, …)}
 	 * 로 넘기고, {@code getKnockback} 자신은
@@ -193,7 +247,7 @@ public abstract class LivingEntityPerkDamageMixin {
 	 * 는 때리는 쪽이고 첫 인자가 맞는 쪽이다</b> — 그래서 이 한 자리에서 「누가 때리는가」와
 	 * 「누구를 때리는가」를 모두 알 수 있고, 플레이어를 뺀다는 약속을 지킬 수 있다.
 	 *
-	 * <p>바닐라 속성 {@code minecraft:attack_knockback} 으로는 안 된다. 26.2 의 등록값이
+	 * <p>바닐라 속성 {@code minecraft:attack_knockback} 으로는 안 된다. 등록값이
 	 * {@code RangedAttribute(0, 0, 5)} 라 5 에서 잘리고, 속성은 때리는 사람에게 붙는 값이라 맞는
 	 * 쪽이 플레이어인지 알 수 없기 때문이다. 자세한 근거는
 	 * {@link com.sharedfate.perk.effect.WeaponKnockbackEffect} 머리말에 있다.
@@ -218,8 +272,16 @@ public abstract class LivingEntityPerkDamageMixin {
 	/**
 	 * 이번 공격이 <b>실제로</b> 줄 피해. 무적시간에 걸려 버려질 몫을 덜어 낸 값이다.
 	 *
-	 * <p>26.2 {@code LivingEntity.hurtServer} 의 판정을 그대로 옮긴 것이라, 마인크래프트가 그
-	 * 규칙을 바꾸면 여기도 함께 바뀌어야 한다.
+	 * <p>{@code LivingEntity.hurtServer} 의 판정을 베껴 온 것이라, 마인크래프트가 그 규칙을
+	 * 바꾸면 여기도 함께 바뀌어야 한다.
+	 *
+	 * <p><b>지금 그 둘이 어긋나 있다.</b> 바닐라 {@code hurtServer} 가 보는 것은
+	 * {@code LivingEntity.damageCooldownTime} 인데, 여기서 묻는 것은
+	 * {@code Entity.getInvulnerableTime()} 이다. 예전에는 한 칸이었으나 지금은 갈라진 별개의
+	 * 값이고 뒤쪽은 얻어맞아도 올라가지 않는다. 그래서 이 함수는 사실상 늘 {@code amount} 를
+	 * 그대로 돌려주고, <b>「바닐라가 어차피 버릴 한 대에 「호위」를 낭비하지 않는다」는 위의
+	 * 약속이 지켜지지 않는다.</b> 아직 고치지 않았다 — 고치면 「호위」가 소모되는 시점이
+	 * 달라지므로 값 조정과 함께 봐야 한다.
 	 */
 	private float effectiveAmount(LivingEntity self, DamageSource source, float amount) {
 		if (self.getInvulnerableTime() > 10 && !source.is(DamageTypeTags.BYPASSES_COOLDOWN)) {

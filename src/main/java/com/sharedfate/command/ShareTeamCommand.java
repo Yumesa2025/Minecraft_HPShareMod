@@ -745,6 +745,10 @@ public final class ShareTeamCommand {
 				/shareteam swap status — 다음 위치 교환까지 남은 시간
 				/shareteam difficulty status — 지금 몇 %까지 올랐는지
 				/shareteam perk | perk list — 증강 선택 창 열기 / 보유 증강 보기
+				/shareteam version — 내 클라이언트와 서버가 같은 판인지 (all 은 운영자 전용)
+				/shareteam reset — 서버를 처음 상태로 되돌립니다 (운영자 전용)
+				  회차·팀·보유 증강·피해 기록·월드가 전부 사라지고 1회차로 돌아갑니다.
+				  무엇이 지워지는지 먼저 보여 주고, /yes 나 /수락 으로 확정합니다.
 				가입하면 개인 아이템은 드랍되고 개인 경험치는 공유 풀에 합쳐집니다.
 				/shareteam 은 /st 로 줄여 쓸 수 있습니다. 하위 명령은 모두 같습니다.
 				""".strip()), false);

@@ -146,4 +146,52 @@ class RunResetMessagesTest {
 	void 표식_실패_문구는_아무것도_지우지_않았다고_말한다() {
 		assertTrue(RunResetMessages.markerFailed().contains("아무것도 지우지 않았습니다"));
 	}
+
+	/**
+	 * 거절당한 뒤에는 <b>되묻기가 이미 사라진 뒤</b>다.
+	 *
+	 * <p>{@code RunResetCommand.confirm} 은 수락을 받아들이면서 대기를 비우고 실행한다. 그래서
+	 * 여기서 실패한 사람은 {@code /yes} 를 다시 쳐도 「기다리는 요청이 없습니다」만 본다.
+	 * 문구가 처음부터 다시 하라고 말해 주지 않으면 그 자리에서 막힌다.
+	 */
+	@Test
+	void 실패_문구는_처음부터_다시_하라고_알려_준다() {
+		for (String text : new String[] {
+				RunResetMessages.markerFailed(),
+				RunResetMessages.staleWorldMarker("C:\\서버\\.sharedfate-world-reset.pending")}) {
+			assertTrue(text.contains("/" + RunResetMessages.RESET_COMMAND),
+					"다시 무엇을 쳐야 하는지 적어야 한다: " + text);
+		}
+	}
+
+	/**
+	 * 싱글플레이·LAN 에서는 <b>전용 서버에서만 쓸 수 있다</b>고 말한다.
+	 *
+	 * <p>여기에 「다시 시도하세요」를 적으면 안 된다. 서버를 띄운 방식 때문이라 몇 번을 쳐도
+	 * 똑같이 거절당한다.
+	 */
+	@Test
+	void 전용_서버_전용이라는_사실을_말한다() {
+		String text = RunResetMessages.worldNotResettable();
+
+		assertTrue(text.contains("전용 서버"), "무엇에서만 되는지 적어야 한다");
+		assertTrue(text.contains("아무것도 지우지 않았습니다"), "지우지 않았다는 사실이 먼저다");
+		assertFalse(text.contains("/" + RunResetMessages.RESET_COMMAND),
+				"다시 쳐도 소용없는 경우에 다시 치라고 하면 안 된다");
+	}
+
+	/**
+	 * 낡은 월드 표식이 남아 있는 경우.
+	 *
+	 * <p>이 파일이 있으면 루프 스크립트가 <b>기동 자체를 거부</b>한다. 경로를 적어 주지 않으면
+	 * 운영자는 서버가 왜 안 뜨는지 알아낼 길이 없다 — 이름이 점으로 시작하는 숨김 파일이다.
+	 */
+	@Test
+	void 낡은_월드_표식_문구는_경로와_까닭을_적는다() {
+		String marker = "C:\\서버\\.sharedfate-world-reset.pending";
+		String text = RunResetMessages.staleWorldMarker(marker);
+
+		assertTrue(text.contains(marker), "지울 파일의 경로를 그대로 적어야 한다");
+		assertTrue(text.contains("아무것도 지우지 않았습니다"), "지우지 않았다는 사실이 먼저다");
+	}
 }

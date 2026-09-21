@@ -65,7 +65,7 @@ import java.util.UUID;
  * <p>{@link #applySpawnBorder} 와 {@link #applyMorningLock} 모두 <b>아무도 회차를 시작하지
  * 않았으면</b> 오버월드 전체에 건다. 뒤집어 말하면 <b>한 팀이라도 시작하면 풀린다.</b> 이 모드는
  * {@code singleTeamOnly} 로 팀을 하나만 만들게 하므로({@code TeamManager.canCreateNewTeam})
- * 실제 운영에서는 갈릴 일이 없다. 그 설정을 끈 서버에서는 먼저 시작한 팀이 서버 전체의 보더와
+ * 그 설정을 켜 둔 서버에서는 갈릴 일이 없다. 끈 서버에서는 먼저 시작한 팀이 서버 전체의 보더와
  * 시계를 풀어 주고, 아직 시작하지 않은 팀은 블록 파괴와 허기만 묶인 채로 남는다. 시각 쪽은
  * 이미 같은 성질의 선례가 있다 — {@code GameStartManager.resetWorldClock} 의 주석이 시계가
  * 서버에 하나뿐이라 {@code time_lock} 증강과 부딪힐 수 있음을 그대로 적어 뒀다. 월드보더는 이

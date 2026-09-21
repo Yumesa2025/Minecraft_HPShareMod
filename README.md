@@ -68,11 +68,11 @@ Minecraft Java Edition 26.3 / Fabric 용입니다.
 - 화면 왼쪽 위의 좌표·바이옴 표시와, 인벤토리 왼쪽의 능력치 여덟 줄
 
 > ⚠ **0.27.0-dev 부터는 마인크래프트 26.3 전용입니다. 26.2 에서는 아예 켜지지 않습니다.**
-> 서버와 모든 클라이언트가 **마인크래프트 자체를 26.3 으로** 올려야 합니다. 통신 규약(27)은
-> 바뀌지 않았지만 **그것과 무관하게** 마인크래프트 판이 다르면 함께 쓸 수 없습니다.
+> 서버와 모든 클라이언트가 **마인크래프트 자체를 26.3 으로** 올려야 합니다. SharedFate 판을
+> 서로 맞추더라도 **마인크래프트 판이 다르면** 함께 쓸 수 없습니다.
 > 26.2 에 머무를 분은 0.26.7-dev 를 그대로 쓰십시오.
 
-> 현재 버전은 **`0.28.0-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
+> 현재 버전은 **`0.28.1-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
 > SharedFate 버전을 사용해야 합니다.
 >
 > **0.27.1-dev 이하에서 올라오는 경우 서버와 모든 클라이언트를 함께 갱신하세요.** 통신 규약이
@@ -84,7 +84,7 @@ Minecraft Java Edition 26.3 / Fabric 용입니다.
 > 0.22.0-dev~0.23.0-dev 는 22, 0.24.0-dev 는 23,
 > 0.25.0-dev~0.25.3-dev 는 24, 0.25.4-dev~0.26.1-dev 는 25,
 > 0.26.2-dev~0.26.4-dev 는 26, 0.26.5-dev~0.27.1-dev 는 27,
-> 0.28.0-dev 는 28입니다.)
+> 0.28.0-dev~0.28.1-dev 는 28입니다.)
 >
 > **누가 어떤 판을 쓰는지는 게임 안에서 `/shareteam version` 으로 확인할 수 있습니다.**
 
@@ -92,12 +92,12 @@ Minecraft Java Edition 26.3 / Fabric 용입니다.
 
 | 파일 | 용도 |
 |---|---|
-| [SharedFate-0.28.0-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.28.0-dev/SharedFate-0.28.0-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
-| [SharedFate-0.28.0-dev-server.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.28.0-dev/SharedFate-0.28.0-dev-server.zip) | 서버를 여는 사람용. 모드 두 개와 **재시작 루프 스크립트**, 설치 안내 포함 |
-| [sharedfate-0.28.0-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.28.0-dev/sharedfate-0.28.0-dev.jar) | 수동 설치용 모드 JAR 하나 |
-| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.28.0-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
+| [SharedFate-0.28.1-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.28.1-dev/SharedFate-0.28.1-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
+| [SharedFate-0.28.1-dev-server.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.28.1-dev/SharedFate-0.28.1-dev-server.zip) | 서버를 여는 사람용. 모드 두 개와 **재시작 루프 스크립트**, 설치 안내 포함 |
+| [sharedfate-0.28.1-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.28.1-dev/sharedfate-0.28.1-dev.jar) | 수동 설치용 모드 JAR 하나 |
+| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.28.1-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
 
-[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.28.0-dev)
+[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.28.1-dev)
 
 ### 클라이언트 설치
 
@@ -105,6 +105,9 @@ Minecraft Java Edition 26.3 / Fabric 용입니다.
 2. 게임과 런처를 완전히 종료합니다.
 3. 클라이언트 ZIP을 풀어 안내 파일을 읽습니다.
 4. `%appdata%\.minecraft\mods`에서 이전 `sharedfate-*.jar`를 제거합니다.
+   **26.2 에서 올라오는 경우 26.2 용 Fabric API(`fabric-api-*+26.2.jar`)도 함께 빼십시오.**
+   새로 넣는 `fabric-api-0.161.0+26.3.jar` 는 이름이 달라 덮어써지지 않고, 둘이 함께 남으면
+   Fabric API 중복 로드로 게임이 아예 켜지지 않습니다.
 5. ZIP의 `mods` 폴더 안 JAR 두 개를 게임의 `mods` 폴더에 복사합니다.
 6. Fabric 프로필로 게임을 실행해 같은 버전의 서버에 접속합니다.
 
@@ -280,7 +283,7 @@ JAR 에서 읽으므로, 실행 중에 파일이 바뀌면 아직 읽지 않은 
 `config/` 로 나오지 않으므로 **판을 올릴 때 지울 것이 없습니다.** 값을 바꾸려면 저장소의
 `sharedfate-perks-default.json`·`sharedfate-sets-default.json` 을 고쳐 다시 빌드하십시오.
 
-> 0.26.6-dev 까지는 두 정의를 `config/` 로 꺼내 놓고 그 파일만 읽었습니다. 판을 올려도
+> 0.26.5-dev 까지는 두 정의를 `config/` 로 꺼내 놓고 그 파일만 읽었습니다. 판을 올려도
 > 덮어쓰지 않아 **판마다 두 파일을 손으로 지워야** 했고, 하나만 지우면 반쪽이 옛 정의로
 > 읽히는데 오류도 나지 않았습니다. 남아 있는 옛 파일은 이제 읽지 않습니다.
 

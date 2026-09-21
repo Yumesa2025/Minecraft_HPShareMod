@@ -96,6 +96,82 @@ class RunResetMarkerTest {
 	}
 
 	/**
+	 * 쓰다 만 표식이 남지 않는다.
+	 *
+	 * <p>{@code RunProgressState.save}·{@code TeamRosterStore.save} 와 같은 방식으로
+	 * 임시 파일에 쓴 뒤 옮긴다. 반쯤 쓰인 표식은 머리글 검사에서 걸려 <b>회차가 되돌아가지
+	 * 않는데</b>, 그때는 이미 팀도 월드도 사라진 뒤라 되살릴 길이 없다. 옮기기가 끝나야
+	 * 표식이 생기므로 「있으면 온전하다」가 성립한다.
+	 */
+	@Test
+	void 쓰기는_임시_파일을_남기지_않는다(@TempDir Path server) throws IOException {
+		RunResetMarker.write(server);
+
+		try (var entries = Files.list(server)) {
+			assertTrue(entries.noneMatch(path -> path.getFileName().toString().endsWith(".tmp")),
+					"임시 파일이 남으면 다음 쓰기가 무엇을 덮는지 알 수 없다");
+		}
+		assertTrue(RunResetMarker.matches(
+				Files.readString(server.resolve(RunResetMarker.MARKER_FILE_NAME),
+						StandardCharsets.UTF_8), server));
+	}
+
+	/**
+	 * 이미 있는 표식 위에 다시 써도 된다.
+	 *
+	 * <p>월드 표식과 반대다. 거절하면 어쩌다 남은 표식 하나 때문에 그 서버는 영영 초기화할 수
+	 * 없게 된다 — 숨김 파일을 손으로 지우라고 시키는 것이 이 명령이 없애려던 바로 그 일이다.
+	 */
+	@Test
+	void 이미_있는_표식_위에_다시_쓸_수_있다(@TempDir Path server) throws IOException {
+		Files.writeString(server.resolve(RunResetMarker.MARKER_FILE_NAME),
+				"찌꺼기" + System.lineSeparator(), StandardCharsets.UTF_8);
+
+		RunResetMarker.write(server);
+
+		assertTrue(RunResetMarker.consume(server), "덮어쓴 표식은 온전해야 한다");
+	}
+
+	/**
+	 * 월드 표식을 쓰지 못했을 때 <b>회차 표식을 되돌린다.</b>
+	 *
+	 * <p>초기화는 회차 표식을 먼저 쓰고 5초 뒤에 월드 표식을 쓴다. 뒤쪽이 실패하면 서버는
+	 * 내려가지 않는데, 회차 표식을 그대로 두면 <b>다음에 켤 때 멀쩡한 회차가 1로 눌린다.</b>
+	 * 초기화는 일어나지도 않았는데 회차만 사라지는 것이다.
+	 */
+	@Test
+	void 되돌림은_내가_쓴_표식을_지운다(@TempDir Path server) throws IOException {
+		RunResetMarker.write(server);
+
+		assertTrue(RunResetMarker.rollback(server));
+		assertFalse(Files.exists(server.resolve(RunResetMarker.MARKER_FILE_NAME)));
+		assertFalse(RunResetMarker.consume(server), "되돌린 뒤에는 회차를 건드리지 않는다");
+	}
+
+	/** 지울 것이 없으면 조용히 거짓. 전멸 경로에는 회차 표식이 아예 없다. */
+	@Test
+	void 표식이_없으면_되돌릴_것도_없다(@TempDir Path server) {
+		assertFalse(RunResetMarker.rollback(server));
+	}
+
+	/**
+	 * 내 것이 아닌 표식은 되돌림도 건드리지 않는다.
+	 *
+	 * <p>되돌림은 <b>방금 내가 쓴 표식</b>을 거두는 일이다. 형식이나 경로가 다른 파일은 내가 쓴
+	 * 것이 아니므로, 지우면 사람이 볼 증거가 사라진다. {@link RunResetMarker#consume} 과 같은
+	 * 기준으로 본다.
+	 */
+	@Test
+	void 남의_표식은_되돌림이_건드리지_않는다(@TempDir Path server, @TempDir Path other)
+			throws IOException {
+		Path marker = server.resolve(RunResetMarker.MARKER_FILE_NAME);
+		Files.writeString(marker, RunResetMarker.markerContents(other), StandardCharsets.UTF_8);
+
+		assertFalse(RunResetMarker.rollback(server));
+		assertTrue(Files.exists(marker), "남의 표식은 사람이 보도록 남긴다");
+	}
+
+	/**
 	 * 월드 표식과 <b>다른 파일 이름</b>이어야 한다.
 	 *
 	 * <p>루프 스크립트는 월드 표식만 알고 이 파일은 모른다. 이름이 겹치면 스크립트가 우리
