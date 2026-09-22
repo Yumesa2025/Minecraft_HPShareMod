@@ -1,0 +1,61 @@
+---
+interface Props {
+  index: string;
+  eyebrow: string;
+  title: string;
+  /** site/public/media/ 안의 파일 이름. 없으면 글만 나온다. */
+  video?: string;
+  flip?: boolean;
+}
+
+import { href } from '../lib/url';
+const { index, eyebrow, title, video, flip = false } = Astro.props;
+---
+<section class:list={['pillar', { flip, solo: !video }]}>
+  <div class="text">
+    <p class="eyebrow">{index} {eyebrow}</p>
+    <h2>{title}</h2>
+    <slot />
+  </div>
+  {video && (
+    <div class="media">
+      <video src={href(`/media/${video}`)} autoplay muted loop playsinline preload="metadata"></video>
+    </div>
+  )}
+</section>
+
+<style>
+  .pillar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.6rem;
+    align-items: center;
+    border-top: 1px solid var(--border);
+    padding: 2rem 0;
+  }
+  .pillar.flip .text { order: 2; }
+  .pillar.solo { grid-template-columns: 1fr; }
+  .pillar.solo .text { max-width: var(--measure); }
+
+  .eyebrow {
+    margin: 0;
+    font-size: 0.75rem;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+  }
+  h2 { margin: 0.3rem 0 0.6rem; }
+  .text :global(p) { color: var(--muted); margin: 0.5rem 0 0; }
+
+  video {
+    width: 100%;
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--panel);
+  }
+
+  @media (max-width: 720px) {
+    .pillar, .pillar.flip { grid-template-columns: 1fr; }
+    .pillar.flip .text { order: 0; }
+  }
+</style>

@@ -1,8 +1,113 @@
 ---
 import Base from '../layouts/Base.astro';
+import Pillar from '../components/Pillar.astro';
+import { countByRarity, loadPerks } from '../lib/perks';
+import { loadSets } from '../lib/sets';
+import { href } from '../lib/url';
+
+const perks = loadPerks();
+const sets = loadSets();
+const counts = countByRarity(perks);
+const RELEASES = 'https://github.com/Yumesa2025/sharedfate/releases/latest';
 ---
-<Base title="SharedFate">
+<Base title="SharedFate — 네 명이 한 몸으로 엔더 드래곤을 잡는 협동 로그라이크">
   <div class="wrap">
-    <h1>SharedFate</h1>
+    <section class="hero">
+      <h1>SharedFate</h1>
+      <p class="tagline">네 명이 한 몸으로 엔더 드래곤을 잡는 협동 로그라이크</p>
+
+      <div class="buttons">
+        <a class="primary" href={href('/guide/install')}>가이드</a>
+        <a class="secondary" href={RELEASES}>다운로드</a>
+      </div>
+
+      <p class="lead">
+        체력과 인벤토리와 경험치가 팀에 하나씩만 있습니다.{' '}
+        <b>전멸하면 월드가 통째로 사라지고</b> 새 월드에서 다음 회차가 시작됩니다.
+        엔더 드래곤을 잡으면 그 회차가 승리로 끝납니다.
+        그사이 팀은 레벨이 오를 때마다 <b>증강</b>을 하나씩 골라, 회차마다 다른 몸이 되어
+        다시 출발합니다.
+      </p>
+    </section>
+
+    <Pillar index="01" eyebrow="한 몸" title="한 명이 맞으면 넷이 깎입니다">
+      <p>
+        체력과 배고픔, 경험치, 포션 효과가 팀에 하나씩만 있습니다. 인벤토리도 54칸을 넷이
+        함께 쓰고 방어구 네 칸과 오프핸드, 엔더상자까지 공유합니다.
+      </p>
+      <p>
+        그래서 한 명이 용암에 빠지면 네 명이 같이 탑니다. 한 명이 먹으면 네 명이 배부르고,
+        한 명이 캔 다이아몬드는 캐는 순간 모두의 것입니다. 개인으로 남는 것은 지금 들고 있는
+        칸과 서 있는 자리뿐입니다.
+      </p>
+    </Pillar>
+
+    <Pillar index="02" eyebrow="증강" title="회차마다 다른 몸이 됩니다" flip>
+      <p>
+        공유 레벨이 오를 때마다 팀원 한 명에게 카드 세 장이 펼쳐집니다. 고른 사람이 누구든{' '}
+        <b>효과는 팀 전체에 걸립니다.</b>
+      </p>
+      <p>
+        <b>대부분의 증강에는 대가가 붙어 있습니다.</b> 최대 체력이 6 늘어나는 대신 머리
+        방어구를 쓸 수 없고, 채굴 속도가 두 배가 되는 대신 공격력이 깎이는 식입니다.
+        무엇을 내줄지가 곧 이번 회차의 성격이 됩니다.
+      </p>
+      <p>
+        기본 풀은 {perks.length}개입니다 — 실버 {counts.silver} · 골드 {counts.gold} ·
+        프리즘 {counts.prism}. <a href={href('/perks')}>전체 목록</a>을 걸러 볼 수 있습니다.
+      </p>
+    </Pillar>
+
+    <Pillar index="03" eyebrow="세트" title="같은 결을 모으면 더 열립니다">
+      <p>
+        증강마다 유형이 붙어 있습니다 — {sets.length}가지입니다. 같은 유형을 모을 때마다
+        추가 보상이 켜지고 <b>단계는 누적됩니다.</b>
+      </p>
+      <p>
+        그래서 증강 선택이 한 장짜리 결정으로 끝나지 않습니다. 당장 센 카드와, 이미 둘을
+        모아 둔 유형의 세 번째 카드 사이에서 고르게 됩니다.{' '}
+        <a href={href('/sets')}>전체 표</a>를 보십시오.
+      </p>
+    </Pillar>
+
+    <Pillar index="04" eyebrow="경제 개편" title="경험치는 이제 증강의 화폐입니다" flip>
+      <p>
+        경험치가 증강을 여는 자원이 된 이상, 인챈트에 레벨을 쓰면 두 체계가 서로를
+        갉아먹습니다. 그래서 <b>레벨을 내던 자리를 전부 다이아몬드로 옮겼습니다.</b>
+      </p>
+      <p>
+        인챈트 탁자는 레벨 0으로도 세 칸을 전부 인챈트할 수 있고, 모루는 언제나 다이아몬드
+        10개이며, 대장장이 작업대는 네더라이트 업그레이드에 형판이 필요 없습니다.{' '}
+        <a href={href('/guide/economy')}>자세히</a>.
+      </p>
+    </Pillar>
+
+    <section class="foot">
+      <p class="muted">
+        Minecraft Java Edition <b>26.3</b> / Fabric 전용입니다. 서버와 모든 클라이언트가
+        같은 SharedFate 판이어야 합니다.
+      </p>
+    </section>
   </div>
 </Base>
+
+<style>
+  .hero { padding: 2.4rem 0 0.6rem; max-width: var(--measure); }
+  .tagline { margin: 0.2rem 0 0; color: var(--muted); font-size: 1.05rem; }
+
+  .buttons { display: flex; gap: 0.6rem; margin: 1.4rem 0 1.2rem; flex-wrap: wrap; }
+  .buttons a {
+    flex: 1 1 11rem;
+    text-align: center;
+    padding: 0.7rem 1.2rem;
+    border-radius: var(--radius);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .primary { border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+  .secondary { border: 1px solid var(--border-strong); color: var(--text); }
+  .secondary:hover { border-color: var(--accent); }
+
+  .lead { color: var(--muted); }
+  .foot { border-top: 1px solid var(--border); padding-top: 1.4rem; margin-top: 2rem; font-size: 0.9rem; }
+</style>
