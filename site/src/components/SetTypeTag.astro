@@ -7,8 +7,8 @@ interface Props {
 
 const { set } = Astro.props;
 ---
-<details class="tag" data-type={set.type}>
-  <summary>{set.name}</summary>
+<div class="tag" data-type={set.type}>
+  <button type="button" class="label" aria-expanded="false">{set.name}</button>
   <div class="pop">
     <div class="pop-head">
       <b>{set.name}</b>
@@ -23,41 +23,64 @@ const { set } = Astro.props;
       ))}
     </ul>
   </div>
-</details>
+</div>
 
 <style>
+  /*
+   * <details> 로 만들면 안 된다. 닫힌 <details> 는 Chromium 이 안쪽을 감춰서,
+   * 호버할 때 display:block 을 줘도 실제로는 그려지지 않는다 (크기가 0×0 으로 남는다).
+   * 그래서 열고 닫는 것을 visibility 로 한다 — 마우스는 :hover, 키보드와 터치는
+   * :focus-within, 그리고 스크립트가 있으면 눌러서 고정할 수 있게 .open 이 붙는다.
+   * 스크립트가 꺼져 있어도 앞의 둘은 그대로 동작한다.
+   */
   .tag { position: relative; display: inline-block; }
 
-  summary {
-    list-style: none;
-    cursor: pointer;
+  .label {
+    font: inherit;
     font-size: 0.8rem;
+    line-height: 1.6;
     color: var(--muted);
+    background: transparent;
     border: 1px solid var(--border-strong);
     border-radius: 999px;
     padding: 0.1rem 0.6rem;
-    user-select: none;
+    cursor: pointer;
   }
-  summary::-webkit-details-marker { display: none; }
-  .tag[open] > summary,
-  summary:hover {
+  .tag:hover > .label,
+  .tag:focus-within > .label,
+  .tag.open > .label {
     color: var(--accent-text);
     border-color: var(--accent);
     background: var(--accent-soft);
   }
+  .label:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
   .pop {
+    visibility: hidden;
+    opacity: 0;
     position: absolute;
     z-index: 20;
     top: calc(100% + 6px);
     left: 0;
-    min-width: 17rem;
-    max-width: min(24rem, 80vw);
+    /*
+     * 언제나 이름표의 왼쪽에 맞춰 편다. 「오른쪽 끝이면 오른쪽에 맞춘다」로 두면
+     * 좁은 화면에서 오버레이가 왼쪽 화면 밖으로 밀려난다.
+     * 폭은 화면 너비에서 좌우 여백을 뺀 값으로 묶어 둔다.
+     */
+    min-width: min(17rem, calc(100vw - 2.6rem));
+    max-width: min(24rem, calc(100vw - 2.6rem));
     background: #161A22;
     border: 1px solid var(--border-strong);
     border-radius: var(--radius);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
     padding: 0.7rem 0.8rem;
+    text-align: left;
+  }
+  .tag:hover > .pop,
+  .tag:focus-within > .pop,
+  .tag.open > .pop {
+    visibility: visible;
+    opacity: 1;
   }
 
   .pop-head { display: flex; align-items: baseline; gap: 0.5rem; }
@@ -67,9 +90,69 @@ const { set } = Astro.props;
   li { display: flex; gap: 0.55rem; font-size: 0.83rem; line-height: 1.6; color: var(--muted); }
   li + li { margin-top: 0.35rem; }
   .count { flex: none; width: 1rem; text-align: right; color: var(--accent); }
-
-  /* 마우스가 있는 화면에서는 올리기만 해도 열린다. */
-  @media (hover: hover) {
-    .tag:hover > .pop { display: block; }
-  }
 </style>
+
+<script>
+  /*
+   * 오버레이를 화면 안으로 당긴다.
+   *
+   * CSS 만으로는 이름표가 카드 안에서 가로로 어디쯤인지 알 수 없어, 좁은 화면에서
+   * 둘째·셋째 이름표의 오버레이가 오른쪽으로 삐져나간다. 그래서 열릴 때마다 재서
+   * 넘친 만큼 왼쪽으로 민다. 스크립트가 꺼져 있으면 왼쪽 정렬 그대로인데,
+   * 마우스가 있는 넓은 화면에서는 그것으로 충분하다.
+   */
+  const MARGIN = 8;
+
+  const place = (tag: Element) => {
+    const pop = tag.querySelector<HTMLElement>('.pop');
+    if (!pop) return;
+
+    pop.style.left = '0px';
+    const room = document.documentElement.clientWidth;
+
+    const over = pop.getBoundingClientRect().right - (room - MARGIN);
+    if (over > 0) pop.style.left = `${-over}px`;
+
+    const short = MARGIN - pop.getBoundingClientRect().left;
+    if (short > 0) pop.style.left = `${Number.parseFloat(pop.style.left) + short}px`;
+  };
+
+  // 호버로 열리는 것도 같이 보정한다.
+  document.addEventListener('mouseover', (event) => {
+    const tag = (event.target as Element | null)?.closest('.tag');
+    if (tag) place(tag);
+  });
+
+  // 이름표를 눌러 고정해 두는 것. 없어도 호버와 포커스로 열리므로 순전히 덤이다.
+  const closeAll = (except?: Element) => {
+    for (const tag of document.querySelectorAll('.tag.open')) {
+      if (tag === except) continue;
+      tag.classList.remove('open');
+      tag.querySelector('.label')?.setAttribute('aria-expanded', 'false');
+    }
+  };
+
+  document.addEventListener('click', (event) => {
+    const target = event.target as Element | null;
+    const label = target?.closest('.tag > .label') as HTMLElement | null;
+    const tag = label?.parentElement;
+
+    closeAll(tag ?? undefined);
+    if (!label || !tag) return;
+
+    const opening = !tag.classList.contains('open');
+    tag.classList.toggle('open', opening);
+    label.setAttribute('aria-expanded', String(opening));
+    if (opening) place(tag);
+  });
+
+  // 키보드로 옮겨 다닐 때도 보정한다.
+  document.addEventListener('focusin', (event) => {
+    const tag = (event.target as Element | null)?.closest('.tag');
+    if (tag) place(tag);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeAll();
+  });
+</script>
