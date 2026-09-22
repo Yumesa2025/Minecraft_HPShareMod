@@ -61,8 +61,13 @@ const { set } = Astro.props;
   .label:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
   .pop {
-    visibility: hidden;
-    opacity: 0;
+    /*
+     * 닫혔을 때는 display: none 이어야 한다. visibility 로 감추면 보이지만 않을 뿐
+     * 자리는 그대로 차지해서, 카드 가운데 있는 이름표의 오버레이가 오른쪽으로 삐져나가고
+     * 좁은 화면에 가로 스크롤이 생긴다. <details> 를 쓸 때는 display 를 못 썼지만
+     * 지금은 평범한 div 라 써도 된다.
+     */
+    display: none;
     position: absolute;
     z-index: 20;
     top: calc(100% + 6px);
@@ -84,8 +89,7 @@ const { set } = Astro.props;
   .tag:hover > .pop,
   .tag:focus-within > .pop,
   .tag.open > .pop {
-    visibility: visible;
-    opacity: 1;
+    display: block;
   }
 
   .pop-head { display: flex; align-items: baseline; gap: 0.5rem; }
