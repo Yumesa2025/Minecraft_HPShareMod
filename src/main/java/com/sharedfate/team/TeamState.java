@@ -131,7 +131,9 @@ public class TeamState {
 	/**
 	 * <b>이번 회차에</b> 세트 보상으로 얹힌 다시 뽑기 횟수. 기본은 0 이다.
 	 *
-	 * <p>세트 「도박 2단계 — 한 판 더」가 5 를 얹는다. 다른 세트 보상과 달리 <b>저장된다.</b>
+	 * <p>세트 「도박 2단계 — 한 판 더」가 5 를, 「도박 3단계 — 어차피 프리즘」이 3 을 얹는다.
+	 * 단계는 <b>누적</b>이라 도박 증강 셋을 모은 팀의 몫은 8 이다. 다른 세트 보상과 달리
+	 * <b>저장된다.</b>
 	 * 까닭은 {@link com.sharedfate.perk.effect.ExtraRerollsEffect} 에 적어 뒀다 — 다시 뽑기
 	 * 횟수만은 「지금 몇 번 남았는가」를 보유 증강에서 다시 계산할 수 없는 소비값이라, 실제로
 	 * {@link #rerollsRemaining} 을 늘려야 하기 때문이다.
@@ -144,7 +146,8 @@ public class TeamState {
 	 * 이 필드가 저장에 함께 들어가는 것이 그 상한을 다음 접속까지 살려 두는 유일한 길이다.
 	 *
 	 * <p>값을 직접 대입하지 말고 {@link #syncRerollSetBonus(int)} 를 쓴다. 늘어난 몫을
-	 * {@link #rerollsRemaining} 에 더하는 일과 상한 10 으로 접는 일이 거기 함께 들어 있다.
+	 * {@link #rerollsRemaining} 에 더하는 일과 {@link TeamCreationSettings#MAX_REROLL_COUNT} 로
+	 * 접는 일이 거기 함께 들어 있다.
 	 *
 	 * <h2>회차가 넘어가면 저절로 사라진다</h2>
 	 * <p>회차를 넘기는 두 길이 모두 이 값을 남기지 않는다. 전멸로 팀 상태를 새로 만드는 길
@@ -636,8 +639,13 @@ public class TeamState {
 	 *       자르기만 한다. 아직 안 쓴 5회는 그 자리에서 사라지고, 이미 쓴 만큼은 그대로다.</li>
 	 * </ul>
 	 *
-	 * <p>몫은 {@code 0 ~ (상한 10 - 회차당 허용치)} 로 접힌다. 회차당 10회로 정한 팀은 세트를
-	 * 모아도 더 받지 못한다 — 상한을 넘겨 주는 것보다 안 주는 편이 낫다.
+	 * <p>몫은 {@code 0 ~ (상한 - 회차당 허용치)} 로 접힌다
+	 * (상한은 {@link TeamCreationSettings#MAX_REROLL_COUNT}). 회차당 그 상한만큼으로 정한 팀은
+	 * 세트를 모아도 더 받지 못한다 — 상한을 넘겨 주는 것보다 안 주는 편이 낫다.
+	 *
+	 * <p><b>이 잘림은 조용하다.</b> 허용치를 높게 잡은 팀은 도박 셋을 모아도 몫이 8 에 못 미치고,
+	 * 그때 부르는 쪽({@code PerkGrantChain.syncSetRerolls})은 알릴 일이 아니라고 보고 지나간다.
+	 * 「도박 3단계가 리롤을 안 준다」는 말이 나오면 먼저 이 자리를 의심하라.
 	 *
 	 * @param bonus 세트와 보유 증강이 요구하는 몫.
 	 *              보통 {@code ExtraRerollsEffect.bonusOf(this)} 를 그대로 넘긴다
@@ -660,7 +668,7 @@ public class TeamState {
 	 * 세트로 얻은 몫을 허용 범위로 접는다. 접는 규칙은 반드시 이 한 곳에만 둔다.
 	 *
 	 * <p>상한은 {@link TeamCreationSettings#MAX_REROLL_COUNT} 다. 회차당 허용치와 합쳐 그 값을
-	 * 넘지 않으므로, 세트를 아무리 모아도 한 회차에 10회보다 많이 뽑을 수는 없다.
+	 * 넘지 않으므로, 세트를 아무리 모아도 한 회차에 그보다 많이 뽑을 수는 없다.
 	 */
 	private int sanitizeRerollSetBonus(int bonus) {
 		int room = TeamCreationSettings.MAX_REROLL_COUNT - rerollAllowance;

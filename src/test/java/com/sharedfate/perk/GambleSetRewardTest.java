@@ -29,8 +29,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <ul>
  *   <li><b>2단계 「한 판 더」</b> — 이번 회차에만 다시 뽑기 5회를 더 받는다</li>
- *   <li><b>3단계 「어차피 프리즘」</b> — 다시 뽑으면 프리즘 등급만 나온다</li>
+ *   <li><b>3단계 「어차피 프리즘」</b> — 다시 뽑으면 프리즘 등급만 나오고, <b>다시 뽑기 3회를
+ *       더 받는다</b>(0.24.0-dev 부터). 단계는 누적이라 셋을 모은 팀의 몫은 8 이다</li>
  * </ul>
+ *
+ * <p>⚠ <b>여기 쓰는 세트 정의({@link #SETS})의 3단계에는 {@code extra_rerolls} 가 없다.</b>
+ * 실제 번들 정의에는 있다. 그래서 이 파일은 <b>3단계의 +3 을 확인하지 않는다</b> — 그 몫이
+ * 통째로 사라져도 여기서는 아무 일도 안 일어난다. 실제 정의로 재면 도박 셋에 회차당 11회다.
  *
  * <h2>이 시험이 지키는 것</h2>
  * <p>2단계는 세트 보상 중 <b>유일하게 재계산형이 아니다.</b> 다른 보상은 보유 증강에서 매번 다시
@@ -319,7 +324,7 @@ class GambleSetRewardTest {
 	// ------------------------------------------------------------------ 도박 2 — 상한
 
 	@Test
-	void 회차당_열_번인_팀은_더_받지_못한다(@TempDir Path dir) throws IOException {
+	void 회차당_상한만큼_굴리는_팀은_더_받지_못한다(@TempDir Path dir) throws IOException {
 		load(dir);
 		TeamState state = team();
 		state.rerollAllowance = TeamCreationSettings.MAX_REROLL_COUNT;
