@@ -1,0 +1,75 @@
+---
+import type { PerkSet } from '../lib/sets';
+
+interface Props {
+  set: PerkSet;
+}
+
+const { set } = Astro.props;
+---
+<details class="tag" data-type={set.type}>
+  <summary>{set.name}</summary>
+  <div class="pop">
+    <div class="pop-head">
+      <b>{set.name}</b>
+      <span class="muted">{set.opensAt}개부터 열립니다</span>
+    </div>
+    <ul>
+      {set.tiers.map((tier) => (
+        <li>
+          <span class="count">{tier.count}</span>
+          <span>{tier.description}</span>
+        </li>
+      ))}
+    </ul>
+  </div>
+</details>
+
+<style>
+  .tag { position: relative; display: inline-block; }
+
+  summary {
+    list-style: none;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--muted);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 0.1rem 0.6rem;
+    user-select: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  .tag[open] > summary,
+  summary:hover {
+    color: var(--accent-text);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .pop {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 17rem;
+    max-width: min(24rem, 80vw);
+    background: #161A22;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+    padding: 0.7rem 0.8rem;
+  }
+
+  .pop-head { display: flex; align-items: baseline; gap: 0.5rem; }
+  .pop-head .muted { font-size: 0.75rem; }
+
+  ul { list-style: none; margin: 0.55rem 0 0; padding: 0.55rem 0 0; border-top: 1px solid var(--border); }
+  li { display: flex; gap: 0.55rem; font-size: 0.83rem; line-height: 1.6; color: var(--muted); }
+  li + li { margin-top: 0.35rem; }
+  .count { flex: none; width: 1rem; text-align: right; color: var(--accent); }
+
+  /* 마우스가 있는 화면에서는 올리기만 해도 열린다. */
+  @media (hover: hover) {
+    .tag:hover > .pop { display: block; }
+  }
+</style>

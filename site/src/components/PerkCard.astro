@@ -1,0 +1,47 @@
+---
+import type { Perk } from '../lib/perks';
+import type { PerkSet } from '../lib/sets';
+import SetTypeTag from './SetTypeTag.astro';
+
+interface Props {
+  perk: Perk;
+  sets: Map<string, PerkSet>;
+}
+
+const { perk, sets } = Astro.props;
+const tags = perk.setTypes.map((type) => sets.get(type)).filter((set): set is PerkSet => !!set);
+const search = `${perk.name} ${perk.description}`;
+---
+<article
+  class="perk"
+  data-rarity={perk.rarity}
+  data-types={perk.setTypes.join(' ')}
+  data-search={search}
+>
+  <h3>{perk.name}</h3>
+  <p>{perk.description}</p>
+  {tags.length > 0 && (
+    <div class="tags">
+      {tags.map((set) => <SetTypeTag set={set} />)}
+    </div>
+  )}
+</article>
+
+<style>
+  .perk {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border-strong);
+    border-radius: var(--radius);
+    padding: 0.85rem 1rem;
+  }
+  .perk[data-rarity='silver'] { border-left-color: var(--silver); }
+  .perk[data-rarity='gold'] { border-left-color: var(--gold); }
+  .perk[data-rarity='prism'] { border-left-color: var(--prism); }
+
+  h3 { margin: 0; font-size: 0.98rem; }
+  p { margin: 0.35rem 0 0; font-size: 0.88rem; color: var(--muted); }
+  .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
+
+  .perk[hidden] { display: none; }
+</style>
