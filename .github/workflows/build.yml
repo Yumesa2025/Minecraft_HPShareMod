@@ -3,6 +3,11 @@ name: Build
 on:
   push:
     branches: [main]
+    # 사이트와 문서만 바뀐 커밋에서 Gradle 빌드를 통째로 돌릴 이유가 없다.
+    paths-ignore:
+      - "site/**"
+      - "docs/**"
+      - "README.md"
   pull_request:
   workflow_dispatch:
 
