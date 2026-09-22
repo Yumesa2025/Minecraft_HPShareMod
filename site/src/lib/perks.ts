@@ -22,6 +22,13 @@ interface RawPerk {
 
 const RARITY_ORDER: Record<Rarity, number> = { silver: 0, gold: 1, prism: 2 };
 
+/** 등급의 한국어 이름. PerkRarity.java 의 displayName 과 같다. */
+export const RARITY_NAME: Record<Rarity, string> = {
+  silver: '실버',
+  gold: '골드',
+  prism: '프리즘',
+};
+
 /** 정의 파일을 읽어 증강 목록을 낸다. 등급 차례, 같은 등급 안에서는 이름 차례다. */
 export function loadPerks(): Perk[] {
   const raw = JSON.parse(readFileSync(PERKS_JSON, 'utf-8')) as { perks: RawPerk[] };

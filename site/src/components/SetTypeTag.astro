@@ -35,23 +35,28 @@ const { set } = Astro.props;
    */
   .tag { position: relative; display: inline-block; }
 
+  /*
+   * 게임에서는 유형이 그냥 한 줄 글자다(TEXT_SET_TYPE = #8FB8C8). 그 모습을 지키되,
+   * 눌러서 세트 단계를 펼 수 있다는 것은 보여야 하므로 점선 밑줄을 하나 깐다.
+   */
   .label {
     font: inherit;
-    font-size: 0.8rem;
-    line-height: 1.6;
-    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: #8fb8c8;
     background: transparent;
-    border: 1px solid var(--border-strong);
-    border-radius: 999px;
-    padding: 0.1rem 0.6rem;
+    border: 0;
+    padding: 0;
     cursor: pointer;
+    text-decoration: underline dotted;
+    text-underline-offset: 0.2em;
+    text-decoration-color: rgba(143, 184, 200, 0.5);
   }
   .tag:hover > .label,
   .tag:focus-within > .label,
   .tag.open > .label {
-    color: var(--accent-text);
-    border-color: var(--accent);
-    background: var(--accent-soft);
+    color: #bfe2ef;
+    text-decoration-color: currentColor;
   }
   .label:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 

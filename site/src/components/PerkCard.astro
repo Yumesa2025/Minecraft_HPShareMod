@@ -1,5 +1,5 @@
 ---
-import type { Perk } from '../lib/perks';
+import { RARITY_NAME, type Perk } from '../lib/perks';
 import type { PerkSet } from '../lib/sets';
 import SetTypeTag from './SetTypeTag.astro';
 
@@ -18,30 +18,115 @@ const search = `${perk.name} ${perk.description}`;
   data-types={perk.setTypes.join(' ')}
   data-search={search}
 >
-  <h3>{perk.name}</h3>
-  <p>{perk.description}</p>
-  {tags.length > 0 && (
-    <div class="tags">
-      {tags.map((set) => <SetTypeTag set={set} />)}
-    </div>
-  )}
+  <div class="band">{RARITY_NAME[perk.rarity]}</div>
+
+  <div class="body">
+    <h3>{perk.name}</h3>
+
+    {tags.length > 0 && (
+      <div class="tags">
+        {tags.map((set) => <SetTypeTag set={set} />)}
+      </div>
+    )}
+
+    <div class="rule"></div>
+
+    <p>{perk.description}</p>
+  </div>
 </article>
 
 <style>
+  /*
+   * 게임 안 증강 선택 화면의 카드를 그대로 옮긴 것이다
+   * (src/client/java/com/sharedfate/client/perk/PerkOfferScreen.java).
+   *
+   * 맨 위 등급 띠 → 이름 → 세트 유형 → 구분선 → 설명 순서와, 등급색을 섞은 세로
+   * 그라데이션 바탕, 등급색 테두리까지 같은 값을 쓴다. 다른 것은 둘뿐이다 — 아이템
+   * 아이콘을 넣지 않고(남의 에셋이다), 유형 줄이 눌러서 세트 단계를 펴는 단추다.
+   */
   .perk {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--border-strong);
-    border-radius: var(--radius);
-    padding: 0.85rem 1rem;
-  }
-  .perk[data-rarity='silver'] { border-left-color: var(--silver); }
-  .perk[data-rarity='gold'] { border-left-color: var(--gold); }
-  .perk[data-rarity='prism'] { border-left-color: var(--prism); }
+    --rarity: var(--silver);
 
-  h3 { margin: 0; font-size: 0.98rem; }
-  p { margin: 0.35rem 0 0; font-size: 0.88rem; color: var(--muted); }
-  .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    border: 1px solid var(--rarity);
+    /* 게임 카드는 모서리가 각지다. 그대로 둔다. */
+    border-radius: 0;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--rarity) 14%, #1a1a24),
+      color-mix(in srgb, var(--rarity) 7%, #0b0b10)
+    );
+  }
+  .perk[data-rarity='gold'] { --rarity: var(--gold); }
+  .perk[data-rarity='prism'] { --rarity: var(--prism); }
+
+  /* 마우스를 올리면 게임처럼 바탕과 테두리가 함께 밝아진다. */
+  .perk:hover,
+  .perk:focus-within {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--rarity) 26%, #272734),
+      color-mix(in srgb, var(--rarity) 13%, #131319)
+    );
+    box-shadow: inset 0 0 0 1px var(--rarity);
+  }
+
+  /* 등급 띠 — 카드 폭을 가득 채우고, 밝으므로 글자는 어둡다. */
+  .band {
+    background: var(--rarity);
+    color: #10131a;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: center;
+    padding: 0.2rem 0;
+  }
+
+  /* 프리즘만은 이름값을 하도록 무지개로 흘린다. 게임의 PRISM_COLORS 그대로다. */
+  .perk[data-rarity='prism'] .band {
+    background: linear-gradient(
+      90deg,
+      #ff5c5c, #ffa24a, #ffe24a, #6be06b, #5fe0d8, #6b9cff, #c06bff
+    );
+  }
+
+  .body {
+    display: flex;
+    flex-direction: column;
+    padding: 0.7rem 0.8rem 0.9rem;
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-align: center;
+    color: #fff;
+  }
+
+  /* 유형은 이름 바로 아래, 구분선 위다 — 이름의 일부처럼 읽혀야지 설명에 섞이면 안 된다. */
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.1rem 0.5rem;
+    margin-top: 0.2rem;
+  }
+
+  .rule {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.376);
+    margin: 0.6rem 0;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: #c0c0c0;
+  }
 
   .perk[hidden] { display: none; }
 </style>
