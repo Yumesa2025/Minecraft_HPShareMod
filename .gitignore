@@ -26,3 +26,7 @@ replay_*.log
 .env.*
 !.env.example
 _template/
+
+site/node_modules/
+site/dist/
+site/.astro/
