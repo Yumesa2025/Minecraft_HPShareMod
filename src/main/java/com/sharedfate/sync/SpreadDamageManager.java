@@ -18,6 +18,7 @@ import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -79,6 +80,20 @@ import java.util.concurrent.ConcurrentHashMap;
  * 상태이상도 금사과도 그 한 지점을 지나므로 여기서 함께 막힌다. <b>큐가 살아 있는 동안, 팀원
  * 전원에게</b> 걸린다 — 체력이 공유라 누가 회복해도 미뤄 둔 몫이 지워지기 때문이다.
  *
+ * <h2>적을 처치하면 남은 몫이 사라진다</h2>
+ * <p>나뉘어 들어오는 동안 팀원 누군가가 몹을 잡으면 {@link #clearPending} 이 <b>아직 넣지 않은
+ * 몫만</b> 지운다. 이미 들어간 피해는 되돌리지 않는다 — 되돌리면 그것은 회복이고, 「완충」이
+ * 피해를 늦추는 증강이 아니라 없애는 증강이 된다.
+ *
+ * <p>지울 때 {@link Spread#closeQueue()} 만 부르고 표 자체는 남긴다. 표에는 흉내 낸 무적시간
+ * ({@link Guard})이 들어 있어서, 표째로 {@link #forget} 하면 처치 직후 20틱 안에 다시 맞은
+ * 피해가 <b>바닐라라면 무적시간에 막혔을 텐데도</b> 통째로 큐에 쌓인다. 처치로 얻는 것은
+ * 「남은 몫 면제」지 「무적시간 초기화」가 아니다. 몫이 다 빠진 표는 무적시간이 다 흐른 뒤
+ * {@link #stepTeam} 이 알아서 치운다.
+ *
+ * <p>회복 금지는 {@link #isSpreading} 이 {@code pending()} 을 보므로 큐를 닫는 순간 함께 풀린다.
+ * 따로 걷어낼 상태가 없다.
+ *
  * <h2>알면서 받아들인 어긋남</h2>
  * <ul>
  *   <li>가로챈 피해는 {@code hurtServer} 에 0 으로 넘어가므로 그 호출이 {@code false} 를
@@ -110,6 +125,8 @@ public final class SpreadDamageManager {
 	private static final ThreadLocal<Boolean> DELIVERING = ThreadLocal.withInitial(() -> Boolean.FALSE);
 
 	private static boolean warned;
+	/** 사망 정리 쪽 경고는 따로 센다. 가로채기 경고와 원인이 다르다. */
+	private static boolean deathWarned;
 
 	private SpreadDamageManager() {
 	}
@@ -334,9 +351,7 @@ public final class SpreadDamageManager {
 			return;
 		}
 
-		float slice = sliceAmount(spread.remaining, spread.slicesLeft);
-		spread.remaining -= slice;
-		spread.slicesLeft--;
+		float slice = spread.takeSlice();
 		deliver(victim, spread.source, slice);
 
 		if (!spread.pending()) {
@@ -475,6 +490,7 @@ public final class SpreadDamageManager {
 		ACTIVE.clear();
 		DELIVERING.remove();
 		warned = false;
+		deathWarned = false;
 	}
 
 	/** 팀이 전멸·해체될 때 그 팀의 몫만 지운다. */
@@ -485,15 +501,63 @@ public final class SpreadDamageManager {
 	}
 
 	/**
-	 * {@code ServerLivingEntityEvents.AFTER_DEATH} 에 붙는 지점.
+	 * 아직 넣지 않은 몫만 지운다. 표는 남긴다.
 	 *
-	 * <p>죽음은 이 모드에서 팀 전멸로 이어진다. 미뤄 둔 몫을 그대로 두면 다음 회차의 첫 몇 초를
-	 * 지난 회차의 피해로 시작하게 되므로 통째로 지운다.
+	 * <p>{@link #forget} 과 다른 점이 여기다. {@code forget} 은 흉내 낸 무적시간까지 통째로
+	 * 버리므로 <b>팀이 사라질 때</b>만 맞고, 판이 계속되는 중에 쓰면 그 직후의 피해가 바닐라보다
+	 * 많이 쌓인다. 회복 금지는 {@link #isSpreading} 이 「넣을 몫이 남았는가」를 보므로 여기서
+	 * 함께 풀린다.
+	 *
+	 * @return 지워진 피해량. 지울 것이 없었으면 0
+	 */
+	public static float clearPending(@Nullable UUID teamId) {
+		Spread spread = teamId == null ? null : ACTIVE.get(teamId);
+		if (spread == null || !spread.pending()) {
+			return 0.0F;
+		}
+		float cleared = spread.remaining;
+		spread.closeQueue();
+		return cleared;
+	}
+
+	/**
+	 * 이 팀은 처치로 남은 몫을 지울 수 있는가.
+	 *
+	 * <p>{@code spread_damage} 를 가지지 않은 팀에는 애초에 큐가 생기지 않지만, 다른 증강이
+	 * 큐를 만들 길이 생기더라도 「완충」이 없는 팀이 그 덕을 보지 않도록 명시적으로 확인한다.
+	 * 월드를 보지 않는 순수 판정이라 그대로 시험할 수 있다.
+	 */
+	static boolean clearsOnKill(@Nullable TeamState state) {
+		return state != null && state.perksEnabled && !state.ownedPerks.isEmpty()
+				&& sliceCountOf(state) > 0;
+	}
+
+	/**
+	 * {@code ServerLivingEntityEvents.AFTER_DEATH} 에 붙는 지점. 죽은 것이 무엇이냐에 따라 하는
+	 * 일이 둘로 갈린다.
+	 *
+	 * <ul>
+	 *   <li><b>팀원이 죽었다</b> — 이 모드에서 죽음은 팀 전멸로 이어진다. 미뤄 둔 몫을 그대로
+	 *       두면 다음 회차의 첫 몇 초를 지난 회차의 피해로 시작하게 되므로 통째로 지운다.</li>
+	 *   <li><b>몹이 죽었고 죽인 것이 팀원이다</b> — 「완충」의 보상이다. 남은 몫만 지운다.</li>
+	 * </ul>
+	 *
+	 * <p>몹이 죽는 모든 자리를 지나므로 어떤 예외도 밖으로 내보내지 않는다. 분산 하나가 잘못돼
+	 * 사망 처리가 멈추면 안 된다.
 	 */
 	public static void onDeath(LivingEntity entity, DamageSource source) {
-		if (!(entity instanceof ServerPlayer player)) {
-			return;
+		try {
+			if (entity instanceof ServerPlayer player) {
+				forgetTeamOf(player);
+				return;
+			}
+			clearOnKill(entity, source);
+		} catch (RuntimeException error) {
+			warnDeathOnce(error);
 		}
+	}
+
+	private static void forgetTeamOf(ServerPlayer player) {
 		MinecraftServer server = player.level().getServer();
 		if (server == null) {
 			return;
@@ -501,6 +565,44 @@ public final class SpreadDamageManager {
 		ShareTeam team = TeamManager.get(server).teamOf(player.getUUID());
 		if (team != null) {
 			forget(team.teamId());
+		}
+	}
+
+	/**
+	 * 몹 처치로 남은 몫을 지운다.
+	 *
+	 * <p>「적」은 {@link Mob} 이다. {@code Player} 는 {@code Mob} 이 아니라서 다른 플레이어를
+	 * 죽여도 걸리지 않고, 갑옷 거치대처럼 {@code Mob} 이 아닌 {@code LivingEntity} 도 빠진다.
+	 * {@code PerkKillRewards} 가 {@code on_kill} 에서 쓰는 기준 그대로다.
+	 *
+	 * <p>죽인 것이 <b>팀원 아무나</b>면 된다. 체력이 팀 공유라 큐도 팀에 하나뿐이기 때문이다.
+	 * {@code DamageSource.getEntity()} 는 화살을 쏜 사람도 가리키므로 원거리 처치도 세어진다.
+	 *
+	 * <p>알림은 띄우지 않는다. 분산이 끝난 것은 화면의 체력과 회복이 풀리는 것으로 곧바로
+	 * 드러나고, 전투 중에 처치마다 채팅이 뜨면 시끄럽기만 하다.
+	 */
+	private static void clearOnKill(LivingEntity victim, @Nullable DamageSource source) {
+		// 미뤄 둔 몫이 하나도 없으면 여기서 끝난다. 몹이 죽는 모든 자리를 지나는 코드라
+		// 평소에는 이 한 줄만 돈다.
+		if (ACTIVE.isEmpty() || !(victim instanceof Mob)) {
+			return;
+		}
+		if (source == null || !(source.getEntity() instanceof ServerPlayer killer)) {
+			return;
+		}
+		MinecraftServer server = killer.level().getServer();
+		if (server == null) {
+			return;
+		}
+		TeamManager manager = TeamManager.get(server);
+		ShareTeam team = manager.teamOf(killer.getUUID());
+		if (team == null || !clearsOnKill(manager.stateByTeamId(team.teamId()))) {
+			return;
+		}
+		float cleared = clearPending(team.teamId());
+		if (cleared > 0.0F) {
+			SharedFateMod.LOGGER.debug("「완충」: {} 의 처치로 남은 분산 피해 {} 를 지웠습니다.",
+					killer.getGameProfile().name(), cleared);
 		}
 	}
 
@@ -514,9 +616,43 @@ public final class SpreadDamageManager {
 				error);
 	}
 
+	private static void warnDeathOnce(RuntimeException error) {
+		if (deathWarned) {
+			return;
+		}
+		deathWarned = true;
+		SharedFateMod.LOGGER.warn(
+				"사망 처리에서 피해 분산을 정리하지 못했습니다. 이 경고는 한 번만 남습니다.", error);
+	}
+
 	/** 시험이 상태를 격리할 때 쓴다. */
 	static void resetForTesting() {
 		reset();
+	}
+
+	/**
+	 * 시험이 「나뉘는 중」인 큐를 심을 때 쓴다.
+	 *
+	 * <p>제대로 된 길({@link #intercept})은 살아 있는 {@code ServerPlayer} 와 서버를 요구해서
+	 * 이 저장소의 시험 환경에서는 지날 수 없다. 심는 값은 그 길이 만들어 내는 것과 같은 모양이다.
+	 */
+	static void queueForTesting(UUID teamId, float amount, int slices) {
+		Spread spread = new Spread();
+		spread.remaining = amount;
+		spread.slicesLeft = slices;
+		spread.ticksToNextSlice = SpreadDamageEffect.SLICE_PERIOD_TICKS;
+		ACTIVE.put(teamId, spread);
+	}
+
+	/** 시험이 「몫 하나가 이미 들어갔다」를 만들 때 쓴다. 실제 진행과 같은 계산을 지난다. */
+	static float takeSliceForTesting(UUID teamId) {
+		Spread spread = ACTIVE.get(teamId);
+		return spread == null ? 0.0F : spread.takeSlice();
+	}
+
+	/** 이 팀의 표가 아직 남아 있는가. {@link #forget} 과 {@link #clearPending} 을 가르는 값이다. */
+	static boolean trackedForTesting(UUID teamId) {
+		return ACTIVE.containsKey(teamId);
 	}
 
 	// ------------------------------------------------------------------ 자료
@@ -553,6 +689,19 @@ public final class SpreadDamageManager {
 		/** 아직 넣을 몫이 남아 있는가. 표가 남아 있는 것과는 다른 물음이다. */
 		boolean pending() {
 			return slicesLeft > 0 && remaining > 0.0F;
+		}
+
+		/**
+		 * 이번에 넣을 몫을 떼어 낸다. 남은 몫과 남은 횟수가 함께 줄어든다.
+		 *
+		 * <p>떼어 내는 것과 실제로 넣는 것을 나눠 두어, 넣는 쪽({@link #deliver})이 살아 있는
+		 * 플레이어를 요구해도 이 계산만은 그대로 시험할 수 있다.
+		 */
+		float takeSlice() {
+			float slice = sliceAmount(remaining, slicesLeft);
+			remaining -= slice;
+			slicesLeft--;
+			return slice;
 		}
 
 		/**

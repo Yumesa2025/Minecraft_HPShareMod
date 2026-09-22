@@ -197,25 +197,25 @@ class DefaultPerkSetValuesTest {
 	 * 의 덮어쓰기가 정확히 상쇄해 아무 일도 일어나지 않는다. 그 함정에 다시 빠지면 여기서 걸린다.
 	 */
 	@Test
-	void 생존_2단계는_max_health_bonus_로_체력_2다(@TempDir Path dir) throws IOException {
+	void 생존_2단계는_max_health_bonus_로_체력_6이다(@TempDir Path dir) throws IOException {
 		PerkSets.Tier tier = tier(PerkSetType.SURVIVAL, 2);
 		MaxHealthBonusEffect bonus =
 				assertInstanceOf(MaxHealthBonusEffect.class, tier.effects().get(0));
 
-		assertEquals(2.0F, bonus.amount(), 1.0e-6F);
+		assertEquals(6.0F, bonus.amount(), 1.0e-6F);
 		assertTrue(tier.effects().stream().noneMatch(effect ->
 						effect instanceof AttributeEffect attribute
 								&& attribute.attributeId().toString().equals("minecraft:max_health")),
 				"최대 체력을 attribute 로 적으면 안 된다");
 	}
 
-	/** 기동 3단계는 낙하 피해 −80% 다. {@code add_multiplied_total} 이라 배율은 {@code 1 + amount}. */
+	/** 기동 3단계는 낙하 피해 −90% 다. {@code add_multiplied_total} 이라 배율은 {@code 1 + amount}. */
 	@Test
-	void 기동_3단계는_낙하_피해_80퍼센트_감소다(@TempDir Path dir) throws IOException {
+	void 기동_3단계는_낙하_피해_90퍼센트_감소다(@TempDir Path dir) throws IOException {
 		AttributeEffect fall =
 				attribute(tier(PerkSetType.MOBILITY, 3), "minecraft:fall_damage_multiplier");
 
-		assertEquals(-0.8, fall.amount(), 1.0e-9);
+		assertEquals(-0.9, fall.amount(), 1.0e-9);
 		assertEquals(AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL, fall.operation());
 	}
 
@@ -245,11 +245,11 @@ class DefaultPerkSetValuesTest {
 	 * 이유가 그것이다.
 	 */
 	@Test
-	void 화력_4단계는_근접_사거리_50퍼센트_증가뿐이다(@TempDir Path dir) throws IOException {
+	void 화력_4단계는_근접_사거리_75퍼센트_증가뿐이다(@TempDir Path dir) throws IOException {
 		PerkSets.Tier tier = tier(PerkSetType.POWER, 4);
 		AttributeEffect reach = attribute(tier, "minecraft:entity_interaction_range");
 
-		assertEquals(0.5, reach.amount(), 1.0e-9);
+		assertEquals(0.75, reach.amount(), 1.0e-9);
 		assertEquals(AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL, reach.operation());
 		assertEquals(1, tier.effects().size(), "화력 4단계에는 대가가 붙지 않는다");
 	}

@@ -44,6 +44,8 @@ import com.sharedfate.perk.effect.MobHealthEffect;
 import com.sharedfate.perk.effect.NoDamageBoostEffect;
 import com.sharedfate.perk.effect.NoFoodHungerEffect;
 import com.sharedfate.perk.effect.NoHungerDrainEffect;
+import com.sharedfate.perk.effect.NoAirLossEffect;
+import com.sharedfate.perk.effect.NoSweepFriendlyFireEffect;
 import com.sharedfate.perk.effect.NoNaturalRegenEffect;
 import com.sharedfate.perk.effect.OffhandLockEffect;
 import com.sharedfate.perk.effect.DoubleJumpEffect;
@@ -150,6 +152,8 @@ public enum PerkEffectType {
 	LIFESTEAL_EFFICIENCY("lifesteal_efficiency", LifestealEfficiencyEffect::fromJson),
 	FOOD_HEAL("food_heal", FoodHealEffect::fromJson),
 	HOLDER("holder", HolderEffect::fromJson),
+	NO_AIR_LOSS("no_air_loss", NoAirLossEffect::fromJson),
+	NO_SWEEP_FRIENDLY_FIRE("no_sweep_friendly_fire", NoSweepFriendlyFireEffect::fromJson),
 	NO_NATURAL_REGEN("no_natural_regen", NoNaturalRegenEffect::fromJson),
 	DAMAGE_TAKEN_FROM("damage_taken_from", DamageTakenFromEffect::fromJson),
 	DAMAGE_TAKEN_BLOCKING("damage_taken_blocking", DamageTakenBlockingEffect::fromJson),

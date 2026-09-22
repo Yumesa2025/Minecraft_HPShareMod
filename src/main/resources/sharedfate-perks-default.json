@@ -31,7 +31,7 @@
       "id": "sharedfate:deflated_shield",
       "icon": "minecraft:shield",
       "name": "바람 빠진 방패",
-      "description": "폭발에 받는 피해가 ×0.5 가 됩니다. 대신 넉백을 2배로 받습니다.",
+      "description": "폭발에 받는 피해가 ×0.5 가 됩니다. 대신 넉백을 1.5배로 받습니다.",
       "rarity": "silver",
       "set_types": [
         "defense"
@@ -48,7 +48,7 @@
           "type": "attribute",
           "attribute": "minecraft:knockback_resistance",
           "operation": "add_value",
-          "amount": -1.0,
+          "amount": -0.5,
           "drawback": true
         }
       ]
@@ -271,7 +271,7 @@
       "id": "sharedfate:shared_suffering",
       "icon": "minecraft:iron_chain",
       "name": "동병상련",
-      "description": "팀원이 피해를 받으면 2초간 저항 II 를 얻습니다. 대신 같은 시간 동안 공격력이 감소합니다.",
+      "description": "팀원이 피해를 받으면 2초간 저항 II 를 얻습니다. 대신 같은 시간 동안 공격력이 5% 감소합니다.",
       "rarity": "silver",
       "set_types": [
         "defense"
@@ -290,7 +290,7 @@
               "type": "attribute",
               "attribute": "minecraft:attack_damage",
               "operation": "add_multiplied_total",
-              "amount": -0.1,
+              "amount": -0.05,
               "drawback": true
             }
           ]
@@ -301,7 +301,7 @@
       "id": "sharedfate:vital_strike",
       "icon": "minecraft:iron_sword",
       "name": "급소만 노려",
-      "description": "치명타에 성공하면 5초간 공격력이 30% 증가합니다. 대신 일반 공격 피해가 소폭 감소합니다.",
+      "description": "치명타에 성공하면 5초간 공격력이 30% 증가합니다. 대신 주는 피해가 5% 감소합니다.",
       "rarity": "silver",
       "set_types": [
         "power"
@@ -1081,7 +1081,7 @@
       "icon": "minecraft:gold_ingot",
       "name": "전리품 방패",
       "description": "몹을 처치하면 8초간 흡수 II 와 재생 I 을 얻습니다. 대신 최대 체력이 2 감소합니다.",
-      "rarity": "silver",
+      "rarity": "gold",
       "set_types": [
         "hunt"
       ],
@@ -1219,7 +1219,7 @@
       "id": "sharedfate:sweeping_edge",
       "icon": "minecraft:diamond_sword",
       "name": "휩쓸기",
-      "description": "검의 휩쓸기 공격이 온전한 피해를 줍니다. 대신 공격력이 10% 감소합니다.",
+      "description": "검의 휩쓸기 공격이 온전한 피해를 주고 팀원은 휩쓸지 않습니다. 대신 공격력이 10% 감소합니다.",
       "rarity": "silver",
       "set_types": [
         "weapon"
@@ -1236,6 +1236,9 @@
           "attribute": "minecraft:attack_damage",
           "operation": "add_multiplied_total",
           "amount": -0.1
+        },
+        {
+          "type": "no_sweep_friendly_fire"
         }
       ]
     },
@@ -1350,7 +1353,7 @@
       "id": "sharedfate:assassin",
       "icon": "minecraft:golden_sword",
       "name": "암살자",
-      "description": "이동 속도가 10% 증가하고 주는 피해가 ×1.25 가 됩니다. 대신 크리퍼와 엔더 드래곤을 제외한 모든 몹의 공격력이 ×1.3 이 됩니다.",
+      "description": "이동 속도가 10% 증가하고 주는 피해가 ×1.3 이 됩니다. 대신 크리퍼와 엔더 드래곤을 제외한 모든 몹의 공격력이 ×1.3 이 됩니다.",
       "rarity": "gold",
       "set_types": [
         "power"
@@ -1364,7 +1367,7 @@
         },
         {
           "type": "damage_dealt",
-          "multiplier": 1.25
+          "multiplier": 1.3
         },
         {
           "type": "mob_damage",
@@ -1406,7 +1409,7 @@
       "id": "sharedfate:unbroken",
       "icon": "minecraft:enchanted_golden_apple",
       "name": "불굴",
-      "description": "체력이 절반 이하일 때 저항 III 을 얻습니다. 대신 체력이 75% 를 넘을 때 받는 피해가 ×1.1 이 됩니다.",
+      "description": "체력이 절반 이하일 때 저항 III 을 얻습니다. 대신 체력이 가득 찼을 때 받는 피해가 ×1.1 이 됩니다.",
       "rarity": "gold",
       "set_types": [
         "defense"
@@ -1426,8 +1429,7 @@
         },
         {
           "type": "conditional",
-          "condition": "health_above",
-          "threshold": 0.75,
+          "condition": "health_full",
           "when_true": [
             {
               "type": "damage_taken",
@@ -1538,7 +1540,7 @@
       "icon": "minecraft:bone",
       "name": "전리품 사냥꾼",
       "description": "몹을 처치하면 3초간 신속 I 과 힘 I 을 얻습니다. 대신 모든 몹의 체력이 ×1.3 이 됩니다.",
-      "rarity": "gold",
+      "rarity": "silver",
       "set_types": [
         "hunt"
       ],
@@ -1599,7 +1601,7 @@
       "id": "sharedfate:riposte",
       "icon": "minecraft:iron_axe",
       "name": "반격",
-      "description": "팀원이 피해를 받으면 4초간 힘 II 를 얻습니다. 대신 받는 피해가 ×1.1 이 됩니다.",
+      "description": "팀원이 피해를 받으면 8초간 힘 II 를 얻습니다. 대신 받는 피해가 ×1.1 이 됩니다.",
       "rarity": "gold",
       "set_types": [
         "power"
@@ -1607,7 +1609,7 @@
       "effects": [
         {
           "type": "on_team_hurt",
-          "durationSeconds": 4,
+          "durationSeconds": 8,
           "effects": [
             {
               "type": "status_effect",
@@ -2086,7 +2088,7 @@
       "id": "sharedfate:arcane_workshop",
       "icon": "minecraft:enchanting_table",
       "name": "비술 공방",
-      "description": "인챈트 탁자와 서고 30개를 얻고, 인챈트 값이 다이아몬드 2개가 됩니다. 대신 모든 몹의 체력이 ×1.2 가 됩니다.",
+      "description": "인챈트 탁자와 서고 30개를 얻고, 인챈트 값이 다이아몬드 2개(채굴 4단계와 겹치면 1개)가 됩니다. 대신 몹 체력이 ×1.2 가 됩니다.",
       "rarity": "prism",
       "set_types": [
         "supply"
@@ -2199,7 +2201,7 @@
       "id": "sharedfate:gills",
       "icon": "minecraft:nautilus_shell",
       "name": "아가미",
-      "description": "물에 들어가 있는 동안 재생 I 을 얻고 물에서 15% 빠르게 움직입니다. 대신 땅에서는 아무 효과도 없습니다.",
+      "description": "물속에서 재생 I 을 얻고 15% 빠르게 움직이며 산소가 닳지 않습니다. 대신 땅에서는 아무 효과도 없습니다.",
       "rarity": "silver",
       "set_types": [
         "recovery"
@@ -2221,6 +2223,9 @@
           "attribute": "minecraft:water_movement_efficiency",
           "operation": "add_value",
           "amount": 0.15
+        },
+        {
+          "type": "no_air_loss"
         }
       ]
     },
@@ -2249,7 +2254,7 @@
       "id": "sharedfate:cushion",
       "icon": "minecraft:honey_block",
       "name": "완충",
-      "description": "받는 피해가 즉시 들어오지 않고 8초에 걸쳐 나뉘어 들어옵니다. 대신 나뉘어 들어오는 동안에는 체력이 회복되지 않습니다.",
+      "description": "받는 피해가 8초에 걸쳐 나뉘어 들어옵니다. 그동안 체력이 회복되지 않지만, 적을 처치하면 남은 피해가 사라집니다.",
       "rarity": "prism",
       "set_types": [
         "defense"
@@ -2265,7 +2270,7 @@
       "id": "sharedfate:cudgel",
       "icon": "minecraft:stick",
       "name": "몽둥이찜질",
-      "description": "이 증강을 고른 사람이 막대기로 때리면 넉백이 10 이 됩니다(플레이어에게는 걸리지 않습니다). 대신 나머지 팀원은 공격력이 10% 감소합니다.",
+      "description": "이 증강을 고른 사람이 막대기로 때리면 넉백이 10 이 됩니다(플레이어에게는 걸리지 않습니다). 대신 나머지 팀원은 공격력이 5% 감소합니다.",
       "rarity": "silver",
       "set_types": [
         "weapon",
@@ -2289,7 +2294,7 @@
               "type": "attribute",
               "attribute": "minecraft:attack_damage",
               "operation": "add_multiplied_total",
-              "amount": -0.1
+              "amount": -0.05
             }
           ]
         }
@@ -2299,7 +2304,7 @@
       "id": "sharedfate:swap_exempt",
       "icon": "minecraft:ender_pearl",
       "name": "열외",
-      "description": "이 증강을 고른 사람은 위치 교환에서 빠집니다. 그리고 팀원 위치가 바뀔 때마다 10초간 이동 속도가 15% 빨라집니다.",
+      "description": "이 증강을 고른 사람은 위치 교환에서 빠집니다. 그리고 팀원 위치가 바뀔 때마다 10초간 이동 속도가 30% 빨라집니다.",
       "rarity": "gold",
       "set_types": [
         "swap",
@@ -2310,8 +2315,8 @@
         {
           "type": "swap_exempt",
           "on_swap_seconds": 10,
-          "speed_bonus": 0.15,
-          "amplified_speed_bonus": 0.3
+          "speed_bonus": 0.3,
+          "amplified_speed_bonus": 0.6
         }
       ]
     },
@@ -2319,7 +2324,7 @@
       "id": "sharedfate:bodyguard",
       "icon": "minecraft:iron_chestplate",
       "name": "호위",
-      "description": "이 증강을 고른 사람은 10초에 한 번 몹에게 받는 피해를 통째로 막습니다. 대신 나머지 팀원은 받는 피해가 ×1.15 가 됩니다.",
+      "description": "이 증강을 고른 사람은 10초에 한 번 몹에게 받는 피해를 통째로 막습니다. 대신 나머지 팀원은 받는 피해가 ×1.10 이 됩니다.",
       "rarity": "gold",
       "set_types": [
         "blessing"
@@ -2338,7 +2343,7 @@
           "on_others": [
             {
               "type": "damage_taken",
-              "multiplier": 1.15
+              "multiplier": 1.10
             }
           ]
         }

@@ -27,8 +27,12 @@ import com.sharedfate.perk.PerkEffectType;
  * 그보다 큰 값은 다이아몬드 칸 한 칸에 담기지 않아 어떤 팀도 인챈트할 수 없게 된다.
  *
  * <h2>여러 개를 가졌을 때</h2>
- * <p>가장 작은 값이 이긴다. {@link com.sharedfate.perk.PerkWorldRules#lockedDayTime} 과 같은
- * 규칙이다.
+ * <p><b>출처를 가린다.</b> 보유 증강끼리, 세트 단계끼리는 각각 가장 작은 값이 이긴다. 그런데
+ * 보유 증강 할인과 세트 할인을 <b>둘 다</b> 가지면 어느 쪽 값도 아닌
+ * {@value EnchantmentDiamondCost#DIAMONDS_WITH_BOTH_DISCOUNTS} 개가 된다 — 사람이 그 조합에만
+ * 따로 정해 둔 값이다. 표와 이유는 {@link EnchantmentDiamondCost#forState} 에 있다.
+ *
+ * <p>그러니 이 효과가 적은 개수는 「이 팀이 낼 값」이 아니라 「이 출처가 내미는 값」이다.
  */
 public final class EnchantCostEffect implements PerkEffect {
 	/** 적을 수 있는 가장 작은 값. 0 은 「공짜」다. */

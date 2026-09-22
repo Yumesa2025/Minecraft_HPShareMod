@@ -40,12 +40,11 @@
         },
         {
           "count": 4,
-          "description": "블록을 캘 때 바로 옆의 같은 블록 2개가 함께 캐집니다.",
+          "description": "인챈트 탁자의 다이아몬드 값이 10개에서 5개로 줄어듭니다. 증강 「비술 공방」과 함께면 1개가 됩니다.",
           "effects": [
             {
-              "type": "same_kind_mining",
-              "extra": 2,
-              "extraDurability": 0
+              "type": "enchant_cost",
+              "diamonds": 5
             }
           ]
         }
@@ -411,13 +410,13 @@
         },
         {
           "count": 4,
-          "description": "근접 공격이 닿는 거리가 50% 늘어납니다.",
+          "description": "근접 공격이 닿는 거리가 75% 늘어납니다.",
           "effects": [
             {
               "type": "attribute",
               "attribute": "minecraft:entity_interaction_range",
               "operation": "add_multiplied_total",
-              "amount": 0.5
+              "amount": 0.75
             }
           ]
         }
@@ -428,13 +427,13 @@
       "tiers": [
         {
           "count": 3,
-          "description": "낙하 피해를 80% 덜 받습니다.",
+          "description": "낙하 피해를 90% 덜 받습니다.",
           "effects": [
             {
               "type": "attribute",
               "attribute": "minecraft:fall_damage_multiplier",
               "operation": "add_multiplied_total",
-              "amount": -0.8
+              "amount": -0.9
             }
           ]
         }
@@ -527,11 +526,11 @@
       "tiers": [
         {
           "count": 2,
-          "description": "팀 최대 체력이 2 늘어납니다.",
+          "description": "팀 최대 체력이 6 늘어납니다.",
           "effects": [
             {
               "type": "max_health_bonus",
-              "amount": 2.0
+              "amount": 6.0
             }
           ]
         },
@@ -609,11 +608,11 @@
       "tiers": [
         {
           "count": 2,
-          "description": "음식을 먹을 때마다 체력이 2 회복됩니다.",
+          "description": "음식을 먹을 때마다 체력이 4 회복됩니다.",
           "effects": [
             {
               "type": "food_heal",
-              "health": 2.0
+              "health": 4.0
             }
           ]
         },
@@ -634,13 +633,13 @@
       "tiers": [
         {
           "count": 2,
-          "description": "공격 속도가 15% 빨라집니다.",
+          "description": "공격 속도가 35% 빨라집니다.",
           "effects": [
             {
               "type": "attribute",
               "attribute": "minecraft:attack_speed",
               "operation": "add_multiplied_total",
-              "amount": 0.15
+              "amount": 0.35
             }
           ]
         },

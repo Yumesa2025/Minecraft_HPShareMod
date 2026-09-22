@@ -169,6 +169,33 @@ class EnchantmentDiamondCostTest {
 		}
 	}
 
+	/**
+	 * 값이 1개인 팀은 다이아몬드 하나로 인챈트한다.
+	 *
+	 * <p>증강 할인과 세트 할인을 둘 다 가진 팀이 내는 개수가 1
+	 * ({@link EnchantmentDiamondCost#DIAMONDS_WITH_BOTH_DISCOUNTS})이다. 그 값이 화면까지
+	 * 내려온 뒤 탁자에서 실제로 통하는지 본다 — 검사에 하한이 잘못 들어가 있으면 여기서 막힌다.
+	 */
+	@Test
+	void 값이_1개면_다이아몬드_하나로_눌린다() throws Exception {
+		Player player = hollowPlayer(false);
+		player.experienceLevel = 0;
+		EnchantmentMenu menu = readyMenu(player, 3);
+		giveToSlot(menu, 1);
+		try {
+			EnchantmentDiamondCost.rememberShown(
+					EnchantmentDiamondCost.DIAMONDS_WITH_BOTH_DISCOUNTS);
+
+			assertEquals(1, EnchantmentDiamondCost.forSlot(0), "1 이 그대로 내려와야 한다");
+			for (int slot = 0; slot < 3; slot++) {
+				assertTrue(menu.clickMenuButton(player, slot),
+						slot + "번 칸이 다이아몬드 1개로 눌려야 한다");
+			}
+		} finally {
+			EnchantmentDiamondCost.resetShown();
+		}
+	}
+
 	@Test
 	void 청금석이_모자라면_그_칸만_막힌다() throws Exception {
 		Player player = hollowPlayer(false);

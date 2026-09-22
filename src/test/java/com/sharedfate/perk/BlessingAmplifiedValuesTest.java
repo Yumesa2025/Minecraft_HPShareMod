@@ -117,13 +117,13 @@ class BlessingAmplifiedValuesTest {
 				"강화본은 강화 쿨타임을 평소 값으로 삼는다");
 	}
 
-	/** 열외 — 교환 때 붙는 이속이 +15% 에서 +30% 가 된다. */
+	/** 열외 — 교환 때 붙는 이속이 +30% 에서 +60% 가 된다. */
 	@Test
 	void 열외의_이속이_두_배가_된다(@TempDir Path dir) throws IOException {
 		SwapExemptEffect effect = (SwapExemptEffect) 효과(dir, "sharedfate:swap_exempt",
 				SwapExemptEffect.class);
-		assertEquals(0.15, effect.speedBonus(), 1.0e-6);
-		assertEquals(0.30, effect.amplifiedSpeedBonus(), 1.0e-6);
+		assertEquals(0.30, effect.speedBonus(), 1.0e-6);
+		assertEquals(0.60, effect.amplifiedSpeedBonus(), 1.0e-6);
 	}
 
 	/** 비행 부적 — 10초가 15초가 된다. 쿨타임은 그대로 1분이다. */

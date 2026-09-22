@@ -25,6 +25,16 @@ import com.sharedfate.perk.PerkEffectType;
  * 성질이 다르다. 자연 회복과 재생 상태이상을 함께 막는 방법은
  * {@link com.sharedfate.sync.SpreadDamageManager#blocksHealing} 에 적혀 있다.
  *
+ * <h2>빠져나갈 길이 하나 있다 — 적을 잡는 것</h2>
+ * <p>나뉘어 들어오는 동안 팀원 누군가가 몹을 잡으면 <b>아직 들어오지 않은 몫이 전부 사라진다</b>
+ * ({@link com.sharedfate.sync.SpreadDamageManager#clearPending}). 이미 들어간 피해는 그대로다 —
+ * 되돌리면 그것은 회복이고, 바로 위에서 막아 둔 것과 같은 말이 된다.
+ *
+ * <p>이 규칙은 <b>JSON 으로 끄고 켜지 않는다</b>. 회복 금지가 이 효과에 묶여 있는 것과 같은
+ * 까닭이다. 「피해를 미뤄 두고, 그동안 회복은 막히며, 적을 잡으면 면제된다」까지가 이 효과
+ * 하나가 약속하는 거래라, 조각을 따로 끄면 남는 것은 그냥 손해 보는 증강이다. 조절할 값은
+ * {@code seconds} 하나뿐이다.
+ *
  * <h2>몫을 나누는 모양</h2>
  * <p>매 틱 조금씩이 아니라 <b>1초에 한 번씩</b>({@link #SLICE_PERIOD_TICKS}) 넣는다. 두 가지
  * 이유가 있다.

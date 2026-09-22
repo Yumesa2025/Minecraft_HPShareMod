@@ -98,17 +98,21 @@ class FoodHealEffectTest {
 	}
 
 	/**
-	 * 회복 유형을 둘 모으면 회복 2단계가 켜지고 한 입에 체력 2 를 준다.
+	 * 회복 유형을 둘 모으면 회복 2단계가 켜지고 <b>정의에 적힌 만큼</b> 회복한다.
+	 *
+	 * <p>여기 쓰는 값은 아래 자체 픽스처의 2.0 이다 — 번들 정의(4.0)와 일부러 다르다. 이 시험이
+	 * 지키는 것은 숫자가 아니라 <b>세트 효과가 이 자리에 실제로 닿는가</b>이기 때문이다.
 	 *
 	 * <p>이 시험이 깨지는 가장 흔한 이유는 {@link PerkFoodRules} 가 {@code ownedPerks} 만 훑고
 	 * {@link PerkSetEffects#activeEffectsOf} 를 잇지 않은 것이다. 그러면 빌드도 통과하고 로그도
 	 * 없는데 이 세트만 완전히 무동작이 된다.
 	 */
 	@Test
-	void 회복_2단계가_켜지면_한_입에_2를_회복한다(@TempDir Path dir) throws IOException {
+	void 회복_2단계가_켜지면_한_입에_정의한_만큼_회복한다(@TempDir Path dir) throws IOException {
 		load(dir);
 
-		assertEquals(2.0F, PerkFoodRules.foodHealFor(team("recovery1", "recovery2")), 1.0e-6F);
+		assertEquals(2.0F, PerkFoodRules.foodHealFor(team("recovery1", "recovery2")), 1.0e-6F,
+				"이 시험은 자체 픽스처(2.0)를 쓴다. 번들 정의의 값과는 별개다");
 	}
 
 	/** 하나가 모자라면 켜지지 않는다. */
