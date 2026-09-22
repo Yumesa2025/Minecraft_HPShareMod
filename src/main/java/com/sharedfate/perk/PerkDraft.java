@@ -288,6 +288,28 @@ public final class PerkDraft {
 	public static List<String> drawFor(PerkRarity rarity, int milestone, List<Perk> pool,
 			List<String> owned, List<String> avoid, Set<Perk.Requirement> satisfied,
 			RandomSource random, int count) {
+		return drawFor(rarity, milestone, pool, owned, avoid, satisfied, random, count, false);
+	}
+
+	/**
+	 * 실버 차단까지 함께 지정해 뽑는다. <b>모든 뽑기가 결국 여기로 모인다.</b>
+	 *
+	 * <h2>차단은 등급 추첨만으로 끝나지 않는다</h2>
+	 * <p>{@code no_silver_offers}(「원정 준비물」)는 {@link #oddsFor} 에서 실버 <b>라운드</b>를
+	 * 없앤다. 그런데 그것만으로는 부족하다 — 골드 라운드에서 <b>아직 안 가진 골드가 3장
+	 * 미만</b>이면 {@link #fallbackOrder} 가 실버를 끌어와 채우기 때문이다. 카드에 「이 뒤로는
+	 * 실버 증강이 후보에 나오지 않습니다」라고 적어 두고 실버를 보여 주는 셈이 된다.
+	 *
+	 * <p>그래서 차단이 켜지면 <b>실버 통을 아예 건너뛴다.</b> 그 결과 채울 것이 모자라면
+	 * 카드가 세 장보다 적게 나온다 — 약속을 어기느니 적게 주는 쪽이 낫다. 「도박 3단계」의
+	 * 프리즘 전용이 같은 판단을 이미 하고 있다.
+	 *
+	 * @param silverBlocked 실버가 통째로 막혀 있는가. 막혔으면 어느 등급에서 폴백하든 실버는
+	 *                      끌어오지 않는다
+	 */
+	public static List<String> drawFor(PerkRarity rarity, int milestone, List<Perk> pool,
+			List<String> owned, List<String> avoid, Set<Perk.Requirement> satisfied,
+			RandomSource random, int count, boolean silverBlocked) {
 		if (rarity == null || pool == null || pool.isEmpty() || random == null || count <= 0) {
 			return List.of();
 		}
@@ -296,6 +318,9 @@ public final class PerkDraft {
 		Map<PerkRarity, List<Perk>> avoided = extract(remaining, idSet(avoid));
 		List<String> drawn = new ArrayList<>(count);
 		for (PerkRarity bucketRarity : fallbackOrder(rarity)) {
+			if (silverBlocked && bucketRarity == PerkRarity.SILVER) {
+				continue;
+			}
 			// 한 등급 안에서 회피 대상이 아닌 것을 먼저 다 쓰고, 모자랄 때만 회피 대상을 꺼낸다.
 			// 등급을 내려가기 전에 반드시 이 순서를 지켜야 한다 — 남은 실버가 회피 대상뿐인데
 			// 골드를 끌어오면 다시 뽑기가 등급을 바꾸는 셈이 된다.

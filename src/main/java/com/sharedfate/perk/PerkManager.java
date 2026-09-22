@@ -136,6 +136,13 @@ public final class PerkManager {
 		RandomSource random = server.overworld().getRandom();
 		boolean silverBlocked = silverOffersBlocked(state);
 		boolean prismBoost = state.ownedPerks.contains(PRISM_BOOST_PERK_ID);
+		// 한 번에 여러 구간을 지날 때(경험치가 한꺼번에 들어오면 흔하다) 이 루프가 그 구간들의
+		// 후보를 **전부 미리** 뽑는다. 그때 state.ownedPerks 는 아직 하나도 안 고른 옛 목록이라,
+		// 같은 증강이 두 구간에 함께 뽑힐 수 있다. 실제로 「원정 준비물을 골랐는데 다음 창에
+		// 또 떴고, 고르려니 화면이 안 닫혔다」로 터졌다.
+		//
+		// 그래서 이 루프 안에서 뽑은 것을 함께 쌓아 「이미 가진 것」으로 넘긴다.
+		List<String> claimed = new ArrayList<>(state.ownedPerks);
 		for (int milestone : reached) {
 			// 등급을 여기서 먼저 정하고 뽑기는 그 등급으로 부른다.
 			PerkRarity rarity = PerkDraft.rarityFor(milestone, state.extraPrismRounds,
@@ -143,8 +150,9 @@ public final class PerkManager {
 			// 팀 설정을 못 채우는 증강은 후보에서 뺀다 — 위치 교환을 끈 팀에게 교환 증강이
 			// 뜨면 골라도 아무 일이 없는 죽은 카드가 된다.
 			List<String> options = PerkDraft.drawFor(rarity, milestone, PerkRegistry.all(),
-					state.ownedPerks, PerkSwapRules.satisfiedRequirements(state),
-					random, OPTION_COUNT);
+					claimed, List.of(), PerkSwapRules.satisfiedRequirements(state),
+					random, OPTION_COUNT, silverBlocked);
+			claimed.addAll(options);
 			state.lastPerkMilestone = milestone;
 			if (options.isEmpty()) {
 				SharedFateMod.LOGGER.warn(
@@ -418,7 +426,17 @@ public final class PerkManager {
 			return;
 		}
 		if (state.ownedPerks.contains(perkId)) {
-			// 이미 가진 증강은 후보에 없어야 하지만, 지연된 패킷이 들어올 수 있다.
+			// 이미 가진 증강은 후보에 없어야 한다. 그런데 「없어야 한다」에 기대어 조용히
+			// 돌아가면 선택 화면이 영영 안 닫힌다 — 세션이 시간을 멈춰 둔 채라 게임이 통째로
+			// 멎은 것처럼 보인다. 실제로 그렇게 터졌다.
+			//
+			// 그래서 막고 끝내지 않고 **빠져나갈 길을 준다.** 후보를 다시 뽑아 내려보내면
+			// 사람은 멀쩡한 카드에서 고를 수 있다. 다시 뽑기 횟수는 깎지 않는다 — 사람 잘못이
+			// 아니다.
+			SharedFateMod.LOGGER.warn(
+					"이미 가진 증강이 후보에 있었습니다. 후보를 다시 뽑습니다: milestone={}, perk={}",
+					milestone, perkId);
+			replaceOfferWithFreshOptions(server, manager, team, state, offer, milestone);
 			return;
 		}
 
@@ -498,7 +516,8 @@ public final class PerkManager {
 		// 직전 한 번만 피하므로 두 번 이상 다시 뽑으면 그전 것은 다시 나올 수 있다.
 		List<String> options = PerkDraft.drawFor(rarity, milestone, PerkRegistry.all(),
 				state.ownedPerks, offer.optionIds(),
-				PerkSwapRules.satisfiedRequirements(state), random, OPTION_COUNT);
+				PerkSwapRules.satisfiedRequirements(state), random, OPTION_COUNT,
+				silverOffersBlocked(state));
 		if (prismOnly) {
 			// PerkDraft.fallbackOrder(PRISM) 은 프리즘 → 골드 → 실버라, 아직 안 가진 프리즘이
 			// 3장 미만이면 골드가 섞여 들어온다. 남은 프리즘이 두 장이면 카드도 두 장이다.
@@ -522,6 +541,42 @@ public final class PerkManager {
 		broadcast(server, team, Component.literal(
 				"[증강] " + player.getGameProfile().name() + "님이 후보를 다시 뽑았습니다. 남은 횟수 "
 						+ state.rerollsRemaining + "회."));
+	}
+
+	/**
+	 * 지금 떠 있는 선택권의 후보를 <b>다시 뽑아</b> 내려보낸다. 다시 뽑기 횟수는 깎지 않는다.
+	 *
+	 * <p>후보가 망가진 것을 알아차렸을 때의 <b>탈출구</b>다. 지금은 「이미 가진 증강이 후보에
+	 * 있다」 한 곳에서 쓴다. 조용히 돌아가면 화면이 안 닫히고 시간도 멈춘 채로 남는다.
+	 *
+	 * <p>새 후보도 못 뽑으면 <b>제한시간에 맡긴다.</b> 거기서 무작위 선택이 대기열을 비우므로
+	 * 적어도 영원히 갇히지는 않는다.
+	 */
+	private static void replaceOfferWithFreshOptions(MinecraftServer server, TeamManager manager,
+			ShareTeam team, TeamState state, PendingOffer offer, int milestone) {
+		PerkRarity rarity = offerRarity(offer);
+		if (rarity == null) {
+			rarity = PerkRarity.SILVER;
+		}
+		boolean blocked = silverOffersBlocked(state);
+		if (blocked && rarity == PerkRarity.SILVER) {
+			rarity = PerkRarity.GOLD;
+		}
+		List<String> options = PerkDraft.drawFor(rarity, milestone, PerkRegistry.all(),
+				state.ownedPerks, offer.optionIds(), PerkSwapRules.satisfiedRequirements(state),
+				server.overworld().getRandom(), OPTION_COUNT, blocked);
+		if (options.isEmpty()) {
+			SharedFateMod.LOGGER.error(
+					"{}렙 구간의 후보를 다시 뽑지 못했습니다. 제한시간의 무작위 선택에 맡깁니다.",
+					milestone);
+			return;
+		}
+		state.pending.set(0, new PendingOffer(milestone, offer.chooser(), options));
+		manager.setDirty();
+		PerkChoiceSession.onRerolled(server, team.teamId(), milestone);
+		broadcastSync(server, team, state);
+		broadcast(server, team, Component.literal(
+				"[증강] 후보가 잘못되어 다시 뽑았습니다. 다시 뽑기 횟수는 그대로입니다."));
 	}
 
 	/**
@@ -616,6 +671,9 @@ public final class PerkManager {
 		// 가지고 있으면(예: 「숨은 재능」이 뽑은 골드가 하필 「하늘의 은총」인 경우) 그것도
 		// 마저 처리해야 실제로 손에 들어온 증강이 전부 발동한다.
 		PerkGrantChain.run(server, team, state, perk, random);
+		// 대기열에 아직 안 보여 준 선택권이 남아 있을 수 있다. 방금 얻은 것 때문에 그 후보가
+		// 틀려졌을 수 있으므로 여기서 다시 본다.
+		revalidatePendingOffers(server, state, random);
 
 		applyToTeam(server, team, state);
 		// 몹에게 걸리는 증강은 폴링으로도 따라잡지만, 고른 즉시 반영되는 편이 자연스럽다.
@@ -623,6 +681,68 @@ public final class PerkManager {
 		broadcastSync(server, team, state);
 		broadcast(server, team, Component.literal(
 				"[증강] " + announcement + " 팀 전체에 적용됩니다."));
+	}
+
+	/**
+	 * 아직 안 보여 준 선택권들의 후보를 지금 상태로 다시 검증한다.
+	 *
+	 * <h2>왜 필요한가 — 후보는 「미리」 뽑힌다</h2>
+	 * <p>{@code advanceMilestones} 는 한 번에 도달한 구간들의 후보를 <b>그 자리에서 전부</b>
+	 * 뽑는다. 그 뒤에 앞 구간을 고르면 <b>이미 뽑아 둔 뒤 구간의 후보는 옛 상태 그대로</b>다.
+	 * 그래서 방금 얻은 증강이 다음 창에 또 뜨거나, 방금 켜진 실버 차단이 무시된다. 둘 다 실제로
+	 * 터졌고, 앞쪽은 고르는 순간 화면이 안 닫히는 사고로 이어졌다.
+	 *
+	 * <p>{@code advanceMilestones} 가 같은 루프 안의 겹침은 이미 막는다. 여기서 막는 것은
+	 * <b>고른 뒤에 달라지는 것</b>이다 — 즉시 지급으로 증강이 늘어나는 길(「숨은 재능」·
+	 * 「도박꾼」·「환골탈태」)까지 포함해서, 그 연쇄가 끝난 뒤에 한 번 본다.
+	 *
+	 * <p><b>첫 번째(지금 떠 있는) 선택권은 건드리지 않는다.</b> 부르는 자리가
+	 * {@code commit} 이라 그것은 이미 대기열에서 빠진 뒤다.
+	 */
+	private static void revalidatePendingOffers(MinecraftServer server, TeamState state,
+			RandomSource random) {
+		if (state.pending.isEmpty()) {
+			return;
+		}
+		boolean blocked = silverOffersBlocked(state);
+		for (int i = 0; i < state.pending.size(); i++) {
+			PendingOffer offer = state.pending.get(i);
+			if (!needsRedraw(offer, state, blocked)) {
+				continue;
+			}
+			PerkRarity rarity = offerRarity(offer);
+			if (rarity == null || (blocked && rarity == PerkRarity.SILVER)) {
+				rarity = PerkRarity.GOLD;
+			}
+			List<String> options = PerkDraft.drawFor(rarity, offer.milestone(),
+					PerkRegistry.all(), state.ownedPerks, List.of(),
+					PerkSwapRules.satisfiedRequirements(state), random, OPTION_COUNT, blocked);
+			if (options.isEmpty()) {
+				// 뽑을 것이 없으면 옛 후보를 그대로 둔다. 비워 두면 그 구간이 빈 창으로 뜬다.
+				SharedFateMod.LOGGER.warn(
+						"{}렙 구간의 후보를 다시 뽑지 못해 그대로 둡니다.", offer.milestone());
+				continue;
+			}
+			SharedFateMod.LOGGER.info(
+					"[PERK] {}렙 구간의 후보가 낡아 다시 뽑았습니다.", offer.milestone());
+			state.pending.set(i, new PendingOffer(offer.milestone(), offer.chooser(), options));
+		}
+	}
+
+	/** 이 선택권의 후보가 지금 상태에서 틀렸는가 — 이미 가진 것이거나, 막힌 실버이거나. */
+	private static boolean needsRedraw(PendingOffer offer, TeamState state, boolean silverBlocked) {
+		for (String id : offer.optionIds()) {
+			if (state.ownedPerks.contains(id)) {
+				return true;
+			}
+			if (silverBlocked) {
+				Perk perk = PerkRegistry.byId(id).orElse(null);
+				if (perk != null && perk.rarity() == PerkRarity.SILVER) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	private static String gradeAndName(Perk perk) {

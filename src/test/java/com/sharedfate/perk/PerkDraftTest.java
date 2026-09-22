@@ -731,4 +731,73 @@ class PerkDraftTest {
 		org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class,
 				() -> drawn.add("끼워넣기"));
 	}
+
+	// ------------------------------------------------- 실버 차단은 폴백까지 막는다
+
+	/**
+	 * <b>골드가 모자라도 실버를 끌어오지 않는다.</b>
+	 *
+	 * <p>「원정 준비물」은 실버 <b>라운드</b>를 없애지만, 그것만으로는 실버가 안 뜨는 것이
+	 * 아니다. 골드 라운드에서 아직 안 가진 골드가 세 장 미만이면 {@code fallbackOrder} 가
+	 * 실버를 끌어와 채웠다. 카드에 「이 뒤로는 실버가 나오지 않습니다」라고 적어 두고 실버를
+	 * 보여 주는 셈이었다 — 실제로 그렇게 터졌다.
+	 */
+	@Test
+	void 실버가_막히면_골드가_모자라도_실버를_끌어오지_않는다() {
+		List<Perk> pool = List.of(
+				once("s1", PerkRarity.SILVER), once("s2", PerkRarity.SILVER),
+				once("s3", PerkRarity.SILVER), once("g1", PerkRarity.GOLD),
+				once("p1", PerkRarity.PRISM));
+
+		List<String> drawn = PerkDraft.drawFor(PerkRarity.GOLD, PerkMilestones.MAX, pool,
+				List.of(), List.of(), Perk.Requirement.ALL, RandomSource.create(SEED), 3, true);
+
+		assertFalse(drawn.contains("s1"), drawn.toString());
+		assertFalse(drawn.contains("s2"), drawn.toString());
+		assertFalse(drawn.contains("s3"), drawn.toString());
+		assertTrue(drawn.contains("g1"), "남은 골드는 그대로 써야 한다");
+	}
+
+	/** 프리즘 라운드의 폴백(프리즘 → 골드 → 실버)에서도 실버는 빠진다. */
+	@Test
+	void 프리즘_폴백에서도_실버는_빠진다() {
+		List<Perk> pool = List.of(
+				once("s1", PerkRarity.SILVER), once("s2", PerkRarity.SILVER),
+				once("g1", PerkRarity.GOLD), once("p1", PerkRarity.PRISM));
+
+		List<String> drawn = PerkDraft.drawFor(PerkRarity.PRISM, PerkMilestones.MAX, pool,
+				List.of(), List.of(), Perk.Requirement.ALL, RandomSource.create(SEED), 3, true);
+
+		assertEquals(Set.of("p1", "g1"), new HashSet<>(drawn),
+				"실버를 빼면 채울 것이 둘뿐이다. 약속을 어기느니 적게 준다");
+	}
+
+	/**
+	 * 막혔는데 채울 것이 없으면 <b>빈손으로 돌아간다.</b> 실버로 메우지 않는다.
+	 *
+	 * <p>부르는 쪽({@code PerkManager})이 빈 목록을 보고 그 구간을 건너뛴다. 「카드가 안 뜨는」
+	 * 것이 「안 나온다고 적어 둔 등급이 뜨는」 것보다 낫다.
+	 */
+	@Test
+	void 막혔는데_실버밖에_없으면_아무것도_안_뽑는다() {
+		List<Perk> pool = List.of(once("s1", PerkRarity.SILVER), once("s2", PerkRarity.SILVER));
+
+		assertTrue(PerkDraft.drawFor(PerkRarity.GOLD, PerkMilestones.MAX, pool,
+				List.of(), List.of(), Perk.Requirement.ALL, RandomSource.create(SEED), 3, true)
+				.isEmpty());
+	}
+
+	/** 차단이 꺼져 있으면 예전 그대로 폴백이 실버까지 내려간다. */
+	@Test
+	void 막히지_않았으면_폴백은_예전_그대로다() {
+		List<Perk> pool = List.of(
+				once("s1", PerkRarity.SILVER), once("s2", PerkRarity.SILVER),
+				once("g1", PerkRarity.GOLD));
+
+		List<String> drawn = PerkDraft.drawFor(PerkRarity.GOLD, PerkMilestones.MAX, pool,
+				List.of(), List.of(), Perk.Requirement.ALL, RandomSource.create(SEED), 3, false);
+
+		assertEquals(3, drawn.size(), "골드 하나 + 실버 둘로 채워야 한다");
+		assertTrue(drawn.contains("g1"));
+	}
 }
