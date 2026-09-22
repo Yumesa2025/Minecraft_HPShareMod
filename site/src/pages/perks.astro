@@ -1,0 +1,40 @@
+---
+import Base from '../layouts/Base.astro';
+import PerkCard from '../components/PerkCard.astro';
+import PerkFilter from '../components/PerkFilter.astro';
+import { countByRarity, loadPerks } from '../lib/perks';
+import { loadSets, setsByType } from '../lib/sets';
+import { href } from '../lib/url';
+
+const perks = loadPerks();
+const sets = loadSets();
+const byType = setsByType(sets);
+const counts = countByRarity(perks);
+---
+<Base title="증강 — SharedFate" description={`SharedFate 의 증강 ${perks.length}개 전체 목록.`}>
+  <div class="wrap">
+    <h1>증강</h1>
+    <p class="lead">
+      모두 {perks.length}개입니다 — 실버 {counts.silver} · 골드 {counts.gold} · 프리즘 {counts.prism}.
+      정의 파일에서 그대로 뽑으므로 낡지 않습니다.
+      유형 이름표를 누르거나 마우스를 올리면 그 세트의 단계가 보입니다.
+      증강이 어떻게 굴러가는지는 <a href={href('/guide/perks')}>가이드</a>에 있습니다.
+    </p>
+
+    <PerkFilter sets={sets} total={perks.length} />
+
+    <div class="grid">
+      {perks.map((perk) => <PerkCard perk={perk} sets={byType} />)}
+    </div>
+  </div>
+</Base>
+
+<style>
+  .lead { color: var(--muted); max-width: var(--measure); }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+    gap: 0.7rem;
+    align-items: start;
+  }
+</style>

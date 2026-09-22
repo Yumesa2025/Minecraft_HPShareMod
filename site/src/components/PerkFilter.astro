@@ -1,0 +1,161 @@
+---
+import type { PerkSet } from '../lib/sets';
+
+interface Props {
+  sets: PerkSet[];
+  total: number;
+}
+
+const { sets, total } = Astro.props;
+const RARITIES = [
+  { id: 'silver', name: '실버' },
+  { id: 'gold', name: '골드' },
+  { id: 'prism', name: '프리즘' },
+];
+---
+<form class="filter" id="perk-filter" hidden>
+  <div class="row">
+    <label class="search">
+      <span class="sr">이름·설명 검색</span>
+      <input type="search" id="perk-search" placeholder="이름이나 설명으로 찾기" autocomplete="off" />
+    </label>
+    <output id="perk-count">{total}개</output>
+    <button type="reset">비우기</button>
+  </div>
+
+  <div class="row">
+    <span class="label">등급</span>
+    {RARITIES.map((rarity) => (
+      <label class="chip">
+        <input type="checkbox" name="rarity" value={rarity.id} />
+        <span>{rarity.name}</span>
+      </label>
+    ))}
+  </div>
+
+  <div class="row">
+    <span class="label">유형</span>
+    {sets.map((set) => (
+      <label class="chip">
+        <input type="checkbox" name="type" value={set.type} />
+        <span>{set.name}</span>
+      </label>
+    ))}
+    <label class="chip">
+      <input type="checkbox" name="type" value="__none__" />
+      <span>유형 없음</span>
+    </label>
+  </div>
+</form>
+
+<style>
+  .filter {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.8rem 0.9rem;
+    margin-bottom: 1.2rem;
+  }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; }
+  .row + .row { margin-top: 0.7rem; }
+  .label { font-size: 0.78rem; color: var(--faint); width: 2.6rem; flex: none; }
+
+  .search { flex: 1 1 14rem; }
+  input[type='search'] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.9rem;
+    padding: 0.4rem 0.6rem;
+  }
+  input[type='search']:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  output { font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
+  button {
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.82rem;
+    padding: 0.35rem 0.7rem;
+    cursor: pointer;
+  }
+  button:hover { color: var(--text); border-color: var(--accent); }
+
+  .chip { cursor: pointer; }
+  .chip input { position: absolute; opacity: 0; pointer-events: none; }
+  .chip span {
+    display: inline-block;
+    font-size: 0.82rem;
+    color: var(--muted);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 0.12rem 0.65rem;
+  }
+  .chip input:checked + span {
+    color: var(--accent-text);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .chip input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .sr {
+    position: absolute; width: 1px; height: 1px;
+    overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
+</style>
+
+<script>
+  const form = document.getElementById('perk-filter') as HTMLFormElement | null;
+  const search = document.getElementById('perk-search') as HTMLInputElement | null;
+  const count = document.getElementById('perk-count') as HTMLOutputElement | null;
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('.perk'));
+
+  if (form && search && count) {
+    // 스크립트가 도는 것이 확인된 뒤에만 막대를 보여 준다.
+    form.hidden = false;
+
+    const checked = (name: string) =>
+      new Set(
+        Array.from(form.querySelectorAll<HTMLInputElement>(`input[name="${name}"]:checked`)).map(
+          (input) => input.value,
+        ),
+      );
+
+    const apply = () => {
+      const rarities = checked('rarity');
+      const types = checked('type');
+      const words = search.value.trim().toLowerCase();
+      let shown = 0;
+
+      for (const card of cards) {
+        const rarity = card.dataset.rarity ?? '';
+        const cardTypes = (card.dataset.types ?? '').split(' ').filter(Boolean);
+        const text = (card.dataset.search ?? '').toLowerCase();
+
+        const okRarity = rarities.size === 0 || rarities.has(rarity);
+        const okType =
+          types.size === 0 ||
+          cardTypes.some((type) => types.has(type)) ||
+          (types.has('__none__') && cardTypes.length === 0);
+        const okWords = words === '' || text.includes(words);
+
+        const show = okRarity && okType && okWords;
+        card.hidden = !show;
+        if (show) shown += 1;
+      }
+
+      count.textContent = `${shown}개`;
+    };
+
+    form.addEventListener('change', apply);
+    form.addEventListener('reset', () => window.setTimeout(apply, 0));
+    search.addEventListener('input', apply);
+    form.addEventListener('submit', (event) => event.preventDefault());
+    apply();
+  }
+</script>
