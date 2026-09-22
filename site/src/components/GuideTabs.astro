@@ -1,0 +1,40 @@
+---
+import { href } from '../lib/url';
+import { GUIDE_TABS } from '../lib/guideTabs';
+
+interface Props {
+  current: string;
+}
+
+const { current } = Astro.props;
+const TABS = GUIDE_TABS;
+---
+<nav class="tabs" aria-label="가이드">
+  <div class="wrap inner">
+    {TABS.map((tab) => (
+      <a
+        href={href(`/guide/${tab.id}`)}
+        class:list={[{ on: tab.id === current }]}
+        aria-current={tab.id === current ? 'page' : undefined}
+      >{tab.name}</a>
+    ))}
+  </div>
+</nav>
+
+<style>
+  .tabs { border-bottom: 1px solid var(--border); }
+  .inner { display: flex; gap: 0.15rem; overflow-x: auto; scrollbar-width: none; }
+  .inner::-webkit-scrollbar { display: none; }
+
+  a {
+    flex: none;
+    padding: 0.7rem 0.75rem;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.92rem;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  a:hover { color: var(--text); }
+  a.on { color: var(--accent-text); border-bottom-color: var(--accent); }
+</style>

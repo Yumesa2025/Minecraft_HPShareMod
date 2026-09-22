@@ -1,0 +1,42 @@
+---
+import Base from '../../layouts/Base.astro';
+import GuideTabs from '../../components/GuideTabs.astro';
+import { GUIDE_TABS } from '../../lib/guideTabs';
+import { href } from '../../lib/url';
+
+const BLURB: Record<string, string> = {
+  install: '클라이언트와 서버에 넣는 법. 서버는 재시작 루프가 반드시 필요합니다.',
+  start: '팀을 만들고 사람을 모아 첫 회차를 시작합니다.',
+  perks: '레벨이 오를 때마다 카드 세 장. 대부분 대가가 붙습니다.',
+  sets: '같은 유형을 모으면 열리고, 단계는 누적됩니다.',
+  economy: '인챈트·모루·대장장이 작업대의 비용이 다이아몬드로 바뀌었습니다.',
+  commands: '/shareteam 과 하위 명령 전부.',
+};
+---
+<Base title="가이드 — SharedFate" description="SharedFate 설치부터 명령어까지.">
+  <GuideTabs current="" />
+  <div class="wrap body">
+    <h1>가이드</h1>
+    <p class="muted">처음이라면 <a href={href('/guide/install')}>설치</a>부터 읽으십시오.</p>
+    <ul class="list">
+      {GUIDE_TABS.map((tab) => (
+        <li>
+          <a href={href(`/guide/${tab.id}`)}>{tab.name}</a>
+          <span class="muted">{BLURB[tab.id]}</span>
+        </li>
+      ))}
+    </ul>
+  </div>
+</Base>
+
+<style>
+  .body { padding-top: 1.4rem; max-width: var(--measure); }
+  .list { list-style: none; margin: 1.2rem 0 0; padding: 0; }
+  .list li {
+    display: flex; flex-direction: column; gap: 0.15rem;
+    border-top: 1px solid var(--border);
+    padding: 0.8rem 0;
+  }
+  .list a { font-weight: 600; text-decoration: none; }
+  .list .muted { font-size: 0.88rem; }
+</style>
