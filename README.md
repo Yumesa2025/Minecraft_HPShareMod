@@ -7,6 +7,9 @@ Minecraft Java Edition 26.3 / Fabric 용입니다.
 그 회차가 승리로 끝납니다. 그사이 팀은 공유 레벨이 오를 때마다 **증강**을 하나씩 골라,
 회차마다 다른 몸이 되어 다시 출발합니다.
 
+> **[공식 사이트](https://yumesa2025.github.io/sharedfate/)** — 설치부터 증강 94개 전체
+> 목록까지. 증강을 등급·유형으로 걸러 볼 수 있습니다.
+
 ### 한 몸입니다
 
 체력과 배고픔, 경험치, 포션 효과가 팀에 하나씩만 있습니다. 인벤토리도 54칸(9×6) 하나를
@@ -91,17 +94,17 @@ Minecraft Java Edition 26.3 / Fabric 용입니다.
 
 ## 다운로드
 
-> **최신 판은 언제나 여기입니다 — [releases/latest](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/latest).**
+> **최신 판은 언제나 여기입니다 — [releases/latest](https://github.com/Yumesa2025/sharedfate/releases/latest).**
 > 아래 표는 판 번호가 박혀 있어 낡을 수 있습니다. 두 곳이 어긋나 보이면 **위 주소를 믿으십시오.**
 
 | 파일 | 용도 |
 |---|---|
-| [SharedFate-0.29.2-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.29.2-dev/SharedFate-0.29.2-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
-| [SharedFate-0.29.2-dev-server.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.29.2-dev/SharedFate-0.29.2-dev-server.zip) | 서버를 여는 사람용. 모드 두 개와 **재시작 루프 스크립트**, 설치 안내 포함 |
-| [sharedfate-0.29.2-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.29.2-dev/sharedfate-0.29.2-dev.jar) | 수동 설치용 모드 JAR 하나 |
-| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.29.2-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
+| [SharedFate-0.29.2-dev-client.zip](https://github.com/Yumesa2025/sharedfate/releases/download/v0.29.2-dev/SharedFate-0.29.2-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
+| [SharedFate-0.29.2-dev-server.zip](https://github.com/Yumesa2025/sharedfate/releases/download/v0.29.2-dev/SharedFate-0.29.2-dev-server.zip) | 서버를 여는 사람용. 모드 두 개와 **재시작 루프 스크립트**, 설치 안내 포함 |
+| [sharedfate-0.29.2-dev.jar](https://github.com/Yumesa2025/sharedfate/releases/download/v0.29.2-dev/sharedfate-0.29.2-dev.jar) | 수동 설치용 모드 JAR 하나 |
+| [SHA256SUMS.txt](https://github.com/Yumesa2025/sharedfate/releases/download/v0.29.2-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
 
-[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.29.2-dev)
+[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/sharedfate/releases/tag/v0.29.2-dev)
 
 > ⚠ **`v0.29.0-dev` 이하는 받지 마십시오.** 「도박」 세트가 굴림을 높게 잡은 팀에서 아무것도
 > 주지 않는 결함이 있습니다. `0.29.1-dev` 에서 고쳤습니다.
