@@ -1,11 +1,13 @@
 ---
 import Base from '../layouts/Base.astro';
+import PerkCard from '../components/PerkCard.astro';
 import { loadPerks } from '../lib/perks';
-import { loadSets } from '../lib/sets';
+import { loadSets, setsByType } from '../lib/sets';
 import { href } from '../lib/url';
 
 const sets = loadSets();
 const perks = loadPerks();
+const byType = setsByType(sets);
 
 const owned = (type: string) => perks.filter((perk) => perk.setTypes.includes(type));
 const typeless = perks.filter((perk) => perk.setTypes.length === 0);
@@ -49,10 +51,17 @@ const RARITY_NAME = { silver: '실버', gold: '골드', prism: '프리즘' } as 
         </ol>
         <ul class="members">
           {owned(set.type).map((perk) => (
-            <li data-rarity={perk.rarity}>
-              <b>{perk.name}</b>
-              <span class="muted">{RARITY_NAME[perk.rarity]}</span>
-            </li>
+            <>
+              <li class="member" data-rarity={perk.rarity}>
+                <button type="button" class="pick" aria-expanded="false" data-perk={`${set.type}:${perk.id}`}>
+                  <b>{perk.name}</b>
+                  <span class="muted">{RARITY_NAME[perk.rarity]}</span>
+                </button>
+              </li>
+              <li class="drawer" data-for={`${set.type}:${perk.id}`} hidden>
+                <PerkCard perk={perk} sets={byType} />
+              </li>
+            </>
           ))}
         </ul>
       </section>
@@ -71,18 +80,82 @@ const RARITY_NAME = { silver: '실버', gold: '골드', prism: '프리즘' } as 
   .tiers li + li { margin-top: 0.3rem; }
   .count { flex: none; width: 2.6rem; color: var(--accent); font-size: 0.88rem; }
 
-  .members { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.45rem; }
-  .members li {
-    display: flex; align-items: baseline; gap: 0.4rem;
+  .members {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: 0.45rem;
+    align-items: start;
+  }
+
+  .member {
     background: var(--panel);
     border: 1px solid var(--border);
     border-left: 3px solid var(--border-strong);
     border-radius: var(--radius);
-    padding: 0.25rem 0.6rem;
-    font-size: 0.86rem;
   }
-  .members li[data-rarity='silver'] { border-left-color: var(--silver); }
-  .members li[data-rarity='gold'] { border-left-color: var(--gold); }
-  .members li[data-rarity='prism'] { border-left-color: var(--prism); }
-  .members .muted { font-size: 0.75rem; }
+  .member[data-rarity='silver'] { border-left-color: var(--silver); }
+  .member[data-rarity='gold'] { border-left-color: var(--gold); }
+  .member[data-rarity='prism'] { border-left-color: var(--prism); }
+
+  .pick {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    width: 100%;
+    font: inherit;
+    font-size: 0.86rem;
+    color: var(--text);
+    background: transparent;
+    border: 0;
+    border-radius: var(--radius);
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    text-align: left;
+  }
+  .pick:hover { color: var(--accent-text); }
+  .pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .pick[aria-expanded='true'] { color: var(--accent-text); background: var(--accent-soft); }
+  .pick .muted { font-size: 0.75rem; margin-left: auto; }
+
+  /* 펼침 칸은 한 줄을 통째로 쓴다. 격자가 이것을 눌린 이름 바로 다음 줄에 놓는다. */
+  .drawer {
+    grid-column: 1 / -1;
+    max-width: 24rem;
+    padding: 0.2rem 0 0.5rem;
+  }
+  .drawer[hidden] { display: none; }
 </style>
+
+<script>
+  const closeAll = (exceptKey?: string) => {
+    for (const drawer of document.querySelectorAll<HTMLElement>('.drawer')) {
+      if (drawer.dataset.for === exceptKey) continue;
+      drawer.hidden = true;
+    }
+    for (const pick of document.querySelectorAll<HTMLElement>('.pick')) {
+      if (pick.dataset.perk === exceptKey) continue;
+      pick.setAttribute('aria-expanded', 'false');
+    }
+  };
+
+  document.addEventListener('click', (event) => {
+    const pick = (event.target as Element | null)?.closest('.pick') as HTMLElement | null;
+    if (!pick) return;
+
+    const key = pick.dataset.perk;
+    const drawer = document.querySelector<HTMLElement>(`.drawer[data-for="${key}"]`);
+    if (!drawer) return;
+
+    const opening = drawer.hidden;
+    closeAll(opening ? key : undefined);
+    drawer.hidden = !opening;
+    pick.setAttribute('aria-expanded', String(opening));
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeAll();
+  });
+</script>
