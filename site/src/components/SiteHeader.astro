@@ -1,0 +1,25 @@
+---
+import { href } from '../lib/url';
+const path = Astro.url.pathname;
+const isGuide = path.includes('/guide');
+---
+<header class="site-header">
+  <div class="wrap bar">
+    <a class="brand" href={href('/')}>SharedFate</a>
+    <nav>
+      <a href={href('/guide/install')} class:list={[{ on: isGuide }]}>가이드</a>
+      <a href={href('/perks')} class:list={[{ on: path.includes('/perks') }]}>증강</a>
+      <a href={href('/sets')} class:list={[{ on: path.includes('/sets') }]}>세트</a>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .site-header { border-bottom: 1px solid var(--border); background: var(--bg); }
+  .bar { display: flex; align-items: center; gap: 1.2rem; height: 52px; }
+  .brand { color: var(--text); font-weight: 600; text-decoration: none; }
+  nav { display: flex; gap: 1rem; margin-left: auto; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 0.92rem; }
+  nav a:hover { color: var(--text); }
+  nav a.on { color: var(--accent-text); }
+</style>
