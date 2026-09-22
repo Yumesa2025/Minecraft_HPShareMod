@@ -269,17 +269,37 @@ class DefaultPerkSetValuesTest {
 				"태그만 적으면 태그가 안 묶인 시점에 아무 데도 안 걸린다");
 	}
 
-	/** 교환 2단계는 교환 시점에 4초짜리 상태이상 넷을 얹는다. */
+	/**
+	 * 교환 2단계는 교환 시점에 <b>10초</b>짜리 상태이상 넷을 얹는다.
+	 *
+	 * <p>0.29.2-dev 에서 4초 → 10초가 됐다. 위치 교환 주기가 가장 짧아도 1분이라 두 창이 겹칠
+	 * 일은 없다.
+	 */
 	@Test
-	void 교환_2단계는_4초짜리_버프_넷이다(@TempDir Path dir) throws IOException {
+	void 교환_2단계는_10초짜리_버프_넷이다(@TempDir Path dir) throws IOException {
 		OnSwapEffect onSwap = assertInstanceOf(OnSwapEffect.class,
 				tier(PerkSetType.SWAP, 2).effects().get(0));
 
 		assertEquals(4, onSwap.grants().size());
 		for (OnSwapEffect.Grant grant : onSwap.grants()) {
-			assertEquals(80, grant.durationTicks(), "4초 = 80틱");
+			assertEquals(200, grant.durationTicks(), "10초 = 200틱");
 			assertInstanceOf(StatusEffectPerk.class, grant.effect());
 		}
+	}
+
+	/**
+	 * 교환 3단계도 <b>10초</b>다. 2단계와 길이를 맞춰 둔다.
+	 *
+	 * <p>둘이 어긋나면 「교환 직후 얼마 동안 세냐」가 단계마다 달라져서, 실제로 받는 사람이
+	 * 언제까지 안전한지 알 수 없게 된다. 저항 IV 는 사실상 완전 무적이라 더 그렇다.
+	 */
+	@Test
+	void 교환_3단계도_10초다(@TempDir Path dir) throws IOException {
+		OnSwapEffect onSwap = assertInstanceOf(OnSwapEffect.class,
+				tier(PerkSetType.SWAP, 3).effects().get(0));
+
+		assertEquals(1, onSwap.grants().size());
+		assertEquals(200, onSwap.grants().get(0).durationTicks(), "10초 = 200틱");
 	}
 
 	/**

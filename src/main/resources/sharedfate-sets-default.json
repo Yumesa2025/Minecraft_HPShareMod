@@ -552,7 +552,7 @@
       "tiers": [
         {
           "count": 2,
-          "description": "팀원 위치가 바뀐 뒤 4초간 신속·재생 II·흡수 II·저항 II 를 얻습니다.",
+          "description": "팀원 위치가 바뀐 뒤 10초간 신속·재생 II·흡수 II·저항 II 를 얻습니다.",
           "effects": [
             {
               "type": "on_swap",
@@ -561,25 +561,25 @@
                   "type": "status_effect",
                   "effect": "minecraft:speed",
                   "amplifier": 0,
-                  "duration": 4
+                  "duration": 10
                 },
                 {
                   "type": "status_effect",
                   "effect": "minecraft:regeneration",
                   "amplifier": 1,
-                  "duration": 4
+                  "duration": 10
                 },
                 {
                   "type": "status_effect",
                   "effect": "minecraft:absorption",
                   "amplifier": 1,
-                  "duration": 4
+                  "duration": 10
                 },
                 {
                   "type": "status_effect",
                   "effect": "minecraft:resistance",
                   "amplifier": 1,
-                  "duration": 4
+                  "duration": 10
                 }
               ]
             }
@@ -587,7 +587,7 @@
         },
         {
           "count": 3,
-          "description": "팀원 위치가 바뀐 뒤 4초간 피해를 받지 않습니다.",
+          "description": "팀원 위치가 바뀐 뒤 10초간 피해를 받지 않습니다.",
           "effects": [
             {
               "type": "on_swap",
@@ -596,7 +596,7 @@
                   "type": "status_effect",
                   "effect": "minecraft:resistance",
                   "amplifier": 4,
-                  "duration": 4
+                  "duration": 10
                 }
               ]
             }
