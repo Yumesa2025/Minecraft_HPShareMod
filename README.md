@@ -72,7 +72,7 @@ Minecraft Java Edition 26.3 / Fabric 용입니다.
 > 서로 맞추더라도 **마인크래프트 판이 다르면** 함께 쓸 수 없습니다.
 > 26.2 에 머무를 분은 0.26.7-dev 를 그대로 쓰십시오.
 
-> 현재 버전은 **`0.29.0-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
+> 현재 버전은 **`0.29.2-dev` 사전 배포판**입니다. 서버와 모든 클라이언트는 반드시 같은
 > SharedFate 버전을 사용해야 합니다.
 >
 > **0.28.1-dev 이하에서 올라오는 경우 서버와 모든 클라이언트를 함께 갱신하세요.** 통신 규약이
@@ -85,20 +85,26 @@ Minecraft Java Edition 26.3 / Fabric 용입니다.
 > 0.25.0-dev~0.25.3-dev 는 24, 0.25.4-dev~0.26.1-dev 는 25,
 > 0.26.2-dev~0.26.4-dev 는 26, 0.26.5-dev~0.27.1-dev 는 27,
 > 0.28.0-dev~0.28.1-dev 는 28,
-> 0.29.0-dev 는 29입니다.)
+> 0.29.0-dev~0.29.2-dev 는 29입니다.)
 >
 > **누가 어떤 판을 쓰는지는 게임 안에서 `/shareteam version` 으로 확인할 수 있습니다.**
 
 ## 다운로드
 
+> **최신 판은 언제나 여기입니다 — [releases/latest](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/latest).**
+> 아래 표는 판 번호가 박혀 있어 낡을 수 있습니다. 두 곳이 어긋나 보이면 **위 주소를 믿으십시오.**
+
 | 파일 | 용도 |
 |---|---|
-| [SharedFate-0.29.0-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.29.0-dev/SharedFate-0.29.0-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
-| [SharedFate-0.29.0-dev-server.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.29.0-dev/SharedFate-0.29.0-dev-server.zip) | 서버를 여는 사람용. 모드 두 개와 **재시작 루프 스크립트**, 설치 안내 포함 |
-| [sharedfate-0.29.0-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.29.0-dev/sharedfate-0.29.0-dev.jar) | 수동 설치용 모드 JAR 하나 |
-| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.29.0-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
+| [SharedFate-0.29.2-dev-client.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.29.2-dev/SharedFate-0.29.2-dev-client.zip) | 일반 플레이어 권장. SharedFate와 호환 Fabric API, 설치 안내 포함 |
+| [SharedFate-0.29.2-dev-server.zip](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.29.2-dev/SharedFate-0.29.2-dev-server.zip) | 서버를 여는 사람용. 모드 두 개와 **재시작 루프 스크립트**, 설치 안내 포함 |
+| [sharedfate-0.29.2-dev.jar](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.29.2-dev/sharedfate-0.29.2-dev.jar) | 수동 설치용 모드 JAR 하나 |
+| [SHA256SUMS.txt](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/download/v0.29.2-dev/SHA256SUMS.txt) | 다운로드 무결성 확인 |
 
-[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.29.0-dev)
+[사전 배포판 설명과 모든 자산 보기](https://github.com/Yumesa2025/Minecraft_HPShareMod/releases/tag/v0.29.2-dev)
+
+> ⚠ **`v0.29.0-dev` 이하는 받지 마십시오.** 「도박」 세트가 굴림을 높게 잡은 팀에서 아무것도
+> 주지 않는 결함이 있습니다. `0.29.1-dev` 에서 고쳤습니다.
 
 ### 클라이언트 설치
 
@@ -346,6 +352,7 @@ JAR 에서 읽으므로, 실행 중에 파일이 바뀌면 아직 읽지 않은 
 | [docs/서버-설치.md](docs/서버-설치.md) | 서버를 처음 여는 사람을 위한 설치·운영 안내 |
 | [CHANGELOG.md](CHANGELOG.md) | 판별로 무엇이 바뀌었는지 |
 | [docs/증강-목록.md](docs/증강-목록.md) | 증강 94개 전체 표 — 실버 34 · 골드 35 · 프리즘 25 |
+| [docs/세트별-증강표.md](docs/세트별-증강표.md) | 같은 94개를 **세트 유형별로** 묶은 표 — 단계 효과·등급·겸업까지. 정의 파일에서 자동으로 뽑습니다 |
 
 ## 소스 빌드
 
