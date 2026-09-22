@@ -573,7 +573,13 @@ public final class SpreadDamageManager {
 	 *
 	 * <p>「적」은 {@link Mob} 이다. {@code Player} 는 {@code Mob} 이 아니라서 다른 플레이어를
 	 * 죽여도 걸리지 않고, 갑옷 거치대처럼 {@code Mob} 이 아닌 {@code LivingEntity} 도 빠진다.
-	 * {@code PerkKillRewards} 가 {@code on_kill} 에서 쓰는 기준 그대로다.
+	 * {@code PerkKillRewards} 가 {@code on_kill} 에서 쓰는 기준과 <b>여기까지는</b> 같다.
+	 *
+	 * <p><b>그쪽과 일부러 다른 것이 둘 있다.</b> 「잡은 사람이 아직 살아 있는가」
+	 * ({@code isRemoved}·{@code isDeadOrDying})와 「공유 체력이 0보다 큰가」를 보지 않는다.
+	 * 보상은 <b>주는</b> 것이라 죽은 사람에게 주거나 전멸 처리 중에 주면 어긋나지만, 이쪽은
+	 * <b>면제</b>다 — 막 죽어 가며 낸 마지막 처치나 전멸 직전의 처치에도 남은 몫을 지우는 편이
+	 * 사람이 기대하는 모양이고, 어차피 그 뒤에 팀이 정리되면 큐도 함께 사라진다.
 	 *
 	 * <p>죽인 것이 <b>팀원 아무나</b>면 된다. 체력이 팀 공유라 큐도 팀에 하나뿐이기 때문이다.
 	 * {@code DamageSource.getEntity()} 는 화살을 쏜 사람도 가리키므로 원거리 처치도 세어진다.
