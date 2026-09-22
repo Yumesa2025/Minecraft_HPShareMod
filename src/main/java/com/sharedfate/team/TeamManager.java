@@ -28,6 +28,17 @@ public class TeamManager extends SavedData {
 	private final Map<UUID, UUID> playerToTeam = new HashMap<>();
 	private final Set<UUID> pendingEffectClears = new HashSet<>();
 	private final Set<UUID> pendingExperienceClears = new HashSet<>();
+	/**
+	 * 팀이 해체될 때 <b>스폰으로 돌려보내야 하는데 접속해 있지 않던</b> 사람들.
+	 *
+	 * <p>{@link #pendingExperienceClears} 와 같은 장치다. 해체는 접속 중인 사람에게는 그 자리에서
+	 * 일어나지만, 오프라인인 사람에게는 <b>다음에 들어올 때</b> 일어나야 한다. 그때까지 들고
+	 * 있는 쪽지가 이것이고, 명단 파일에 함께 저장되므로 서버를 껐다 켜도 살아남는다.
+	 *
+	 * <p>이것이 없으면 해체 때 접속 안 한 사람만 <b>네더 한복판에 빈손으로</b> 남는다 — 아이템도
+	 * 경험치도 이미 사라진 채로.
+	 */
+	private final Set<UUID> pendingSpawnReturns = new HashSet<>();
 
 	private record Entry(ShareTeam team, TeamState state) {
 		private static final Codec<Entry> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -41,7 +52,11 @@ public class TeamManager extends SavedData {
 			UUIDUtil.STRING_CODEC.listOf().optionalFieldOf("pendingEffectClears", List.of())
 					.forGetter(manager -> List.copyOf(manager.pendingEffectClears)),
 			UUIDUtil.STRING_CODEC.listOf().optionalFieldOf("pendingExperienceClears", List.of())
-					.forGetter(manager -> List.copyOf(manager.pendingExperienceClears))
+					.forGetter(manager -> List.copyOf(manager.pendingExperienceClears)),
+			// optionalFieldOf 라 이 항목이 없는 옛 명단 파일도 그대로 읽힌다. 저장 형식을 올리지
+			// 않는 이유가 이것이다.
+			UUIDUtil.STRING_CODEC.listOf().optionalFieldOf("pendingSpawnReturns", List.of())
+					.forGetter(manager -> List.copyOf(manager.pendingSpawnReturns))
 	).apply(instance, TeamManager::fromCodec));
 
 	public static final SavedDataType<TeamManager> TYPE = new SavedDataType<>(
@@ -151,6 +166,9 @@ public class TeamManager extends SavedData {
 
 		pendingEffectClears.clear();
 		pendingExperienceClears.clear();
+		// 새 회차의 새 명단이다. 지난 회차에 남은 스폰 귀환 쪽지를 들고 가면 엉뚱한 사람이
+		// 접속하자마자 스폰으로 끌려간다.
+		pendingSpawnReturns.clear();
 		for (TeamRosterStore.RestoredTeam entry : entries) {
 			ShareTeam team = entry.team();
 			TeamState state = TeamState.fresh(sanitizeMaxHealth(entry.maxHealth()));
@@ -287,6 +305,22 @@ public class TeamManager extends SavedData {
 		return true;
 	}
 
+	/** 이 사람을 다음에 볼 때 스폰으로 돌려보내라고 적어 둔다. */
+	public void markSpawnReturn(UUID player) {
+		if (pendingSpawnReturns.add(player)) {
+			setDirty();
+		}
+	}
+
+	/** 적어 둔 쪽지가 있으면 지우고 참을 돌려준다. 부르는 쪽이 그때 옮긴다. */
+	public boolean consumeSpawnReturn(UUID player) {
+		if (!pendingSpawnReturns.remove(player)) {
+			return false;
+		}
+		setDirty();
+		return true;
+	}
+
 	/**
 	 * 팀이 하나라도 있으면 저장을 더럽다고 표시한다. 매 서버 틱 불린다.
 	 *
@@ -322,7 +356,8 @@ public class TeamManager extends SavedData {
 
 	/** 저장 데이터를 되살린다. */
 	private static TeamManager fromCodec(List<Entry> entries,
-			List<UUID> pendingEffectClears, List<UUID> pendingExperienceClears) {
+			List<UUID> pendingEffectClears, List<UUID> pendingExperienceClears,
+			List<UUID> pendingSpawnReturns) {
 		TeamManager manager = new TeamManager();
 		for (Entry entry : entries) {
 			ShareTeam team = entry.team();
@@ -346,6 +381,7 @@ public class TeamManager extends SavedData {
 		}
 		manager.pendingEffectClears.addAll(pendingEffectClears);
 		manager.pendingExperienceClears.addAll(pendingExperienceClears);
+		manager.pendingSpawnReturns.addAll(pendingSpawnReturns);
 		return manager;
 	}
 }

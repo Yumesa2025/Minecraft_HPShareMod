@@ -24,8 +24,8 @@ import org.jetbrains.annotations.Nullable;
  * }</pre>
  *
  * <ul>
- *   <li>{@code amount} — 더 줄 횟수. 1 이상 {@link TeamCreationSettings#MAX_REROLL_COUNT} 이하가
- *       아니면 정의를 버린다.</li>
+ *   <li>{@code amount} — 더 줄 횟수. 1 이상
+ *       {@link TeamCreationSettings#MAX_SET_REROLL_BONUS} 이하가 아니면 정의를 버린다.</li>
  * </ul>
  *
  * <h2>이 세트 보상만 「재계산형」이 아니다</h2>
@@ -68,7 +68,7 @@ public final class ExtraRerollsEffect implements PerkEffect {
 
 	public static @Nullable PerkEffect fromJson(String perkId, int index, JsonObject json) {
 		int amount = PerkEffectType.readInt(json, "amount", 0);
-		if (amount <= 0 || amount > TeamCreationSettings.MAX_REROLL_COUNT) {
+		if (amount <= 0 || amount > TeamCreationSettings.MAX_SET_REROLL_BONUS) {
 			SharedFateMod.LOGGER.warn(
 					"증강 {}: extra_rerolls 의 amount 가 없거나 범위를 벗어났습니다 ({})", perkId, amount);
 			return null;
@@ -87,8 +87,8 @@ public final class ExtraRerollsEffect implements PerkEffect {
 	 * <p>같은 형이 여럿이면 <b>더한다.</b> {@link AlwaysLootingEffect} 가 「가장 높은 하나만」인
 	 * 것과 반대다.
 	 *
-	 * <p>돌려주는 값에는 상한을 걸지 않는다. 회차당 허용치와 합쳐
-	 * {@link TeamCreationSettings#MAX_REROLL_COUNT} 를 넘지 않도록 접는 일은
+	 * <p>돌려주는 값에는 상한을 걸지 않는다. {@link TeamCreationSettings#MAX_SET_REROLL_BONUS}
+	 * 로 접는 일은
 	 * {@link TeamState#syncRerollSetBonus} 한 곳에서만 한다 — 접는 규칙이 두 군데 있으면 반드시
 	 * 어긋난다.
 	 *

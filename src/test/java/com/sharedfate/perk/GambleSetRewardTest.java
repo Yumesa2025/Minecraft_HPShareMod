@@ -253,8 +253,9 @@ class GambleSetRewardTest {
 
 		state.sanitize(20.0F);
 
-		assertEquals(TeamCreationSettings.MAX_REROLL_COUNT - 3, state.rerollSetBonus);
-		assertEquals(TeamCreationSettings.MAX_REROLL_COUNT, state.rerollsRemaining);
+		assertEquals(TeamCreationSettings.MAX_SET_REROLL_BONUS, state.rerollSetBonus);
+		assertEquals(3 + TeamCreationSettings.MAX_SET_REROLL_BONUS, state.rerollsRemaining,
+				"허용치 3 + 세트 몫 상한");
 
 		state.rerollSetBonus = -5;
 		state.sanitize(20.0F);
@@ -321,10 +322,19 @@ class GambleSetRewardTest {
 		assertEquals(2, state.rerollsRemaining, "상한만 내려갈 뿐, 남은 것을 더 뺏지는 않는다");
 	}
 
-	// ------------------------------------------------------------------ 도박 2 — 상한
+	// ------------------------------------------------- 도박 2 — 상한은 허용치와 별개다
 
+	/**
+	 * <b>굴림을 최대로 잡은 팀도 세트 몫을 온전히 받는다.</b> 실제로 당한 사고의 모양이다.
+	 *
+	 * <p>0.29.1-dev 전에는 세트 몫을 {@code 상한 − 회차당 허용치} 로 접었다. 허용치가 상한과
+	 * 같으면 남는 자리가 0 이라 <b>도박 세트가 통째로 죽었고 아무 말도 없었다.</b> 굴림을
+	 * 좋아해서 최대로 고른 사람이 굴림을 주는 유형 다섯 장을 죽은 카드로 받는 셈이었다.
+	 *
+	 * <p>이제 세트 몫은 허용치 <b>위에</b> 얹힌다.
+	 */
 	@Test
-	void 회차당_상한만큼_굴리는_팀은_더_받지_못한다(@TempDir Path dir) throws IOException {
+	void 굴림을_최대로_잡은_팀도_세트_몫을_온전히_받는다(@TempDir Path dir) throws IOException {
 		load(dir);
 		TeamState state = team();
 		state.rerollAllowance = TeamCreationSettings.MAX_REROLL_COUNT;
@@ -332,26 +342,69 @@ class GambleSetRewardTest {
 
 		grant(state, "sharedfate:gamble_a", "sharedfate:gamble_b");
 
-		assertEquals(0, state.rerollSetBonus);
-		assertEquals(TeamCreationSettings.MAX_REROLL_COUNT, state.rerollsRemaining,
-				"상한을 넘겨 주느니 안 준다");
+		assertEquals(5, state.rerollSetBonus, "허용치가 상한이라고 세트 보상을 뺏지 않는다");
+		assertEquals(TeamCreationSettings.MAX_REROLL_COUNT + 5, state.rerollsRemaining);
+		assertEquals(TeamCreationSettings.MAX_REROLL_COUNT + 5,
+				decode(encode(state)).rerollsRemaining, "저장 왕복에서도 살아남는다");
 	}
 
+	/**
+	 * 굴림을 다 써 버린 팀이 세트를 채우면 <b>그 자리에서 5회가 들어온다.</b>
+	 *
+	 * <p>사고를 겪은 팀이 정확히 이 상태였다 — 허용치 15, 남은 0. 고친 JAR 로 바꿔 끼우면
+	 * 다음 증강을 고르는 순간 여기로 들어온다.
+	 */
 	@Test
-	void 상한을_넘지_않는_만큼만_받는다(@TempDir Path dir) throws IOException {
+	void 굴림을_다_쓴_팀도_세트를_채우면_그_자리에서_받는다(@TempDir Path dir) throws IOException {
 		load(dir);
 		TeamState state = team();
-		// 허용치를 상한 바로 아래에 두면 세트 몫이 남은 칸만큼만 들어간다.
-		int allowance = TeamCreationSettings.MAX_REROLL_COUNT - 2;
-		state.rerollAllowance = allowance;
-		state.rerollsRemaining = allowance;
+		state.rerollAllowance = TeamCreationSettings.MAX_REROLL_COUNT;
+		state.rerollsRemaining = 0;
 
 		grant(state, "sharedfate:gamble_a", "sharedfate:gamble_b");
 
-		assertEquals(2, state.rerollSetBonus, "5회를 다 얹으면 상한을 넘는다");
-		assertEquals(TeamCreationSettings.MAX_REROLL_COUNT, state.rerollsRemaining);
-		assertEquals(TeamCreationSettings.MAX_REROLL_COUNT,
-				decode(encode(state)).rerollsRemaining);
+		assertEquals(5, state.rerollSetBonus);
+		assertEquals(5, state.rerollsRemaining, "쓴 것은 쓴 것이고 세트 몫만 새로 들어온다");
+	}
+
+	/** 세트 몫의 상한은 회차당 허용치와 <b>무관</b>하다. */
+	@Test
+	void 세트_몫은_허용치와_상관없이_같다(@TempDir Path dir) throws IOException {
+		load(dir);
+		for (int allowance : new int[] {0, 3, 7, TeamCreationSettings.MAX_REROLL_COUNT}) {
+			TeamState state = team();
+			state.rerollAllowance = allowance;
+			state.rerollsRemaining = allowance;
+
+			grant(state, "sharedfate:gamble_a", "sharedfate:gamble_b");
+
+			assertEquals(5, state.rerollSetBonus, "허용치 " + allowance);
+			assertEquals(allowance + 5, state.rerollsRemaining, "허용치 " + allowance);
+		}
+	}
+
+	/**
+	 * <b>번들 정의의 도박 몫 합계가 상한을 넘지 않는다.</b>
+	 *
+	 * <p>넘으면 넘치는 만큼이 조용히 잘린다 — 정의에 적힌 숫자와 실제로 받는 횟수가 어긋나고
+	 * 로그도 조용하다. 도박 단계에 다시 뽑기를 더 얹는 사람이 여기서 먼저 걸리게 한다.
+	 */
+	@Test
+	void 번들_정의의_도박_몫이_상한_안에_들어온다() {
+		PerkSetRegistry.loadBundled();
+
+		int total = 0;
+		for (PerkSets.Tier tier : PerkSetRegistry.tiersOf(PerkSetType.GAMBLE)) {
+			for (PerkEffect effect : tier.effects()) {
+				if (effect instanceof ExtraRerollsEffect extra) {
+					total += extra.amount();
+				}
+			}
+		}
+
+		assertEquals(8, total, "도박 2(5) + 도박 3(3)");
+		assertTrue(total <= TeamCreationSettings.MAX_SET_REROLL_BONUS,
+				"정의를 늘렸으면 MAX_SET_REROLL_BONUS 도 함께 올려야 한다");
 	}
 
 	@Test

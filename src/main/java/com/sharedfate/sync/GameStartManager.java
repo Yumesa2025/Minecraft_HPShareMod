@@ -453,30 +453,17 @@ public final class GameStartManager {
 	/**
 	 * 접속 중인 팀원을 월드 스폰으로 옮긴다.
 	 *
+	 * <p>실제로 옮기는 일은 {@link SpawnReturn} 이 한다. 팀 해체와 운영자 초기화도 같은 것을
+	 * 쓴다 — 셋 다 「빈손이 된 사람을 처음 자리로」라서 갈라 둘 이유가 없다.
+	 *
 	 * <p>접속하지 않은 팀원은 옮길 수 없다. 그 사람은 로그아웃한 자리에서 다시 시작하게 되는데,
 	 * 인벤토리는 공유라 이미 비어 있다. 시작 안내에 접속 인원을 함께 적는 이유가 이것이다.
 	 *
-	 * <p>옮기지 못한 사람이 있어도 회차는 그대로 시작한다. 여기서 되돌리면 「아이템은 사라졌는데
-	 * 회차는 시작되지 않은」 상태가 되어 훨씬 나쁘다.
+	 * <p><b>해체와 달리 여기서는 쪽지를 남기지 않는다.</b> 회차 시작은 「지금 모여 있는 사람들이
+	 * 함께 출발한다」는 사건이라, 한참 뒤에 들어온 사람을 스폰으로 끌어당길 이유가 없다.
 	 */
 	private static void teleportToSpawn(MinecraftServer server, List<ServerPlayer> online) {
-		try {
-			ServerLevel overworld = server.overworld();
-			LevelData.RespawnData spawn = overworld.getRespawnData();
-			BlockPos pos = spawn.pos();
-			double x = pos.getX() + 0.5;
-			double y = pos.getY();
-			double z = pos.getZ() + 0.5;
-			for (ServerPlayer player : online) {
-				if (!player.teleportTo(overworld, x, y, z, Set.<Relative>of(),
-						spawn.yaw(), spawn.pitch(), true)) {
-					SharedFateMod.LOGGER.warn("회차 시작 시 {} 를 스폰으로 옮기지 못했습니다.",
-							player.getPlainTextName());
-				}
-			}
-		} catch (RuntimeException error) {
-			SharedFateMod.LOGGER.warn("회차 시작 시 팀원을 스폰으로 옮기지 못했습니다.", error);
-		}
+		SpawnReturn.send(server, online, "회차 시작");
 	}
 
 	/** 비운 결과를 실제 플레이어에게 반영한다. 여기를 빠뜨리면 화면에만 옛 값이 남는다. */

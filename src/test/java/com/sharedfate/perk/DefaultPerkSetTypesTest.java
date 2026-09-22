@@ -46,7 +46,8 @@ class DefaultPerkSetTypesTest {
 		expected.put(PerkSetType.DEFENSE, 8);
 		expected.put(PerkSetType.SUPPLY, 7);
 		expected.put(PerkSetType.WEAPON, 7);
-		expected.put(PerkSetType.GAMBLE, 5);
+		// 0.29.1-dev 에서 「환골탈태」가 빠져 5 → 4 가 됐다. 세트 3단계(셋)는 그대로 닿는다.
+		expected.put(PerkSetType.GAMBLE, 4);
 		expected.put(PerkSetType.SURVIVAL, 5);
 		expected.put(PerkSetType.HUNT, 6);
 		expected.put(PerkSetType.SWAP, 6);
@@ -60,7 +61,7 @@ class DefaultPerkSetTypesTest {
 		}
 
 		long none = PerkRegistry.all().stream().filter(p -> p.setTypes().isEmpty()).count();
-		assertEquals(12, none, "무유형");
+		assertEquals(13, none, "무유형");
 	}
 
 	/**

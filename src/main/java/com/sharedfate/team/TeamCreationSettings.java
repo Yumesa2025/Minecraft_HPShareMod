@@ -59,13 +59,29 @@ public record TeamCreationSettings(boolean perksEnabled, boolean damageAlertEnab
 	/**
 	 * {@code /shareteam create ... reroll <값>} 이 받는 범위. 0 이면 다시 뽑기를 안 쓰는 팀이다.
 	 *
-	 * <p><b>이 상한은 세트 보상의 상한이기도 하다.</b> 「도박 2」(5회)와 「도박 3」(3회)이 둘 다
-	 * 켜지면 세트 몫만 8회인데, {@code TeamState.sanitizeRerollSetBonus} 가 그 몫을
-	 * {@code 상한 − 회차당 허용치} 로 접는다. 10 이던 시절에는 허용치 3인 팀에서 몫이 7로
-	 * 잘려 「3회 더」가 실제로는 2회밖에 안 늘었다. 15 로 올려 두 단계를 온전히 받게 했다.
+	 * <p><b>이것은 「팀을 만들 때 고를 수 있는 최대」일 뿐이다.</b> 세트로 얻는 몫은 여기에
+	 * 포함되지 않고 이 위에 얹힌다 — {@link #MAX_SET_REROLL_BONUS} 를 보라.
 	 */
 	public static final int MIN_REROLL_COUNT = 0;
 	public static final int MAX_REROLL_COUNT = 15;
+
+	/**
+	 * 세트로 얹을 수 있는 다시 뽑기 몫의 <b>총합 상한</b>. 「도박 2」(5) + 「도박 3」(3) = 8 이다.
+	 *
+	 * <h2>왜 {@link #MAX_REROLL_COUNT} 와 갈라 두는가</h2>
+	 * <p>0.29.1-dev 전에는 하나였다. 세트 몫을 {@code 상한 − 회차당 허용치} 로 접었기 때문에,
+	 * <b>굴림을 최대(15)로 잡은 팀은 도박 세트가 통째로 죽었다.</b> 남는 자리가 0 이라 2단계도
+	 * 3단계도 한 회를 못 얹었고, 그 잘림은 아무 말도 없이 일어났다. 실제로 그렇게 당했다 —
+	 * 굴림을 좋아해서 최대로 고른 사람이 <b>굴림을 주는 유형 다섯 장을 죽은 카드로</b> 받았다.
+	 *
+	 * <p>이제 둘은 별개다. 한 회차에 가질 수 있는 최대는 {@code 15 + 8 = 23} 이고, 어떤 허용치를
+	 * 고른 팀이든 도박 세트를 <b>온전히</b> 받는다.
+	 *
+	 * <p><b>도박 단계에 다시 뽑기를 더 얹으려면 이 값도 함께 올려야 한다.</b> 안 올리면 넘치는
+	 * 만큼이 조용히 잘린다. {@code GambleSetRewardTest} 가 번들 정의의 합계를 이 값과 견주므로
+	 * 잊으면 시험이 먼저 깨진다.
+	 */
+	public static final int MAX_SET_REROLL_BONUS = 8;
 
 	/** 손상된 저장값이나 조작된 값을 허용 범위 안으로 접는다. */
 	public static int sanitizeRerollCount(int value) {

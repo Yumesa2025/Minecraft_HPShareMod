@@ -126,6 +126,10 @@ public final class InventorySwapper {
 		if (SharedFateMod.config.shareExperience) {
 			team.members().forEach(manager::markExperienceClear);
 		}
+		// 해체는 아이템도 경험치도 없애는 사건이다. 있던 자리에 그대로 두면 가장 나쁜 경우
+		// 네더에 빈손으로 갇힌다. 경험치와 같은 장치를 쓴다 — 접속 중인 사람은 아래에서 바로
+		// 옮기고, 오프라인인 사람은 쪽지를 들고 있다가 다음에 들어올 때 옮긴다.
+		team.members().forEach(manager::markSpawnReturn);
 		// 팀 상태를 버리기 전에 증강 자국을 걷어낸다. 걷어낼 효과를 찾으려면 보유 목록이
 		// 필요한데, disband 가 상태를 통째로 지우고 나면 무엇이 붙어 있었는지 알 수 없다.
 		for (ServerPlayer online : onlineMembers) {
@@ -142,8 +146,12 @@ public final class InventorySwapper {
 				StatMirror.setTotalExperience(online, 0);
 				manager.consumeExperienceClear(online.getUUID());
 			}
+			manager.consumeSpawnReturn(online.getUUID());
 			TeamBroadcaster.sendEmpty(online);
 		}
+		// 옮기는 것은 맨 마지막이다. 인벤토리를 되돌리고 증강을 걷어내는 동안 사람이 이동하면
+		// 그 틱의 상태 동기화가 옛 자리를 기준으로 나간다.
+		SpawnReturn.send(dropper.level().getServer(), onlineMembers, "팀 해체");
 		// 예전에는 여기서 해체한 사람에게 팀 경험치를 몰아줬다. 지금은 몰아주지 않는다 — 위
 		// 루프가 이미 dropper 를 포함한 onlineMembers 전원을 0 으로 만들었으므로, 여기서 다시
 		// 값을 써 넣으면 방금 지운 것을 그 사람에게만 되돌리는 셈이 된다. shareExperience 가

@@ -8,6 +8,9 @@ import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -78,6 +81,47 @@ class InventorySwapperDisbandTest {
 
 		if (calls.get() == 0) {
 			fail("공유 아이템이 있는데 콜백이 한 번도 불리지 않았다");
+		}
+	}
+
+	// ------------------------------------------------------------------ 스폰 귀환
+
+	/**
+	 * 해체가 <b>스폰 귀환을 남기고 실제로 옮기는지</b> 클래스 파일로 본다.
+	 *
+	 * <p>{@code disbandTeam} 은 위 주석대로 단위 시험이 닿지 않는다. 그래도 이 세 줄이 통째로
+	 * 사라지는 것은 막아야 한다 — 빠지면 <b>빌드도 로그도 조용한 채</b> 사람이 네더에 빈손으로
+	 * 남고, 그 증상은 「해체했더니 안 돌아갔다」는 말로만 돌아온다.
+	 *
+	 * <p>상수 풀을 뒤지는 방식의 한계를 알고 쓴다 — 「이름이 적혀 있다」까지만 본다. 순서나
+	 * 조건은 못 본다.
+	 */
+	@Test
+	void 해체가_스폰_귀환을_남기고_옮긴다() throws IOException {
+		String bytes = classBytes(InventorySwapper.class);
+
+		assertTrue(bytes.contains("markSpawnReturn"),
+				"오프라인 팀원에게 남길 쪽지가 없다. 그 사람만 있던 자리에 남는다");
+		assertTrue(bytes.contains("consumeSpawnReturn"),
+				"접속 중인 사람의 쪽지를 지우지 않는다. 다음 접속에 또 끌려간다");
+		assertTrue(bytes.contains("SpawnReturn"),
+				"실제로 옮기는 호출이 없다");
+	}
+
+	/** 해체 때 없던 사람을 <b>다음 접속에</b> 옮기는 자리. 여기가 빠지면 쪽지가 영영 안 쓰인다. */
+	@Test
+	void 첫_접속_훅이_밀린_스폰_귀환을_처리한다() throws IOException {
+		assertTrue(classBytes(com.sharedfate.SharedFateMod.class).contains("consumeSpawnReturn"),
+				"접속 훅이 쪽지를 보지 않는다. 오프라인이던 사람은 영영 안 돌아간다");
+	}
+
+	private static String classBytes(Class<?> type) throws IOException {
+		String path = "/" + type.getName().replace('.', '/') + ".class";
+		try (InputStream in = type.getResourceAsStream(path)) {
+			if (in == null) {
+				throw new IOException("클래스 파일을 찾지 못했습니다: " + path);
+			}
+			return new String(in.readAllBytes(), StandardCharsets.ISO_8859_1);
 		}
 	}
 }

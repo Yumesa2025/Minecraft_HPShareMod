@@ -155,6 +155,12 @@ public class SharedFateMod implements ModInitializer {
 			if (manager.consumeEffectClear(player.getUUID())) {
 				EffectSync.clearPersistedDetachedPlayer(player);
 			}
+			// 없는 사이에 팀이 해체됐다. 아이템도 경험치도 이미 사라졌으므로 있던 자리에 그대로
+			// 두면 네더 한복판에 빈손으로 남는다.
+			if (manager.consumeSpawnReturn(player.getUUID())) {
+				com.sharedfate.sync.SpawnReturn.send(
+						player.level().getServer(), player, "팀 해체 뒤 첫 접속");
+			}
 			MaxHealthAttribute.refresh(player, config.sharedMaxHealth);
 			EffectSync.refreshPlayer(player);
 			var team = manager.teamOf(player.getUUID());

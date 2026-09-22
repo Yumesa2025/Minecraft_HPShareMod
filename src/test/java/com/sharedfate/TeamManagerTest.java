@@ -422,4 +422,49 @@ class TeamManagerTest {
 		assertTrue(round.consumeExperienceClear(A));
 		assertFalse(round.consumeExperienceClear(A));
 	}
+
+	/**
+	 * 해체 때 접속하지 않았던 사람은 <b>다음에 들어올 때</b> 스폰으로 간다.
+	 *
+	 * <p>저장을 왕복해야 뜻이 있다. 해체하고 서버를 내린 뒤 다음 날 들어오는 것이 가장 흔한
+	 * 모양인데, 쪽지가 저장에 안 들어가면 그 사람만 네더 한복판에 빈손으로 남는다.
+	 */
+	@Test
+	void 오프라인_스폰_귀환_표시는_저장되고_한_번만_소비된다() {
+		manager.markSpawnReturn(A);
+
+		TeamManager round = CodecRoundTrip.through(TeamManager.CODEC, manager);
+
+		assertTrue(round.consumeSpawnReturn(A));
+		assertFalse(round.consumeSpawnReturn(A), "두 번 옮기면 안 된다");
+	}
+
+	/** 쪽지를 안 남긴 사람은 접속해도 아무 일이 없다. */
+	@Test
+	void 표시가_없는_사람은_스폰으로_끌려가지_않는다() {
+		manager.markSpawnReturn(A);
+
+		assertFalse(CodecRoundTrip.through(TeamManager.CODEC, manager).consumeSpawnReturn(B));
+	}
+
+	/**
+	 * 세 쪽지는 <b>서로 다른 자루</b>다.
+	 *
+	 * <p>하나로 묶어 두면 경험치만 지워야 할 사람이 스폰으로 끌려간다. 코덱 항목이 셋이 된 뒤로
+	 * 순서를 잘못 이어 붙이는 사고가 생길 수 있어 못박아 둔다 — 그 실수는 빌드도 통과한다.
+	 */
+	@Test
+	void 세_쪽지가_서로_섞이지_않는다() {
+		manager.markEffectClear(A);
+		manager.markExperienceClear(B);
+		manager.markSpawnReturn(C);
+
+		TeamManager round = CodecRoundTrip.through(TeamManager.CODEC, manager);
+
+		assertFalse(round.consumeSpawnReturn(A), "A 는 효과 정리만 필요했다");
+		assertFalse(round.consumeSpawnReturn(B), "B 는 경험치 정리만 필요했다");
+		assertTrue(round.consumeSpawnReturn(C));
+		assertTrue(round.consumeEffectClear(A));
+		assertTrue(round.consumeExperienceClear(B));
+	}
 }

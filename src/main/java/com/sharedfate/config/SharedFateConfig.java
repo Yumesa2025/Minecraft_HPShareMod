@@ -140,23 +140,31 @@ public class SharedFateConfig {
 	public boolean mobSpawnRatePerks = true;
 
 	/**
-	 * 서버 목록에 뜨는 설명(MOTD)의 <b>증강 개수를 모드가 직접 맞춘다.</b> 기본값은 꺼짐.
+	 * 서버 목록에 뜨는 설명(MOTD)을 <b>모드가 손본다.</b> 0.29.1-dev 부터 기본값이 켜짐이다.
 	 *
-	 * <p>손으로 적어 둔 개수는 판을 올릴 때마다 낡는다. 실제로 증강이 94개인데 MOTD 에는
-	 * 「82개」가 몇 판째 남아 있었다. 켜 두면 서버가 뜰 때 {@code PerkRegistry} 가 실제로 읽은
-	 * 개수로 그 숫자만 갈아 끼운다 — <b>사람이 세는 단계가 사라진다.</b>
+	 * <p>하는 일이 둘이고, 둘 다 {@code ServerMotd} 에 있다.
 	 *
-	 * <p><b>⚠ 켜면 {@code server.properties} 의 {@code motd} 줄이 덮어써진다.</b> 전용 서버에서
-	 * {@code MinecraftServer.setMotd} 는 {@code DedicatedServerSettings.update} 를 거쳐 파일까지
-	 * 즉시 저장하기 때문이다. 직접 쓴 MOTD 를 지키고 싶으면 켜지 마라. 나중에 이 값을 꺼도
-	 * <b>마지막에 써진 MOTD 는 파일에 그대로 남는다</b> — 되돌리려면 손으로 고쳐야 한다.
+	 * <ul>
+	 *   <li><b>아무도 안 썼으면 채운다</b> — 바닐라 기본값(「A Minecraft Server」)이거나 비어
+	 *       있으면 「SharedFate · 체력·허기·인벤 공유 · 증강 N개」를 넣는다. <b>받아서 자기
+	 *       서버를 여는 사람이 아무것도 안 해도</b> 무슨 서버인지 목록에 뜬다</li>
+	 *   <li><b>썼으면 숫자만 맞춘다</b> — 글 안에 「증강 N개」가 있으면 그 자리만 갈아 끼운다.
+	 *       손으로 적은 개수는 판을 올릴 때마다 낡는다. 실제로 94개인데 「82개」가 몇 판째
+	 *       남아 있었다</li>
+	 * </ul>
 	 *
-	 * <p>그래서 기본값이 꺼짐이다. 이 모드를 받아 자기 서버를 여는 사람의 MOTD 를 멋대로
-	 * 덮어쓰면 안 된다.
+	 * <p><b>사람이 쓴 글을 덮어쓰지는 않는다.</b> 제 문구를 적어 두었고 거기 「증강 N개」가
+	 * 없으면 아무 일도 일어나지 않는다. 기본값을 켜짐으로 돌릴 수 있는 이유가 이것이다 —
+	 * 0.29.0-dev 까지는 채우는 갈래가 없어서, 켜 두면 남의 글에만 손대는 셈이라 꺼 두었다.
+	 *
+	 * <p><b>⚠ 손보는 순간 {@code server.properties} 의 {@code motd} 줄이 저장된다.</b> 전용
+	 * 서버에서 {@code MinecraftServer.setMotd} 는 {@code DedicatedServerSettings.update} 를 거쳐
+	 * 파일까지 즉시 쓰기 때문이다. 나중에 이 값을 꺼도 <b>마지막에 써진 MOTD 는 파일에 그대로
+	 * 남는다</b> — 되돌리려면 손으로 고쳐야 한다.
 	 *
 	 * <p>참·거짓뿐이라 {@link #sanitize} 가 되돌릴 「범위를 벗어난 값」이 없다.
 	 */
-	public boolean overrideServerMotd = false;
+	public boolean overrideServerMotd = true;
 
 	public static SharedFateConfig loadOrCreate(Path file) {
 		if (Files.exists(file)) {

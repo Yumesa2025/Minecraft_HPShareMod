@@ -2053,9 +2053,6 @@
       "name": "환골탈태",
       "description": "가진 증강 전부가 무작위 골드 증강으로 바뀝니다.",
       "rarity": "prism",
-      "set_types": [
-        "gamble"
-      ],
       "effects": [
         {
           "type": "rarity_reroll",
