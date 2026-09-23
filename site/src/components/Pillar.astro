@@ -36,6 +36,8 @@ const { index, eyebrow, title, video, flip = false } = Astro.props;
   .pillar.flip .text { order: 2; }
   .pillar.solo { grid-template-columns: 1fr; }
   .pillar.solo .text { max-width: var(--measure); }
+  /* 영상이 없으면 칸이 하나라 order 가 안 먹는다. 글 자체를 오른쪽으로 붙인다. */
+  .pillar.solo.flip .text { margin-left: auto; }
 
   .eyebrow {
     margin: 0;
@@ -57,5 +59,7 @@ const { index, eyebrow, title, video, flip = false } = Astro.props;
   @media (max-width: 720px) {
     .pillar, .pillar.flip { grid-template-columns: 1fr; }
     .pillar.flip .text { order: 0; }
+    /* 좁은 화면에서는 좌우로 나눌 자리가 없다. 전부 왼쪽에 붙인다. */
+    .pillar.solo.flip .text { margin-left: 0; }
   }
 </style>
