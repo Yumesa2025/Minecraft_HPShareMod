@@ -38,6 +38,17 @@ pre {
   overflow-x: auto;
 }
 
+img { max-width: 100%; height: auto; }
+
+/* 가이드 본문에 끼운 게임 화면. 글줄보다 튀어나오지 않게 묶어 둔다. */
+.prose img {
+  display: block;
+  margin: 1.2rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
 table { border-collapse: collapse; width: 100%; display: block; overflow-x: auto; }
 th, td { border: 1px solid var(--border); padding: 0.5rem 0.7rem; text-align: left; }
 th { background: var(--panel); font-weight: 600; }
