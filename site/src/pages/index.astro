@@ -4,6 +4,7 @@ import Pillar from '../components/Pillar.astro';
 import { countByRarity, loadPerks } from '../lib/perks';
 import { loadSets } from '../lib/sets';
 import { href } from '../lib/url';
+import sharedInventory from '../assets/shared-inventory.png';
 import perkChoice from '../assets/perk-choice.png';
 import setHud from '../assets/set-hud.png';
 import enchanting from '../assets/enchanting.png';
@@ -31,7 +32,13 @@ const RELEASES = 'https://github.com/Yumesa2025/sharedfate/releases/latest';
       </p>
     </section>
 
-    <Pillar index="01" eyebrow="공유 모드" title="체력과 허기를 공유합니다">
+    <Pillar
+      index="01"
+      eyebrow="공유 모드"
+      title="체력과 허기를 공유합니다"
+      image={sharedInventory}
+      alt="인벤토리 화면 — 54칸을 팀이 함께 쓰고, 왼쪽에 팀 체력 20→35 같은 능력치가 보인다"
+    >
       <p>
         체력과 허기, 그리고 포션 효과가 서로 공유됩니다. 불이 붙거나 독에 걸리는 것까지
         함께입니다. 인벤토리도 <b>54칸을 팀이 함께 쓰고</b> 방어구와 오프핸드, 엔더상자까지
