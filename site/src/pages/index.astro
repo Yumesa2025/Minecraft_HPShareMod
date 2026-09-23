@@ -4,6 +4,9 @@ import Pillar from '../components/Pillar.astro';
 import { countByRarity, loadPerks } from '../lib/perks';
 import { loadSets } from '../lib/sets';
 import { href } from '../lib/url';
+import perkChoice from '../assets/perk-choice.png';
+import setHud from '../assets/set-hud.png';
+import enchanting from '../assets/enchanting.png';
 
 const perks = loadPerks();
 const sets = loadSets();
@@ -46,7 +49,14 @@ const RELEASES = 'https://github.com/Yumesa2025/sharedfate/releases/latest';
       </p>
     </Pillar>
 
-    <Pillar index="02" eyebrow="증강" title="회차마다 최대 여덟 번 고릅니다" flip>
+    <Pillar
+      index="02"
+      eyebrow="증강"
+      title="회차마다 최대 여덟 번 고릅니다"
+      image={perkChoice}
+      alt="증강 선택 화면 — 프리즘 카드 세 장이 펼쳐져 있고 왼쪽에 지금 켜진 세트가 보인다"
+      flip
+    >
       <p>
         <b>5레벨마다</b> 무작위로 뽑힌 팀원 한 명이 증강 선택권을 받습니다. 고른 사람이
         누구든 <b>효과는 팀 전체에 걸립니다.</b>
@@ -64,7 +74,13 @@ const RELEASES = 'https://github.com/Yumesa2025/sharedfate/releases/latest';
       </p>
     </Pillar>
 
-    <Pillar index="03" eyebrow="세트 효과" title="같은 유형을 모으면 더 열립니다">
+    <Pillar
+      index="03"
+      eyebrow="세트 효과"
+      title="같은 유형을 모으면 더 열립니다"
+      image={setHud}
+      alt="화면 왼쪽 위 표시 — 사냥 3/3 과 방어 2/3 이 초록으로 켜져 있다"
+    >
       <p>
         증강에는 {sets.length}가지 유형 가운데 하나 또는 둘이 붙어 있습니다. 같은 유형을 모을
         때마다 추가 보상이 켜지고 <b>단계는 누적됩니다.</b>
@@ -77,7 +93,14 @@ const RELEASES = 'https://github.com/Yumesa2025/sharedfate/releases/latest';
       </p>
     </Pillar>
 
-    <Pillar index="04" eyebrow="경제 개편" title="경험치는 이제 증강의 화폐입니다" flip>
+    <Pillar
+      index="04"
+      eyebrow="경제 개편"
+      title="경험치는 이제 증강의 화폐입니다"
+      image={enchanting}
+      alt="인챈트 탁자 — 청금석 3개와 다이아몬드 10개로 인챈트한다"
+      flip
+    >
       <p>
         경험치가 증강을 여는 자원이 된 이상, 더 이상 경험치를 쓰지 않고{' '}
         <b>다이아몬드로 냅니다.</b>

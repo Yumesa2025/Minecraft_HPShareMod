@@ -1,25 +1,36 @@
 ---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import { href } from '../lib/url';
+
 interface Props {
   index: string;
   eyebrow: string;
   title: string;
-  /** site/public/media/ 안의 파일 이름. 없으면 글만 나온다. */
+  /** src/assets 에서 import 한 그림. 넘기면 글 반대편에 놓인다. */
+  image?: ImageMetadata;
+  /** 그림을 못 보는 사람에게 읽어 줄 말. image 를 넘기면 함께 넘긴다. */
+  alt?: string;
+  /** site/public/media/ 안의 파일 이름. 그림 대신 쓸 수 있다. */
   video?: string;
   flip?: boolean;
 }
 
-import { href } from '../lib/url';
-const { index, eyebrow, title, video, flip = false } = Astro.props;
+const { index, eyebrow, title, image, alt = '', video, flip = false } = Astro.props;
+const hasMedia = Boolean(image || video);
 ---
-<section class:list={['pillar', { flip, solo: !video }]}>
+<section class:list={['pillar', { flip, solo: !hasMedia }]}>
   <div class="text">
     <p class="eyebrow">{index} {eyebrow}</p>
     <h2>{title}</h2>
     <slot />
   </div>
-  {video && (
+  {hasMedia && (
     <div class="media">
-      <video src={href(`/media/${video}`)} autoplay muted loop playsinline preload="metadata"></video>
+      {image && <Image src={image} alt={alt} widths={[480, 960]} sizes="(min-width: 721px) 480px, 100vw" />}
+      {!image && video && (
+        <video src={href(`/media/${video}`)} autoplay muted loop playsinline preload="metadata"></video>
+      )}
     </div>
   )}
 </section>
@@ -51,6 +62,22 @@ const { index, eyebrow, title, video, flip = false } = Astro.props;
   video {
     width: 100%;
     display: block;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--panel);
+  }
+
+  /*
+   * 높이를 묶어 둔다. 화면 전체를 찍은 그림은 옆으로 길어 이 한계에 안 닿지만,
+   * HUD 한 조각처럼 정사각형에 가까운 그림은 그냥 두면 글보다 커져 절을 삼킨다.
+   */
+  .media :global(img) {
+    max-width: 100%;
+    max-height: 18rem;
+    width: auto;
+    height: auto;
+    display: block;
+    margin-inline: auto;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--panel);
