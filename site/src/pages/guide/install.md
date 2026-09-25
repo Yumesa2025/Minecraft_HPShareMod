@@ -5,7 +5,7 @@ tab: install
 description: SharedFate 를 클라이언트와 서버에 넣는 법.
 ---
 
-받는 곳은 한 군데입니다 — **[최신 릴리스](https://github.com/Yumesa2025/sharedfate/releases/latest)**.
+받는 파일은 셋이고, 셋 다 받을 필요는 없습니다.
 
 | 파일 | 누가 받나 |
 |---|---|

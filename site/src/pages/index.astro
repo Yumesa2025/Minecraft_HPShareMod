@@ -12,7 +12,6 @@ import enchanting from '../assets/enchanting.png';
 const perks = loadPerks();
 const sets = loadSets();
 const counts = countByRarity(perks);
-const RELEASES = 'https://github.com/Yumesa2025/sharedfate/releases/latest';
 ---
 <Base title="SharedFate — 네 명이 한 몸으로 엔더 드래곤을 잡는 협동 로그라이크">
   <div class="wrap">
@@ -22,7 +21,6 @@ const RELEASES = 'https://github.com/Yumesa2025/sharedfate/releases/latest';
 
       <div class="buttons">
         <a class="primary" href={href('/guide/install')}>가이드</a>
-        <a class="secondary" href={RELEASES}>다운로드</a>
       </div>
 
       <p class="lead">
@@ -137,7 +135,9 @@ const RELEASES = 'https://github.com/Yumesa2025/sharedfate/releases/latest';
 
   .buttons { display: flex; gap: 0.6rem; margin: 1.4rem 0 1.2rem; flex-wrap: wrap; }
   .buttons a {
-    flex: 1 1 11rem;
+    /* 단추가 하나뿐이라 늘리지 않는다. 늘리면 가로를 다 차지해 머리글이 눌린다. */
+    flex: 0 0 auto;
+    min-width: 11rem;
     text-align: center;
     padding: 0.7rem 1.2rem;
     border-radius: var(--radius);
@@ -145,8 +145,6 @@ const RELEASES = 'https://github.com/Yumesa2025/sharedfate/releases/latest';
     font-weight: 600;
   }
   .primary { border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent-text); }
-  .secondary { border: 1px solid var(--border-strong); color: var(--text); }
-  .secondary:hover { border-color: var(--accent); }
 
   .lead { color: var(--muted); }
   .foot { border-top: 1px solid var(--border); padding-top: 1.4rem; margin-top: 2rem; font-size: 0.9rem; }
