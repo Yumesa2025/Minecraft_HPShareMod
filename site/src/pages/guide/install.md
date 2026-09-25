@@ -70,10 +70,20 @@ java -jar fabric-installer.jar server -mcversion 26.3 -loader 0.19.5 -downloadMi
 서버폴더/
   fabric-server-launch.jar
   server.jar
+  server.properties
   mods/
     sharedfate-<판>.jar
     fabric-api-0.161.0+26.3.jar
 ```
+
+서버 ZIP 의 `server.properties` 는 바닐라 기본값에서 셋만 손본 것입니다 — `hardcore=true`(전멸
+시 「게임 오버」), `white-list=false`(26.3 기본값은 `true` 라 그대로면 아무도 못 들어옵니다),
+`motd=`(모드가 채웁니다).
+
+> ⚠ **`hardcore` 는 월드가 만들어질 때 `level.dat` 에 박히고 그 뒤로는 이 파일을 보지 않습니다.**
+> 이미 만든 월드를 바꾸려면 `world` 를 지우거나 다음 회차를 기다려야 합니다.
+>
+> ⚠ **이미 돌고 있는 서버에는 이 파일을 풀지 마십시오.** 포트·시드 같은 값이 날아갑니다.
 
 서버 ZIP 을 받았다면 이 구조가 이미 들어 있습니다.
 
