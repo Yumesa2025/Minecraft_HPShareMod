@@ -51,22 +51,35 @@ description: SharedFate 를 클라이언트와 서버에 넣는 법.
 ### 1. 서버 폴더 만들기
 
 빈 폴더를 하나 만들고 [Fabric Installer](https://fabricmc.net/use/server/) 로 **Minecraft
-26.3 / Loader 0.19.5 이상** 서버를 만듭니다. `fabric-server-launch.jar` 이 생깁니다.
+26.3 / Loader 0.19.5 이상** 서버를 만듭니다. 창으로 만들 때 **서버 JAR 를 받는 항목을
+켜십시오.** 명령줄이 편하면 이렇게 합니다.
 
-같은 폴더에 `eula.txt` 를 만들고 `eula=true` 를 적습니다.
+```
+java -jar fabric-installer.jar server -mcversion 26.3 -loader 0.19.5 -downloadMinecraft
+```
+
+> ⚠ **`-downloadMinecraft` 를 빼면 안 됩니다.** 빼면 `fabric-server-launch.jar` 만 생기는데
+> 그것은 600바이트짜리 껍데기입니다. 마인크래프트 본체(`server.jar`, 60MB 쯤)가 같은 폴더에
+> 있어야 서버가 켜집니다.
+
+`eula.txt` 는 만들지 않아도 됩니다. 재시작 스크립트가 처음 켤 때 한 번 물어보고 만듭니다.
 
 ### 2. 모드 넣기
 
 ```
 서버폴더/
   fabric-server-launch.jar
-  eula.txt
+  server.jar
   mods/
     sharedfate-<판>.jar
     fabric-api-0.161.0+26.3.jar
 ```
 
 서버 ZIP 을 받았다면 이 구조가 이미 들어 있습니다.
+
+> ⚠ **압축 프로그램이 `SharedFate-<판>-server` 폴더를 하나 더 만드는 것을 조심하십시오.**
+> `mods` 와 `config`, 켜는 파일이 **서버 루트에 바로** 있어야 합니다. 폴더 안에 들어갔으면
+> 안의 것들을 밖으로 끌어내십시오.
 
 > ⚠ **26.2 에서 올라오는 서버라면 `mods` 의 옛 JAR 두 개를 먼저 빼십시오.** 클라이언트와
 > 같은 이유입니다.
@@ -99,6 +112,13 @@ start-sharedfate-server.bat
 chmod +x start-sharedfate-server.sh sharedfate-server-loop.sh
 ./start-sharedfate-server.sh
 ```
+
+처음 켜면 **Minecraft EULA 동의를 한 번 묻습니다.** 링크를 읽고 `y` 를 입력하면 `eula.txt` 가
+만들어지고 서버가 이어서 켜집니다. 다음부터는 묻지 않습니다.
+
+`eula=true` 는 설정값이 아니라 **동의 서명**이라 배포 ZIP 에 미리 넣어 둘 수 없습니다. 창 없이
+돌리는 곳(작업 스케줄러 · systemd · 호스팅 패널)에서는 물어볼 수 없으므로 Windows 는
+`-AcceptEula`, Linux · macOS 는 `--accept-eula` 로 미리 넘기십시오.
 
 메모리는 켜는 파일 안의 `-MinMemory`·`-MaxMemory`(Windows) 또는 `--min`·`--max`(Linux)
 값을 고쳐서 정합니다.

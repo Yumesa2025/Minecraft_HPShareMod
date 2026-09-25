@@ -8,6 +8,10 @@
 # 사용법:
 #   ./sharedfate-server-loop.sh [--root <서버폴더>] [--jar <파일>] [--java <실행파일>]
 #                               [--min <1G>] [--max <4G>] [--process-pending-reset-only]
+#                               [--accept-eula]
+#
+# 처음 켤 때 Minecraft EULA 동의를 한 번 묻습니다. 창 없이 돌리는 곳(systemd·cron·호스팅)
+# 에서는 --accept-eula 로 미리 넘기십시오.
 #
 # Windows 에서는 같은 폴더의 sharedfate-server-loop.ps1 을 쓰십시오.
 
@@ -16,6 +20,8 @@ set -u
 MARKER_NAME='.sharedfate-world-reset.pending'
 MARKER_HEADER='sharedfate-world-reset-v1'
 RUN_STATE_NAME='sharedfate-run-state.json'
+EULA_NAME='eula.txt'
+EULA_URL='https://www.minecraft.net/eula'
 
 SERVER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 JAVA_EXECUTABLE='java'
@@ -23,6 +29,7 @@ JAR_FILE='fabric-server-launch.jar'
 MIN_MEMORY='1G'
 MAX_MEMORY='2G'
 PENDING_ONLY=0
+ACCEPT_EULA=0
 
 die() {
 	printf '[SharedFate] %s\n' "$1" >&2
@@ -37,6 +44,7 @@ while [ $# -gt 0 ]; do
 		--min) MIN_MEMORY="${2:-}"; shift 2 ;;
 		--max) MAX_MEMORY="${2:-}"; shift 2 ;;
 		--process-pending-reset-only) PENDING_ONLY=1; shift ;;
+		--accept-eula) ACCEPT_EULA=1; shift ;;
 		*) die "알 수 없는 인자입니다: $1" ;;
 	esac
 done
@@ -107,6 +115,36 @@ process_pending_reset() {
 	printf '[SharedFate] 월드 초기화 완료. %s회차 새 월드를 생성합니다.\n' "$next"
 }
 
+# eula=true 는 설정값이 아니라 동의 서명이므로 배포 ZIP 에 미리 넣어 둘 수 없다. 그래서
+# 서버를 처음 켤 때 여기서 한 번 묻는다. 이미 적혀 있으면 아무 말도 하지 않는다.
+eula_accepted() {
+	local path="$SERVER_ROOT/$EULA_NAME"
+	[ -f "$path" ] || return 1
+	grep -Eqi '^[[:space:]]*eula[[:space:]]*=[[:space:]]*true[[:space:]]*$' "$path"
+}
+
+confirm_eula() {
+	eula_accepted && return 0
+
+	local path="$SERVER_ROOT/$EULA_NAME" answer
+	if [ "$ACCEPT_EULA" -eq 0 ]; then
+		# 창이 없는 곳(systemd·cron·호스팅)에서는 물어볼 수 없다. 무엇을 해야 하는지 적고 멈춘다.
+		[ -t 0 ] || die "Minecraft EULA 에 동의해야 서버를 켤 수 있습니다. 이 환경에서는 물어볼 수 없으니 $EULA_URL 를 읽고 --accept-eula 를 붙여 다시 실행하거나, $path 에 eula=true 를 적으십시오."
+		printf '\n[SharedFate] Minecraft EULA 에 동의해야 서버를 켤 수 있습니다.\n'
+		printf '           %s\n' "$EULA_URL"
+		printf '           동의하시면 y 를, 그만두시려면 그 밖의 아무 글자를 입력하십시오.\n'
+		printf '동의하십니까? (y/N): '
+		read -r answer || die 'EULA 응답을 읽지 못했습니다.'
+		case "$answer" in
+			y|Y|yes|YES|Yes|예) ;;
+			*) die 'EULA 에 동의하지 않아 서버를 켜지 않았습니다.' ;;
+		esac
+	fi
+
+	printf '# %s\neula=true\n' "$EULA_URL" > "$path" || die "$EULA_NAME 을 쓰지 못했습니다: $path"
+	printf '[SharedFate] 동의를 %s 에 기록했습니다.\n' "$EULA_NAME"
+}
+
 INITIAL_RUN_NUMBER="$(read_run_number)"
 [ -e "$RUN_STATE_PATH" ] || write_run_state "$INITIAL_RUN_NUMBER"
 
@@ -121,6 +159,8 @@ fi
 JAR_PATH="$SERVER_ROOT/$JAR_FILE"
 [ "$(dirname "$JAR_PATH")" = "$SERVER_ROOT" ] && [ -f "$JAR_PATH" ] || \
 	die "서버 실행 JAR 가 서버 루트 바로 아래에 없습니다: $JAR_PATH"
+
+confirm_eula
 
 cd "$SERVER_ROOT" || die "서버 폴더로 이동하지 못했습니다: $SERVER_ROOT"
 while true; do

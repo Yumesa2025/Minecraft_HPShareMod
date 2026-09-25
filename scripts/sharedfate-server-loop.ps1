@@ -4,7 +4,8 @@
     [string]$JarFile = 'fabric-server-launch.jar',
     [string]$MinMemory = '1G',
     [string]$MaxMemory = '2G',
-    [switch]$ProcessPendingResetOnly
+    [switch]$ProcessPendingResetOnly,
+    [switch]$AcceptEula
 )
 
 $ErrorActionPreference = 'Stop'
@@ -21,12 +22,78 @@ try {
 $markerName = '.sharedfate-world-reset.pending'
 $markerHeader = 'sharedfate-world-reset-v1'
 $runStateName = 'sharedfate-run-state.json'
+$eulaName = 'eula.txt'
+$eulaUrl = 'https://www.minecraft.net/eula'
 
 function Get-NormalizedFullPath {
     param([Parameter(Mandatory = $true)][string]$Path)
     return [System.IO.Path]::GetFullPath($Path).TrimEnd(
         [System.IO.Path]::DirectorySeparatorChar,
         [System.IO.Path]::AltDirectorySeparatorChar)
+}
+
+# eula.txt 에 동의가 적혀 있는지 본다. 주석(#)은 건너뛰고 `eula=true` 한 줄만 찾는다.
+function Test-EulaAccepted {
+    param([Parameter(Mandatory = $true)][string]$Root)
+    $eulaPath = Join-Path $Root $eulaName
+    if (-not (Test-Path -LiteralPath $eulaPath -PathType Leaf)) {
+        return $false
+    }
+    foreach ($line in @(Get-Content -LiteralPath $eulaPath -ErrorAction Stop)) {
+        $trimmed = $line.Trim()
+        if ($trimmed.StartsWith('#')) {
+            continue
+        }
+        if ($trimmed -imatch '^eula\s*=\s*true$') {
+            return $true
+        }
+    }
+    return $false
+}
+
+<#
+.SYNOPSIS
+동의가 없으면 물어보고 eula.txt 를 만든다.
+
+.DESCRIPTION
+eula=true 는 설정값이 아니라 동의 서명이므로 배포 ZIP 에 미리 넣어 둘 수 없다. 그래서
+서버를 처음 켤 때 여기서 한 번 묻는다. 이미 동의가 적혀 있으면 아무 말도 하지 않는다.
+
+창이 없는 곳(작업 스케줄러·호스팅 자동 실행)에서는 물어볼 수 없으므로 -AcceptEula 로
+미리 동의를 넘기게 하고, 그것도 없으면 무엇을 해야 하는지 적고 멈춘다.
+#>
+function Confirm-Eula {
+    param(
+        [Parameter(Mandatory = $true)][string]$Root,
+        [switch]$PreAccepted
+    )
+    if (Test-EulaAccepted -Root $Root) {
+        return
+    }
+
+    $eulaPath = Join-Path $Root $eulaName
+    if (-not $PreAccepted) {
+        if (-not [Environment]::UserInteractive) {
+            throw "Minecraft EULA 에 동의해야 서버를 켤 수 있습니다. 이 창에서는 물어볼 수 " +
+                "없으니 $eulaUrl 를 읽고 -AcceptEula 를 붙여 다시 실행하거나, " +
+                "$eulaPath 에 eula=true 를 적으십시오."
+        }
+        Write-Host ''
+        Write-Host '[SharedFate] Minecraft EULA 에 동의해야 서버를 켤 수 있습니다.' -ForegroundColor Yellow
+        Write-Host "           $eulaUrl"
+        Write-Host '           동의하시면 y 를, 그만두시려면 그 밖의 아무 글자를 입력하십시오.'
+        $answer = Read-Host '동의하십니까? (y/N)'
+        if ($answer.Trim() -inotmatch '^(y|yes|예)$') {
+            throw 'EULA 에 동의하지 않아 서버를 켜지 않았습니다.'
+        }
+    }
+
+    # BOM 없이 쓴다. 마인크래프트는 이 파일을 Properties 로 읽는데 BOM 이 앞에 붙으면
+    # 첫 키 이름이 깨져 동의를 못 읽는다.
+    $encoder = New-Object System.Text.UTF8Encoding($false)
+    $contents = "# $eulaUrl" + [Environment]::NewLine + 'eula=true' + [Environment]::NewLine
+    [System.IO.File]::WriteAllText($eulaPath, $contents, $encoder)
+    Write-Host "[SharedFate] 동의를 $eulaName 에 기록했습니다." -ForegroundColor Green
 }
 
 function Read-ValidatedRunState {
@@ -169,6 +236,8 @@ if ($null -eq $jarParent -or
         -not (Test-Path -LiteralPath $resolvedJar -PathType Leaf)) {
     throw "서버 실행 JAR가 서버 루트 바로 아래에 없습니다: $resolvedJar"
 }
+
+Confirm-Eula -Root $resolvedServerRoot -PreAccepted:$AcceptEula
 
 Set-Location -LiteralPath $resolvedServerRoot
 while ($true) {
